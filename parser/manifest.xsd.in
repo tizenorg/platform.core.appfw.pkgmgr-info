@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" targetNamespace="http://tizen.org/ns/packages" xmlns:packages="http://tizen.org/ns/packages">
+  <xs:import namespace="http://www.w3.org/XML/1998/namespace" schemaLocation="xml.xsd"/>
+
+  <xs:element name="manifest">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:choice maxOccurs="unbounded">
+          <xs:element ref="packages:label"/>
+          <xs:element ref="packages:icon"/>
+          <xs:element ref="packages:author"/>
+          <xs:element ref="packages:description"/>
+          <xs:element ref="packages:compatibility"/>
+          <xs:element ref="packages:device-profile"/>
+          <xs:element ref="packages:service-application"/>
+          <xs:element ref="packages:ui-application"/>
+          <xs:element ref="packages:ime-application"/>
+          <xs:element ref="packages:shortcut-list"/>
+          <xs:element ref="packages:livebox"/>
+          <xs:element ref="packages:Accounts"/>
+          <xs:element ref="packages:account"/>
+          <xs:element ref="packages:font"/>
+        </xs:choice>
+      </xs:sequence>
+      <xs:attribute name="install-location" type="packages:InstallLocationType"/>
+      <xs:attribute name="package" use="required" type="xs:string"/>
+      <xs:attribute name="type" type="packages:PackageType"/>
+      <xs:attribute name="version" use="required" type="xs:NMTOKEN"/>
+      <xs:attribute name="size" type="xs:NMTOKEN"/>
+    </xs:complexType>
+  </xs:element>
+
+    <xs:simpleType name="InstallLocationType">
+      <xs:restriction base="xs:string">
+        <xs:enumeration value="auto"/>
+        <xs:enumeration value="internal-only"/>
+        <xs:enumeration value="prefer-external"/>
+      </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="PackageType">
+      <xs:restriction base="xs:string">
+        <xs:enumeration value="rpm"/>
+        <xs:enumeration value="tpk"/>
+        <xs:enumeration value="wgt"/>
+        <xs:enumeration value="apk"/>
+      </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="TypeType">
+      <xs:restriction base="xs:string">
+        <xs:enumeration value="capp"/>
+        <xs:enumeration value="c++app"/>
+        <xs:enumeration value="webapp"/>
+       </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="HwAccelerationType">
+      <xs:restriction base="xs:string">
+        <xs:enumeration value="use-GL"/>
+        <xs:enumeration value="not-use-GL"/>
+        <xs:enumeration value="use-system-setting"/>
+       </xs:restriction>
+    </xs:simpleType>
+	<xs:simpleType name="RecentImage">
+	  <xs:restriction base="xs:string">
+		<xs:enumeration value="icon"/>
+		<xs:enumeration value="capture"/>
+	   </xs:restriction>
+	</xs:simpleType>
+
+  <xs:element name="author">
+    <xs:complexType mixed="true">
+      <xs:attribute name="email"/>
+      <xs:attribute name="href"/>
+      <xs:attribute ref="xml:lang"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="description">
+    <xs:complexType mixed="true">
+      <xs:attribute ref="xml:lang"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="compatibility">
+    <xs:complexType/>
+  </xs:element>
+  <xs:element name="device-profile">
+    <xs:complexType/>
+  </xs:element>
+  <xs:element name="service-application">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:choice maxOccurs="unbounded" minOccurs="0">
+          <xs:element ref="packages:label"/>
+          <xs:element ref="packages:icon"/>
+          <xs:element ref="packages:application-service"/>
+          <xs:element ref="packages:app-control"/>
+          <xs:element ref="packages:category"/>
+        </xs:choice>
+      </xs:sequence>
+      <xs:attribute name="appid" use="required" type="xs:string"/>
+      <xs:attribute name="auto-restart" use="required" type="xs:boolean"/>
+      <xs:attribute name="exec" use="required"/>
+      <xs:attribute name="on-boot" use="required" type="xs:boolean"/>
+      <xs:attribute name="type" use="required" type="packages:TypeType"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="ui-application">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:choice maxOccurs="unbounded" minOccurs="0">
+          <xs:element ref="packages:label"/>
+          <xs:element ref="packages:icon"/>
+          <xs:element ref="packages:application-service"/>
+          <xs:element ref="packages:app-control"/>
+          <xs:element ref="packages:category"/>
+        </xs:choice>
+      </xs:sequence>
+      <xs:attribute name="appid" use="required" type="xs:string"/>
+      <xs:attribute name="exec" use="required"/>
+      <xs:attribute name="multiple" type="xs:boolean"/>
+      <xs:attribute name="nodisplay" type="xs:boolean"/>
+      <xs:attribute name="taskmanage" type="xs:boolean"/>
+      <xs:attribute name="type" use="required" type="packages:TypeType"/>
+      <xs:attribute name="categories" type="xs:NCName"/>
+      <xs:attribute name="extraid"/>
+      <xs:attribute name="hw-acceleration" type="packages:HwAccelerationType"/>
+	  <xs:attribute name="recentimage" type="packages:RecentImage"/>
+	  <xs:attribute name="mainapp" type="xs:boolean"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="ime-application">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:choice maxOccurs="unbounded">
+          <xs:element ref="packages:label"/>
+          <xs:element ref="packages:icon"/>
+        </xs:choice>
+      </xs:sequence>
+      <xs:attribute name="appid" use="required" type="xs:string"/>
+      <xs:attribute name="exec" use="required" type="xs:NCName"/>
+      <xs:attribute name="multiple" type="xs:boolean"/>
+      <xs:attribute name="nodisplay" type="xs:boolean"/>
+      <xs:attribute name="type" use="required" type="packages:TypeType"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="shortcut-list">
+  </xs:element>
+  <xs:element name="livebox">
+  </xs:element>
+  <xs:element name="Accounts">
+  </xs:element>
+  <xs:element name="account">
+  </xs:element>
+  <xs:element name="font">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="packages:label"/>
+        <xs:element ref="packages:icon"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="label">
+    <xs:complexType mixed="true">
+      <xs:attribute ref="xml:lang"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="icon">
+	<xs:complexType mixed="true">
+	  <xs:attribute ref="xml:lang"/>
+	  <xs:attribute name="section" type="packages:SectionType"/>
+	  <xs:attribute name="resolution" type="packages:ResolutionType"/>
+	</xs:complexType>
+  </xs:element>
+  <xs:simpleType name="SectionType">
+	<xs:restriction base="xs:string">
+	  <xs:enumeration value="notification"/>
+	  <xs:enumeration value="setting"/>
+	 </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="ResolutionType">
+	<xs:restriction base="xs:string">
+	  <xs:enumeration value="xhigh"/>
+	  <xs:enumeration value="high"/>
+	 </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="application-service">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:choice maxOccurs="unbounded">
+          <xs:element ref="packages:operation"/>
+          <xs:element ref="packages:uri"/>
+          <xs:element ref="packages:mime"/>
+          <xs:element ref="packages:subapp"/>
+        </xs:choice>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="app-control">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:choice maxOccurs="unbounded">
+          <xs:element ref="packages:operation"/>
+          <xs:element ref="packages:uri"/>
+          <xs:element ref="packages:mime"/>
+          <xs:element ref="packages:subapp"/>
+        </xs:choice>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="category">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:choice maxOccurs="unbounded">
+          <xs:any minOccurs="0" processContents="lax"/>
+        </xs:choice>
+      </xs:sequence>
+      <xs:anyAttribute processContents="lax"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="operation">
+    <xs:complexType>
+      <xs:attribute name="name" use="required"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="uri">
+    <xs:complexType>
+      <xs:attribute name="name" use="required"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="mime">
+    <xs:complexType>
+      <xs:attribute name="name" use="required"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="subapp">
+    <xs:complexType>
+      <xs:attribute name="name" use="required"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

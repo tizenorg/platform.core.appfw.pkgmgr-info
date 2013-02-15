@@ -1,0 +1,27 @@
+Source: pkgmgr-info
+Section: devel
+Priority: extra
+Maintainer: Garima Shrivastava <garima.s@samsung.com>, Jaeho Lee <jaeho81.lee@samsung.com>
+Build-Depends: debhelper (>= 5),libssl-dev, libslp-setting-dev, libslp-db-util-dev
+Standards-Version: 3.7.2
+
+Package: pkgmgr-info
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: <App2sd is a utility for enabling installation of applications to sd card and also to move to and from sd card.>
+
+Package: pkgmgr-info-dev
+Architecture: any
+Depends: app2sd (= ${Source-Version})
+Description: App2sd dev package
+
+Package: pkgmgr-info-doc
+Architecture: all
+Description: <App2sd is a utility for enabling installation of applications to sd card and also to move to and from sd card.>
+
+Package: pkgmgr-info-dbg
+Section: debug
+Architecture: any
+Depends: pkgmgr-info (= ${Source-Version})
+Description: pkgmgr-info dbg package
+

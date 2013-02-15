@@ -1,0 +1,13 @@
+<manifest>
+        <define>
+                <domain name="pkgmgr-parser"/>
+        </define>
+	<request>
+		<domain name="pkgmgr-parser"/>
+	</request>
+	<assign>
+                <filesystem path="/usr/lib/libpkgmgr_parser.so.0" label="_"/>
+                <filesystem path="/usr/lib/libpkgmgr_parser.so.0.1.0" label="_"/>
+                <filesystem path="/usr/lib/libpkgmgr_parser_lib_sample.so" label="_"/>
+        </assign>
+</manifest>

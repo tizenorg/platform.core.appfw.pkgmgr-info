@@ -1,0 +1,16 @@
+#
+# Copyright (c) 2008 ~ 2010 Samsung Electronics Co., Ltd.
+# All rights reserved.
+#
+
+prefix=@PREFIX@
+exec_prefix=@EXEC_PREFIX@
+libdir=@LIBDIR@
+includedir=@INCLUDEDIR@
+
+Name: package manager parser library
+Description: SLP package manager's installer lib for each backends
+Version: @VERSION@
+Requires: libxml-2.0
+Libs: -L${libdir} -lpkgmgr_parser
+Cflags: -I${includedir}/pkgmgr

@@ -1,0 +1,8 @@
+pkgmgr-info (0.2.1) unstable; urgency=low
+
+  * Initial release
+  * Git: slp/pkgs/a/pkgmgr-info
+  * Tag: pkgmgr-info_0.2.1
+
+ -- Jaeho Lee <jaeho81.lee@samsung.com>  Thu, 24 May 2012 12:04:51 +0530
+
