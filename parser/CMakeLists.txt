@@ -59,7 +59,7 @@ configure_file(xml.xsd.in xml.xsd @ONLY)
 ## Install
 INSTALL(TARGETS
 			pkgmgr_parser
-		DESTINATION lib
+		DESTINATION ${LIB_INSTALL_DIR}
 		COMPONENT RuntimeLibraries)
 INSTALL(FILES
 			pkgmgr_parser.h
@@ -70,7 +70,7 @@ INSTALL(FILES
 
 INSTALL(FILES
 		${CMAKE_CURRENT_BINARY_DIR}/pkgmgr-parser.pc
-		DESTINATION lib/pkgconfig)
+		DESTINATION ${LIB_INSTALL_DIR}/pkgconfig)
 
 INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/preload_list.txt DESTINATION ${PREFIX}/etc/package-manager/preload/)
 INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/manifest.xsd DESTINATION ${PREFIX}/etc/package-manager/preload/)

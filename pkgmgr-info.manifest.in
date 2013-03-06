@@ -6,6 +6,6 @@
 		<domain name="pkgmgr-info"/>
 	</request>
 	<assign>
-		<filesystem path="/usr/lib/libpkgmgr-info.*" label="_"/>
+		<filesystem path="@LIB_INSTALL_DIR@/libpkgmgr-info.*" label="_"/>
 	</assign>
 </manifest>
