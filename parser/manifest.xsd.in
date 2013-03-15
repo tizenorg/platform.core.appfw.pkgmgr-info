@@ -17,8 +17,8 @@
           <xs:element ref="packages:ime-application"/>
           <xs:element ref="packages:shortcut-list"/>
           <xs:element ref="packages:livebox"/>
-          <xs:element ref="packages:Accounts"/>
           <xs:element ref="packages:account"/>
+	  <xs:element ref="packages:notifications"/>
           <xs:element ref="packages:font"/>
         </xs:choice>
       </xs:sequence>
@@ -27,6 +27,7 @@
       <xs:attribute name="type" type="packages:PackageType"/>
       <xs:attribute name="version" use="required" type="xs:NMTOKEN"/>
       <xs:attribute name="size" type="xs:NMTOKEN"/>
+	  <xs:attribute name="root_path" type="xs:string"/>
     </xs:complexType>
   </xs:element>
 
@@ -93,6 +94,8 @@
           <xs:element ref="packages:application-service"/>
           <xs:element ref="packages:app-control"/>
           <xs:element ref="packages:category"/>
+          <xs:element ref="packages:metadata"/>
+		  <xs:element ref="packages:permission"/>
         </xs:choice>
       </xs:sequence>
       <xs:attribute name="appid" use="required" type="xs:string"/>
@@ -108,9 +111,12 @@
         <xs:choice maxOccurs="unbounded" minOccurs="0">
           <xs:element ref="packages:label"/>
           <xs:element ref="packages:icon"/>
+		  <xs:element ref="packages:image"/>
           <xs:element ref="packages:application-service"/>
           <xs:element ref="packages:app-control"/>
           <xs:element ref="packages:category"/>
+          <xs:element ref="packages:metadata"/>
+		  <xs:element ref="packages:permission"/>
         </xs:choice>
       </xs:sequence>
       <xs:attribute name="appid" use="required" type="xs:string"/>
@@ -118,12 +124,17 @@
       <xs:attribute name="multiple" type="xs:boolean"/>
       <xs:attribute name="nodisplay" type="xs:boolean"/>
       <xs:attribute name="taskmanage" type="xs:boolean"/>
+      <xs:attribute name="enabled" type="xs:boolean"/>
       <xs:attribute name="type" use="required" type="packages:TypeType"/>
       <xs:attribute name="categories" type="xs:NCName"/>
       <xs:attribute name="extraid"/>
       <xs:attribute name="hw-acceleration" type="packages:HwAccelerationType"/>
 	  <xs:attribute name="recentimage" type="packages:RecentImage"/>
 	  <xs:attribute name="mainapp" type="xs:boolean"/>
+      <xs:attribute name="indicatordisplay" type="xs:boolean"/>
+      <xs:attribute name="portrait-effectimage" type="xs:string"/>
+      <xs:attribute name="landscape-effectimage" type="xs:string"/>
+      <xs:attribute name="guestmode-visibility" type="xs:string"/>
     </xs:complexType>
   </xs:element>
   <xs:element name="ime-application">
@@ -145,9 +156,9 @@
   </xs:element>
   <xs:element name="livebox">
   </xs:element>
-  <xs:element name="Accounts">
-  </xs:element>
   <xs:element name="account">
+  </xs:element>
+  <xs:element name="notifications">
   </xs:element>
   <xs:element name="font">
     <xs:complexType>
@@ -165,8 +176,14 @@
   <xs:element name="icon">
 	<xs:complexType mixed="true">
 	  <xs:attribute ref="xml:lang"/>
-	  <xs:attribute name="section" type="packages:SectionType"/>
+	  <xs:attribute name="section" type="xs:string"/>
 	  <xs:attribute name="resolution" type="packages:ResolutionType"/>
+	</xs:complexType>
+  </xs:element>
+  <xs:element name="image">
+	<xs:complexType mixed="true">
+	  <xs:attribute ref="xml:lang"/>
+	  <xs:attribute name="section" type="xs:string"/>
 	</xs:complexType>
   </xs:element>
   <xs:simpleType name="SectionType">
@@ -214,6 +231,17 @@
       </xs:sequence>
       <xs:anyAttribute processContents="lax"/>
     </xs:complexType>
+  </xs:element>
+  <xs:element name="metadata">
+    <xs:complexType>
+      <xs:attribute name="name" use="required" type="xs:string"/>
+      <xs:attribute name="value" use="required" type="xs:string"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="permission">
+	<xs:complexType>
+	  <xs:attribute name="type" type="xs:string"/>
+	</xs:complexType>
   </xs:element>
   <xs:element name="operation">
     <xs:complexType>

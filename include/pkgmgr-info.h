@@ -230,6 +230,22 @@ typedef int (*pkgmgrinfo_app_category_list_cb ) (const char *category_name,
 							void *user_data);
 
 /**
+ * @fn int (*pkgmgrinfo_app_metadata_list_cb ) (const char *metadata_name, const char *metadata_value, void *user_data)
+ *
+ * @brief Specifies the type of function passed to pkgmgrinfo_appinfo_foreach_metadata()
+ *
+ * @param[in] metadata_name the name of the metadata
+ * @param[in] metadata_value the value of the metadata
+ * @param[in] user_data user data passed to pkgmgrinfo_appinfo_foreach_metadata()
+ *
+ * @return 0 if success, negative value(<0) if fail. Callback is not called if return value is negative.\n
+ *
+ * @see  pkgmgrinfo_appinfo_foreach_metadata()
+ */
+typedef int (*pkgmgrinfo_app_metadata_list_cb ) (const char *metadata_name,
+							const char *metadata_value, void *user_data);
+
+/**
  * @fn int (*pkgmgrinfo_app_control_list_cb ) (pkgmgrinfo_appcontrol_h handle, void *user_data)
  *
  * @brief Specifies the type of function passed to pkgmgrinfo_appinfo_foreach_appcontrol()
@@ -292,6 +308,16 @@ typedef enum {
 	INSTALL_INTERNAL = 0,		/**< Internal Installation*/
 	INSTALL_EXTERNAL,		/**< External Installation*/
 } INSTALL_LOCATION;
+
+ /**
+  * @brief permission Types
+  */
+ typedef enum {
+	 PMINFO_PERMISSION_NORMAL = 0,		 /**< permission normal*/
+	 PMINFO_PERMISSION_SIGNATURE, 	 /**< permission type is signature*/
+	 PMINFO_PERMISSION_PRIVILEGE, 	 /**< permission type is privilege*/
+ }pkgmgrinfo_permission_type;
+
 
  /** String property for filtering based on package info*/
 #define	PMINFO_PKGINFO_PROP_PACKAGE_ID		"PMINFO_PKGINFO_PROP_PACKAGE_ID"
@@ -1165,6 +1191,43 @@ static int get_pkg_url(const char *pkgid)
  * @endcode
  */
 int pkgmgrinfo_pkginfo_get_url(pkgmgrinfo_pkginfo_h handle, char **url);
+
+
+/**
+ * @fn int pkgmgrinfo_pkginfo_get_root_path(pkgmgrinfo_pkginfo_h handle, char **path)
+ * @brief	This API gets the root path of package
+ *
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in] handle		pointer to package info handle
+ * @param[out] path		pointer to hold root path of package
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @code
+static int get_root_path(const char *pkgid)
+{
+	int ret = 0;
+	char *path = 0;
+	pkgmgrinfo_pkginfo_h handle;
+	ret = pkgmgrinfo_pkginfo_get_pkginfo(pkgid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+
+	ret = pkgmgrinfo_pkginfo_get_root_path(handle, &path);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_pkginfo_destroy_pkginfo(handle);
+		return -1;
+	}
+	printf("path : %s\n", path);
+	pkgmgrinfo_pkginfo_destroy_pkginfo(handle);
+
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_pkginfo_get_root_path(pkgmgrinfo_pkginfo_h handle, char **path);
 
 /**
  * @fn int pkgmgrinfo_pkginfo_compare_pkg_cert_info(const char *lhs_package_id, const char *rhs_package_id, pkgmgrinfo_cert_compare_result_type_e *compare_result)
@@ -2467,6 +2530,84 @@ static int get_app_recent_image_type(const char *appid)
  */
 int pkgmgrinfo_appinfo_get_recent_image_type(pkgmgrinfo_appinfo_h  handle, pkgmgrinfo_app_recentimage *type);
 
+
+/**
+ * @fn int pkgmgrinfo_appinfo_get_preview_image(pkgmgrinfo_appinfo_h  handle, char **preview_img)
+ * @brief	This API gets the preview image of application
+ *
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in] handle		pointer to the application info handle.
+ * @param[out] preview_img		pointer to hold preview image path
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		pkgmgrinfo_appinfo_get_appinfo()
+ * @post		pkgmgrinfo_appinfo_destroy_appinfo()
+ * @see		pkgmgrinfo_appinfo_get_appid()
+ * @code
+static int get_app_previewimage(const char *appid)
+{
+	int ret = 0;
+	char *preview = NULL;
+	pkgmgrinfo_appinfo_h handle = NULL;
+	ret = pkgmgrinfo_appinfo_get_appinfo(appid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_appinfo_get_preview_image(handle, &preview);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_appinfo_destroy_appinfo(handle);
+		return -1;
+	}
+	printf("preview image path : %s\n", preview);
+	pkgmgrinfo_appinfo_destroy_appinfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_appinfo_get_preview_image(pkgmgrinfo_appinfo_h  handle, char **preview_img);
+
+
+/**
+ * @fn int pkgmgrinfo_appinfo_get_permission_type(pkgmgrinfo_appinfo_h handle, pkgmgrinfo_permission_type *permission)
+ * @brief	This API gets the package permission type of the application
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in] handle		pointer to the application info handle.
+ * @param[out] permission		pointer to hold package permission
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		pkgmgrinfo_appinfo_get_appinfo()
+ * @post		pkgmgrinfo_appinfo_destroy_appinfo()
+ * @see		pkgmgrinfo_appinfo_get_appid()
+ * @code
+static int get_app_permission(const char *appid)
+{
+	int ret = 0;
+	pkgmgrinfo_permission_type permission = 0;
+	pkgmgrinfo_appinfo_h handle;
+
+	ret = pkgmgrinfo_appinfo_get_appinfo(appid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_appinfo_get_permission_type(handle, &permission);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_appinfo_destroy_appinfo(handle);
+		return -1;
+	}
+	printf("permission type: %d\n", permission);
+	pkgmgrinfo_appinfo_destroy_appinfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_appinfo_get_permission_type(pkgmgrinfo_appinfo_h handle, pkgmgrinfo_permission_type *permission);
+
 /**
  * @fn	int pkgmgrinfo_appinfo_foreach_category(pkgmgrinfo_appinfo_h handle,
 			pkgmgrinfo_app_category_list_cb category_func, void *user_data);
@@ -2511,6 +2652,53 @@ static int list_category(const char *appid, char *category)
  */
 int pkgmgrinfo_appinfo_foreach_category(pkgmgrinfo_appinfo_h handle,
 			pkgmgrinfo_app_category_list_cb category_func, void *user_data);
+
+/**
+ * @fn	int pkgmgrinfo_appinfo_foreach_metadata(pkgmgrinfo_appinfo_h handle,
+			pkgmgrinfo_app_metadata_list_cb metadata_func, void *user_data);
+ * @brief	This API gets the list of metadata for a particular application
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ * @param[in]	handle		pointer to the application info handle.
+ * @param[in]	metadata_func		callback function for list
+ * @param[in] user_data	user data to be passed to callback function
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		pkgmgrinfo_appinfo_get_appinfo()
+ * @post		pkgmgrinfo_appinfo_destroy_appinfo()
+ * @code
+int metadata_func(const char *name, const char *value, void *user_data)
+{
+	if (strcmp(name, (char *)user_data) == 0) {
+		printf("Value is %s\n", value);
+		return -1;
+	}
+	else
+		return 0;
+}
+
+static int list_metadata(const char *appid, char *name)
+{
+	int ret = 0;
+	pkgmgrinfo_appinfo_h handle;
+	ret = pkgmgrinfo_appinfo_get_appinfo(appid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_appinfo_foreach_metadata(handle, metadata_func, (void *)name);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_appinfo_destroy_appinfo(handle);
+		return -1;
+	}
+	pkgmgrinfo_appinfo_destroy_appinfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_appinfo_foreach_metadata(pkgmgrinfo_appinfo_h handle,
+			pkgmgrinfo_app_metadata_list_cb metadata_func, void *user_data);
 
 
 /**
@@ -2643,6 +2831,87 @@ static int get_app_multiple(const char *appid)
 int pkgmgrinfo_appinfo_is_multiple(pkgmgrinfo_appinfo_h  handle, bool *multiple);
 
 /**
+ * @fn int pkgmgrinfo_appinfo_is_indicator_display_allowed(pkgmgrinfo_appinfo_h handle, bool *indicator_disp)
+ * @brief	This API gets the application 'indicatordisplay' value. If true, indicator will be displayed during
+ *		application launching effect. If fales, indicator will be hidden during application launching effect
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in]	handle	pointer to application info handle
+ * @param[out]  indicator_disp contains indicator display status for application launching effect
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		pkgmgrinfo_appinfo_get_appinfo()
+ * @post		pkgmgrinfo_appinfo_destroy_appinfo()
+ * @see		pkgmgrinfo_appinfo_get_appid()
+ * @see		pkgmgrinfo_appinfo_is_nodisplay()
+ * @code
+static int get_app_indicator_display(const char *appid)
+{
+	int ret = 0;
+	bool indicator_disp;
+	pkgmgrinfo_appinfo_h handle;
+	ret = pkgmgrinfo_appinfo_get_appinfo(appid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_appinfo_is_indicator_display_allowed(handle, &indicator_disp);
+	if (ret != PMINFO_R_OK){
+		pkgmgrinfo_appinfo_destroy_appinfo(handle);
+		return -1;
+	}
+	printf("app indicator disp : %d\n", indicator_disp);
+	pkgmgrinfo_appinfo_destroy_appinfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_appinfo_is_indicator_display_allowed(pkgmgrinfo_appinfo_h handle, bool *indicator_disp);
+
+/**
+ * @fn int pkgmgrinfo_appinfo_get_effectimage(pkgmgrinfo_appinfo_h  handle, char **portrait_img, char **landscape_img)
+ * @brief	This API gets the application's landscape & portrait effect images
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in]	handle	pointer to application info handle
+ * @param[out]  portrait_img contains portrait mode effect image
+ * @param[out]  landscape_img contains landscape mode effect image
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		pkgmgrinfo_appinfo_get_appinfo()
+ * @post		pkgmgrinfo_appinfo_destroy_appinfo()
+ * @see		pkgmgrinfo_appinfo_get_appid()
+ * @see		pkgmgrinfo_appinfo_is_nodisplay()
+ * @code
+static int get_app_effectimages(const char *appid)
+{
+	int ret = 0;
+	char *portraitimg = NULL;
+	char *landscapeimg = NULL;
+	pkgmgrinfo_appinfo_h handle;
+	ret = pkgmgrinfo_appinfo_get_appinfo(appid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_appinfo_get_effectimage(handle, &portraitimg, &landscapeimg);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_appinfo_destroy_appinfo(handle);
+		return -1;
+	}
+	printf("app effect image portrait: %s, app effect image landscape : %s\n", portraitimg, landscapeimg);
+	pkgmgrinfo_appinfo_destroy_appinfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_appinfo_get_effectimage(pkgmgrinfo_appinfo_h  handle, char **portrait_img, char **landscape_img);
+
+/**
  * @fn int pkgmgrinfo_appinfo_is_taskmanage(pkgmgrinfo_appinfo_h handle, bool *taskmanage)
  * @brief	This API gets the application 'taskmanage' value from the app ID
  *
@@ -2680,6 +2949,45 @@ static int get_app_taskmanage(const char *appid)
  * @endcode
  */
 int pkgmgrinfo_appinfo_is_taskmanage(pkgmgrinfo_appinfo_h  handle, bool *taskmanage);
+
+/**
+ * @fn int pkgmgrinfo_appinfo_is_enabled(pkgmgrinfo_appinfo_h handle, bool *enabled)
+ * @brief	This API gets the application 'taskmanage' value from the app ID
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in]	handle	pointer to application info handle
+ * @param[out] enabled		pointer to hold package enabled value
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		pkgmgrinfo_appinfo_get_appinfo()
+ * @post		pkgmgrinfo_appinfo_destroy_appinfo()
+ * @see		pkgmgrinfo_appinfo_get_appid()
+ * @see		pkgmgrinfo_appinfo_is_multiple()
+ * @code
+static int get_app_enabled(const char *appid)
+{
+	int ret = 0;
+	bool enabled;
+	pkgmgrinfo_appinfo_h handle;
+	ret = pkgmgrinfo_appinfo_get_appinfo(appid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_appinfo_is_taskmanage(handle, &enabled);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_appinfo_destroy_appinfo(handle);
+		return -1;
+	}
+	printf("app enabled: %d\n", enabled);
+	pkgmgrinfo_appinfo_destroy_appinfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_appinfo_is_enabled(pkgmgrinfo_appinfo_h  handle, bool *enabled);
 
 /**
  * @fn int pkgmgrinfo_appinfo_get_hwacceleration(pkgmgrinfo_appinfo_h handle, pkgmgrinfo_app_hwacceleration *hwacceleration)
@@ -4126,6 +4434,83 @@ int pkgmgrinfo_destroy_certinfo_set_handle(pkgmgrinfo_instcertinfo_h handle);
  * @endcode
  */
 int pkgmgrinfo_datacontrol_get_info(const char *providerid, const char * type, char **appid, char **access);
+
+/**
+ * @fn int pkgmgrinfo_appinfo_is_guestmode_appstatus(pkgmgrinfo_appinfo_h handle, bool *status)
+ * @brief	This API gets the application 'guest mode visibility' value from the DB
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in]	handle	pointer to application info handle
+ * @param[out] status		pointer to hold app guest mode visibility value
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		pkgmgrinfo_appinfo_get_appinfo()
+ * @post		pkgmgrinfo_appinfo_destroy_appinfo()
+ * @see		pkgmgrinfo_appinfo_get_appid()
+ * @see		pkgmgrinfo_appinfo_is_multiple()
+ * @code
+static int get_app_guestmode_visibility(const char *appid)
+{
+	int ret = 0;
+	bool status;
+	pkgmgrinfo_appinfo_h handle;
+	ret = pkgmgrinfo_appinfo_get_appinfo(appid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_appinfo_is_guestmode_visibility(handle, &status);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_appinfo_destroy_appinfo(handle);
+		return -1;
+	}
+	printf("app guest mode visibility: %d\n", status);
+	pkgmgrinfo_appinfo_destroy_appinfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+ int pkgmgrinfo_appinfo_is_guestmode_visibility(pkgmgrinfo_appinfo_h handle, bool *status);
+
+/**
+ * @fn int pkgmgrinfo_appinfo_set_guestmode_visibility(pkgmgrinfo_appinfo_h handle, bool status)
+ * @brief	This API sets the application 'guest mode visibility' value in the DB
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in]	handle	pointer to application info handle
+ * @param[out] status	app guest mode visibility value
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		pkgmgrinfo_appinfo_get_appinfo()
+ * @post		pkgmgrinfo_appinfo_destroy_appinfo()
+ * @see		pkgmgrinfo_appinfo_get_appid()
+ * @see		pkgmgrinfo_appinfo_is_multiple()
+ * @code
+static int set_app_guestmode_visibility(const char *appid, bool value)
+{
+	int ret = 0;
+	pkgmgrinfo_appinfo_h handle;
+	ret = pkgmgrinfo_appinfo_get_appinfo(appid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_appinfo_set_guestmode_visibility(handle, value);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_appinfo_destroy_appinfo(handle);
+		return -1;
+	}
+	pkgmgrinfo_appinfo_destroy_appinfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+ int pkgmgrinfo_appinfo_set_guestmode_visibility(pkgmgrinfo_appinfo_h handle, bool status);
+
 
 /** @} */
 #ifdef __cplusplus

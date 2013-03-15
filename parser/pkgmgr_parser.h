@@ -107,13 +107,27 @@ extern "C" {
  * @brief Convinience Macro to get list head
  */
 #define LISTHEAD(list, node)					\
-    for ((node) = (list); (node)->prev; (node) = (node)->prev);
+    for ((node) = (list); (node)->prev; (node) = (node)->prev)
 
  /**
  * @brief Convinience Macro to get list tail
  */
 #define LISTTAIL(list, node)					\
-    for ((node) = (list); (node)->next; (node) = (node)->next);
+    for ((node) = (list); (node)->next; (node) = (node)->next)
+
+typedef struct metadata_x {
+	const char *name;
+	const char *value;
+	struct metadata_x *prev;
+	struct metadata_x *next;
+} metadata_x;
+
+typedef struct permission_x {
+	const char *type;
+	const char *value;
+	struct permission_x *prev;
+	struct permission_x *next;
+} permission_x;
 
 typedef struct icon_x {
 	const char *name;
@@ -125,6 +139,15 @@ typedef struct icon_x {
 	struct icon_x *prev;
 	struct icon_x *next;
 } icon_x;
+
+typedef struct image_x {
+	const char *name;
+	const char *text;
+	const char *lang;
+	const char *section;
+	struct icon_x *prev;
+	struct icon_x *next;
+} image_x;
 
 typedef struct allowed_x {
 	const char *name;
@@ -324,6 +347,7 @@ typedef struct uiapplication_x {
 	const char *nodisplay;
 	const char *multiple;
 	const char *taskmanage;
+	const char *enabled;
 	const char *type;
 	const char *categories;
 	const char *extraid;
@@ -331,11 +355,18 @@ typedef struct uiapplication_x {
 	const char *mainapp;
 	const char *package;
 	const char *recentimage;
+	const char *indicatordisplay;
+	const char *portraitimg;
+	const char *landscapeimg;
+	const char *guestmode_visibility;
 	struct label_x *label;
 	struct icon_x *icon;
+	struct image_x *image;
 	struct appsvc_x *appsvc;
 	struct appcontrol_x *appcontrol;
 	struct category_x *category;
+	struct metadata_x *metadata;
+	struct permission_x *permission;
 	struct launchconditions_x *launchconditions;
 	struct notification_x *notification;
 	struct datashare_x *datashare;
@@ -348,6 +379,7 @@ typedef struct serviceapplication_x {
 	const char *exec;
 	const char *onboot;
 	const char *autorestart;
+	const char *enabled;
 	const char *type;
 	const char *package;
 	struct label_x *label;
@@ -355,6 +387,8 @@ typedef struct serviceapplication_x {
 	struct appsvc_x *appsvc;
 	struct appcontrol_x *appcontrol;
 	struct category_x *category;
+	struct metadata_x *metadata;
+	struct permission_x *permission;
 	struct datacontrol_x *datacontrol;
 	struct launchconditions_x *launchconditions;
 	struct notification_x *notification;
@@ -405,6 +439,7 @@ typedef struct manifest_x {
 	const char *storeclient_id;		/**< id of store client for installed package*/
 	const char *mainapp_id;		/**< app id of main application*/
 	const char *package_url;		/**< app id of main application*/
+	const char *root_path;		/**< package root path*/
 	struct icon_x *icon;		/**< package icon*/
 	struct label_x *label;		/**< package label*/
 	struct author_x *author;		/**< package author*/
@@ -608,6 +643,32 @@ static int parse_manifest_file(const char *manifest)
  */
 manifest_x *pkgmgr_parser_process_manifest_xml(const char *manifest);
 
+/**
+ * @fn manifest_x *pkgmgr_parser_get_manifest_info(const char *pkigid)
+ * @brief	This API gets the manifest info from DB and stores all the data in the manifest structure.
+ *
+ * @par		This API is for package-manager installer backends.
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in]	pkgid	package id for package
+ * @return	manifest pointer on success, NULL on failure
+ * @pre		None
+ * @post		pkgmgr_parser_free_manifest_xml()
+ * @code
+static int get_manifest_info(const char *pkgid)
+{
+	manifest_x *mfx = NULL
+	mfx = pkgmgr_parser_get_manifest_info(pkgid);
+	if (mfx == NULL)
+		return -1;
+	printf("Parsing Manifest Success\n");
+	pkgmgr_parser_free_manifest_xml(mfx);
+	return 0;
+}
+ * @endcode
+ */
+manifest_x *pkgmgr_parser_get_manifest_info(const char *pkigid);
+
 /* These APIs are intended to call parser directly */
 typedef int (*ps_iter_fn) (const char *tag, int type, void *userdata);
 
@@ -700,6 +761,36 @@ static int parse_docptr_for_uninstallation(xmlDocPtr docPtr)
  * @endcode
  */
 int pkgmgr_parser_run_parser_for_uninstallation(xmlDocPtr docPtr, const char *tag, const char *pkgid);
+
+/**
+ * @fn int pkgmgr_parser_create_desktop_file(manifest_x *mfx)
+ * @brief	This API generates the application desktop file
+ *
+ * @par		This API is for package-manager installer backends.
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in]	mfx	manifest pointer
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		pkgmgr_parser_process_manifest_xml()
+ * @post	pkgmgr_parser_free_manifest_xml()
+ * @code
+static int create_desktop_file(char *manifest)
+{
+	int ret = 0;
+	manifest_x *mfx = NULL;
+	mfx = pkgmgr_parser_process_manifest_xml(manifest);
+	ret = pkgmgr_parser_create_desktop_file(mfx);
+	if (ret)
+		return -1;
+	pkgmgr_parser_free_manifest_xml(mfx);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgr_parser_create_desktop_file(manifest_x *mfx);
 
 /** @} */
 #ifdef __cplusplus

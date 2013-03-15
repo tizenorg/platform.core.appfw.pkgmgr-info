@@ -39,6 +39,7 @@ sqlite3 *pkgmgr_cert_db;
 GList *pkglocale = NULL;
 GList *applocale = NULL;
 GList *appicon = NULL;
+GList *appimage = NULL;
 char *prev = NULL;
 
 #define QUERY_CREATE_TABLE_PACKAGE_INFO "create table if not exists package_info " \
@@ -56,7 +57,8 @@ char *prev = NULL;
 						"installed_time text," \
 						"storeclient_id text," \
 						"mainapp_id text," \
-						"package_url text)"
+						"package_url text," \
+						"root_path text)"
 
 #define QUERY_CREATE_TABLE_PACKAGE_LOCALIZED_INFO "create table if not exists package_localized_info " \
 						"(package text not null, " \
@@ -81,9 +83,14 @@ char *prev = NULL;
 						"app_multiple text DEFAULT 'false', " \
 						"app_autorestart text DEFAULT 'false', " \
 						"app_taskmanage text DEFAULT 'false', " \
+						"app_enabled text DEFAULT 'true', " \
 						"app_hwacceleration text DEFAULT 'use-system-setting', " \
 						"app_mainapp text, " \
 						"app_recentimage text, " \
+						"app_indicatordisplay text DEFAULT 'true', " \
+						"app_portraitimg text, " \
+						"app_landscapeimg text, " \
+						"app_guestmodevisibility text DEFAULT 'true', " \
 						"package text not null, " \
 						"FOREIGN KEY(package) " \
 						"REFERENCES package_info(package) " \
@@ -99,13 +106,22 @@ char *prev = NULL;
 						"REFERENCES package_app_info(app_id) " \
 						"ON DELETE CASCADE)"
 
-#define QUERY_CREATE_TABLE_PACKAGE_APP_ICON_LOCALIZED_INFO "create table if not exists package_app_icon_localized_info " \
+#define QUERY_CREATE_TABLE_PACKAGE_APP_ICON_SECTION_INFO "create table if not exists package_app_icon_section_info " \
 						"(app_id text not null, " \
-						"app_locale text DEFAULT 'No Locale', " \
 						"app_icon text, " \
 						"app_icon_section text, " \
 						"app_icon_resolution text, " \
-						"PRIMARY KEY(app_id,app_locale,app_icon_section,app_icon_resolution) " \
+						"PRIMARY KEY(app_id,app_icon_section,app_icon_resolution) " \
+						"FOREIGN KEY(app_id) " \
+						"REFERENCES package_app_info(app_id) " \
+						"ON DELETE CASCADE)"
+
+#define QUERY_CREATE_TABLE_PACKAGE_APP_IMAGE_INFO "create table if not exists package_app_image_info " \
+						"(app_id text not null, " \
+						"app_locale text DEFAULT 'No Locale', " \
+						"app_image_section text, " \
+						"app_image text, " \
+						"PRIMARY KEY(app_id,app_image_section) " \
 						"FOREIGN KEY(app_id) " \
 						"REFERENCES package_app_info(app_id) " \
 						"ON DELETE CASCADE)"
@@ -136,6 +152,24 @@ char *prev = NULL;
 						"(app_id text not null, " \
 						"category text not null, " \
 						"PRIMARY KEY(app_id,category) " \
+						"FOREIGN KEY(app_id) " \
+						"REFERENCES package_app_info(app_id) " \
+						"ON DELETE CASCADE)"
+
+#define QUERY_CREATE_TABLE_PACKAGE_APP_APP_METADATA "create table if not exists package_app_app_metadata " \
+						"(app_id text not null, " \
+						"md_name text not null, " \
+						"md_value text not null, " \
+						"PRIMARY KEY(app_id, md_name) " \
+						"FOREIGN KEY(app_id) " \
+						"REFERENCES package_app_info(app_id) " \
+						"ON DELETE CASCADE)"
+
+#define QUERY_CREATE_TABLE_PACKAGE_APP_APP_PERMISSION "create table if not exists package_app_app_permission " \
+						"(app_id text not null, " \
+						"pm_type text not null, " \
+						"pm_value text not null, " \
+						"PRIMARY KEY(app_id) " \
 						"FOREIGN KEY(app_id) " \
 						"REFERENCES package_app_info(app_id) " \
 						"ON DELETE CASCADE)"
@@ -180,6 +214,8 @@ static int __insert_serviceapplication_appsvc_info(manifest_x *mfx);
 static int __insert_uiapplication_appcategory_info(manifest_x *mfx);
 static int __insert_serviceapplication_appcategory_info(manifest_x *mfx);
 static int __insert_uiapplication_appcontrol_info(manifest_x *mfx);
+static int __insert_serviceapplication_appmetadata_info(manifest_x *mfx);
+static int __insert_uiapplication_appmetadata_info(manifest_x *mfx);
 static int __insert_serviceapplication_appcontrol_info(manifest_x *mfx);
 static int __insert_uiapplication_share_allowed_info(manifest_x *mfx);
 static int __insert_serviceapplication_share_allowed_info(manifest_x *mfx);
@@ -197,10 +233,12 @@ static int __initialize_package_localized_info_db();
 static int __initialize_package_app_info_db();
 static int __initialize_package_cert_info_db();
 static int __initialize_package_app_localized_info_db();
-static int __initialize_package_app_icon_localized_info_db();
+static int __initialize_package_app_icon_section_info_db();
+static int __initialize_package_app_image_info_db();
 static int __initialize_package_app_app_svc_db();
 static int __initialize_package_app_app_category_db();
 static int __initialize_package_app_app_control_db();
+static int __initialize_package_app_app_metadata_db();
 static int __initialize_package_app_share_allowed_db();
 static int __initialize_package_app_share_request_db();
 static int __exec_query(char *query);
@@ -211,6 +249,62 @@ static gint __comparefunc(gconstpointer a, gconstpointer b, gpointer userdata);
 static void __trimfunc1(gpointer data, gpointer userdata);
 static void __trimfunc2(gpointer data, gpointer userdata);
 static GList *__create_locale_list(GList *locale, label_x *lbl, license_x *lcn, icon_x *icn, description_x *dcn, author_x *ath);
+static void __preserve_guestmode_visibility_value(manifest_x *mfx);
+static int __guestmode_visibility_cb(void *data, int ncols, char **coltxt, char **colname);
+
+static int __guestmode_visibility_cb(void *data, int ncols, char **coltxt, char **colname)
+{
+	manifest_x *mfx = (manifest_x *)data;
+	int i = 0;
+	char *appid = NULL;
+	char *status = NULL;
+	uiapplication_x *uiapp = NULL;
+	for(i = 0; i < ncols; i++)
+	{
+		uiapp = mfx->uiapplication;
+		if (strcmp(colname[i], "app_id") == 0) {
+			if (coltxt[i])
+				appid = strdup(coltxt[i]);
+		} else if (strcmp(colname[i], "app_guestmodevisibility") == 0) {
+			if (coltxt[i])
+				status = strdup(coltxt[i]);
+		}
+	}
+	/*update guest mode visibility*/
+	for (; uiapp != NULL; uiapp = uiapp->next) {
+		if (strcmp(uiapp->appid, appid) == 0) {
+			free((void *)uiapp->guestmode_visibility);
+			uiapp->guestmode_visibility = strdup(status);
+			break;
+		}
+	}
+	if (appid) {
+		free(appid);
+		appid = NULL;
+	}
+	if (status) {
+		free(status);
+		status = NULL;
+	}
+
+	return 0;
+}
+
+static void __preserve_guestmode_visibility_value(manifest_x *mfx)
+{
+	int ret = -1;
+	char *error_message = NULL;
+	char query[MAX_QUERY_LEN] = {'\0'};
+	snprintf(query, MAX_QUERY_LEN - 1, "select app_id, app_guestmodevisibility from package_app_info where package='%s'", mfx->package);
+	if (SQLITE_OK !=
+	    sqlite3_exec(pkgmgr_parser_db, query,
+			 __guestmode_visibility_cb, (void *)mfx, &error_message)) {
+		DBG("Don't execute query = %s error message = %s\n",
+		       query, error_message);
+		sqlite3_free(error_message);
+	}
+	return;
+}
 
 static int __initialize_package_info_db()
 {
@@ -327,15 +421,32 @@ static int __initialize_package_app_localized_info_db()
 	return 0;
 }
 
-static int __initialize_package_app_icon_localized_info_db()
+static int __initialize_package_app_icon_section_info_db()
 {
 	char *error_message = NULL;
 	if (SQLITE_OK !=
 	    sqlite3_exec(pkgmgr_parser_db,
-			 QUERY_CREATE_TABLE_PACKAGE_APP_ICON_LOCALIZED_INFO, NULL,
+			 QUERY_CREATE_TABLE_PACKAGE_APP_ICON_SECTION_INFO, NULL,
 			 NULL, &error_message)) {
 		DBG("Don't execute query = %s error message = %s\n",
-		       QUERY_CREATE_TABLE_PACKAGE_APP_ICON_LOCALIZED_INFO,
+		       QUERY_CREATE_TABLE_PACKAGE_APP_ICON_SECTION_INFO,
+		       error_message);
+		sqlite3_free(error_message);
+		return -1;
+	}
+	sqlite3_free(error_message);
+	return 0;
+}
+
+static int __initialize_package_app_image_info_db()
+{
+	char *error_message = NULL;
+	if (SQLITE_OK !=
+	    sqlite3_exec(pkgmgr_parser_db,
+			 QUERY_CREATE_TABLE_PACKAGE_APP_IMAGE_INFO, NULL,
+			 NULL, &error_message)) {
+		DBG("Don't execute query = %s error message = %s\n",
+		       QUERY_CREATE_TABLE_PACKAGE_APP_IMAGE_INFO,
 		       error_message);
 		sqlite3_free(error_message);
 		return -1;
@@ -369,6 +480,38 @@ static int __initialize_package_app_app_category_db()
 			 &error_message)) {
 		DBG("Don't execute query = %s error message = %s\n",
 		       QUERY_CREATE_TABLE_PACKAGE_APP_APP_CATEGORY, error_message);
+		sqlite3_free(error_message);
+		return -1;
+	}
+	sqlite3_free(error_message);
+	return 0;
+}
+
+static int __initialize_package_app_app_metadata_db()
+{
+	char *error_message = NULL;
+	if (SQLITE_OK !=
+	    sqlite3_exec(pkgmgr_parser_db,
+			 QUERY_CREATE_TABLE_PACKAGE_APP_APP_METADATA, NULL, NULL,
+			 &error_message)) {
+		DBG("Don't execute query = %s error message = %s\n",
+		       QUERY_CREATE_TABLE_PACKAGE_APP_APP_METADATA, error_message);
+		sqlite3_free(error_message);
+		return -1;
+	}
+	sqlite3_free(error_message);
+	return 0;
+}
+
+static int __initialize_package_app_app_permission_db()
+{
+	char *error_message = NULL;
+	if (SQLITE_OK !=
+	    sqlite3_exec(pkgmgr_parser_db,
+			 QUERY_CREATE_TABLE_PACKAGE_APP_APP_PERMISSION, NULL, NULL,
+			 &error_message)) {
+		DBG("Don't execute query = %s error message = %s\n",
+		       QUERY_CREATE_TABLE_PACKAGE_APP_APP_PERMISSION, error_message);
 		sqlite3_free(error_message);
 		return -1;
 	}
@@ -487,6 +630,17 @@ static GList *__create_icon_list(GList *locale, icon_x *icn)
 	return locale;
 }
 
+static GList *__create_image_list(GList *locale, image_x *image)
+{
+	while(image != NULL)
+	{
+		if (image->section)
+			locale = g_list_insert_sorted_with_data(locale, (gpointer)image->section, __comparefunc, NULL);
+		image = image->next;
+	}
+	return locale;
+}
+
 static void __printfunc(gpointer data, gpointer userdata)
 {
 	DBG("%s  ", (char*)data);
@@ -521,6 +675,18 @@ static void __trimfunc3(gpointer data, gpointer userdata)
 	if (prev) {
 		if (strcmp((char *)data, prev) == 0) {
 			appicon = g_list_remove(appicon, data);
+		} else
+			prev = (char *)data;
+	}
+	else
+		prev = (char *)data;
+}
+
+static void __trimfunc4(gpointer data, gpointer userdata)
+{
+	if (prev) {
+		if (strcmp((char *)data, prev) == 0) {
+			appimage = g_list_remove(appimage, data);
 		} else
 			prev = (char *)data;
 	}
@@ -596,19 +762,33 @@ static void __extract_data(gpointer data, label_x *lbl, license_x *lcn, icon_x *
 
 }
 
-static void __extract_icon_data(gpointer data, icon_x *icn, char **lang, char **icon, char **resolution)
+static void __extract_icon_data(gpointer data, icon_x *icn, char **icon, char **resolution)
 {
 	while(icn != NULL)
 	{
 		if (icn->section) {
 			if (strcmp(icn->section, (char *)data) == 0) {
-				*lang = (char*)icn->lang;
 				*icon = (char*)icn->text;
 				*resolution = (char*)icn->resolution;
 				break;
 			}
 		}
 		icn = icn->next;
+	}
+}
+
+static void __extract_image_data(gpointer data, icon_x *image, char **lang, char **img)
+{
+	while(image != NULL)
+	{
+		if (image->section) {
+			if (strcmp(image->section, (char *)data) == 0) {
+				*lang = (char*)image->lang;
+				*img = (char*)image->text;
+				break;
+			}
+		}
+		image = image->next;
 	}
 }
 
@@ -665,10 +845,9 @@ static void __insert_uiapplication_locale_info(gpointer data, gpointer userdata)
 
 }
 
-static void __insert_uiapplication_icon_locale_info(gpointer data, gpointer userdata)
+static void __insert_uiapplication_icon_section_info(gpointer data, gpointer userdata)
 {
 	int ret = -1;
-	char *lang = NULL;
 	char *icon = NULL;
 	char *resolution = NULL;
 	char query[MAX_QUERY_LEN] = {'\0'};
@@ -676,12 +855,12 @@ static void __insert_uiapplication_icon_locale_info(gpointer data, gpointer user
 	uiapplication_x *up = (uiapplication_x*)userdata;
 	icon_x *icn = up->icon;
 
-	__extract_icon_data(data, icn, &lang, &icon, &resolution);
-	if (!lang && !icon && !resolution)
+	__extract_icon_data(data, icn, &icon, &resolution);
+	if (!icon && !resolution)
 		return;
-	sqlite3_snprintf(MAX_QUERY_LEN, query, "insert into package_app_icon_localized_info(app_id, app_locale, " \
+	sqlite3_snprintf(MAX_QUERY_LEN, query, "insert into package_app_icon_section_info(app_id, " \
 		"app_icon, app_icon_section, app_icon_resolution) values " \
-		"('%q', '%q', '%q', '%q', '%q')", up->appid, lang,
+		"('%q', '%q', '%q', '%q')", up->appid,
 		icon, (char*)data, resolution);
 
 	ret = __exec_query(query);
@@ -689,6 +868,30 @@ static void __insert_uiapplication_icon_locale_info(gpointer data, gpointer user
 		DBG("Package UiApp Localized Info DB Insert failed\n");
 
 }
+
+static void __insert_uiapplication_image_info(gpointer data, gpointer userdata)
+{
+	int ret = -1;
+	char *lang = NULL;
+	char *img = NULL;
+	char query[MAX_QUERY_LEN] = {'\0'};
+
+	uiapplication_x *up = (uiapplication_x*)userdata;
+	image_x *image = up->image;
+
+	__extract_image_data(data, image, &lang, &img);
+	if (!lang && !img)
+		return;
+	sqlite3_snprintf(MAX_QUERY_LEN, query, "insert into package_app_image_info(app_id, app_locale, " \
+		"app_image_section, app_image) values " \
+		"('%q', '%q', '%q', '%q')", up->appid, lang, (char*)data, img);
+
+	ret = __exec_query(query);
+	if (ret == -1)
+		DBG("Package UiApp image Info DB Insert failed\n");
+
+}
+
 
 static void __insert_serviceapplication_locale_info(gpointer data, gpointer userdata)
 {
@@ -736,15 +939,30 @@ static int __insert_ui_mainapp_info(manifest_x *mfx)
 	}
 
 	if (mfx->mainapp_id == NULL){
-		snprintf(query, MAX_QUERY_LEN,
+		if (mfx->uiapplication
+		&& mfx->uiapplication->appid) {
+			snprintf(query, MAX_QUERY_LEN,
 			"update package_app_info set app_mainapp='true' where app_id='%s'", mfx->uiapplication->appid);
+		} else if (mfx->serviceapplication
+			&& mfx->serviceapplication->appid) {
+	                snprintf(query, MAX_QUERY_LEN,
+                        "update package_app_info set app_mainapp='true' where app_id='%s'", mfx->serviceapplication->appid);
+                } else {
+			DBG("Not valid appid\n");
+                        return -1;
+		}
+
 		ret = __exec_query(query);
 		if (ret == -1) {
 			DBG("Package UiApp Info DB Insert Failed\n");
 			return -1;
 		}
-		mfx->mainapp_id = strdup(mfx->uiapplication->appid);
-	}
+                if (mfx->uiapplication && mfx->uiapplication->appid)
+                        mfx->mainapp_id = strdup(mfx->uiapplication->appid);
+                else if (mfx->serviceapplication && mfx->serviceapplication->appid)
+                        mfx->mainapp_id = strdup(mfx->serviceapplication->appid);
+
+}
 
 	memset(query, '\0', MAX_QUERY_LEN);
 	snprintf(query, MAX_QUERY_LEN,
@@ -757,7 +975,9 @@ static int __insert_ui_mainapp_info(manifest_x *mfx)
 
 	return 0;
 }
-
+/* _PRODUCT_LAUNCHING_ENHANCED_
+*  up->indicatordisplay, up->portraitimg, up->landscapeimg, up->guestmode_appstatus
+*/
 static int __insert_uiapplication_info(manifest_x *mfx)
 {
 	uiapplication_x *up = mfx->uiapplication;
@@ -767,10 +987,10 @@ static int __insert_uiapplication_info(manifest_x *mfx)
 	{
 		snprintf(query, MAX_QUERY_LEN,
 			 "insert into package_app_info(app_id, app_component, app_exec, app_nodisplay, app_type, app_onboot, " \
-			"app_multiple, app_autorestart, app_taskmanage, app_hwacceleration, app_mainapp , app_recentimage, package) " \
-			"values('%s', '%s', '%s', '%s', '%s', '%s','%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
+			"app_multiple, app_autorestart, app_taskmanage, app_enabled, app_hwacceleration, app_mainapp , app_recentimage, app_indicatordisplay, app_portraitimg, app_landscapeimg, app_guestmodevisibility, package) " \
+			"values('%s', '%s', '%s', '%s', '%s', '%s','%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
 			 up->appid, "uiapp", up->exec, up->nodisplay, up->type, "\0", up->multiple,
-			 "\0", up->taskmanage, up->hwacceleration,up->mainapp, up->recentimage, mfx->package);
+			 "\0", up->taskmanage, up->enabled, up->hwacceleration,up->mainapp, up->recentimage, up->indicatordisplay, up->portraitimg, up->landscapeimg, up->guestmode_visibility, mfx->package);
 		ret = __exec_query(query);
 		if (ret == -1) {
 			DBG("Package UiApp Info DB Insert Failed\n");
@@ -803,6 +1023,64 @@ static int __insert_uiapplication_appcategory_info(manifest_x *mfx)
 				return -1;
 			}
 			ct = ct->next;
+			memset(query, '\0', MAX_QUERY_LEN);
+		}
+		up = up->next;
+	}
+	return 0;
+}
+
+static int __insert_uiapplication_appmetadata_info(manifest_x *mfx)
+{
+	uiapplication_x *up = mfx->uiapplication;
+	metadata_x *md = NULL;
+	int ret = -1;
+	char query[MAX_QUERY_LEN] = {'\0'};
+	while(up != NULL)
+	{
+		md = up->metadata;
+		while (md != NULL)
+		{
+			if (md->name && md->value) {
+				snprintf(query, MAX_QUERY_LEN,
+					"insert into package_app_app_metadata(app_id, md_name, md_value) " \
+					"values('%s','%s', '%s')",\
+					 up->appid, md->name, md->value);
+				ret = __exec_query(query);
+				if (ret == -1) {
+					DBG("Package UiApp Metadata Info DB Insert Failed\n");
+					return -1;
+				}
+			}
+			md = md->next;
+			memset(query, '\0', MAX_QUERY_LEN);
+		}
+		up = up->next;
+	}
+	return 0;
+}
+
+static int __insert_uiapplication_apppermission_info(manifest_x *mfx)
+{
+	uiapplication_x *up = mfx->uiapplication;
+	permission_x *pm = NULL;
+	int ret = -1;
+	char query[MAX_QUERY_LEN] = {'\0'};
+	while(up != NULL)
+	{
+		pm = up->permission;
+		while (pm != NULL)
+		{
+			snprintf(query, MAX_QUERY_LEN,
+				"insert into package_app_app_permission(app_id, pm_type, pm_value) " \
+				"values('%s','%s', '%s')",\
+				 up->appid, pm->type, pm->value);
+			ret = __exec_query(query);
+			if (ret == -1) {
+				DBG("Package UiApp permission Info DB Insert Failed\n");
+				return -1;
+			}
+			pm = pm->next;
 			memset(query, '\0', MAX_QUERY_LEN);
 		}
 		up = up->next;
@@ -1040,11 +1318,11 @@ static int __insert_serviceapplication_info(manifest_x *mfx)
 	while(sp != NULL)
 	{
 		snprintf(query, MAX_QUERY_LEN,
-			 "insert into package_app_info(app_id, app_component, app_exec, app_nodisplay, app_type, app_onboot, " \
-			"app_multiple, app_autorestart, package) " \
+			 "insert into package_app_info(app_id, app_component, app_exec, app_type, app_onboot, " \
+			"app_multiple, app_autorestart, app_enabled, package) " \
 			"values('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
-			 sp->appid, "svcapp", sp->exec, "\0", sp->type, sp->onboot, "\0",
-			 sp->autorestart, mfx->package);
+			 sp->appid, "svcapp", sp->exec, sp->type, sp->onboot, "\0",
+			 sp->autorestart, sp->enabled, mfx->package);
 		ret = __exec_query(query);
 		if (ret == -1) {
 			DBG("Package ServiceApp Info DB Insert Failed\n");
@@ -1077,6 +1355,64 @@ static int __insert_serviceapplication_appcategory_info(manifest_x *mfx)
 				return -1;
 			}
 			ct = ct->next;
+			memset(query, '\0', MAX_QUERY_LEN);
+		}
+		sp = sp->next;
+	}
+	return 0;
+}
+
+static int __insert_serviceapplication_appmetadata_info(manifest_x *mfx)
+{
+	serviceapplication_x *sp = mfx->serviceapplication;
+	metadata_x *md = NULL;
+	int ret = -1;
+	char query[MAX_QUERY_LEN] = {'\0'};
+	while(sp != NULL)
+	{
+		md = sp->metadata;
+		while (md != NULL)
+		{
+			if (md->name && md->value) {
+				snprintf(query, MAX_QUERY_LEN,
+					"insert into package_app_app_metadata(app_id, md_name, md_value) " \
+					"values('%s','%s', '%s')",\
+					 sp->appid, md->name, md->value);
+				ret = __exec_query(query);
+				if (ret == -1) {
+					DBG("Package ServiceApp Metadata Info DB Insert Failed\n");
+					return -1;
+				}
+			}
+			md = md->next;
+			memset(query, '\0', MAX_QUERY_LEN);
+		}
+		sp = sp->next;
+	}
+	return 0;
+}
+
+static int __insert_serviceapplication_apppermission_info(manifest_x *mfx)
+{
+	serviceapplication_x *sp = mfx->serviceapplication;
+	permission_x *pm = NULL;
+	int ret = -1;
+	char query[MAX_QUERY_LEN] = {'\0'};
+	while(sp != NULL)
+	{
+		pm = sp->permission;
+		while (pm != NULL)
+		{
+			snprintf(query, MAX_QUERY_LEN,
+				"insert into package_app_app_permission(app_id, pm_type, pm_value) " \
+				"values('%s','%s', '%s')",\
+				 sp->appid, pm->type, pm->value);
+			ret = __exec_query(query);
+			if (ret == -1) {
+				DBG("Package ServiceApp permission Info DB Insert Failed\n");
+				return -1;
+			}
+			pm = pm->next;
 			memset(query, '\0', MAX_QUERY_LEN);
 		}
 		sp = sp->next;
@@ -1315,10 +1651,12 @@ static int __insert_manifest_info_in_db(manifest_x *mfx)
 	author_x *ath = mfx->author;
 	uiapplication_x *up = mfx->uiapplication;
 	uiapplication_x *up_icn = mfx->uiapplication;
+	uiapplication_x *up_image = mfx->uiapplication;
 	serviceapplication_x *sp = mfx->serviceapplication;
 	char query[MAX_QUERY_LEN] = { '\0' };
 	int ret = -1;
 	char *type = NULL;
+	char *path = NULL;
 	char *auth_name = NULL;
 	char *auth_email = NULL;
 	char *auth_href = NULL;
@@ -1336,12 +1674,21 @@ static int __insert_manifest_info_in_db(manifest_x *mfx)
 		type = strdup(mfx->type);
 	else
 		type = strdup("rpm");
+	/*Insert in the package_info DB*/
+	if (mfx->root_path)
+		path = strdup(mfx->root_path);
+	else{
+		if (strcmp(type,"rpm")==0)
+			path = strdup("/usr/apps");
+		else
+			path = strdup("/opt/usr/apps");
+	}
 	snprintf(query, MAX_QUERY_LEN,
 		 "insert into package_info(package, package_type, package_version, install_location, package_size, " \
-		"package_removable, package_preload, package_readonly, author_name, author_email, author_href, installed_time, storeclient_id, mainapp_id, package_url) " \
-		"values('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
+		"package_removable, package_preload, package_readonly, author_name, author_email, author_href, installed_time, storeclient_id, mainapp_id, package_url, root_path) " \
+		"values('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
 		 mfx->package, type, mfx->version, mfx->installlocation, mfx->package_size, mfx->removable, mfx->preload,
-		 mfx->readonly, auth_name, auth_email, auth_href, mfx->installed_time, mfx->storeclient_id, mfx->mainapp_id, mfx->package_url);
+		 mfx->readonly, auth_name, auth_email, auth_href, mfx->installed_time, mfx->storeclient_id, mfx->mainapp_id, mfx->package_url, path);
 	ret = __exec_query(query);
 	if (ret == -1) {
 		DBG("Package Info DB Insert Failed\n");
@@ -1349,11 +1696,19 @@ static int __insert_manifest_info_in_db(manifest_x *mfx)
 			free(type);
 			type = NULL;
 		}
+		if (path) {
+			free(path);
+			path = NULL;
+		}
 		return -1;
 	}
 	if (type) {
 		free(type);
 		type = NULL;
+	}
+	if (path) {
+		free(path);
+		path = NULL;
 	}
 	/*Insert the package locale and app locale info */
 	pkglocale = __create_locale_list(pkglocale, lbl, lcn, icn, dcn, ath);
@@ -1382,6 +1737,15 @@ static int __insert_manifest_info_in_db(manifest_x *mfx)
 	g_list_foreach(appicon, __trimfunc3, NULL);
 	prev = NULL;
 
+	/*Insert the image info */
+	while(up_image != NULL)
+	{
+		appimage = __create_image_list(appimage, up_image->image);
+		up_image = up_image->next;
+	}
+	g_list_foreach(appimage, __trimfunc4, NULL);
+	prev = NULL;
+
 	/*g_list_foreach(pkglocale, __printfunc, NULL);*/
 	/*DBG("\n");*/
 	/*g_list_foreach(applocale, __printfunc, NULL);*/
@@ -1407,8 +1771,16 @@ static int __insert_manifest_info_in_db(manifest_x *mfx)
 	up_icn = mfx->uiapplication;
 	while(up_icn != NULL)
 	{
-		g_list_foreach(appicon, __insert_uiapplication_icon_locale_info, (gpointer)up_icn);
+		g_list_foreach(appicon, __insert_uiapplication_icon_section_info, (gpointer)up_icn);
 		up_icn = up_icn->next;
+	}
+
+	/*app image info*/
+	up_image = mfx->uiapplication;
+	while(up_image != NULL)
+	{
+		g_list_foreach(appimage, __insert_uiapplication_image_info, (gpointer)up_image);
+		up_image = up_image->next;
 	}
 
 	g_list_free(pkglocale);
@@ -1417,6 +1789,8 @@ static int __insert_manifest_info_in_db(manifest_x *mfx)
 	applocale = NULL;
 	g_list_free(appicon);
 	appicon = NULL;
+	g_list_free(appimage);
+	appimage = NULL;
 
 
 	/*Insert in the package_app_info DB*/
@@ -1443,6 +1817,22 @@ static int __insert_manifest_info_in_db(manifest_x *mfx)
 	if (ret == -1)
 		return -1;
 	ret = __insert_serviceapplication_appcategory_info(mfx);
+	if (ret == -1)
+		return -1;
+
+	/*Insert in the package_app_app_metadata DB*/
+	ret = __insert_uiapplication_appmetadata_info(mfx);
+	if (ret == -1)
+		return -1;
+	ret = __insert_serviceapplication_appmetadata_info(mfx);
+	if (ret == -1)
+		return -1;
+
+	/*Insert in the package_app_app_permission DB*/
+	ret = __insert_uiapplication_apppermission_info(mfx);
+	if (ret == -1)
+		return -1;
+	ret = __insert_serviceapplication_apppermission_info(mfx);
 	if (ret == -1)
 		return -1;
 
@@ -1613,6 +2003,36 @@ static int __delete_manifest_info_from_db(manifest_x *mfx)
 		sp = sp->next;
 	}
 
+	/*Delete from  App icon localized Info*/
+	up = mfx->uiapplication;
+	while(up != NULL)
+	{
+		snprintf(query, MAX_QUERY_LEN,
+			 "delete from package_app_icon_section_info where app_id='%s'", up->appid);
+		ret = __exec_query(query);
+		if (ret == -1) {
+			DBG("Package App image Info DB Delete Failed\n");
+			return -1;
+		}
+		memset(query, '\0', MAX_QUERY_LEN);
+		up = up->next;
+	}
+
+	/*Delete from  App image Info*/
+	up = mfx->uiapplication;
+	while(up != NULL)
+	{
+		snprintf(query, MAX_QUERY_LEN,
+			 "delete from package_app_image_info where app_id='%s'", up->appid);
+		ret = __exec_query(query);
+		if (ret == -1) {
+			DBG("Package App image Info DB Delete Failed\n");
+			return -1;
+		}
+		memset(query, '\0', MAX_QUERY_LEN);
+		up = up->next;
+	}
+
 	/*Delete from Package App App-Svc*/
 	up = mfx->uiapplication;
 	sp = mfx->serviceapplication;
@@ -1691,6 +2111,62 @@ static int __delete_manifest_info_from_db(manifest_x *mfx)
 		ret = __exec_query(query);
 		if (ret == -1) {
 			DBG("Package App App-Category DB Delete Failed\n");
+			return -1;
+		}
+		memset(query, '\0', MAX_QUERY_LEN);
+		sp = sp->next;
+	}
+
+	/*Delete from Package App App-Metadata*/
+	up = mfx->uiapplication;
+	sp = mfx->serviceapplication;
+	while(up != NULL)
+	{
+		snprintf(query, MAX_QUERY_LEN,
+			 "delete from package_app_app_metadata where app_id='%s'", up->appid);
+		ret = __exec_query(query);
+		if (ret == -1) {
+			DBG("Package App App-Metadata DB Delete Failed\n");
+			return -1;
+		}
+		memset(query, '\0', MAX_QUERY_LEN);
+		up = up->next;
+	}
+	while(sp != NULL)
+	{
+		snprintf(query, MAX_QUERY_LEN,
+			 "delete from package_app_app_metadata where app_id='%s'", sp->appid);
+		ret = __exec_query(query);
+		if (ret == -1) {
+			DBG("Package App App-Metadata DB Delete Failed\n");
+			return -1;
+		}
+		memset(query, '\0', MAX_QUERY_LEN);
+		sp = sp->next;
+	}
+
+	/*Delete from Package App App-permission*/
+	up = mfx->uiapplication;
+	sp = mfx->serviceapplication;
+	while(up != NULL)
+	{
+		snprintf(query, MAX_QUERY_LEN,
+			 "delete from package_app_app_permission where app_id='%s'", up->appid);
+		ret = __exec_query(query);
+		if (ret == -1) {
+			DBG("Package App App-permission DB Delete Failed\n");
+			return -1;
+		}
+		memset(query, '\0', MAX_QUERY_LEN);
+		up = up->next;
+	}
+	while(sp != NULL)
+	{
+		snprintf(query, MAX_QUERY_LEN,
+			 "delete from package_app_app_permission where app_id='%s'", sp->appid);
+		ret = __exec_query(query);
+		if (ret == -1) {
+			DBG("Package App App-permission DB Delete Failed\n");
 			return -1;
 		}
 		memset(query, '\0', MAX_QUERY_LEN);
@@ -1784,9 +2260,14 @@ int pkgmgr_parser_initialize_db()
 		DBG("package app localized info DB initialization failed\n");
 		return ret;
 	}
-	ret = __initialize_package_app_icon_localized_info_db();
+	ret = __initialize_package_app_icon_section_info_db();
 	if (ret == -1) {
 		DBG("package app icon localized info DB initialization failed\n");
+		return ret;
+	}
+	ret = __initialize_package_app_image_info_db();
+	if (ret == -1) {
+		DBG("package app image info DB initialization failed\n");
 		return ret;
 	}
 	ret = __initialize_package_app_app_control_db();
@@ -1797,6 +2278,16 @@ int pkgmgr_parser_initialize_db()
 	ret = __initialize_package_app_app_category_db();
 	if (ret == -1) {
 		DBG("package app app category DB initialization failed\n");
+		return ret;
+	}
+	ret = __initialize_package_app_app_metadata_db();
+	if (ret == -1) {
+		DBG("package app app category DB initialization failed\n");
+		return ret;
+	}
+	ret = __initialize_package_app_app_permission_db();
+	if (ret == -1) {
+		DBG("package app app permission DB initialization failed\n");
 		return ret;
 	}
 	ret = __initialize_package_app_app_svc_db();
@@ -1829,6 +2320,9 @@ int pkgmgr_parser_check_and_create_db()
 			       PKGMGR_PARSER_DB_FILE);
 			return -1;
 		}
+		ret = chmod(PKGMGR_PARSER_DB_FILE, 0664);
+		if (ret)
+			DBG("Failed to change mode of manifest DB\n");
 		return 0;
 	}
 	DBG("Pkgmgr DB does not exists. Create one!!\n");
@@ -1841,6 +2335,9 @@ int pkgmgr_parser_check_and_create_db()
 		DBG("connect db [%s] failed!\n", PKGMGR_PARSER_DB_FILE);
 		return -1;
 	}
+	ret = chmod(PKGMGR_PARSER_DB_FILE, 0664);
+	if (ret)
+		DBG("Failed to change mode of manifest DB\n");
 	return 0;
 }
 
@@ -1902,7 +2399,8 @@ API int pkgmgr_parser_update_manifest_info_in_db(manifest_x *mfx)
 	ret = pkgmgr_parser_initialize_db();
 	if (ret == -1)
 		return ret;
-
+	/*Preserve guest mode visibility*/
+	__preserve_guestmode_visibility_value( mfx);
 	/*Begin transaction*/
 	ret = sqlite3_exec(pkgmgr_parser_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
 	if (ret != SQLITE_OK) {

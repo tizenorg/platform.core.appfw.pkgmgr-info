@@ -1,7 +1,7 @@
 Name:       pkgmgr-info
 Summary:    Packager Manager infomation api for package
-Version:    0.0.54
-Release:    1
+Version:    0.0.83
+Release:    2
 Group:      System/Libraries
 License:    Apache License, Version 2.0
 Source0:    %{name}-%{version}.tar.gz
@@ -99,6 +99,7 @@ rm -rf %{buildroot}
 %files parser-devel
 %defattr(-,root,root,-)
 %{_includedir}/pkgmgr/pkgmgr_parser.h
+%{_includedir}/pkgmgr/pkgmgr_parser_db.h
 %{_libdir}/pkgconfig/pkgmgr-parser.pc
 %{_libdir}/libpkgmgr_parser.so
 

@@ -64,6 +64,9 @@ INSTALL(TARGETS
 INSTALL(FILES
 			pkgmgr_parser.h
 		DESTINATION include/pkgmgr)
+INSTALL(FILES
+			pkgmgr_parser_db.h
+		DESTINATION include/pkgmgr)
 
 INSTALL(FILES
 		${CMAKE_CURRENT_BINARY_DIR}/pkgmgr-parser.pc

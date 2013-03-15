@@ -60,6 +60,8 @@ static int __ps_process_subapp(xmlTextReaderPtr reader, subapp_x *subapp);
 static int __ps_process_condition(xmlTextReaderPtr reader, condition_x *condition);
 static int __ps_process_notification(xmlTextReaderPtr reader, notification_x *notifiation);
 static int __ps_process_category(xmlTextReaderPtr reader, category_x *category);
+static int __ps_process_metadata(xmlTextReaderPtr reader, metadata_x *metadata);
+static int __ps_process_permission(xmlTextReaderPtr reader, permission_x *permission);
 static int __ps_process_compatibility(xmlTextReaderPtr reader, compatibility_x *compatibility);
 static int __ps_process_resolution(xmlTextReaderPtr reader, resolution_x *resolution);
 static int __ps_process_request(xmlTextReaderPtr reader, request_x *request);
@@ -93,6 +95,8 @@ static void __ps_free_subapp(subapp_x *subapp);
 static void __ps_free_condition(condition_x *condition);
 static void __ps_free_notification(notification_x *notifiation);
 static void __ps_free_category(category_x *category);
+static void __ps_free_metadata(metadata_x *metadata);
+static void __ps_free_permission(permission_x *permission);
 static void __ps_free_compatibility(compatibility_x *compatibility);
 static void __ps_free_resolution(resolution_x *resolution);
 static void __ps_free_request(request_x *request);
@@ -600,6 +604,38 @@ static void __ps_free_category(category_x *category)
 	category = NULL;
 }
 
+static void __ps_free_metadata(metadata_x *metadata)
+{
+	if (metadata == NULL)
+		return;
+	if (metadata->name) {
+		free((void *)metadata->name);
+		metadata->name = NULL;
+	}
+	if (metadata->value) {
+		free((void *)metadata->value);
+		metadata->value = NULL;
+	}
+	free((void*)metadata);
+	metadata = NULL;
+}
+
+static void __ps_free_permission(permission_x *permission)
+{
+	if (permission == NULL)
+		return;
+	if (permission->type) {
+		free((void *)permission->type);
+		permission->type = NULL;
+	}
+	if (permission->value) {
+		free((void *)permission->value);
+		permission->value = NULL;
+	}
+	free((void*)permission);
+	permission = NULL;
+}
+
 static void __ps_free_icon(icon_x *icon)
 {
 	if (icon == NULL)
@@ -630,6 +666,30 @@ static void __ps_free_icon(icon_x *icon)
 	}
 	free((void*)icon);
 	icon = NULL;
+}
+
+static void __ps_free_image(image_x *image)
+{
+	if (image == NULL)
+		return;
+	if (image->text) {
+		free((void *)image->text);
+		image->text = NULL;
+	}
+	if (image->lang) {
+		free((void *)image->lang);
+		image->lang = NULL;
+	}
+	if (image->name) {
+		free((void *)image->name);
+		image->name= NULL;
+	}
+	if (image->section) {
+		free((void *)image->section);
+		image->section = NULL;
+	}
+	free((void*)image);
+	image = NULL;
 }
 
 static void __ps_free_operation(operation_x *operation)
@@ -1186,6 +1246,10 @@ static void __ps_free_uiapplication(uiapplication_x *uiapplication)
 		free((void *)uiapplication->taskmanage);
 		uiapplication->taskmanage = NULL;
 	}
+	if (uiapplication->enabled) {
+		free((void *)uiapplication->enabled);
+		uiapplication->enabled = NULL;
+	}
 	if (uiapplication->hwacceleration) {
 		free((void *)uiapplication->hwacceleration);
 		uiapplication->hwacceleration = NULL;
@@ -1218,6 +1282,17 @@ static void __ps_free_uiapplication(uiapplication_x *uiapplication)
 			tmp = icon->next;
 			__ps_free_icon(icon);
 			icon = tmp;
+		}
+	}
+	/*Free image*/
+	if (uiapplication->image) {
+		image_x *image = uiapplication->image;
+		image_x *tmp = NULL;
+		while(image != NULL)
+		{
+			tmp = image->next;
+			__ps_free_image(image);
+			image = tmp;
 		}
 	}
 	/*Free AppControl*/
@@ -1285,6 +1360,46 @@ static void __ps_free_uiapplication(uiapplication_x *uiapplication)
 			__ps_free_category(category);
 			category = tmp;
 		}
+	}
+	/*Free Metadata*/
+	if (uiapplication->metadata) {
+		metadata_x *metadata = uiapplication->metadata;
+		metadata_x *tmp = NULL;
+		while(metadata != NULL)
+		{
+			tmp = metadata->next;
+			__ps_free_metadata(metadata);
+			metadata = tmp;
+		}
+	}
+	/*Free permission*/
+	if (uiapplication->permission) {
+		permission_x *permission = uiapplication->permission;
+		permission_x *tmp = NULL;
+		while(permission != NULL)
+		{
+			tmp = permission->next;
+			__ps_free_permission(permission);
+			permission = tmp;
+		}
+	}
+	/* _PRODUCT_LAUNCHING_ENHANCED_ START */
+	if (uiapplication->indicatordisplay) {
+		free((void *)uiapplication->indicatordisplay);
+		uiapplication->indicatordisplay = NULL;
+	}
+	if (uiapplication->portraitimg) {
+		free((void *)uiapplication->portraitimg);
+		uiapplication->portraitimg = NULL;
+	}
+	if (uiapplication->landscapeimg) {
+		free((void *)uiapplication->landscapeimg);
+		uiapplication->landscapeimg = NULL;
+	}
+	/* _PRODUCT_LAUNCHING_ENHANCED_ END */
+	if (uiapplication->guestmode_visibility) {
+		free((void *)uiapplication->guestmode_visibility);
+		uiapplication->guestmode_visibility = NULL;
 	}
 	free((void*)uiapplication);
 	uiapplication = NULL;
@@ -1411,6 +1526,28 @@ static void __ps_free_serviceapplication(serviceapplication_x *serviceapplicatio
 			tmp = category->next;
 			__ps_free_category(category);
 			category = tmp;
+		}
+	}
+	/*Free Metadata*/
+	if (serviceapplication->metadata) {
+		metadata_x *metadata = serviceapplication->metadata;
+		metadata_x *tmp = NULL;
+		while(metadata != NULL)
+		{
+			tmp = metadata->next;
+			__ps_free_metadata(metadata);
+			metadata = tmp;
+		}
+	}
+	/*Free permission*/
+	if (serviceapplication->permission) {
+		permission_x *permission = serviceapplication->permission;
+		permission_x *tmp = NULL;
+		while(permission != NULL)
+		{
+			tmp = permission->next;
+			__ps_free_permission(permission);
+			permission = tmp;
 		}
 	}
 	free((void*)serviceapplication);
@@ -1563,6 +1700,27 @@ static int __ps_process_category(xmlTextReaderPtr reader, category_x *category)
 	if (xmlTextReaderGetAttribute(reader, XMLCHAR("name")))
 		category->name = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("name")));
 	return 0;
+}
+
+static int __ps_process_metadata(xmlTextReaderPtr reader, metadata_x *metadata)
+{
+	/*name and value both should exist. If any one attribute is missing then dont parse*/
+	if (xmlTextReaderGetAttribute(reader, XMLCHAR("name")) && xmlTextReaderGetAttribute(reader, XMLCHAR("value"))) {
+		metadata->name = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("name")));
+		metadata->value = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("value")));
+	}
+	return 0;
+}
+
+static int __ps_process_permission(xmlTextReaderPtr reader, permission_x *permission)
+{
+	if (xmlTextReaderGetAttribute(reader, XMLCHAR("type")))
+		permission->type = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("type")));
+
+	xmlTextReaderRead(reader);
+	if (xmlTextReaderValue(reader))
+		permission->value = ASCII(xmlTextReaderValue(reader));
+
 }
 
 static int __ps_process_compatibility(xmlTextReaderPtr reader, compatibility_x *compatibility)
@@ -2038,6 +2196,26 @@ static int __ps_process_icon(xmlTextReaderPtr reader, icon_x *icon)
 	return 0;
 }
 
+static int __ps_process_image(xmlTextReaderPtr reader, image_x *image)
+{
+	if (xmlTextReaderGetAttribute(reader, XMLCHAR("name")))
+		image->name = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("name")));
+	if (xmlTextReaderConstXmlLang(reader)) {
+		image->lang = strdup(ASCII(xmlTextReaderConstXmlLang(reader)));
+		if (image->lang == NULL)
+			image->lang = strdup(DEFAULT_LOCALE);
+	} else {
+		image->lang = strdup(DEFAULT_LOCALE);
+	}
+	if (xmlTextReaderGetAttribute(reader, XMLCHAR("section")))
+		image->section = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("section")));
+	xmlTextReaderRead(reader);
+	if (xmlTextReaderValue(reader))
+		image->text = ASCII(xmlTextReaderValue(reader));
+
+	return 0;
+}
+
 static int __ps_process_label(xmlTextReaderPtr reader, label_x *label)
 {
 	if (xmlTextReaderGetAttribute(reader, XMLCHAR("name")))
@@ -2210,6 +2388,9 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 	notification_x *tmp6 = NULL;
 	datashare_x *tmp7 = NULL;
 	category_x *tmp8 = NULL;
+	metadata_x *tmp9 = NULL;
+	image_x *tmp10 = NULL;
+	permission_x *tmp11 = NULL;
 
 	if (xmlTextReaderGetAttribute(reader, XMLCHAR("appid"))) {
 		uiapplication->appid = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("appid")));
@@ -2262,6 +2443,13 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 	} else {
 		uiapplication->taskmanage = strdup("true");
 	}
+	if (xmlTextReaderGetAttribute(reader, XMLCHAR("enabled"))) {
+		uiapplication->enabled = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("enabled")));
+		if (uiapplication->enabled == NULL)
+			uiapplication->enabled = strdup("true");
+	} else {
+		uiapplication->enabled = strdup("true");
+	}
 	if (xmlTextReaderGetAttribute(reader, XMLCHAR("hw-acceleration"))) {
 		uiapplication->hwacceleration = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("hw-acceleration")));
 		if (uiapplication->hwacceleration == NULL)
@@ -2277,6 +2465,28 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 			uiapplication->mainapp = strdup("false");
 	} else {
 		uiapplication->mainapp = strdup("false");
+	}
+	if (xmlTextReaderGetAttribute(reader, XMLCHAR("indicatordisplay"))) {
+		uiapplication->indicatordisplay = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("indicatordisplay")));
+		if (uiapplication->indicatordisplay == NULL)
+			uiapplication->indicatordisplay = strdup("true");
+	} else {
+		uiapplication->indicatordisplay = strdup("true");
+	}
+	if (xmlTextReaderGetAttribute(reader, XMLCHAR("portrait-effectimage")))
+		uiapplication->portraitimg = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("portrait-effectimage")));
+	else
+		uiapplication->portraitimg = NULL;
+	if (xmlTextReaderGetAttribute(reader, XMLCHAR("landscape-effectimage")))
+		uiapplication->landscapeimg = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("landscape-effectimage")));
+	else
+		uiapplication->landscapeimg = NULL;
+	if (xmlTextReaderGetAttribute(reader, XMLCHAR("guestmode-visibility"))) {
+		uiapplication->guestmode_visibility = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("guestmode-visibility")));
+		if (uiapplication->guestmode_visibility == NULL)
+			uiapplication->guestmode_visibility = strdup("true");
+	} else {
+		uiapplication->guestmode_visibility = strdup("true");
 	}
 
 	depth = xmlTextReaderDepth(reader);
@@ -2304,6 +2514,15 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 			memset(icon, '\0', sizeof(icon_x));
 			LISTADD(uiapplication->icon, icon);
 			ret = __ps_process_icon(reader, icon);
+		} else if (!strcmp(ASCII(node), "image")) {
+			image_x *image = malloc(sizeof(image_x));
+			if (image == NULL) {
+				DBG("Malloc Failed\n");
+				return -1;
+			}
+			memset(image, '\0', sizeof(image_x));
+			LISTADD(uiapplication->image, image);
+			ret = __ps_process_image(reader, image);
 		} else if (!strcmp(ASCII(node), "category")) {
 			category_x *category = malloc(sizeof(category_x));
 			if (category == NULL) {
@@ -2313,6 +2532,24 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 			memset(category, '\0', sizeof(category_x));
 			LISTADD(uiapplication->category, category);
 			ret = __ps_process_category(reader, category);
+		} else if (!strcmp(ASCII(node), "metadata")) {
+			metadata_x *metadata = malloc(sizeof(metadata_x));
+			if (metadata == NULL) {
+				DBG("Malloc Failed\n");
+				return -1;
+			}
+			memset(metadata, '\0', sizeof(metadata_x));
+			LISTADD(uiapplication->metadata, metadata);
+			ret = __ps_process_metadata(reader, metadata);
+		} else if (!strcmp(ASCII(node), "permission")) {
+			permission_x *permission = malloc(sizeof(permission_x));
+			if (permission == NULL) {
+				DBG("Malloc Failed\n");
+				return -1;
+			}
+			memset(permission, '\0', sizeof(permission_x));
+			LISTADD(uiapplication->permission, permission);
+			ret = __ps_process_permission(reader, permission);
 		} else if (!strcmp(ASCII(node), "app-control")) {
 			appcontrol_x *appcontrol = malloc(sizeof(appcontrol_x));
 			if (appcontrol == NULL) {
@@ -2398,6 +2635,18 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 		LISTHEAD(uiapplication->category, tmp8);
 		uiapplication->category = tmp8;
 	}
+	if (uiapplication->metadata) {
+		LISTHEAD(uiapplication->metadata, tmp9);
+		uiapplication->metadata = tmp9;
+	}
+	if (uiapplication->image) {
+		LISTHEAD(uiapplication->image, tmp10);
+		uiapplication->image = tmp10;
+	}
+	if (uiapplication->permission) {
+		LISTHEAD(uiapplication->permission, tmp11);
+		uiapplication->permission = tmp11;
+	}
 
 	return ret;
 }
@@ -2417,6 +2666,8 @@ static int __ps_process_serviceapplication(xmlTextReaderPtr reader, serviceappli
 	notification_x *tmp7 = NULL;
 	datashare_x *tmp8 = NULL;
 	category_x *tmp9 = NULL;
+	metadata_x *tmp10 = NULL;
+	permission_x *tmp11 = NULL;
 
 	if (xmlTextReaderGetAttribute(reader, XMLCHAR("appid"))) {
 		serviceapplication->appid = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("appid")));
@@ -2494,6 +2745,24 @@ static int __ps_process_serviceapplication(xmlTextReaderPtr reader, serviceappli
 			memset(category, '\0', sizeof(category_x));
 			LISTADD(serviceapplication->category, category);
 			ret = __ps_process_category(reader, category);
+		} else if (!strcmp(ASCII(node), "metadata")) {
+			metadata_x *metadata = malloc(sizeof(metadata_x));
+			if (metadata == NULL) {
+				DBG("Malloc Failed\n");
+				return -1;
+			}
+			memset(metadata, '\0', sizeof(metadata_x));
+			LISTADD(serviceapplication->metadata, metadata);
+			ret = __ps_process_metadata(reader, metadata);
+		} else if (!strcmp(ASCII(node), "permission")) {
+			permission_x *permission = malloc(sizeof(permission_x));
+			if (permission == NULL) {
+				DBG("Malloc Failed\n");
+				return -1;
+			}
+			memset(permission, '\0', sizeof(permission_x));
+			LISTADD(serviceapplication->permission, permission);
+			ret = __ps_process_permission(reader, permission);
 		} else if (!strcmp(ASCII(node), "app-control")) {
 			appcontrol_x *appcontrol = malloc(sizeof(appcontrol_x));
 			if (appcontrol == NULL) {
@@ -2591,6 +2860,14 @@ static int __ps_process_serviceapplication(xmlTextReaderPtr reader, serviceappli
 	if (serviceapplication->category) {
 		LISTHEAD(serviceapplication->category, tmp9);
 		serviceapplication->category = tmp9;
+	}
+	if (serviceapplication->metadata) {
+		LISTHEAD(serviceapplication->metadata, tmp10);
+		serviceapplication->metadata = tmp10;
+	}
+	if (serviceapplication->permission) {
+		LISTHEAD(serviceapplication->permission, tmp11);
+		serviceapplication->permission = tmp11;
 	}
 
 	return ret;
@@ -2775,9 +3052,9 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx)
 			continue;
 		} else if (!strcmp(ASCII(node), "livebox")) {
 			continue;
-		} else if (!strcmp(ASCII(node), "Accounts")) {
-			continue;
 		} else if (!strcmp(ASCII(node), "account")) {
+			continue;
+		} else if (!strcmp(ASCII(node), "notifications")) {
 			continue;
 		} else
 			return -1;
@@ -2878,6 +3155,9 @@ static int __process_manifest(xmlTextReaderPtr reader, manifest_x * mfx)
 				mfx->installlocation = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("install-location")));
 			if (xmlTextReaderGetAttribute(reader, XMLCHAR("type")))
 				mfx->type = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("type")));
+			if (xmlTextReaderGetAttribute(reader, XMLCHAR("root_path")))
+				mfx->root_path = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("root_path")));
+
 			/*Assign default values. If required it will be overwritten in __add_preload_info()*/
 			mfx->preload = strdup("False");
 			mfx->removable = strdup("True");
@@ -2920,11 +3200,64 @@ static char* __convert_to_system_locale(const char *mlocale)
 	return locale;
 }
 
+#define LIBAIL_PATH "/usr/lib/libail.so.0"
+
+/* operation_type */
+typedef enum {
+	AIL_INSTALL = 0,
+	AIL_UPDATE,
+	AIL_REMOVE,
+	AIL_MAX
+} AIL_TYPE;
+
+static int __ail_change_info(int op, const char *appid)
+{
+	void *lib_handle = NULL;
+	int (*ail_desktop_operation) (const char *);
+	char *aop = NULL;
+	int ret = 0;
+
+	if ((lib_handle = dlopen(LIBAIL_PATH, RTLD_LAZY)) == NULL) {
+		DBGE("dlopen is failed LIBAIL_PATH[%s]\n", LIBAIL_PATH);
+		goto END;
+	}
+
+
+	switch (op) {
+		case 0:
+			aop  = "ail_desktop_add";
+			break;
+		case 1:
+			aop  = "ail_desktop_update";
+			break;
+		case 2:
+			aop  = "ail_desktop_remove";
+			break;
+		default:
+			goto END;
+			break;
+	}
+
+	if ((ail_desktop_operation =
+	     dlsym(lib_handle, aop)) == NULL || dlerror() != NULL) {
+		DBGE("can not find symbol \n");
+		goto END;
+	}
+
+	ret = ail_desktop_operation(appid);
+
+END:
+	if (lib_handle)
+		dlclose(lib_handle);
+
+	return ret;
+}
+
 
 /* desktop shoud be generated automatically based on manifest */
 /* Currently removable, taskmanage, etc fields are not considerd. it will be decided soon.*/
 #define BUFMAX 1024*128
-static int __ps_make_nativeapp_desktop(manifest_x * mfx)
+static int __ps_make_nativeapp_desktop(manifest_x * mfx, bool is_update)
 {
         FILE* file = NULL;
         int fd = 0;
@@ -3030,6 +3363,11 @@ static int __ps_make_nativeapp_desktop(manifest_x * mfx)
 
 		if(mfx->uiapplication->taskmanage && !strcasecmp(mfx->uiapplication->taskmanage, "False")) {
 		        snprintf(buf, BUFMAX, "X-TIZEN-TaskManage=False\n");
+		        fwrite(buf, 1, strlen(buf), file);
+		}
+
+		if(mfx->uiapplication->enabled && !strcasecmp(mfx->uiapplication->enabled, "False")) {
+		        snprintf(buf, BUFMAX, "X-TIZEN-Enabled=False\n");
 		        fwrite(buf, 1, strlen(buf), file);
 		}
 
@@ -3231,6 +3569,11 @@ static int __ps_make_nativeapp_desktop(manifest_x * mfx)
 	        fd = fileno(file);
 	        fsync(fd);
 	        fclose(file);
+
+		if (!is_update)
+			__ail_change_info(AIL_INSTALL, mfx->uiapplication->appid);
+		else
+			__ail_change_info(AIL_UPDATE, mfx->uiapplication->appid);
 	}
 
 	free(buf);
@@ -3241,11 +3584,13 @@ static int __ps_make_nativeapp_desktop(manifest_x * mfx)
 
 static int __ps_remove_nativeapp_desktop(manifest_x *mfx)
 {
-    char filepath[PKG_STRING_LEN_MAX] = "";
+	char filepath[PKG_STRING_LEN_MAX] = "";
 	int ret = 0;
 
 	for(; mfx->uiapplication; mfx->uiapplication=mfx->uiapplication->next) {
 	        snprintf(filepath, sizeof(filepath),"%s%s.desktop", DESKTOP_RW_PATH, mfx->uiapplication->appid);
+
+		__ail_change_info(AIL_REMOVE, mfx->uiapplication->appid);
 
 		ret = remove(filepath);
 		if (ret <0)
@@ -3356,6 +3701,10 @@ API void pkgmgr_parser_free_manifest_xml(manifest_x *mfx)
 		free((void *)mfx->type);
 		mfx->type = NULL;
 	}
+	if (mfx->package_size) {
+		free((void *)mfx->package_size);
+		mfx->package_size = NULL;
+	}
 	if (mfx->installed_time) {
 		free((void *)mfx->installed_time);
 		mfx->installed_time = NULL;
@@ -3371,6 +3720,10 @@ API void pkgmgr_parser_free_manifest_xml(manifest_x *mfx)
 	if (mfx->package_url) {
 		free((void *)mfx->package_url);
 		mfx->package_url = NULL;
+	}
+	if (mfx->root_path) {
+		free((void *)mfx->root_path);
+		mfx->root_path = NULL;
 	}
 
 	/*Free Icon*/
@@ -3552,7 +3905,7 @@ API manifest_x *pkgmgr_parser_process_manifest_xml(const char *manifest)
 
 API int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char *const tagv[])
 {
-	char *temp[] = {"shortcut-list", "livebox", "Accounts", "account", NULL};
+	char *temp[] = {"shortcut-list", "livebox", "account", "notifications", NULL};
 	if (manifest == NULL) {
 		DBG("argument supplied is NULL\n");
 		return PMINFO_R_EINVAL;
@@ -3575,7 +3928,7 @@ API int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char
 	else
 		DBG("DB Insert Success\n");
 
-	ret = __ps_make_nativeapp_desktop(mfx);
+	ret = __ps_make_nativeapp_desktop(mfx, 0);
 	if (ret == -1)
 		DBG("Creating desktop file failed\n");
 	else
@@ -3588,9 +3941,25 @@ API int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char
 	return PMINFO_R_OK;
 }
 
+API int pkgmgr_parser_create_desktop_file(manifest_x *mfx)
+{
+        int ret = 0;
+	if (mfx == NULL) {
+		DBG("Manifest pointer is NULL\n");
+		return -1;
+	}
+        ret = __ps_make_nativeapp_desktop(mfx, 0);
+        if (ret == -1)
+                DBG("Creating desktop file failed\n");
+        else
+                DBG("Creating desktop file Success\n");
+        return ret;
+}
+
+
 API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *const tagv[])
 {
-	char *temp[] = {"shortcut-list", "livebox", "Accounts", "account", NULL};
+	char *temp[] = {"shortcut-list", "livebox", "account", "notifications", NULL};
 	if (manifest == NULL) {
 		DBG("argument supplied is NULL\n");
 		return PMINFO_R_EINVAL;
@@ -3613,7 +3982,7 @@ API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *con
 	else
 		DBG("DB Update Success\n");
 
-	ret = __ps_make_nativeapp_desktop(mfx);
+	ret = __ps_make_nativeapp_desktop(mfx, 1);
 	if (ret == -1)
 		DBG("Creating desktop file failed\n");
 	else
@@ -3628,7 +3997,7 @@ API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *con
 
 API int pkgmgr_parser_parse_manifest_for_uninstallation(const char *manifest, char *const tagv[])
 {
-	char *temp[] = {"shortcut-list", "livebox", "Accounts", "account", NULL};
+	char *temp[] = {"shortcut-list", "livebox", "account", "notifications", NULL};
 	if (manifest == NULL) {
 		DBG("argument supplied is NULL\n");
 		return PMINFO_R_EINVAL;

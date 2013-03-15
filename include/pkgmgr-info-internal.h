@@ -25,6 +25,7 @@
 #define __PKGMGR_INFO_INTERNAL_H__
 
 #include <dlog.h>
+#include "pkgmgr-info-debug.h"
 
 #ifndef DEPRECATED
 #define DEPRECATED	__attribute__ ((__deprecated__))
@@ -33,11 +34,6 @@
 #ifndef API
 #define API __attribute__ ((visibility("default")))
 #endif
-
-#define LOG_TAG		"PKGMGR_INFO"
-#define _LOGE(fmt, arg...) LOGE(fmt, ##arg)
-#define _LOGD(fmt, arg...) LOGD(fmt, ##arg)
-
 
 /*String properties for filtering based on package info*/
 typedef enum _pkgmgrinfo_pkginfo_filter_prop_str {
