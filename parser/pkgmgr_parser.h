@@ -433,9 +433,12 @@ typedef struct manifest_x {
 	const char *removable;		/**< package removable flag*/
 	const char *preload;		/**< package preload flag*/
 	const char *readonly;		/**< package readonly flag*/
+	const char *update;			/**< package update flag*/
+	const char *appsetting;		/**< package app setting flag*/
 	const char *type;		/**< package type*/
 	const char *package_size;		/**< package size for external installation*/
 	const char *installed_time;		/**< installed time after finishing of installation*/
+	const char *installed_storage;		/**< package currently installed storage*/
 	const char *storeclient_id;		/**< id of store client for installed package*/
 	const char *mainapp_id;		/**< app id of main application*/
 	const char *package_url;		/**< app id of main application*/

@@ -28,6 +28,7 @@
       <xs:attribute name="version" use="required" type="xs:NMTOKEN"/>
       <xs:attribute name="size" type="xs:NMTOKEN"/>
 	  <xs:attribute name="root_path" type="xs:string"/>
+	  <xs:attribute name="appsetting" type="xs:boolean"/>
     </xs:complexType>
   </xs:element>
 

@@ -327,6 +327,8 @@ typedef enum {
 #define	PMINFO_PKGINFO_PROP_PACKAGE_VERSION	"PMINFO_PKGINFO_PROP_PACKAGE_VERSION"
  /** String property for filtering based on package info*/
 #define	PMINFO_PKGINFO_PROP_PACKAGE_INSTALL_LOCATION		"PMINFO_PKGINFO_PROP_PACKAGE_INSTALL_LOCATION"
+  /** String property for filtering based on package info*/
+#define	PMINFO_PKGINFO_PROP_PACKAGE_INSTALLED_STORAGE		"PMINFO_PKGINFO_PROP_PACKAGE_INSTALLED_STORAGE"
  /** String property for filtering based on package info*/
 #define	PMINFO_PKGINFO_PROP_PACKAGE_AUTHOR_NAME		"PMINFO_PKGINFO_PROP_PACKAGE_AUTHOR_NAME"
  /** String property for filtering based on package info*/
@@ -340,6 +342,10 @@ typedef enum {
 #define	PMINFO_PKGINFO_PROP_PACKAGE_PRELOAD		"PMINFO_PKGINFO_PROP_PACKAGE_PRELOAD"
  /** Boolean property for filtering based on package info*/
 #define	PMINFO_PKGINFO_PROP_PACKAGE_READONLY		"PMINFO_PKGINFO_PROP_PACKAGE_READONLY"
+  /** Boolean property for filtering based on package info*/
+#define	PMINFO_PKGINFO_PROP_PACKAGE_UPDATE		"PMINFO_PKGINFO_PROP_PACKAGE_UPDATE"
+  /** Boolean property for filtering based on package info*/
+#define	PMINFO_PKGINFO_PROP_PACKAGE_APPSETTING		"PMINFO_PKGINFO_PROP_PACKAGE_APPSETTING"
 
  /** Integer property for filtering based on package info*/
 #define	PMINFO_PKGINFO_PROP_PACKAGE_SIZE		"PMINFO_PKGINFO_PROP_PACKAGE_SIZE"
@@ -1415,6 +1421,45 @@ static int get_pkg_readonly(const char *pkgid)
  * @endcode
  */
 int pkgmgrinfo_pkginfo_is_readonly(pkgmgrinfo_pkginfo_h handle, bool *readonly);
+
+
+/**
+ * @fn int pkgmgrinfo_pkginfo_is_update(pkgmgrinfo_pkginfo_h handle, bool *update)
+ * @brief	This API gets the package 'upate' value from the package ID
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in]	handle	pointer to package info handle
+ * @param[out] update	pointer to hold package update value
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		pkgmgrinfo_pkginfo_get_pkginfo()
+ * @post		pkgmgrinfo_pkginfo_destroy_pkginfo()
+ * @see		pkgmgrinfo_pkginfo_get_pkgid()
+ * @code
+static int get_pkg_update(const char *pkgid)
+{
+	int ret = 0;
+	bool update;
+	pkgmgrinfo_pkginfo_h handle;
+	ret = pkgmgrinfo_pkginfo_get_pkginfo(pkgid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_pkginfo_is_update(handle, &update);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_pkginfo_destroy_pkginfo(handle);
+		return -1;
+	}
+	printf("pkg update: %d\n", update);
+	pkgmgrinfo_pkginfo_destroy_pkginfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_pkginfo_is_update(pkgmgrinfo_pkginfo_h handle, bool *update);
 
 /**
  * @fn int pkgmgrinfo_pkginfo_is_accessible(pkgmgrinfo_pkginfo_h handle, bool *accessible)

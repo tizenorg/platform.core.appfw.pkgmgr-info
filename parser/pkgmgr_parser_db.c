@@ -51,10 +51,13 @@ char *prev = NULL;
 						"package_removable text DEFAULT 'true', " \
 						"package_preload text DEFAULT 'false', " \
 						"package_readonly text DEFAULT 'false', " \
+						"package_update text DEFAULT 'false', " \
+						"package_appsetting text DEFAULT 'false', " \
 						"author_name text, " \
 						"author_email text, " \
 						"author_href text," \
 						"installed_time text," \
+						"installed_storage text," \
 						"storeclient_id text," \
 						"mainapp_id text," \
 						"package_url text," \
@@ -292,7 +295,6 @@ static int __guestmode_visibility_cb(void *data, int ncols, char **coltxt, char 
 
 static void __preserve_guestmode_visibility_value(manifest_x *mfx)
 {
-	int ret = -1;
 	char *error_message = NULL;
 	char query[MAX_QUERY_LEN] = {'\0'};
 	snprintf(query, MAX_QUERY_LEN - 1, "select app_id, app_guestmodevisibility from package_app_info where package='%s'", mfx->package);
@@ -1685,10 +1687,10 @@ static int __insert_manifest_info_in_db(manifest_x *mfx)
 	}
 	snprintf(query, MAX_QUERY_LEN,
 		 "insert into package_info(package, package_type, package_version, install_location, package_size, " \
-		"package_removable, package_preload, package_readonly, author_name, author_email, author_href, installed_time, storeclient_id, mainapp_id, package_url, root_path) " \
-		"values('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
+		"package_removable, package_preload, package_readonly, package_update, package_appsetting, author_name, author_email, author_href, installed_time, installed_storage, storeclient_id, mainapp_id, package_url, root_path) " \
+		"values('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
 		 mfx->package, type, mfx->version, mfx->installlocation, mfx->package_size, mfx->removable, mfx->preload,
-		 mfx->readonly, auth_name, auth_email, auth_href, mfx->installed_time, mfx->storeclient_id, mfx->mainapp_id, mfx->package_url, path);
+		 mfx->readonly, mfx->update, mfx->appsetting, auth_name, auth_email, auth_href, mfx->installed_time, mfx->installed_storage, mfx->storeclient_id, mfx->mainapp_id, mfx->package_url, path);
 	ret = __exec_query(query);
 	if (ret == -1) {
 		DBG("Package Info DB Insert Failed\n");

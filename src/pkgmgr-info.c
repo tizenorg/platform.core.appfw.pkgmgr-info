@@ -50,6 +50,7 @@
 #define PKG_TYPE_STRING_LEN_MAX		128
 #define PKG_VERSION_STRING_LEN_MAX	128
 #define PKG_VALUE_STRING_LEN_MAX		512
+#define PKG_LOCALE_STRING_LEN_MAX		8
 #define PKG_RW_PATH "/opt/usr/apps/"
 #define PKG_RO_PATH "/usr/apps/"
 #define BLOCK_SIZE      4096 /*in bytes*/
@@ -179,6 +180,7 @@ typedef struct _pkgmgrinfo_appcontrol_x {
 typedef int (*sqlite_query_callback)(void *data, int ncols, char **coltxt, char **colname);
 
 char *pkgtype = "rpm";
+static char glocale[PKG_LOCALE_STRING_LEN_MAX];
 __thread sqlite3 *manifest_db = NULL;
 __thread sqlite3 *datacontrol_db = NULL;
 __thread int gflag[9];/*one for each cert type*/
@@ -257,6 +259,9 @@ static void __get_filter_condition(gpointer data, char **condition)
 	case E_PMINFO_PKGINFO_PROP_PACKAGE_INSTALL_LOCATION:
 		snprintf(buf, MAX_QUERY_LEN, "package_info.install_location='%s'", node->value);
 		break;
+	case E_PMINFO_PKGINFO_PROP_PACKAGE_INSTALLED_STORAGE:
+		snprintf(buf, MAX_QUERY_LEN, "package_info.installed_storage='%s'", node->value);
+		break;
 	case E_PMINFO_PKGINFO_PROP_PACKAGE_AUTHOR_NAME:
 		snprintf(buf, MAX_QUERY_LEN, "package_info.author_name='%s'", node->value);
 		break;
@@ -277,6 +282,12 @@ static void __get_filter_condition(gpointer data, char **condition)
 		break;
 	case E_PMINFO_PKGINFO_PROP_PACKAGE_READONLY:
 		snprintf(buf, MAX_QUERY_LEN, "package_info.package_readonly IN %s", node->value);
+		break;
+	case E_PMINFO_PKGINFO_PROP_PACKAGE_UPDATE:
+		snprintf(buf, MAX_QUERY_LEN, "package_info.package_update IN %s", node->value);
+		break;
+	case E_PMINFO_PKGINFO_PROP_PACKAGE_APPSETTING:
+		snprintf(buf, MAX_QUERY_LEN, "package_info.package_appsetting IN %s", node->value);
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_ID:
 		snprintf(buf, MAX_QUERY_LEN, "package_app_info.app_id='%s'", node->value);
@@ -949,6 +960,16 @@ static int __pkginfo_cb(void *data, int ncols, char **coltxt, char **colname)
 				info->manifest_info->readonly = strdup(coltxt[i]);
 			else
 				info->manifest_info->readonly = NULL;
+		} else if (strcmp(colname[i], "package_update") == 0 ){
+			if (coltxt[i])
+				info->manifest_info->update= strdup(coltxt[i]);
+			else
+				info->manifest_info->update = NULL;
+		} else if (strcmp(colname[i], "package_appsetting") == 0 ){
+			if (coltxt[i])
+				info->manifest_info->appsetting = strdup(coltxt[i]);
+			else
+				info->manifest_info->appsetting = NULL;
 		} else if (strcmp(colname[i], "installed_time") == 0 ){
 			if (coltxt[i])
 				info->manifest_info->installed_time = strdup(coltxt[i]);
@@ -1386,10 +1407,8 @@ static int __appinfo_cb(void *data, int ncols, char **coltxt, char **colname)
 				else
 					info->uiapp_info->type = NULL;
 			} else if (strcmp(colname[i], "app_icon_section") == 0 ) {
-				if (coltxt[i]){
+				if (coltxt[i])
 					info->uiapp_info->icon->section= strdup(coltxt[i]);
-					_LOGE("isectt == %s \n",info->uiapp_info->icon->section);
-				}
 				else
 					info->uiapp_info->icon->section = NULL;
 			} else if (strcmp(colname[i], "app_icon") == 0) {
@@ -2089,7 +2108,7 @@ API int pkgmgrinfo_pkginfo_get_list(pkgmgrinfo_pkg_list_cb pkg_list_cb, void *us
 		ret = PMINFO_R_EINVAL;
 		goto err;
 	}
-
+	strncpy(glocale, locale, PKG_LOCALE_STRING_LEN_MAX - 1);
 	ret = __open_manifest_db();
 	if (ret == -1) {
 		_LOGE("Fail to open manifest DB\n");
@@ -2251,6 +2270,7 @@ API int pkgmgrinfo_pkginfo_get_pkginfo(const char *pkgid, pkgmgrinfo_pkginfo_h *
 		ret = PMINFO_R_EINVAL;
 		goto err;
 	}
+	strncpy(glocale, locale, PKG_LOCALE_STRING_LEN_MAX  - 1);
 	pkginfo = (pkgmgr_pkginfo_x *)calloc(1, sizeof(pkgmgr_pkginfo_x));
 	if (pkginfo == NULL) {
 		_LOGE("Failed to allocate memory for pkginfo\n");
@@ -2661,18 +2681,11 @@ API int pkgmgrinfo_pkginfo_get_icon(pkgmgrinfo_pkginfo_h handle, char **icon)
 		info_tmp->tmp_dup= strdup(info_tmp->tmp);
 		*icon = info_tmp->tmp_dup;
 	} else {
-		char *syslocale = NULL;
 		char *locale = NULL;
-		char *save = NULL;
 		icon_x *ptr = NULL;
-		syslocale = vconf_get_str(VCONFKEY_LANGSET);
-		tryvm_if(syslocale == NULL, ret = PMINFO_R_EINVAL, "current locale is NULL");
-
-		locale = __convert_system_locale_to_manifest_locale(syslocale);
-		tryvm_if(locale == NULL, ret = PMINFO_R_EINVAL, "manifest locale is NULL");
-
-		save = locale;
 		*icon = NULL;
+		locale = glocale;
+		tryvm_if(locale == NULL, ret = PMINFO_R_ERROR, "manifest locale is NULL");
 		pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
 		for(ptr = info->manifest_info->icon; ptr != NULL; ptr = ptr->next)
 		{
@@ -2691,15 +2704,6 @@ API int pkgmgrinfo_pkginfo_get_icon(pkgmgrinfo_pkginfo_h handle, char **icon)
 			}
 		}
 		
-		if (syslocale) {
-			free(syslocale);
-			syslocale = NULL;
-		}
-		locale = save;
-		if (locale) {
-			free(locale);
-			locale = NULL;
-		}
 	}
 
 catch:
@@ -2736,19 +2740,11 @@ API int pkgmgrinfo_pkginfo_get_label(pkgmgrinfo_pkginfo_h handle, char **label)
 		info_tmp->tmp_dup = strdup(info_tmp->tmp);
 		*label = info_tmp->tmp_dup;
 	} else {
-		char *syslocale = NULL;
 		char *locale = NULL;
-		char *save = NULL;
 		label_x *ptr = NULL;
-
-		syslocale = vconf_get_str(VCONFKEY_LANGSET);
-		tryvm_if(syslocale == NULL, ret = PMINFO_R_EINVAL, "current locale is NULL");
-
-		locale = __convert_system_locale_to_manifest_locale(syslocale);
-		tryvm_if(locale == NULL, ret = PMINFO_R_EINVAL, "manifest locale is NULL");
-
-		save = locale;
 		*label = NULL;
+		locale = glocale;
+		tryvm_if(locale == NULL, ret = PMINFO_R_ERROR, "manifest locale is NULL");
 		pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
 		for(ptr = info->manifest_info->label; ptr != NULL; ptr = ptr->next)
 		{
@@ -2765,16 +2761,6 @@ API int pkgmgrinfo_pkginfo_get_label(pkgmgrinfo_pkginfo_h handle, char **label)
 					break;
 				}
 			}
-		}
-		
-		if (syslocale) {
-			free(syslocale);
-			syslocale = NULL;
-		}
-		locale = save;
-		if (locale) {
-			free(locale);
-			locale = NULL;
 		}
 	}
 
@@ -2793,22 +2779,11 @@ API int pkgmgrinfo_pkginfo_get_description(pkgmgrinfo_pkginfo_h handle, char **d
 		_LOGE("Argument supplied to hold return value is NULL\n");
 		return PMINFO_R_EINVAL;
 	}
-	char *syslocale = NULL;
 	char *locale = NULL;
-	char *save = NULL;
 	description_x *ptr = NULL;
-	syslocale = vconf_get_str(VCONFKEY_LANGSET);
-	if (syslocale == NULL) {
-		_LOGE("current locale is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	locale = __convert_system_locale_to_manifest_locale(syslocale);
-	if (locale == NULL) {
-		_LOGE("manifest locale is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	save = locale;
 	*description = NULL;
+	locale = glocale;
+	retvm_if(locale == NULL, PMINFO_R_ERROR, "manifest locale is NULL");
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
 	for(ptr = info->manifest_info->description; ptr != NULL; ptr = ptr->next)
 	{
@@ -2826,15 +2801,6 @@ API int pkgmgrinfo_pkginfo_get_description(pkgmgrinfo_pkginfo_h handle, char **d
 			}
 		}
 	}
-	if (syslocale) {
-		free(syslocale);
-		syslocale = NULL;
-	}
-	locale = save;
-	if (locale) {
-		free(locale);
-		locale = NULL;
-	}
 	return PMINFO_R_OK;
 }
 
@@ -2848,22 +2814,11 @@ API int pkgmgrinfo_pkginfo_get_author_name(pkgmgrinfo_pkginfo_h handle, char **a
 		_LOGE("Argument supplied to hold return value is NULL\n");
 		return PMINFO_R_EINVAL;
 	}
-	char *syslocale = NULL;
 	char *locale = NULL;
-	char *save = NULL;
 	author_x *ptr = NULL;
-	syslocale = vconf_get_str(VCONFKEY_LANGSET);
-	if (syslocale == NULL) {
-		_LOGE("current locale is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	locale = __convert_system_locale_to_manifest_locale(syslocale);
-	if (locale == NULL) {
-		_LOGE("manifest locale is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	save = locale;
 	*author_name = NULL;
+	locale = glocale;
+	retvm_if(locale == NULL, PMINFO_R_ERROR, "manifest locale is NULL");
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
 	for(ptr = info->manifest_info->author; ptr != NULL; ptr = ptr->next)
 	{
@@ -2880,15 +2835,6 @@ API int pkgmgrinfo_pkginfo_get_author_name(pkgmgrinfo_pkginfo_h handle, char **a
 				break;
 			}
 		}
-	}
-	if (syslocale) {
-		free(syslocale);
-		syslocale = NULL;
-	}
-	locale = save;
-	if (locale) {
-		free(locale);
-		locale = NULL;
 	}
 	return PMINFO_R_OK;
 }
@@ -2925,7 +2871,6 @@ API int pkgmgrinfo_pkginfo_get_author_href(pkgmgrinfo_pkginfo_h handle, char **a
 
 API int pkgmgrinfo_pkginfo_get_installed_storage(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_installed_storage *storage)
 {
-	int ret = -1;
 	char *pkgid;
 
 	pkgmgrinfo_pkginfo_get_pkgid(handle, &pkgid);
@@ -3357,8 +3302,6 @@ API int pkgmgrinfo_pkginfo_compare_app_cert_info(const char *lhs_app_id, const c
 	pkgmgr_cert_x *info= NULL;
 	char *lcert = NULL;
 	char *rcert = NULL;
-	char *lhs_package_id = NULL;
-	char *rhs_package_id = NULL;
 	int exist = -1;
 
 	info = (pkgmgr_cert_x *)calloc(1, sizeof(pkgmgr_cert_x));
@@ -3652,6 +3595,25 @@ API int pkgmgrinfo_pkginfo_is_readonly(pkgmgrinfo_pkginfo_h handle, bool *readon
 	return PMINFO_R_OK;
 }
 
+API int pkgmgrinfo_pkginfo_is_update(pkgmgrinfo_pkginfo_h handle, bool *update)
+{
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
+	retvm_if(update == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
+
+	char *val = NULL;
+	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
+	val = (char *)info->manifest_info->update;
+	if (val) {
+		if (strcasecmp(val, "true") == 0)
+			*update = 1;
+		else if (strcasecmp(val, "false") == 0)
+			*update = 0;
+		else
+			*update = 1;
+	}
+	return PMINFO_R_OK;
+}
+
 API int pkgmgrinfo_pkginfo_destroy_pkginfo(pkgmgrinfo_pkginfo_h handle)
 {
 	if (handle == NULL) {
@@ -3810,6 +3772,10 @@ API int pkgmgrinfo_pkginfo_filter_add_string(pkgmgrinfo_pkginfo_filter_h handle,
 		val = strndup("internal-only", PKG_STRING_LEN_MAX - 1);
 	else if (strcmp(value, PMINFO_PKGINFO_INSTALL_LOCATION_EXTERNAL) == 0)
 		val = strndup("prefer-external", PKG_STRING_LEN_MAX - 1);
+	else if (strcmp(value, "installed_internal") == 0)
+		val = strndup("installed_internal", PKG_STRING_LEN_MAX - 1);
+	else if (strcmp(value, "installed_external") == 0)
+		val = strndup("installed_external", PKG_STRING_LEN_MAX - 1);
 	else
 		val = strndup(value, PKG_STRING_LEN_MAX - 1);
 	if (val == NULL) {
@@ -3858,6 +3824,7 @@ API int pkgmgrinfo_pkginfo_filter_count(pkgmgrinfo_pkginfo_filter_h handle, int 
 		free(syslocale);
 		return PMINFO_R_ERROR;
 	}
+	strncpy(glocale, locale, PKG_LOCALE_STRING_LEN_MAX - 1);
 	ret = __open_manifest_db();
 	if (ret == -1) {
 		_LOGE("Fail to open manifest DB\n");
@@ -3950,6 +3917,7 @@ API int pkgmgrinfo_pkginfo_filter_foreach_pkginfo(pkgmgrinfo_pkginfo_filter_h ha
 		free(syslocale);
 		return PMINFO_R_ERROR;
 	}
+	strncpy(glocale, locale, PKG_LOCALE_STRING_LEN_MAX  - 1);
 	ret = __open_manifest_db();
 	if (ret == -1) {
 		_LOGE("Fail to open manifest DB\n");
@@ -4076,7 +4044,6 @@ API int pkgmgrinfo_appinfo_get_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_app_
 	retvm_if(app_func == NULL, PMINFO_R_EINVAL, "callback pointer is NULL");
 	retvm_if((component != PMINFO_UI_APP) && (component != PMINFO_SVC_APP) && (component != PMINFO_ALL_APP), PMINFO_R_EINVAL, "Invalid App Component Type");
 
-	char *error_message = NULL;
 	char *syslocale = NULL;
 	char *locale = NULL;
 	int ret = -1;
@@ -4097,6 +4064,7 @@ API int pkgmgrinfo_appinfo_get_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_app_
 	tryvm_if(locale == NULL, ret = PMINFO_R_EINVAL, "manifest locale is NULL");
 
 	/*calloc allinfo*/
+	strncpy(glocale, locale, PKG_LOCALE_STRING_LEN_MAX  - 1);
 	allinfo = (pkgmgr_appinfo_x *)calloc(1, sizeof(pkgmgr_appinfo_x));
 	tryvm_if(allinfo == NULL, ret = PMINFO_R_ERROR, "Failed to allocate memory for appinfo");
 
@@ -4349,7 +4317,6 @@ API int pkgmgrinfo_appinfo_get_installed_list(pkgmgrinfo_app_list_cb app_func, v
 {
 	retvm_if(app_func == NULL, PMINFO_R_EINVAL, "callback function is NULL");
 
-	char *error_message = NULL;
 	int ret = PMINFO_R_OK;
 	char query[MAX_QUERY_LEN] = {'\0'};
 	char *syslocale = NULL;
@@ -4374,6 +4341,7 @@ API int pkgmgrinfo_appinfo_get_installed_list(pkgmgrinfo_app_list_cb app_func, v
 	retvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "connect db [%s] failed!", MANIFEST_DB);
 
 	/*calloc pkginfo*/
+	strncpy(glocale, locale, PKG_LOCALE_STRING_LEN_MAX  - 1);
 	pkgmgr_pkginfo_x *info = NULL;
 	info = (pkgmgr_pkginfo_x *)calloc(1, sizeof(pkgmgr_pkginfo_x));
 	tryvm_if(info == NULL, ret = PMINFO_R_ERROR, "Out of Memory!!!");
@@ -4530,7 +4498,6 @@ API int pkgmgrinfo_appinfo_get_appinfo(const char *appid, pkgmgrinfo_appinfo_h *
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 
 	pkgmgr_appinfo_x *appinfo = NULL;
-	char *error_message = NULL;
 	char *syslocale = NULL;
 	char *locale = NULL;
 	int ret = -1;
@@ -4562,6 +4529,7 @@ API int pkgmgrinfo_appinfo_get_appinfo(const char *appid, pkgmgrinfo_appinfo_h *
 	tryvm_if(locale == NULL, ret = PMINFO_R_ERROR, "manifest locale is NULL");
 
 	/*calloc appinfo*/
+	strncpy(glocale, locale, PKG_LOCALE_STRING_LEN_MAX - 1);
 	appinfo = (pkgmgr_appinfo_x *)calloc(1, sizeof(pkgmgr_appinfo_x));
 	tryvm_if(appinfo == NULL, ret = PMINFO_R_ERROR, "Failed to allocate memory for appinfo");
 
@@ -4784,23 +4752,12 @@ API int pkgmgrinfo_appinfo_get_icon(pkgmgrinfo_appinfo_h  handle, char **icon)
                 _LOGE("Argument supplied to hold return value is NULL\n");
                 return PMINFO_R_EINVAL;
         }
-        char *syslocale = NULL;
         char *locale = NULL;
-        char *save = NULL;
         icon_x *ptr = NULL;
         icon_x *start = NULL;
-        syslocale = vconf_get_str(VCONFKEY_LANGSET);
-        if (syslocale == NULL) {
-                _LOGE("current locale is NULL\n");
-                return PMINFO_R_EINVAL;
-        }
-        locale = __convert_system_locale_to_manifest_locale(syslocale);
-        if (locale == NULL) {
-                _LOGE("manifest locale is NULL\n");
-                return PMINFO_R_EINVAL;
-        }
-        save = locale;
         *icon = NULL;
+	locale= glocale;
+	retvm_if(locale == NULL, PMINFO_R_ERROR, "manifest locale is NULL");
         pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
         if (info->app_component == PMINFO_UI_APP)
                 start = info->uiapp_info->icon;
@@ -4822,15 +4779,6 @@ API int pkgmgrinfo_appinfo_get_icon(pkgmgrinfo_appinfo_h  handle, char **icon)
                         }
                 }
         }
-	if (syslocale) {
-		free(syslocale);
-		syslocale = NULL;
-	}
-	locale = save;
-	if (locale) {
-		free(locale);
-		locale = NULL;
-	}
 	return PMINFO_R_OK;
 }
 
@@ -4845,24 +4793,12 @@ API int pkgmgrinfo_appinfo_get_label(pkgmgrinfo_appinfo_h  handle, char **label)
 		_LOGE("Argument supplied to hold return value is NULL\n");
 		return PMINFO_R_EINVAL;
 	}
-	char *syslocale = NULL;
 	char *locale = NULL;
-	char *save = NULL;
 	label_x *ptr = NULL;
 	label_x *start = NULL;
-	syslocale = vconf_get_str(VCONFKEY_LANGSET);
-	if (syslocale == NULL) {
-		_LOGE("current locale is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	locale = __convert_system_locale_to_manifest_locale(syslocale);
-	if (locale == NULL) {
-		_LOGE("manifest locale is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-
-	save = locale;
 	*label = NULL;
+	locale = glocale;
+	retvm_if(locale == NULL, PMINFO_R_ERROR, "manifest locale is NULL");
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 	if (info->app_component == PMINFO_UI_APP)
 		start = info->uiapp_info->label;
@@ -4890,15 +4826,6 @@ API int pkgmgrinfo_appinfo_get_label(pkgmgrinfo_appinfo_h  handle, char **label)
 				break;
 			}
 		}
-	}
-	if (syslocale) {
-		free(syslocale);
-		syslocale = NULL;
-	}
-	locale = save;
-	if (locale) {
-		free(locale);
-		locale = NULL;
 	}
 	return PMINFO_R_OK;
 }
@@ -5821,6 +5748,7 @@ API int pkgmgrinfo_appinfo_filter_count(pkgmgrinfo_appinfo_filter_h handle, int 
 		free(syslocale);
 		return PMINFO_R_ERROR;
 	}
+	strncpy(glocale, locale, PKG_LOCALE_STRING_LEN_MAX - 1);
 	ret = __open_manifest_db();
 	if (ret == -1) {
 		_LOGE("Fail to open manifest DB\n");
@@ -5907,6 +5835,7 @@ API int pkgmgrinfo_appinfo_filter_foreach_appinfo(pkgmgrinfo_appinfo_filter_h ha
 		free(syslocale);
 		return PMINFO_R_ERROR;
 	}
+	strncpy(glocale, locale, PKG_LOCALE_STRING_LEN_MAX - 1);
 	ret = __open_manifest_db();
 	if (ret == -1) {
 		_LOGE("Fail to open manifest DB\n");
@@ -6606,7 +6535,6 @@ API int pkgmgrinfo_save_certinfo(const char *pkgid, pkgmgrinfo_instcertinfo_h ha
 		_LOGE("Argument supplied is NULL\n");
 		return PMINFO_R_EINVAL;
 	}
-	int ret = -1;
 	char *error_message = NULL;
 	int exist = -1;
 	char query[MAX_QUERY_LEN] = {'\0'};

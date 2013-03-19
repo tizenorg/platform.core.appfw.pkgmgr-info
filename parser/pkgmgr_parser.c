@@ -224,7 +224,6 @@ static char *__get_parser_plugin(const char *type)
 	FILE *fp = NULL;
 	char buffer[1024] = { 0 };
 	char temp_path[1024] = { 0 };
-	char *lib_path = NULL;
 	char *path = NULL;
 
 	if (type == NULL) {
@@ -345,14 +344,8 @@ static char *__pkgid_to_manifest(const char *pkgid)
 
 static int __run_parser_prestep(xmlTextReaderPtr reader, ACTION_TYPE action, const char *pkgid)
 {
-	int nLoop = 0;
-	int pid = 0;
-	char *parser_cmd = NULL;
 	int ret = -1;
 	const xmlChar *name;
-	char *lib_path = NULL;
-	void *lib_handle = NULL;
-	int (*plugin_install) (xmlDocPtr);
 
 	DBG("__run_parser_prestep");
 
@@ -3157,6 +3150,13 @@ static int __process_manifest(xmlTextReaderPtr reader, manifest_x * mfx)
 				mfx->type = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("type")));
 			if (xmlTextReaderGetAttribute(reader, XMLCHAR("root_path")))
 				mfx->root_path = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("root_path")));
+			if (xmlTextReaderGetAttribute(reader, XMLCHAR("appsetting"))) {
+				mfx->appsetting = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("appsetting")));
+				if (mfx->appsetting == NULL)
+					mfx->appsetting = strdup("false");
+			} else {
+				mfx->appsetting = strdup("false");
+			}
 
 			/*Assign default values. If required it will be overwritten in __add_preload_info()*/
 			mfx->preload = strdup("False");
@@ -3169,6 +3169,8 @@ static int __process_manifest(xmlTextReaderPtr reader, manifest_x * mfx)
 			snprintf(buf, PKG_STRING_LEN_MAX - 1, "%d", current_time);
 			val = strndup(buf, PKG_STRING_LEN_MAX - 1);
 			mfx->installed_time = val;
+
+			mfx->installed_storage= strdup("installed_internal");
 
 			ret = __start_process(reader, mfx);
 		} else {
@@ -3415,8 +3417,6 @@ static int __ps_make_nativeapp_desktop(manifest_x * mfx, bool is_update)
 			mime_x *mi = NULL;
 			uri_x *ui = NULL;
 			subapp_x *sub = NULL;
-			int ret = -1;
-			char query[PKG_STRING_LEN_MAX] = {'\0'};
 			char *operation = NULL;
 			char *mime = NULL;
 			char *uri = NULL;
@@ -3496,8 +3496,6 @@ static int __ps_make_nativeapp_desktop(manifest_x * mfx, bool is_update)
 			mime_x *mi = NULL;
 			uri_x *ui = NULL;
 			subapp_x *sub = NULL;
-			int ret = -1;
-			char query[PKG_STRING_LEN_MAX] = {'\0'};
 			char *operation = NULL;
 			char *mime = NULL;
 			char *uri = NULL;
@@ -3697,6 +3695,10 @@ API void pkgmgr_parser_free_manifest_xml(manifest_x *mfx)
 		free((void *)mfx->removable);
 		mfx->removable = NULL;
 	}
+	if (mfx->update) {
+		free((void *)mfx->update);
+		mfx->update = NULL;
+	}
 	if (mfx->type) {
 		free((void *)mfx->type);
 		mfx->type = NULL;
@@ -3708,6 +3710,10 @@ API void pkgmgr_parser_free_manifest_xml(manifest_x *mfx)
 	if (mfx->installed_time) {
 		free((void *)mfx->installed_time);
 		mfx->installed_time = NULL;
+	}
+	if (mfx->installed_storage) {
+		free((void *)mfx->installed_storage);
+		mfx->installed_storage = NULL;
 	}
 	if (mfx->storeclient_id) {
 		free((void *)mfx->storeclient_id);
@@ -3724,6 +3730,10 @@ API void pkgmgr_parser_free_manifest_xml(manifest_x *mfx)
 	if (mfx->root_path) {
 		free((void *)mfx->root_path);
 		mfx->root_path = NULL;
+	}
+	if (mfx->appsetting) {
+		free((void *)mfx->appsetting);
+		mfx->appsetting = NULL;
 	}
 
 	/*Free Icon*/
@@ -3913,6 +3923,8 @@ API int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char
 	DBG("parsing manifest for installation: %s\n", manifest);
 	manifest_x *mfx = NULL;
 	int ret = -1;
+	char roxml_check[PKG_STRING_LEN_MAX] = {'\0'};
+
 	xmlInitParser();
 	mfx = pkgmgr_parser_process_manifest_xml(manifest);
 	DBG("Parsing Finished\n");
@@ -3922,6 +3934,13 @@ API int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char
 	__streamFile(manifest, ACTION_INSTALL, temp, mfx->package);
 	__add_preload_info(mfx, manifest);
 	DBG("Added preload infomation\n");
+
+	snprintf(roxml_check, PKG_STRING_LEN_MAX, MANIFEST_RO_DIRECTORY "/%s.xml", mfx->package);
+	if (access(roxml_check, F_OK) == 0)
+		mfx->update = strdup("true");
+	else
+		mfx->update = strdup("false");
+
 	ret = pkgmgr_parser_insert_manifest_info_in_db(mfx);
 	if (ret == -1)
 		DBG("DB Insert failed\n");
@@ -3976,6 +3995,8 @@ API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *con
 	__streamFile(manifest, ACTION_UPGRADE, temp, mfx->package);
 	__add_preload_info(mfx, manifest);
 	DBG("Added preload infomation\n");
+
+	mfx->update = strdup("true");
 	ret = pkgmgr_parser_update_manifest_info_in_db(mfx);
 	if (ret == -1)
 		DBG("DB Update failed\n");
