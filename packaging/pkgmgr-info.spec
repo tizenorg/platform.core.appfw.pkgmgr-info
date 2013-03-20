@@ -1,6 +1,6 @@
 Name:       pkgmgr-info
 Summary:    Packager Manager infomation api for package
-Version:    0.0.87
+Version:    0.0.88
 Release:    1
 Group:      System/Libraries
 License:    Apache License, Version 2.0

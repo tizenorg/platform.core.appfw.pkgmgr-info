@@ -18,7 +18,8 @@
           <xs:element ref="packages:shortcut-list"/>
           <xs:element ref="packages:livebox"/>
           <xs:element ref="packages:account"/>
-	  <xs:element ref="packages:notifications"/>
+		  <xs:element ref="packages:notifications"/>
+		  <xs:element ref="packages:privileges"/>
           <xs:element ref="packages:font"/>
         </xs:choice>
       </xs:sequence>
@@ -160,6 +161,8 @@
   <xs:element name="account">
   </xs:element>
   <xs:element name="notifications">
+  </xs:element>
+  <xs:element name="privileges">
   </xs:element>
   <xs:element name="font">
     <xs:complexType>

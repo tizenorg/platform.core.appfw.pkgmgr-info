@@ -3049,6 +3049,8 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx)
 			continue;
 		} else if (!strcmp(ASCII(node), "notifications")) {
 			continue;
+		} else if (!strcmp(ASCII(node), "privileges")) {
+			continue;
 		} else
 			return -1;
 
@@ -3915,7 +3917,7 @@ API manifest_x *pkgmgr_parser_process_manifest_xml(const char *manifest)
 
 API int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char *const tagv[])
 {
-	char *temp[] = {"shortcut-list", "livebox", "account", "notifications", NULL};
+	char *temp[] = {"shortcut-list", "livebox", "account", "notifications", "privileges", NULL};
 	if (manifest == NULL) {
 		DBG("argument supplied is NULL\n");
 		return PMINFO_R_EINVAL;
@@ -3978,7 +3980,7 @@ API int pkgmgr_parser_create_desktop_file(manifest_x *mfx)
 
 API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *const tagv[])
 {
-	char *temp[] = {"shortcut-list", "livebox", "account", "notifications", NULL};
+	char *temp[] = {"shortcut-list", "livebox", "account", "notifications", "privileges", NULL};
 	if (manifest == NULL) {
 		DBG("argument supplied is NULL\n");
 		return PMINFO_R_EINVAL;
@@ -4018,7 +4020,7 @@ API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *con
 
 API int pkgmgr_parser_parse_manifest_for_uninstallation(const char *manifest, char *const tagv[])
 {
-	char *temp[] = {"shortcut-list", "livebox", "account", "notifications", NULL};
+	char *temp[] = {"shortcut-list", "livebox", "account", "notifications", "privileges", NULL};
 	if (manifest == NULL) {
 		DBG("argument supplied is NULL\n");
 		return PMINFO_R_EINVAL;
