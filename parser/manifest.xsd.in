@@ -21,6 +21,7 @@
 		  <xs:element ref="packages:notifications"/>
 		  <xs:element ref="packages:privileges"/>
           <xs:element ref="packages:font"/>
+		  <xs:element ref="packages:ime"/>
         </xs:choice>
       </xs:sequence>
       <xs:attribute name="install-location" type="packages:InstallLocationType"/>
@@ -162,6 +163,8 @@
   </xs:element>
   <xs:element name="notifications">
   </xs:element>
+  <xs:element name="ime">
+  </xs:element>
   <xs:element name="privileges">
   </xs:element>
   <xs:element name="font">
@@ -238,8 +241,8 @@
   </xs:element>
   <xs:element name="metadata">
     <xs:complexType>
-      <xs:attribute name="name" use="required" type="xs:string"/>
-      <xs:attribute name="value" use="required" type="xs:string"/>
+      <xs:attribute name="key" use="required" type="xs:string"/>
+      <xs:attribute name="value" type="xs:string"/>
     </xs:complexType>
   </xs:element>
   <xs:element name="permission">

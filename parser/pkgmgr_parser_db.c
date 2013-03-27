@@ -161,9 +161,9 @@ char *prev = NULL;
 
 #define QUERY_CREATE_TABLE_PACKAGE_APP_APP_METADATA "create table if not exists package_app_app_metadata " \
 						"(app_id text not null, " \
-						"md_name text not null, " \
+						"md_key text not null, " \
 						"md_value text not null, " \
-						"PRIMARY KEY(app_id, md_name) " \
+						"PRIMARY KEY(app_id, md_key, md_value) " \
 						"FOREIGN KEY(app_id) " \
 						"REFERENCES package_app_info(app_id) " \
 						"ON DELETE CASCADE)"
@@ -194,21 +194,24 @@ char *prev = NULL;
 						"REFERENCES package_app_info(app_id) " \
 						"ON DELETE CASCADE)"
 
+#define QUERY_CREATE_TABLE_PACKAGE_CERT_INDEX_INFO "create table if not exists package_cert_index_info " \
+						"(cert_info text not null, " \
+						"cert_id integer, " \
+						"cert_ref_count integer, " \
+						"PRIMARY KEY(cert_id)) "
+
 #define QUERY_CREATE_TABLE_PACKAGE_CERT_INFO "create table if not exists package_cert_info " \
 						"(package text not null, " \
-						"author_root_cert text, " \
-						"author_im_cert text, " \
-						"author_signer_cert text, " \
-						"dist_root_cert text, " \
-						"dist_im_cert text, " \
-						"dist_signer_cert text, " \
-						"dist2_root_cert text, " \
-						"dist2_im_cert text, " \
-						"dist2_signer_cert text, " \
-						"PRIMARY KEY(package), " \
-						"FOREIGN KEY(package) " \
-						"REFERENCES package_info(package) " \
-						"ON DELETE CASCADE)"
+						"author_root_cert integer, " \
+						"author_im_cert integer, " \
+						"author_signer_cert integer, " \
+						"dist_root_cert integer, " \
+						"dist_im_cert integer, " \
+						"dist_signer_cert integer, " \
+						"dist2_root_cert integer, " \
+						"dist2_im_cert integer, " \
+						"dist2_signer_cert integer, " \
+						"PRIMARY KEY(package)) "
 
 static int __insert_uiapplication_info(manifest_x *mfx);
 static int __insert_serviceapplication_info(manifest_x *mfx);
@@ -229,12 +232,12 @@ static void __insert_uiapplication_locale_info(gpointer data, gpointer userdata)
 static void __insert_pkglocale_info(gpointer data, gpointer userdata);
 static int __insert_manifest_info_in_db(manifest_x *mfx);
 static int __update_manifest_info_in_db(manifest_x *mfx);
-static int __delete_cert_info_from_db(manifest_x *mfx);
 static int __delete_manifest_info_from_db(manifest_x *mfx);
 static int __initialize_package_info_db();
 static int __initialize_package_localized_info_db();
 static int __initialize_package_app_info_db();
 static int __initialize_package_cert_info_db();
+static int __initialize_package_cert_index_info_db();
 static int __initialize_package_app_localized_info_db();
 static int __initialize_package_app_icon_section_info_db();
 static int __initialize_package_app_image_info_db();
@@ -365,6 +368,22 @@ static int __initialize_package_cert_info_db()
 			 NULL, NULL, &error_message)) {
 		DBG("Don't execute query = %s error message = %s\n",
 		       QUERY_CREATE_TABLE_PACKAGE_CERT_INFO, error_message);
+		sqlite3_free(error_message);
+		sqlite3_close(pkgmgr_cert_db);
+		return -1;
+	}
+	sqlite3_free(error_message);
+	return 0;
+}
+
+static int __initialize_package_cert_index_info_db()
+{
+	char *error_message = NULL;
+	if (SQLITE_OK !=
+	    sqlite3_exec(pkgmgr_cert_db, QUERY_CREATE_TABLE_PACKAGE_CERT_INDEX_INFO,
+			 NULL, NULL, &error_message)) {
+		DBG("Don't execute query = %s error message = %s\n",
+		       QUERY_CREATE_TABLE_PACKAGE_CERT_INDEX_INFO, error_message);
 		sqlite3_free(error_message);
 		sqlite3_close(pkgmgr_cert_db);
 		return -1;
@@ -1043,11 +1062,11 @@ static int __insert_uiapplication_appmetadata_info(manifest_x *mfx)
 		md = up->metadata;
 		while (md != NULL)
 		{
-			if (md->name && md->value) {
+			if (md->key && md->value) {
 				snprintf(query, MAX_QUERY_LEN,
-					"insert into package_app_app_metadata(app_id, md_name, md_value) " \
+					"insert into package_app_app_metadata(app_id, md_key, md_value) " \
 					"values('%s','%s', '%s')",\
-					 up->appid, md->name, md->value);
+					 up->appid, md->key, md->value);
 				ret = __exec_query(query);
 				if (ret == -1) {
 					DBG("Package UiApp Metadata Info DB Insert Failed\n");
@@ -1375,11 +1394,11 @@ static int __insert_serviceapplication_appmetadata_info(manifest_x *mfx)
 		md = sp->metadata;
 		while (md != NULL)
 		{
-			if (md->name && md->value) {
+			if (md->key && md->value) {
 				snprintf(query, MAX_QUERY_LEN,
-					"insert into package_app_app_metadata(app_id, md_name, md_value) " \
+					"insert into package_app_app_metadata(app_id, md_key, md_value) " \
 					"values('%s','%s', '%s')",\
-					 sp->appid, md->name, md->value);
+					 sp->appid, md->key, md->value);
 				ret = __exec_query(query);
 				if (ret == -1) {
 					DBG("Package ServiceApp Metadata Info DB Insert Failed\n");
@@ -1866,58 +1885,6 @@ static int __insert_manifest_info_in_db(manifest_x *mfx)
 
 }
 
-static int __delete_cert_info_from_db(manifest_x *mfx)
-{
-	char query[MAX_QUERY_LEN] = { '\0' };
-	int ret = -1;
-	char *error_message = NULL;
-
-	ret = __pkgmgr_parser_cert_create_db();
-	if (ret == -1) {
-		DBG("Failed to open DB\n");
-		return ret;
-	}
-
-	/*Begin transaction*/
-	ret = sqlite3_exec(pkgmgr_cert_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
-	if (ret != SQLITE_OK) {
-		DBG("Failed to begin transaction\n");
-		sqlite3_close(pkgmgr_cert_db);
-		return -1;
-	}
-	DBG("Transaction Begin\n");
-	snprintf(query, MAX_QUERY_LEN,
-		 "delete from package_cert_info where package='%s'", mfx->package);
-
-	if (SQLITE_OK !=
-	    sqlite3_exec(pkgmgr_cert_db, query, NULL, NULL, &error_message)) {
-		DBG("Don't execute query = %s error message = %s\n", query,
-		       error_message);
-		ret = -1;
-	}
-	sqlite3_free(error_message);
-
-	if (ret == -1) {
-		DBG("Delete from DB failed. Rollback now\n");
-		sqlite3_exec(pkgmgr_cert_db, "ROLLBACK", NULL, NULL, NULL);
-		sqlite3_close(pkgmgr_cert_db);
-		return -1;
-	}
-	/*Commit transaction*/
-	ret = sqlite3_exec(pkgmgr_cert_db, "COMMIT", NULL, NULL, NULL);
-	if (ret != SQLITE_OK) {
-		DBG("Failed to commit transaction, Rollback now\n");
-		sqlite3_exec(pkgmgr_cert_db, "ROLLBACK", NULL, NULL, NULL);
-		sqlite3_close(pkgmgr_cert_db);
-		return -1;
-	}
-	DBG("Transaction Commit and End\n");
-	sqlite3_free(error_message);
-	sqlite3_close(pkgmgr_cert_db);
-	return 0;
-
-}
-
 static int __delete_manifest_info_from_db(manifest_x *mfx)
 {
 	char query[MAX_QUERY_LEN] = { '\0' };
@@ -1925,9 +1892,10 @@ static int __delete_manifest_info_from_db(manifest_x *mfx)
 	uiapplication_x *up = mfx->uiapplication;
 	serviceapplication_x *sp = mfx->serviceapplication;
 
-	ret = __delete_cert_info_from_db(mfx);
-	if (ret == -1) {
-		DBG("Package cert DB Delete Failed\n");
+	/*Delete from cert table*/
+	ret = pkgmgrinfo_delete_certinfo(mfx->package);
+	if (ret) {
+		DBG("Cert Info  DB Delete Failed\n");
 		return -1;
 	}
 
@@ -2250,6 +2218,11 @@ int pkgmgr_parser_initialize_db()
 	ret = __initialize_package_cert_info_db();
 	if (ret == -1) {
 		DBG("package cert info DB initialization failed\n");
+		return ret;
+	}
+	ret = __initialize_package_cert_index_info_db();
+	if (ret == -1) {
+		DBG("package cert index info DB initialization failed\n");
 		return ret;
 	}
 	ret = __initialize_package_app_info_db();

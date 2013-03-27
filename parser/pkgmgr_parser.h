@@ -116,7 +116,7 @@ extern "C" {
     for ((node) = (list); (node)->next; (node) = (node)->next)
 
 typedef struct metadata_x {
-	const char *name;
+	const char *key;
 	const char *value;
 	struct metadata_x *prev;
 	struct metadata_x *next;

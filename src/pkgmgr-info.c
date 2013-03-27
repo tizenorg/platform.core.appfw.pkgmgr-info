@@ -45,6 +45,7 @@
 
 #define MANIFEST_DB	"/opt/dbspace/.pkgmgr_parser.db"
 #define MAX_QUERY_LEN	4096
+#define MAX_CERT_TYPE	9
 #define CERT_DB		"/opt/dbspace/.pkgmgr_cert.db"
 #define DATACONTROL_DB	"/opt/usr/dbspace/.app-package.db"
 #define PKG_TYPE_STRING_LEN_MAX		128
@@ -87,22 +88,26 @@
 				"LEFT OUTER JOIN package_app_app_category " \
 				"ON package_app_info.app_id=package_app_app_category.app_id where "
 
+#define METADATA_FILTER_QUERY_SELECT_CLAUSE	"select DISTINCT package_app_info.app_id, package_app_info.app_component " \
+				"from package_app_info LEFT OUTER JOIN package_app_app_metadata " \
+				"ON package_app_info.app_id=package_app_app_metadata.app_id where "
+
+#define METADATA_FILTER_QUERY_UNION_CLAUSE	" UNION "METADATA_FILTER_QUERY_SELECT_CLAUSE
+
 #define LANGUAGE_LENGTH 2
 
 typedef struct _pkgmgr_instcertinfo_x {
 	char *pkgid;
-	char *auth_signer_cert;
-	char *auth_im_cert;
-	char *auth_root_cert;
-	char *dist_signer_cert;
-	char *dist_im_cert;
-	char *dist_root_cert;
-	char *dist2_signer_cert;
-	char *dist2_im_cert;
-	char *dist2_root_cert;
+	char *cert_info[MAX_CERT_TYPE];	/*certificate data*/
+	int is_new[MAX_CERT_TYPE];		/*whether already exist in table or not*/
+	int ref_count[MAX_CERT_TYPE];		/*reference count of certificate data*/
+	int cert_id[MAX_CERT_TYPE];		/*certificate ID in index table*/
 } pkgmgr_instcertinfo_x;
 
-sqlite3 *cert_db = NULL;
+typedef struct _pkgmgr_certindexinfo_x {
+	int cert_id;
+	int cert_ref_count;
+} pkgmgr_certindexinfo_x;
 
 typedef struct _pkgmgr_pkginfo_x {
 	manifest_x *manifest_info;
@@ -114,8 +119,8 @@ typedef struct _pkgmgr_pkginfo_x {
 } pkgmgr_pkginfo_x;
 
 typedef struct _pkgmgr_cert_x {
-	const char *pkgid;
-	const char *certvalue;
+	char *pkgid;
+	int cert_id;
 } pkgmgr_cert_x;
 
 typedef struct _pkgmgr_datacontrol_x {
@@ -147,15 +152,9 @@ typedef struct _pkgmgr_appinfo_x {
 
 typedef struct _pkgmgr_certinfo_x {
 	char *pkgid;
-	char *auth_signer_cert;
-	char *auth_im_cert;
-	char *auth_root_cert;
-	char *dist_signer_cert;
-	char *dist_im_cert;
-	char *dist_root_cert;
-	char *dist2_signer_cert;
-	char *dist2_im_cert;
-	char *dist2_root_cert;
+	char *cert_value;
+	char *cert_info[MAX_CERT_TYPE];	/*certificate info*/
+	int cert_id[MAX_CERT_TYPE];		/*certificate ID in index table*/
 } pkgmgr_certinfo_x;
 
 /*For filter APIs*/
@@ -165,6 +164,7 @@ typedef struct _pkgmgrinfo_filter_x {
 
 typedef struct _pkgmgrinfo_node_x {
 	int prop;
+	char *key;
 	char *value;
 } pkgmgrinfo_node_x;
 
@@ -183,18 +183,19 @@ char *pkgtype = "rpm";
 static char glocale[PKG_LOCALE_STRING_LEN_MAX];
 __thread sqlite3 *manifest_db = NULL;
 __thread sqlite3 *datacontrol_db = NULL;
-__thread int gflag[9];/*one for each cert type*/
-__thread char *gpkgcert[9];/*To store pkg cert values*/
+__thread sqlite3 *cert_db = NULL;
 
 static int __open_manifest_db();
 static int __exec_pkginfo_query(char *query, void *data);
 static int __exec_appinfo_query(char *query, void *data);
 static int __exec_certinfo_query(char *query, void *data);
+static int __exec_certindexinfo_query(char *query, void *data);
 static int __pkginfo_cb(void *data, int ncols, char **coltxt, char **colname);
 static int __appinfo_cb(void *data, int ncols, char **coltxt, char **colname);
 static int __certinfo_cb(void *data, int ncols, char **coltxt, char **colname);
+static int __certindexinfo_cb(void *data, int ncols, char **coltxt, char **colname);
 static int __validate_cb(void *data, int ncols, char **coltxt, char **colname);
-static int __delete_certinfo_cb(void *data, int ncols, char **coltxt, char **colname);
+static int __maxid_cb(void *data, int ncols, char **coltxt, char **colname);
 static int __count_cb(void *data, int ncols, char **coltxt, char **colname);
 static int __uiapp_list_cb(void *data, int ncols, char **coltxt, char **colname);
 static int __svcapp_list_cb(void *data, int ncols, char **coltxt, char **colname);
@@ -207,7 +208,9 @@ static void __cleanup_appinfo(pkgmgr_appinfo_x *data);
 static char* __convert_system_locale_to_manifest_locale(char *syslocale);
 static void __destroy_each_node(gpointer data, gpointer user_data);
 static void __get_filter_condition(gpointer data, char **condition);
+static void __get_metadata_filter_condition(gpointer data, char **condition);
 static gint __compare_func(gconstpointer data1, gconstpointer data2);
+static int __delete_certinfo(const char *pkgid);
 
 static gint __compare_func(gconstpointer data1, gconstpointer data2)
 {
@@ -237,8 +240,30 @@ static void __destroy_each_node(gpointer data, gpointer user_data)
 		free(node->value);
 		node->value = NULL;
 	}
+	if (node->key) {
+		free(node->key);
+		node->key = NULL;
+	}
 	free(node);
 	node = NULL;
+}
+
+static void __get_metadata_filter_condition(gpointer data, char **condition)
+{
+	pkgmgrinfo_node_x *node = (pkgmgrinfo_node_x*)data;
+	char key[MAX_QUERY_LEN] = {'\0'};
+	char value[MAX_QUERY_LEN] = {'\0'};
+	if (node->key) {
+		snprintf(key, MAX_QUERY_LEN, "(package_app_app_metadata.md_key='%s'", node->key);
+	}
+	if (node->value) {
+		snprintf(value, MAX_QUERY_LEN, " AND package_app_app_metadata.md_value='%s')", node->value);
+		strcat(key, value);
+	} else {
+		strcat(key, ")");
+	}
+	*condition = strdup(key);
+	return;
 }
 
 static void __get_filter_condition(gpointer data, char **condition)
@@ -455,7 +480,8 @@ static int __app_list_cb(void *data, int ncols, char **coltxt, char **colname)
 	serviceapplication_x *svcapp = NULL;
 	for(i = 0; i < ncols; i++)
 	{
-		if (strcmp(colname[i], "app_component") == 0) {
+		if ((strcmp(colname[i], "app_component") == 0) ||
+			(strcmp(colname[i], "package_app_info.app_component") == 0)) {
 			if (coltxt[i]) {
 				if (strcmp(coltxt[i], "uiapp") == 0) {
 					uiapp = calloc(1, sizeof(uiapplication_x));
@@ -466,7 +492,8 @@ static int __app_list_cb(void *data, int ncols, char **coltxt, char **colname)
 					LISTADD(info->manifest_info->uiapplication, uiapp);
 					for(j = 0; j < ncols; j++)
 					{
-						if (strcmp(colname[j], "app_id") == 0) {
+						if ((strcmp(colname[j], "app_id") == 0) ||
+							(strcmp(colname[j], "package_app_info.app_id") == 0)) {
 							if (coltxt[j])
 								info->manifest_info->uiapplication->appid = strdup(coltxt[j]);
 						} else if (strcmp(colname[j], "package") == 0) {
@@ -484,7 +511,8 @@ static int __app_list_cb(void *data, int ncols, char **coltxt, char **colname)
 					LISTADD(info->manifest_info->serviceapplication, svcapp);
 					for(j = 0; j < ncols; j++)
 					{
-						if (strcmp(colname[j], "app_id") == 0) {
+						if ((strcmp(colname[j], "app_id") == 0) ||
+							(strcmp(colname[j], "package_app_info.app_id") == 0)) {
 							if (coltxt[j])
 								info->manifest_info->serviceapplication->appid = strdup(coltxt[j]);
 						} else if (strcmp(colname[j], "package") == 0) {
@@ -622,6 +650,7 @@ static int __svcapp_list_cb(void *data, int ncols, char **coltxt, char **colname
 	serviceapplication_x *svcapp = NULL;
 	icon_x *icon = NULL;
 	label_x *label = NULL;
+
 	svcapp = calloc(1, sizeof(serviceapplication_x));
 	LISTADD(info->manifest_info->serviceapplication, svcapp);
 	icon = calloc(1, sizeof(icon_x));
@@ -876,6 +905,14 @@ static int __validate_cb(void *data, int ncols, char **coltxt, char **colname)
 	return 0;
 }
 
+static int __maxid_cb(void *data, int ncols, char **coltxt, char **colname)
+{
+	int *p = (int*)data;
+	if (coltxt[0])
+		*p = atoi(coltxt[0]);
+	return 0;
+}
+
 static int __pkginfo_cb(void *data, int ncols, char **coltxt, char **colname)
 {
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)data;
@@ -1016,286 +1053,26 @@ static pkgmgrinfo_app_component __appcomponent_convert(const char *comp)
 		return -1;
 }
 
-static int __delete_certinfo_cb(void *data, int ncols, char **coltxt, char **colname)
+static int __certindexinfo_cb(void *data, int ncols, char **coltxt, char **colname)
 {
-	const char *pkgid = (const char *)data;
+	pkgmgr_certindexinfo_x *info = (pkgmgr_certindexinfo_x *)data;
 	int i = 0;
-	char *error_message = NULL;
-	int ret =0;
-	char query[MAX_QUERY_LEN] = {'\0'};
-	pkgmgr_instcertinfo_x *certinfo = NULL;
-	certinfo = calloc(1, sizeof(pkgmgr_certinfo_x));
-	if (certinfo == NULL) {
-		_LOGE("Out of Memory!!!\n");
-		return PMINFO_R_ERROR;
-	}
-	for (i  = 0; i < ncols; i++) {
-		if (strcmp(colname[i], "package") == 0) {
+	for(i = 0; i < ncols; i++) {
+		if (strcmp(colname[i], "cert_id") == 0) {
 			if (coltxt[i])
-				certinfo->pkgid = coltxt[i];
-		} else if (strcmp(colname[i], "author_signer_cert") == 0) {
-			if (coltxt[i]) {
-				if (strcmp(coltxt[i], pkgid) == 0) {
-					if (gflag[PMINFO_AUTHOR_SIGNER_CERT] && gpkgcert[PMINFO_AUTHOR_SIGNER_CERT]) {
-						certinfo->auth_signer_cert = strdup(gpkgcert[PMINFO_AUTHOR_SIGNER_CERT]);
-						continue;
-					}
-					snprintf(query, MAX_QUERY_LEN, "select author_signer_cert from package_cert_info " \
-						"where package='%s'", pkgid);
-					if (SQLITE_OK !=
-					    sqlite3_exec(cert_db, query, __certinfo_cb, (void *)certinfo, &error_message)) {
-						_LOGE("Don't execute query = %s error message = %s\n", query,
-						       error_message);
-						sqlite3_free(error_message);
-						ret = PMINFO_R_ERROR;
-						goto err;
-					}
-					gpkgcert[PMINFO_AUTHOR_SIGNER_CERT] = strdup(certinfo->pkgid);
-					gflag[PMINFO_AUTHOR_SIGNER_CERT] = 1;
-				} else {
-					certinfo->auth_signer_cert = strdup(coltxt[i]);
-				}
-			}
+				info->cert_id = atoi(coltxt[i]);
+			else
+				info->cert_id = 0;
+		} else if (strcmp(colname[i], "cert_ref_count") == 0) {
+			if (coltxt[i])
+				info->cert_ref_count = atoi(coltxt[i]);
+			else
+				info->cert_ref_count = 0;
+		} else
 			continue;
-		} else if (strcmp(colname[i], "author_im_cert") == 0) {
-			if (coltxt[i]) {
-				if (strcmp(coltxt[i], pkgid) == 0) {
-					if (gflag[PMINFO_AUTHOR_INTERMEDIATE_CERT] && gpkgcert[PMINFO_AUTHOR_INTERMEDIATE_CERT]) {
-						certinfo->auth_im_cert = strdup(gpkgcert[PMINFO_AUTHOR_INTERMEDIATE_CERT]);
-						continue;
-					}
-					snprintf(query, MAX_QUERY_LEN, "select author_im_cert from package_cert_info " \
-						"where package='%s'", pkgid);
-					if (SQLITE_OK !=
-					    sqlite3_exec(cert_db, query, __certinfo_cb, (void *)certinfo, &error_message)) {
-						_LOGE("Don't execute query = %s error message = %s\n", query,
-						       error_message);
-						sqlite3_free(error_message);
-						ret = PMINFO_R_ERROR;
-						goto err;
-					}
-					gpkgcert[PMINFO_AUTHOR_INTERMEDIATE_CERT] = strdup(certinfo->pkgid);
-					gflag[PMINFO_AUTHOR_INTERMEDIATE_CERT] = 1;
-				} else {
-					certinfo->auth_im_cert = strdup(coltxt[i]);
-				}
-			}
-			continue;
-		} else if (strcmp(colname[i], "author_root_cert") == 0) {
-			if (coltxt[i]) {
-				if (strcmp(coltxt[i], pkgid) == 0) {
-					if (gflag[PMINFO_AUTHOR_ROOT_CERT] && gpkgcert[PMINFO_AUTHOR_ROOT_CERT]) {
-						certinfo->auth_root_cert = strdup(gpkgcert[PMINFO_AUTHOR_ROOT_CERT]);
-						continue;
-					}
-					snprintf(query, MAX_QUERY_LEN, "select author_root_cert from package_cert_info " \
-						"where package='%s'", pkgid);
-					if (SQLITE_OK !=
-					    sqlite3_exec(cert_db, query, __certinfo_cb, (void *)certinfo, &error_message)) {
-						_LOGE("Don't execute query = %s error message = %s\n", query,
-						       error_message);
-						sqlite3_free(error_message);
-						ret = PMINFO_R_ERROR;
-						goto err;
-					}
-					gpkgcert[PMINFO_AUTHOR_ROOT_CERT] = strdup(certinfo->pkgid);
-					gflag[PMINFO_AUTHOR_ROOT_CERT] = 1;
-				} else {
-					certinfo->auth_root_cert = strdup(coltxt[i]);
-				}
-			}
-			continue;
-		} else if (strcmp(colname[i], "dist_signer_cert") == 0 ) {
-			if (coltxt[i]) {
-				if (strcmp(coltxt[i], pkgid) == 0) {
-					if (gflag[PMINFO_DISTRIBUTOR_SIGNER_CERT] && gpkgcert[PMINFO_DISTRIBUTOR_SIGNER_CERT]) {
-						certinfo->dist_signer_cert = strdup(gpkgcert[PMINFO_DISTRIBUTOR_SIGNER_CERT]);
-						continue;
-					}
-					snprintf(query, MAX_QUERY_LEN, "select dist_signer_cert from package_cert_info " \
-						"where package='%s'", pkgid);
-					if (SQLITE_OK !=
-					    sqlite3_exec(cert_db, query, __certinfo_cb, (void *)certinfo, &error_message)) {
-						_LOGE("Don't execute query = %s error message = %s\n", query,
-						       error_message);
-						sqlite3_free(error_message);
-						ret = PMINFO_R_ERROR;
-						goto err;
-					}
-					gpkgcert[PMINFO_DISTRIBUTOR_SIGNER_CERT] = strdup(certinfo->pkgid);
-					gflag[PMINFO_DISTRIBUTOR_SIGNER_CERT] = 1;
-				} else {
-					certinfo->dist_signer_cert = strdup(coltxt[i]);
-				}
-			}
-			continue;
-		} else if (strcmp(colname[i], "dist_im_cert") == 0 ) {
-			if (coltxt[i]) {
-				if (strcmp(coltxt[i], pkgid) == 0) {
-					if (gflag[PMINFO_DISTRIBUTOR_INTERMEDIATE_CERT] && gpkgcert[PMINFO_DISTRIBUTOR_INTERMEDIATE_CERT]) {
-						certinfo->dist_im_cert = strdup(gpkgcert[PMINFO_DISTRIBUTOR_INTERMEDIATE_CERT]);
-						continue;
-					}
-					snprintf(query, MAX_QUERY_LEN, "select dist_im_cert from package_cert_info " \
-						"where package='%s'", pkgid);
-					if (SQLITE_OK !=
-					    sqlite3_exec(cert_db, query, __certinfo_cb, (void *)certinfo, &error_message)) {
-						_LOGE("Don't execute query = %s error message = %s\n", query,
-						       error_message);
-						sqlite3_free(error_message);
-						ret = PMINFO_R_ERROR;
-						goto err;
-					}
-					gpkgcert[PMINFO_DISTRIBUTOR_INTERMEDIATE_CERT] = strdup(certinfo->pkgid);
-					gflag[PMINFO_DISTRIBUTOR_INTERMEDIATE_CERT] = 1;
-				} else {
-					certinfo->dist_im_cert = strdup(coltxt[i]);
-				}
-			}
-			continue;
-		} else if (strcmp(colname[i], "dist_root_cert") == 0 ) {
-			if (coltxt[i]) {
-				if (strcmp(coltxt[i], pkgid) == 0) {
-					if (gflag[PMINFO_DISTRIBUTOR_ROOT_CERT] && gpkgcert[PMINFO_DISTRIBUTOR_ROOT_CERT]) {
-						certinfo->dist_root_cert = strdup(gpkgcert[PMINFO_DISTRIBUTOR_ROOT_CERT]);
-						continue;
-					}
-					snprintf(query, MAX_QUERY_LEN, "select dist_root_cert from package_cert_info " \
-						"where package='%s'", pkgid);
-					if (SQLITE_OK !=
-					    sqlite3_exec(cert_db, query, __certinfo_cb, (void *)certinfo, &error_message)) {
-						_LOGE("Don't execute query = %s error message = %s\n", query,
-						       error_message);
-						sqlite3_free(error_message);
-						ret = PMINFO_R_ERROR;
-						goto err;
-					}
-					gpkgcert[PMINFO_DISTRIBUTOR_ROOT_CERT] = strdup(certinfo->pkgid);
-					gflag[PMINFO_DISTRIBUTOR_ROOT_CERT] = 1;
-				} else {
-					certinfo->dist_root_cert = strdup(coltxt[i]);
-				}
-			}
-			continue;
-		} else if (strcmp(colname[i], "dist2_signer_cert") == 0 ) {
-			if (coltxt[i]) {
-				if (strcmp(coltxt[i], pkgid) == 0) {
-					if (gflag[PMINFO_DISTRIBUTOR2_SIGNER_CERT] && gpkgcert[PMINFO_DISTRIBUTOR2_SIGNER_CERT]) {
-						certinfo->dist2_signer_cert = strdup(gpkgcert[PMINFO_DISTRIBUTOR2_SIGNER_CERT]);
-						continue;
-					}
-					snprintf(query, MAX_QUERY_LEN, "select dist2_signer_cert from package_cert_info " \
-						"where package='%s'", pkgid);
-					if (SQLITE_OK !=
-					    sqlite3_exec(cert_db, query, __certinfo_cb, (void *)certinfo, &error_message)) {
-						_LOGE("Don't execute query = %s error message = %s\n", query,
-						       error_message);
-						sqlite3_free(error_message);
-						ret = PMINFO_R_ERROR;
-						goto err;
-					}
-					gpkgcert[PMINFO_DISTRIBUTOR2_SIGNER_CERT] = strdup(certinfo->pkgid);
-					gflag[PMINFO_DISTRIBUTOR2_SIGNER_CERT] = 1;
-				} else {
-					certinfo->dist2_signer_cert = strdup(coltxt[i]);
-				}
-			}
-			continue;
-		} else if (strcmp(colname[i], "dist2_im_cert") == 0 ) {
-			if (coltxt[i]) {
-				if (strcmp(coltxt[i], pkgid) == 0) {
-					if (gflag[PMINFO_DISTRIBUTOR2_INTERMEDIATE_CERT] && gpkgcert[PMINFO_DISTRIBUTOR2_INTERMEDIATE_CERT]) {
-						certinfo->dist2_im_cert = strdup(gpkgcert[PMINFO_DISTRIBUTOR2_INTERMEDIATE_CERT]);
-						continue;
-					}
-					snprintf(query, MAX_QUERY_LEN, "select dist2_im_cert from package_cert_info " \
-						"where package='%s'", pkgid);
-					if (SQLITE_OK !=
-					    sqlite3_exec(cert_db, query, __certinfo_cb, (void *)certinfo, &error_message)) {
-						_LOGE("Don't execute query = %s error message = %s\n", query,
-						       error_message);
-						sqlite3_free(error_message);
-						ret = PMINFO_R_ERROR;
-						goto err;
-					}
-					gpkgcert[PMINFO_DISTRIBUTOR2_INTERMEDIATE_CERT] = strdup(certinfo->pkgid);
-					gflag[PMINFO_DISTRIBUTOR2_INTERMEDIATE_CERT] = 1;
-				} else {
-					certinfo->dist2_im_cert = strdup(coltxt[i]);
-				}
-			}
-			continue;
-		} else if (strcmp(colname[i], "dist2_root_cert") == 0 ) {
-			if (coltxt[i]) {
-				if (strcmp(coltxt[i], pkgid) == 0) {
-					if (gflag[PMINFO_DISTRIBUTOR2_ROOT_CERT] && gpkgcert[PMINFO_DISTRIBUTOR2_ROOT_CERT]) {
-						certinfo->dist2_root_cert = strdup(gpkgcert[PMINFO_DISTRIBUTOR2_ROOT_CERT]);
-						continue;
-					}
-					snprintf(query, MAX_QUERY_LEN, "select dist2_root_cert from package_cert_info " \
-						"where package='%s'", pkgid);
-					if (SQLITE_OK !=
-					    sqlite3_exec(cert_db, query, __certinfo_cb, (void *)certinfo, &error_message)) {
-						_LOGE("Don't execute query = %s error message = %s\n", query,
-						       error_message);
-						sqlite3_free(error_message);
-						ret = PMINFO_R_ERROR;
-						goto err;
-					}
-					gpkgcert[PMINFO_DISTRIBUTOR2_ROOT_CERT] = strdup(certinfo->pkgid);
-					gflag[PMINFO_DISTRIBUTOR2_ROOT_CERT] = 1;
-				} else {
-					certinfo->dist2_root_cert = strdup(coltxt[i]);
-				}
-			}
-			continue;
-		}
 	}
-	/*Update cert info db*/
-	pkgmgrinfo_save_certinfo(certinfo->pkgid, (void *)certinfo);
-	ret = PMINFO_R_OK;
-err:
-	if (certinfo->auth_signer_cert) {
-		free(certinfo->auth_signer_cert);
-		certinfo->auth_signer_cert = NULL;
-	}
-	if (certinfo->auth_im_cert) {
-		free(certinfo->auth_im_cert);
-		certinfo->auth_im_cert = NULL;
-	}
-	if (certinfo->auth_root_cert) {
-		free(certinfo->auth_root_cert);
-		certinfo->auth_root_cert = NULL;
-	}
-	if (certinfo->dist_signer_cert) {
-		free(certinfo->dist_signer_cert);
-		certinfo->dist_signer_cert = NULL;
-	}
-	if (certinfo->dist_im_cert) {
-		free(certinfo->dist_im_cert);
-		certinfo->dist_im_cert = NULL;
-	}
-	if (certinfo->dist_root_cert) {
-		free(certinfo->dist_root_cert);
-		certinfo->dist_root_cert = NULL;
-	}
-	if (certinfo->dist2_signer_cert) {
-		free(certinfo->dist2_signer_cert);
-		certinfo->dist2_signer_cert = NULL;
-	}
-	if (certinfo->dist2_im_cert) {
-		free(certinfo->dist2_im_cert);
-		certinfo->dist2_im_cert = NULL;
-	}
-	if (certinfo->dist2_root_cert) {
-		free(certinfo->dist2_root_cert);
-		certinfo->dist2_root_cert = NULL;
-	}
-	free(certinfo);
-	certinfo = NULL;
-	return ret;
+	return 0;
 }
-
 static int __certinfo_cb(void *data, int ncols, char **coltxt, char **colname)
 {
 	pkgmgr_certinfo_x *info = (pkgmgr_certinfo_x *)data;
@@ -1309,49 +1086,54 @@ static int __certinfo_cb(void *data, int ncols, char **coltxt, char **colname)
 				info->pkgid = NULL;
 		} else if (strcmp(colname[i], "author_signer_cert") == 0) {
 			if (coltxt[i])
-				info->auth_signer_cert = strdup(coltxt[i]);
+				(info->cert_id)[PMINFO_AUTHOR_SIGNER_CERT] = atoi(coltxt[i]);
 			else
-				info->auth_signer_cert = NULL;
+				(info->cert_id)[PMINFO_AUTHOR_SIGNER_CERT] = 0;
 		} else if (strcmp(colname[i], "author_im_cert") == 0) {
 			if (coltxt[i])
-				info->auth_im_cert = strdup(coltxt[i]);
+				(info->cert_id)[PMINFO_AUTHOR_INTERMEDIATE_CERT] = atoi(coltxt[i]);
 			else
-				info->auth_im_cert = NULL;
+				(info->cert_id)[PMINFO_AUTHOR_INTERMEDIATE_CERT] = 0;
 		} else if (strcmp(colname[i], "author_root_cert") == 0) {
 			if (coltxt[i])
-				info->auth_root_cert = strdup(coltxt[i]);
+				(info->cert_id)[PMINFO_AUTHOR_ROOT_CERT] = atoi(coltxt[i]);
 			else
-				info->auth_root_cert = NULL;
+				(info->cert_id)[PMINFO_AUTHOR_ROOT_CERT] = 0;
 		} else if (strcmp(colname[i], "dist_signer_cert") == 0 ){
 			if (coltxt[i])
-				info->dist_signer_cert = strdup(coltxt[i]);
+				(info->cert_id)[PMINFO_DISTRIBUTOR_SIGNER_CERT] = atoi(coltxt[i]);
 			else
-				info->dist_signer_cert = NULL;
+				(info->cert_id)[PMINFO_DISTRIBUTOR_SIGNER_CERT] = 0;
 		} else if (strcmp(colname[i], "dist_im_cert") == 0 ){
 			if (coltxt[i])
-				info->dist_im_cert = strdup(coltxt[i]);
+				(info->cert_id)[PMINFO_DISTRIBUTOR_INTERMEDIATE_CERT] = atoi(coltxt[i]);
 			else
-				info->dist_im_cert = NULL;
+				(info->cert_id)[PMINFO_DISTRIBUTOR_INTERMEDIATE_CERT] = 0;
 		} else if (strcmp(colname[i], "dist_root_cert") == 0 ){
 			if (coltxt[i])
-				info->dist_root_cert = strdup(coltxt[i]);
+				(info->cert_id)[PMINFO_DISTRIBUTOR_ROOT_CERT] = atoi(coltxt[i]);
 			else
-				info->dist_root_cert = NULL;
+				(info->cert_id)[PMINFO_DISTRIBUTOR_ROOT_CERT] = 0;
 		} else if (strcmp(colname[i], "dist2_signer_cert") == 0 ){
 			if (coltxt[i])
-				info->dist2_signer_cert = strdup(coltxt[i]);
+				(info->cert_id)[PMINFO_DISTRIBUTOR2_SIGNER_CERT] = atoi(coltxt[i]);
 			else
-				info->dist2_signer_cert = NULL;
+				(info->cert_id)[PMINFO_DISTRIBUTOR2_SIGNER_CERT] = 0;
 		} else if (strcmp(colname[i], "dist2_im_cert") == 0 ){
 			if (coltxt[i])
-				info->dist2_im_cert = strdup(coltxt[i]);
+				(info->cert_id)[PMINFO_DISTRIBUTOR2_INTERMEDIATE_CERT] = atoi(coltxt[i]);
 			else
-				info->dist2_im_cert = NULL;
+				(info->cert_id)[PMINFO_DISTRIBUTOR2_INTERMEDIATE_CERT] = 0;
 		} else if (strcmp(colname[i], "dist2_root_cert") == 0 ){
 			if (coltxt[i])
-				info->dist2_root_cert = strdup(coltxt[i]);
+				(info->cert_id)[PMINFO_DISTRIBUTOR2_ROOT_CERT] = atoi(coltxt[i]);
 			else
-				info->dist2_root_cert = NULL;
+				(info->cert_id)[PMINFO_DISTRIBUTOR2_ROOT_CERT] = 0;
+		} else if (strcmp(colname[i], "cert_info") == 0 ){
+			if (coltxt[i])
+				info->cert_value = strdup(coltxt[i]);
+			else
+				info->cert_value = NULL;
 		} else
 			continue;
 	}
@@ -1387,6 +1169,11 @@ static int __appinfo_cb(void *data, int ncols, char **coltxt, char **colname)
 		for(i = 0; i < ncols; i++)
 		{
 			if (strcmp(colname[i], "app_id") == 0) {
+				/*appid being foreign key, is column in every table
+				Hence appid gets strduped every time leading to memory leak.
+				If appid is already set, just continue.*/
+				if (info->uiapp_info->appid)
+					continue;
 				if (coltxt[i])
 					info->uiapp_info->appid = strdup(coltxt[i]);
 				else
@@ -1466,11 +1253,11 @@ static int __appinfo_cb(void *data, int ncols, char **coltxt, char **colname)
 					info->uiapp_info->category->name = strdup(coltxt[i]);
 				else
 					info->uiapp_info->category->name = NULL;
-			} else if (strcmp(colname[i], "md_name") == 0 ) {
+			} else if (strcmp(colname[i], "md_key") == 0 ) {
 				if (coltxt[i])
-					info->uiapp_info->metadata->name = strdup(coltxt[i]);
+					info->uiapp_info->metadata->key = strdup(coltxt[i]);
 				else
-					info->uiapp_info->metadata->name = NULL;
+					info->uiapp_info->metadata->key = NULL;
 			} else if (strcmp(colname[i], "md_value") == 0 ) {
 				if (coltxt[i])
 					info->uiapp_info->metadata->value = strdup(coltxt[i]);
@@ -1528,9 +1315,16 @@ static int __appinfo_cb(void *data, int ncols, char **coltxt, char **colname)
 		LISTADD(info->svcapp_info->category, category);
 		metadata = calloc(1, sizeof(metadata_x));
 		LISTADD(info->svcapp_info->metadata, metadata);
+		permission = calloc(1, sizeof(permission_x));
+		LISTADD(info->svcapp_info->permission, permission);
 		for(i = 0; i < ncols; i++)
 		{
 			if (strcmp(colname[i], "app_id") == 0) {
+				/*appid being foreign key, is column in every table
+				Hence appid gets strduped every time leading to memory leak.
+				If appid is already set, just continue.*/
+				if (info->svcapp_info->appid)
+					continue;
 				if (coltxt[i])
 					info->svcapp_info->appid = strdup(coltxt[i]);
 				else
@@ -1575,11 +1369,11 @@ static int __appinfo_cb(void *data, int ncols, char **coltxt, char **colname)
 					info->svcapp_info->category->name = strdup(coltxt[i]);
 				else
 					info->svcapp_info->category->name = NULL;
-			} else if (strcmp(colname[i], "md_name") == 0 ) {
+			} else if (strcmp(colname[i], "md_key") == 0 ) {
 				if (coltxt[i])
-					info->svcapp_info->metadata->name = strdup(coltxt[i]);
+					info->svcapp_info->metadata->key = strdup(coltxt[i]);
 				else
-					info->svcapp_info->metadata->name = NULL;
+					info->svcapp_info->metadata->key = NULL;
 			} else if (strcmp(colname[i], "md_value") == 0 ) {
 				if (coltxt[i])
 					info->svcapp_info->metadata->value = strdup(coltxt[i]);
@@ -1697,9 +1491,9 @@ static int __cert_cb(void *data, int ncols, char **coltxt, char **colname)
 	{
 		if (strcmp(colname[i], "author_signer_cert") == 0) {
 			if (coltxt[i])
-				info->certvalue= strdup(coltxt[i]);
+				info->cert_id = atoi(coltxt[i]);
 			else
-				info->certvalue = NULL;
+				info->cert_id = 0;
 		} else if (strcmp(colname[i], "package") == 0) {
 			if (coltxt[i])
 				info->pkgid= strdup(coltxt[i]);
@@ -1743,6 +1537,20 @@ static int __exec_certinfo_query(char *query, void *data)
 	char *error_message = NULL;
 	if (SQLITE_OK !=
 	    sqlite3_exec(cert_db, query, __certinfo_cb, data, &error_message)) {
+		_LOGE("Don't execute query = %s error message = %s\n", query,
+		       error_message);
+		sqlite3_free(error_message);
+		return -1;
+	}
+	sqlite3_free(error_message);
+	return 0;
+}
+
+static int __exec_certindexinfo_query(char *query, void *data)
+{
+	char *error_message = NULL;
+	if (SQLITE_OK !=
+	    sqlite3_exec(cert_db, query, __certindexinfo_cb, data, &error_message)) {
 		_LOGE("Don't execute query = %s error message = %s\n", query,
 		       error_message);
 		sqlite3_free(error_message);
@@ -2079,6 +1887,104 @@ long long _pkgmgr_calculate_dir_size(char *dirname)
 
 }
 
+static int __delete_certinfo(const char *pkgid)
+{
+	int ret = -1;
+	int i = 0;
+	int j = 0;
+	int c = 0;
+	int unique_id[MAX_CERT_TYPE] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+	char *error_message = NULL;
+	char query[MAX_QUERY_LEN] = {'\0'};
+	pkgmgr_certinfo_x *certinfo = NULL;
+	pkgmgr_certindexinfo_x *indexinfo = NULL;
+	certinfo = calloc(1, sizeof(pkgmgr_certinfo_x));
+	retvm_if(certinfo == NULL, PMINFO_R_ERROR, "Malloc Failed\n");
+	indexinfo = calloc(1, sizeof(pkgmgr_certindexinfo_x));
+	if (indexinfo == NULL) {
+		_LOGE("Out of Memory!!!");
+		ret = PMINFO_R_ERROR;
+		goto err;
+	}
+	/*populate certinfo from DB*/
+	snprintf(query, MAX_QUERY_LEN, "select * from package_cert_info where package='%s' ", pkgid);
+	ret = __exec_certinfo_query(query, (void *)certinfo);
+	if (ret == -1) {
+		_LOGE("Package Cert Info DB Information retrieval failed\n");
+		ret = PMINFO_R_ERROR;
+		goto err;
+	}
+	/*Update cert index table*/
+	for (i = 0; i < MAX_CERT_TYPE; i++) {
+		if ((certinfo->cert_id)[i]) {
+			for (j = 0; j < MAX_CERT_TYPE; j++) {
+				if ((certinfo->cert_id)[i] == unique_id[j]) {
+					/*Ref count has already been updated. Just continue*/
+					break;
+				}
+			}
+			if (j == MAX_CERT_TYPE)
+				unique_id[c++] = (certinfo->cert_id)[i];
+			else
+				continue;
+			memset(query, '\0', MAX_QUERY_LEN);
+			snprintf(query, MAX_QUERY_LEN, "select * from package_cert_index_info where cert_id=%d ", (certinfo->cert_id)[i]);
+			ret = __exec_certindexinfo_query(query, (void *)indexinfo);
+			if (ret == -1) {
+				_LOGE("Cert Info DB Information retrieval failed\n");
+				ret = PMINFO_R_ERROR;
+				goto err;
+			}
+			memset(query, '\0', MAX_QUERY_LEN);
+			if (indexinfo->cert_ref_count > 1) {
+				/*decrease ref count*/
+				snprintf(query, MAX_QUERY_LEN, "update package_cert_index_info set cert_ref_count=%d where cert_id=%d ",
+				indexinfo->cert_ref_count - 1, (certinfo->cert_id)[i]);
+			} else {
+				/*delete this certificate as ref count is 1 and it will become 0*/
+				snprintf(query, MAX_QUERY_LEN, "delete from  package_cert_index_info where cert_id=%d ", (certinfo->cert_id)[i]);
+			}
+		        if (SQLITE_OK !=
+		            sqlite3_exec(cert_db, query, NULL, NULL, &error_message)) {
+		                _LOGE("Don't execute query = %s error message = %s\n", query,
+		                       error_message);
+				sqlite3_free(error_message);
+				ret = PMINFO_R_ERROR;
+				goto err;
+		        }
+		}
+	}
+	/*Now delete the entry from db*/
+	snprintf(query, MAX_QUERY_LEN, "delete from package_cert_info where package='%s'", pkgid);
+        if (SQLITE_OK !=
+            sqlite3_exec(cert_db, query, NULL, NULL, &error_message)) {
+                _LOGE("Don't execute query = %s error message = %s\n", query,
+                       error_message);
+		sqlite3_free(error_message);
+		ret = PMINFO_R_ERROR;
+		goto err;
+        }
+	ret = PMINFO_R_OK;
+err:
+	if (indexinfo) {
+		free(indexinfo);
+		indexinfo = NULL;
+	}
+	if (certinfo->pkgid) {
+		free(certinfo->pkgid);
+		certinfo->pkgid = NULL;
+	}
+	for (i = 0; i < MAX_CERT_TYPE; i++) {
+		if ((certinfo->cert_info)[i]) {
+			free((certinfo->cert_info)[i]);
+			(certinfo->cert_info)[i] = NULL;
+		}
+	}
+	free(certinfo);
+	certinfo = NULL;
+	return ret;
+}
+
 API int pkgmgrinfo_pkginfo_get_list(pkgmgrinfo_pkg_list_cb pkg_list_cb, void *user_data)
 {
 	if (pkg_list_cb == NULL) {
@@ -2274,7 +2180,8 @@ API int pkgmgrinfo_pkginfo_get_pkginfo(const char *pkgid, pkgmgrinfo_pkginfo_h *
 	pkginfo = (pkgmgr_pkginfo_x *)calloc(1, sizeof(pkgmgr_pkginfo_x));
 	if (pkginfo == NULL) {
 		_LOGE("Failed to allocate memory for pkginfo\n");
-		return PMINFO_R_ERROR;
+		ret = PMINFO_R_ERROR;
+		goto err;
 	}
 
 	pkginfo->manifest_info = (manifest_x *)calloc(1, sizeof(manifest_x));
@@ -3132,37 +3039,27 @@ API int pkgmgrinfo_pkginfo_get_root_path(pkgmgrinfo_pkginfo_h handle, char **pat
 
 API int pkgmgrinfo_pkginfo_compare_pkg_cert_info(const char *lhs_package_id, const char *rhs_package_id, pkgmgrinfo_cert_compare_result_type_e *compare_result)
 {
-	if (lhs_package_id == NULL || rhs_package_id == NULL)
-	{
-		_LOGE("pkginfo id is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (compare_result == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(lhs_package_id == NULL, PMINFO_R_EINVAL, "lhs package ID is NULL");
+	retvm_if(rhs_package_id == NULL, PMINFO_R_EINVAL, "rhs package ID is NULL");
+	retvm_if(compare_result == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 
 	int ret = PMINFO_R_OK;
 	char query[MAX_QUERY_LEN] = {'\0'};
 	char *error_message = NULL;
 	pkgmgr_cert_x *info= NULL;
-	char *lcert = NULL;
-	char *rcert = NULL;
+	int lcert = 0;
+	int rcert = 0;
 	int exist = -1;
-
+	*compare_result = PMINFO_CERT_COMPARE_ERROR;
 	info = (pkgmgr_cert_x *)calloc(1, sizeof(pkgmgr_cert_x));
-	if (info == NULL) {
-		_LOGE("Out of Memory!!!\n");
-		return PMINFO_R_ERROR;
-	}
+	retvm_if(info == NULL, PMINFO_R_ERROR, "Out of Memory!!!");
 
 	ret = db_util_open_with_options(CERT_DB, &cert_db,
 					SQLITE_OPEN_READONLY, NULL);
 	if (ret != SQLITE_OK) {
 		_LOGE("connect db [%s] failed!\n", CERT_DB);
-		free(info);
-		info = NULL;
-		return PMINFO_R_ERROR;
+		ret = PMINFO_R_ERROR;
+		goto err;
 	}
 
 	snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_cert_info where package='%s')", lhs_package_id);
@@ -3175,7 +3072,7 @@ API int pkgmgrinfo_pkginfo_compare_pkg_cert_info(const char *lhs_package_id, con
 	}
 
 	if (exist == 0) {
-		lcert = NULL;
+		lcert = 0;
 	} else {
 		snprintf(query, MAX_QUERY_LEN, "select author_signer_cert from package_cert_info where package='%s'", lhs_package_id);
 		if (SQLITE_OK !=
@@ -3185,30 +3082,7 @@ API int pkgmgrinfo_pkginfo_compare_pkg_cert_info(const char *lhs_package_id, con
 			ret = PMINFO_R_ERROR;
 			goto err;
 		}
-		snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_cert_info where package='%s')", info->certvalue);
-		if (SQLITE_OK !=
-		    sqlite3_exec(cert_db, query, __validate_cb, (void *)&exist, &error_message)) {
-			_LOGE("Don't execute query = %s error message = %s\n", query,
-			       error_message);
-			sqlite3_free(error_message);
-			return PMINFO_R_ERROR;
-		}
-		if (exist == 0)
-			lcert = info->certvalue;
-		else {
-			memset(query, '\0', MAX_QUERY_LEN);
-			snprintf(query, MAX_QUERY_LEN, "select author_signer_cert from package_cert_info where package='%s'", info->certvalue);
-			free(info->certvalue);
-			info->certvalue = NULL;
-			if (SQLITE_OK !=
-				sqlite3_exec(cert_db, query, __cert_cb, (void *)info, &error_message)) {
-				_LOGE("Don't execute query = %s error message = %s\n", query,
-					   error_message);
-				ret = PMINFO_R_ERROR;
-				goto err;
-			}
-			lcert = info->certvalue;
-		}
+		lcert = info->cert_id;
 	}
 
 	snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_cert_info where package='%s')", rhs_package_id);
@@ -3221,7 +3095,7 @@ API int pkgmgrinfo_pkginfo_compare_pkg_cert_info(const char *lhs_package_id, con
 	}
 
 	if (exist == 0) {
-		rcert = NULL;
+		rcert = 0;
 	} else {
 		snprintf(query, MAX_QUERY_LEN, "select author_signer_cert from package_cert_info where package='%s'", rhs_package_id);
 		if (SQLITE_OK !=
@@ -3231,42 +3105,19 @@ API int pkgmgrinfo_pkginfo_compare_pkg_cert_info(const char *lhs_package_id, con
 			ret = PMINFO_R_ERROR;
 			goto err;
 		}
-		snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_cert_info where package='%s')", info->certvalue);
-		if (SQLITE_OK !=
-		    sqlite3_exec(cert_db, query, __validate_cb, (void *)&exist, &error_message)) {
-			_LOGE("Don't execute query = %s error message = %s\n", query,
-			       error_message);
-			sqlite3_free(error_message);
-			return PMINFO_R_ERROR;
-		}
-		if (exist == 0)
-			rcert = info->certvalue;
-		else {
-			memset(query, '\0', MAX_QUERY_LEN);
-			snprintf(query, MAX_QUERY_LEN, "select author_signer_cert from package_cert_info where package='%s'", info->certvalue);
-			free(info->certvalue);
-			info->certvalue = NULL;
-			if (SQLITE_OK !=
-				sqlite3_exec(cert_db, query, __cert_cb, (void *)info, &error_message)) {
-				_LOGE("Don't execute query = %s error message = %s\n", query,
-					   error_message);
-				ret = PMINFO_R_ERROR;
-				goto err;
-			}
-			rcert = info->certvalue;
-		}
+		rcert = info->cert_id;
 	}
 
-	if ((lcert == NULL) || (rcert == NULL))
+	if ((lcert == 0) || (rcert == 0))
 	{
-		if ((lcert == NULL) && (rcert == NULL))
+		if ((lcert == 0) && (rcert == 0))
 			*compare_result = PMINFO_CERT_COMPARE_BOTH_NO_CERT;
-		else if (lcert == NULL)
+		else if (lcert == 0)
 			*compare_result = PMINFO_CERT_COMPARE_LHS_NO_CERT;
-		else if (rcert == NULL)
+		else if (rcert == 0)
 			*compare_result = PMINFO_CERT_COMPARE_RHS_NO_CERT;
 	} else {
-		if (strcmp(lcert, rcert) == 0)
+		if (lcert == rcert)
 			*compare_result = PMINFO_CERT_COMPARE_MATCH;
 		else
 			*compare_result = PMINFO_CERT_COMPARE_MISMATCH;
@@ -3276,56 +3127,40 @@ err:
 	sqlite3_free(error_message);
 	sqlite3_close(cert_db);
 	if (info) {
+		if (info->pkgid) {
+			free(info->pkgid);
+			info->pkgid = NULL;
+		}
 		free(info);
 		info = NULL;
 	}
-
 	return ret;
 }
 
 
 API int pkgmgrinfo_pkginfo_compare_app_cert_info(const char *lhs_app_id, const char *rhs_app_id, pkgmgrinfo_cert_compare_result_type_e *compare_result)
 {
-	if (lhs_app_id == NULL || rhs_app_id == NULL)
-	{
-		_LOGE("pkginfo id is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (compare_result == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(lhs_app_id == NULL, PMINFO_R_EINVAL, "lhs app ID is NULL");
+	retvm_if(rhs_app_id == NULL, PMINFO_R_EINVAL, "rhs app ID is NULL");
+	retvm_if(compare_result == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 
 	int ret = PMINFO_R_OK;
 	char query[MAX_QUERY_LEN] = {'\0'};
 	char *error_message = NULL;
 	pkgmgr_cert_x *info= NULL;
-	char *lcert = NULL;
-	char *rcert = NULL;
-	int exist = -1;
+ 	int exist = -1;
+	char *lpkgid = NULL;
+	char *rpkgid = NULL;
 
 	info = (pkgmgr_cert_x *)calloc(1, sizeof(pkgmgr_cert_x));
-	if (info == NULL) {
-		_LOGE("Out of Memory!!!\n");
-		return PMINFO_R_ERROR;
-	}
+	retvm_if(info == NULL, PMINFO_R_ERROR, "Out of Memory!!!");
 
 	ret = db_util_open_with_options(MANIFEST_DB, &manifest_db,
 					SQLITE_OPEN_READONLY, NULL);
 	if (ret != SQLITE_OK) {
 		_LOGE("connect db [%s] failed!\n", MANIFEST_DB);
-		free(info);
-		info = NULL;
-		return PMINFO_R_ERROR;
-	}
-	ret = db_util_open_with_options(CERT_DB, &cert_db,
-					SQLITE_OPEN_READONLY, NULL);
-	if (ret != SQLITE_OK) {
-		_LOGE("connect db [%s] failed!\n", CERT_DB);
-		sqlite3_close(manifest_db);
-		free(info);
-		info = NULL;
-		return PMINFO_R_ERROR;
+		ret = PMINFO_R_ERROR;
+		goto err;
 	}
 
 	snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_app_info where app_id='%s')", lhs_app_id);
@@ -3338,7 +3173,7 @@ API int pkgmgrinfo_pkginfo_compare_app_cert_info(const char *lhs_app_id, const c
 	}
 
 	if (exist == 0) {
-		lcert = NULL;
+		lpkgid = NULL;
 	} else {
 		snprintf(query, MAX_QUERY_LEN, "select package from package_app_info where app_id='%s' ", lhs_app_id);
 		if (SQLITE_OK !=
@@ -3348,39 +3183,14 @@ API int pkgmgrinfo_pkginfo_compare_app_cert_info(const char *lhs_app_id, const c
 			ret = PMINFO_R_ERROR;
 			goto err;
 		}
-
-		snprintf(query, MAX_QUERY_LEN, "select author_signer_cert from package_cert_info where package='%s'", info->pkgid);
-		if (SQLITE_OK !=
-			sqlite3_exec(cert_db, query, __cert_cb, (void *)info, &error_message)) {
-			_LOGE("Don't execute query = %s error message = %s\n", query,
-				   error_message);
+		lpkgid = strdup(info->pkgid);
+		if (lpkgid == NULL) {
+			_LOGE("Out of Memory\n");
 			ret = PMINFO_R_ERROR;
 			goto err;
 		}
-		snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_cert_info where package='%s')", info->certvalue);
-		if (SQLITE_OK !=
-		    sqlite3_exec(cert_db, query, __validate_cb, (void *)&exist, &error_message)) {
-			_LOGE("Don't execute query = %s error message = %s\n", query,
-			       error_message);
-			sqlite3_free(error_message);
-			return PMINFO_R_ERROR;
-		}
-		if (exist == 0)
-			lcert = info->certvalue;
-		else {
-			memset(query, '\0', MAX_QUERY_LEN);
-			snprintf(query, MAX_QUERY_LEN, "select author_signer_cert from package_cert_info where package='%s'", info->certvalue);
-			free(info->certvalue);
-			info->certvalue = NULL;
-			if (SQLITE_OK !=
-				sqlite3_exec(cert_db, query, __cert_cb, (void *)info, &error_message)) {
-				_LOGE("Don't execute query = %s error message = %s\n", query,
-					   error_message);
-				ret = PMINFO_R_ERROR;
-				goto err;
-			}
-			lcert = info->certvalue;
-		}
+		free(info->pkgid);
+		info->pkgid = NULL;
 	}
 
 	snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_app_info where app_id='%s')", rhs_app_id);
@@ -3393,7 +3203,7 @@ API int pkgmgrinfo_pkginfo_compare_app_cert_info(const char *lhs_app_id, const c
 	}
 
 	if (exist == 0) {
-		rcert = NULL;
+		rpkgid = NULL;
 	} else {
 		snprintf(query, MAX_QUERY_LEN, "select package from package_app_info where app_id='%s' ", rhs_app_id);
 		if (SQLITE_OK !=
@@ -3403,65 +3213,35 @@ API int pkgmgrinfo_pkginfo_compare_app_cert_info(const char *lhs_app_id, const c
 			ret = PMINFO_R_ERROR;
 			goto err;
 		}
-
-		snprintf(query, MAX_QUERY_LEN, "select author_signer_cert from package_cert_info where package='%s'", info->pkgid);
-		if (SQLITE_OK !=
-			sqlite3_exec(cert_db, query, __cert_cb, (void *)info, &error_message)) {
-			_LOGE("Don't execute query = %s error message = %s\n", query,
-				   error_message);
+		rpkgid = strdup(info->pkgid);
+		if (rpkgid == NULL) {
+			_LOGE("Out of Memory\n");
 			ret = PMINFO_R_ERROR;
 			goto err;
 		}
-		snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_cert_info where package='%s')", info->certvalue);
-		if (SQLITE_OK !=
-		    sqlite3_exec(cert_db, query, __validate_cb, (void *)&exist, &error_message)) {
-			_LOGE("Don't execute query = %s error message = %s\n", query,
-			       error_message);
-			sqlite3_free(error_message);
-			return PMINFO_R_ERROR;
-		}
-		if (exist == 0)
-			rcert = info->certvalue;
-		else {
-			memset(query, '\0', MAX_QUERY_LEN);
-			snprintf(query, MAX_QUERY_LEN, "select author_signer_cert from package_cert_info where package='%s'", info->certvalue);
-			free(info->certvalue);
-			info->certvalue = NULL;
-			if (SQLITE_OK !=
-				sqlite3_exec(cert_db, query, __cert_cb, (void *)info, &error_message)) {
-				_LOGE("Don't execute query = %s error message = %s\n", query,
-					   error_message);
-				ret = PMINFO_R_ERROR;
-				goto err;
-			}
-			rcert = info->certvalue;
-		}
+		free(info->pkgid);
+		info->pkgid = NULL;
 	}
-
-	if ((lcert == NULL) || (rcert == NULL))
-	{
-		if ((lcert == NULL) && (rcert == NULL))
-			*compare_result = PMINFO_CERT_COMPARE_BOTH_NO_CERT;
-		else if (lcert == NULL)
-			*compare_result = PMINFO_CERT_COMPARE_LHS_NO_CERT;
-		else if (rcert == NULL)
-			*compare_result = PMINFO_CERT_COMPARE_RHS_NO_CERT;
-	} else {
-		if (strcmp(lcert, rcert) == 0)
-			*compare_result = PMINFO_CERT_COMPARE_MATCH;
-		else
-			*compare_result = PMINFO_CERT_COMPARE_MISMATCH;
-	}
-
-err:
+	ret = pkgmgrinfo_pkginfo_compare_pkg_cert_info(lpkgid, rpkgid, compare_result);
+ err:
 	sqlite3_free(error_message);
 	sqlite3_close(manifest_db);
-	sqlite3_close(cert_db);
 	if (info) {
+		if (info->pkgid) {
+			free(info->pkgid);
+			info->pkgid = NULL;
+		}
 		free(info);
 		info = NULL;
 	}
-
+	if (lpkgid) {
+		free(lpkgid);
+		lpkgid = NULL;
+	}
+	if (rpkgid) {
+		free(rpkgid);
+		rpkgid = NULL;
+	}
 	return ret;
 }
 
@@ -3544,6 +3324,27 @@ API int pkgmgrinfo_pkginfo_is_removable(pkgmgrinfo_pkginfo_h handle, bool *remov
 		else
 			*removable = 1;
 	}
+	return PMINFO_R_OK;
+}
+
+API int pkgmgrinfo_pkginfo_is_movable(pkgmgrinfo_pkginfo_h handle, bool *movable)
+{
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
+	retvm_if(movable == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
+
+	char *val = NULL;
+	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
+
+	val = (char *)info->manifest_info->installlocation;
+	if (val) {
+		if (strcmp(val, "internal-only") == 0)
+			*movable = 0;
+		else if (strcmp(val, "prefer-external") == 0)
+			*movable = 1;
+		else
+			*movable = 1;
+	}
+
 	return PMINFO_R_OK;
 }
 
@@ -4053,6 +3854,10 @@ API int pkgmgrinfo_appinfo_get_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_app_
 	pkgmgr_appinfo_x *appinfo = NULL;
 	icon_x *ptr1 = NULL;
 	label_x *ptr2 = NULL;
+	category_x *tmp3 = NULL;
+	metadata_x *tmp4 = NULL;
+	permission_x *tmp5 = NULL;
+	image_x *tmp6 = NULL;
 	sqlite3 *appinfo_db = NULL;
 
 	/*get system locale*/
@@ -4148,6 +3953,22 @@ API int pkgmgrinfo_appinfo_get_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_app_
 				LISTHEAD(appinfo->uiapp_info->icon, ptr1);
 				appinfo->uiapp_info->icon = ptr1;
 			}
+			if (appinfo->uiapp_info->category) {
+				LISTHEAD(appinfo->uiapp_info->category, tmp3);
+				appinfo->uiapp_info->category = tmp3;
+			}
+			if (appinfo->uiapp_info->metadata) {
+				LISTHEAD(appinfo->uiapp_info->metadata, tmp4);
+				appinfo->uiapp_info->metadata = tmp4;
+			}
+			if (appinfo->uiapp_info->permission) {
+				LISTHEAD(appinfo->uiapp_info->permission, tmp5);
+				appinfo->uiapp_info->permission = tmp5;
+			}
+			if (appinfo->uiapp_info->image) {
+				LISTHEAD(appinfo->uiapp_info->image, tmp6);
+				appinfo->uiapp_info->image = tmp6;
+			}
 			ret = app_func((void *)appinfo, user_data);
 			if (ret < 0)
 				break;
@@ -4186,6 +4007,18 @@ API int pkgmgrinfo_appinfo_get_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_app_
 			if (appinfo->svcapp_info->icon) {
 				LISTHEAD(appinfo->svcapp_info->icon, ptr1);
 				appinfo->svcapp_info->icon = ptr1;
+			}
+			if (appinfo->svcapp_info->category) {
+				LISTHEAD(appinfo->svcapp_info->category, tmp3);
+				appinfo->svcapp_info->category = tmp3;
+			}
+			if (appinfo->svcapp_info->metadata) {
+				LISTHEAD(appinfo->svcapp_info->metadata, tmp4);
+				appinfo->svcapp_info->metadata = tmp4;
+			}
+			if (appinfo->svcapp_info->permission) {
+				LISTHEAD(appinfo->svcapp_info->permission, tmp5);
+				appinfo->svcapp_info->permission = tmp5;
 			}
 			ret = app_func((void *)appinfo, user_data);
 			if (ret < 0)
@@ -4243,6 +4076,22 @@ API int pkgmgrinfo_appinfo_get_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_app_
 				LISTHEAD(appinfo->uiapp_info->icon, ptr1);
 				appinfo->uiapp_info->icon = ptr1;
 			}
+			if (appinfo->uiapp_info->category) {
+				LISTHEAD(appinfo->uiapp_info->category, tmp3);
+				appinfo->uiapp_info->category = tmp3;
+			}
+			if (appinfo->uiapp_info->metadata) {
+				LISTHEAD(appinfo->uiapp_info->metadata, tmp4);
+				appinfo->uiapp_info->metadata = tmp4;
+			}
+			if (appinfo->uiapp_info->permission) {
+				LISTHEAD(appinfo->uiapp_info->permission, tmp5);
+				appinfo->uiapp_info->permission = tmp5;
+			}
+			if (appinfo->uiapp_info->image) {
+				LISTHEAD(appinfo->uiapp_info->image, tmp6);
+				appinfo->uiapp_info->image = tmp6;
+			}
 			ret = app_func((void *)appinfo, user_data);
 			if (ret < 0)
 				break;
@@ -4278,6 +4127,18 @@ API int pkgmgrinfo_appinfo_get_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_app_
 			if (appinfo->svcapp_info->icon) {
 				LISTHEAD(appinfo->svcapp_info->icon, ptr1);
 				appinfo->svcapp_info->icon = ptr1;
+			}
+			if (appinfo->svcapp_info->category) {
+				LISTHEAD(appinfo->svcapp_info->category, tmp3);
+				appinfo->svcapp_info->category = tmp3;
+			}
+			if (appinfo->svcapp_info->metadata) {
+				LISTHEAD(appinfo->svcapp_info->metadata, tmp4);
+				appinfo->svcapp_info->metadata = tmp4;
+			}
+			if (appinfo->svcapp_info->permission) {
+				LISTHEAD(appinfo->svcapp_info->permission, tmp5);
+				appinfo->svcapp_info->permission = tmp5;
 			}
 			ret = app_func((void *)appinfo, user_data);
 			if (ret < 0)
@@ -4326,6 +4187,10 @@ API int pkgmgrinfo_appinfo_get_installed_list(pkgmgrinfo_app_list_cb app_func, v
 	serviceapplication_x *ptr2 = NULL;
 	label_x *tmp1 = NULL;
 	icon_x *tmp2 = NULL;
+	category_x *tmp3 = NULL;
+	metadata_x *tmp4 = NULL;
+	permission_x *tmp5 = NULL;
+	image_x *tmp6 = NULL;
 	sqlite3 *appinfo_db = NULL;
 
 	/*get system locale*/
@@ -4423,6 +4288,22 @@ API int pkgmgrinfo_appinfo_get_installed_list(pkgmgrinfo_app_list_cb app_func, v
 			LISTHEAD(appinfo->uiapp_info->icon, tmp2);
 			appinfo->uiapp_info->icon= tmp2;
 		}
+		if (appinfo->uiapp_info->category) {
+			LISTHEAD(appinfo->uiapp_info->category, tmp3);
+			appinfo->uiapp_info->category = tmp3;
+		}
+		if (appinfo->uiapp_info->metadata) {
+			LISTHEAD(appinfo->uiapp_info->metadata, tmp4);
+			appinfo->uiapp_info->metadata = tmp4;
+		}
+		if (appinfo->uiapp_info->permission) {
+			LISTHEAD(appinfo->uiapp_info->permission, tmp5);
+			appinfo->uiapp_info->permission = tmp5;
+		}
+		if (appinfo->uiapp_info->image) {
+			LISTHEAD(appinfo->uiapp_info->image, tmp6);
+			appinfo->uiapp_info->image = tmp6;
+		}
 		ret = app_func((void *)appinfo, user_data);
 		if (ret < 0)
 			break;
@@ -4466,6 +4347,18 @@ API int pkgmgrinfo_appinfo_get_installed_list(pkgmgrinfo_app_list_cb app_func, v
 			LISTHEAD(appinfo->svcapp_info->icon, tmp2);
 			appinfo->svcapp_info->icon= tmp2;
 		}
+		if (appinfo->svcapp_info->category) {
+			LISTHEAD(appinfo->svcapp_info->category, tmp3);
+			appinfo->svcapp_info->category = tmp3;
+		}
+		if (appinfo->svcapp_info->metadata) {
+			LISTHEAD(appinfo->svcapp_info->metadata, tmp4);
+			appinfo->svcapp_info->metadata = tmp4;
+		}
+		if (appinfo->svcapp_info->permission) {
+			LISTHEAD(appinfo->svcapp_info->permission, tmp5);
+			appinfo->svcapp_info->permission = tmp5;
+		}
 		ret = app_func((void *)appinfo, user_data);
 		if (ret < 0)
 			break;
@@ -4507,6 +4400,7 @@ API int pkgmgrinfo_appinfo_get_appinfo(const char *appid, pkgmgrinfo_appinfo_h *
 	category_x *tmp3 = NULL;
 	metadata_x *tmp4 = NULL;
 	permission_x *tmp5 = NULL;
+	image_x *tmp6 = NULL;
 	char query[MAX_QUERY_LEN] = {'\0'};
 	sqlite3 *appinfo_db = NULL;
 
@@ -4616,6 +4510,10 @@ API int pkgmgrinfo_appinfo_get_appinfo(const char *appid, pkgmgrinfo_appinfo_h *
 		if (appinfo->uiapp_info->permission) {
 			LISTHEAD(appinfo->uiapp_info->permission, tmp5);
 			appinfo->uiapp_info->permission = tmp5;
+		}
+		if (appinfo->uiapp_info->image) {
+			LISTHEAD(appinfo->uiapp_info->image, tmp6);
+			appinfo->uiapp_info->image = tmp6;
 		}
 		break;
 	case PMINFO_SVC_APP:
@@ -5112,7 +5010,7 @@ API int pkgmgrinfo_appinfo_foreach_metadata(pkgmgrinfo_appinfo_h handle,
 	else
 		return PMINFO_R_EINVAL;
 	for (; ptr; ptr = ptr->next) {
-		ret = metadata_func(ptr->name, ptr->value, user_data);
+		ret = metadata_func(ptr->key, ptr->value, user_data);
 		if (ret < 0)
 			break;
 	}
@@ -5994,47 +5892,233 @@ err:
 	return ret;
 }
 
+API int pkgmgrinfo_appinfo_metadata_filter_create(pkgmgrinfo_appinfo_metadata_filter_h *handle)
+{
+	return (pkgmgrinfo_pkginfo_filter_create(handle));
+}
+
+API int pkgmgrinfo_appinfo_metadata_filter_destroy(pkgmgrinfo_appinfo_metadata_filter_h handle)
+{
+	return (pkgmgrinfo_pkginfo_filter_destroy(handle));
+}
+
+API int pkgmgrinfo_appinfo_metadata_filter_add(pkgmgrinfo_appinfo_metadata_filter_h handle,
+		const char *key, const char *value)
+{
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "filter handle is NULL\n");
+	retvm_if(key == NULL, PMINFO_R_EINVAL, "metadata key supplied is NULL\n");
+	/*value can be NULL. In that case all apps with specified key should be displayed*/
+	int ret = 0;
+	char *k = NULL;
+	char *v = NULL;
+	pkgmgrinfo_filter_x *filter = (pkgmgrinfo_filter_x*)handle;
+	pkgmgrinfo_node_x *node = (pkgmgrinfo_node_x*)calloc(1, sizeof(pkgmgrinfo_node_x));
+	retvm_if(node == NULL, PMINFO_R_ERROR, "Out of Memory!!!\n");
+	k = strdup(key);
+	tryvm_if(k == NULL, ret = PMINFO_R_ERROR, "Out of Memory!!!\n");
+	node->key = k;
+	if (value) {
+		v = strdup(value);
+		tryvm_if(v == NULL, ret = PMINFO_R_ERROR, "Out of Memory!!!\n");
+	}
+	node->value = v;
+	/*If API is called multiple times, we should OR all conditions.*/
+	filter->list = g_slist_append(filter->list, (gpointer)node);
+	/*All memory will be freed in destroy API*/
+	return PMINFO_R_OK;
+catch:
+	if (node) {
+		if (node->key) {
+			free(node->key);
+			node->key = NULL;
+		}
+		if (node->value) {
+			free(node->value);
+			node->value = NULL;
+		}
+		free(node);
+		node = NULL;
+	}
+	return ret;
+}
+
+API int pkgmgrinfo_appinfo_metadata_filter_foreach(pkgmgrinfo_appinfo_metadata_filter_h handle,
+		pkgmgrinfo_app_list_cb app_cb, void *user_data)
+{
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "filter handle is NULL\n");
+	retvm_if(app_cb == NULL, PMINFO_R_EINVAL, "Callback function supplied is NULL\n");
+	char *syslocale = NULL;
+	char *locale = NULL;
+	char *condition = NULL;
+	char *error_message = NULL;
+	char query[MAX_QUERY_LEN] = {'\0'};
+	char where[MAX_QUERY_LEN] = {'\0'};
+	GSList *list;
+	int ret = 0;
+	pkgmgr_pkginfo_x *info = NULL;
+	pkgmgr_pkginfo_x *filtinfo = NULL;
+	pkgmgr_appinfo_x *appinfo = NULL;
+	uiapplication_x *ptr1 = NULL;
+	serviceapplication_x *ptr2 = NULL;
+	pkgmgrinfo_filter_x *filter = (pkgmgrinfo_filter_x*)handle;
+
+	/*Get current locale*/
+	syslocale = vconf_get_str(VCONFKEY_LANGSET);
+	retvm_if(syslocale == NULL, PMINFO_R_ERROR, "current locale is NULL\n");
+	locale = __convert_system_locale_to_manifest_locale(syslocale);
+	tryvm_if(locale == NULL, ret = PMINFO_R_ERROR, "manifest locale is NULL\n");
+	strncpy(glocale, locale, PKG_LOCALE_STRING_LEN_MAX - 1);
+	ret = __open_manifest_db();
+	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "Fail to open manifest DB\n");
+
+	/*Start constructing query*/
+	memset(where, '\0', MAX_QUERY_LEN);
+	memset(query, '\0', MAX_QUERY_LEN);
+	snprintf(query, MAX_QUERY_LEN - 1, METADATA_FILTER_QUERY_SELECT_CLAUSE);
+	/*Get where clause*/
+	for (list = filter->list; list; list = g_slist_next(list)) {
+		__get_metadata_filter_condition(list->data, &condition);
+		if (condition) {
+			strncat(where, condition, sizeof(where) - strlen(where) -1);
+			free(condition);
+			condition = NULL;
+		}
+		if (g_slist_next(list)) {
+			strncat(where, METADATA_FILTER_QUERY_UNION_CLAUSE, sizeof(where) - strlen(where) - 1);
+		}
+	}
+	_LOGE("where = %s (%d)\n", where, strlen(where));
+	if (strlen(where) > 0) {
+		strncat(query, where, sizeof(query) - strlen(query) - 1);
+	}
+	_LOGE("query = %s (%d)\n", query, strlen(query));
+	/*To get filtered list*/
+	info = (pkgmgr_pkginfo_x *)calloc(1, sizeof(pkgmgr_pkginfo_x));
+	tryvm_if(info == NULL, ret = PMINFO_R_ERROR, "Out of Memory!!!\n");
+
+	info->manifest_info = (manifest_x *)calloc(1, sizeof(manifest_x));
+	tryvm_if(info->manifest_info == NULL, ret = PMINFO_R_ERROR, "Out of Memory!!!\n");
+
+	/*To get detail app info for each member of filtered list*/
+	filtinfo = (pkgmgr_pkginfo_x *)calloc(1, sizeof(pkgmgr_pkginfo_x));
+	tryvm_if(filtinfo == NULL, ret = PMINFO_R_ERROR, "Out of Memory!!!\n");
+
+	filtinfo->manifest_info = (manifest_x *)calloc(1, sizeof(manifest_x));
+	tryvm_if(filtinfo->manifest_info == NULL, ret = PMINFO_R_ERROR, "Out of Memory!!!\n");
+
+	appinfo = (pkgmgr_appinfo_x *)calloc(1, sizeof(pkgmgr_appinfo_x));
+	tryvm_if(appinfo == NULL, ret = PMINFO_R_ERROR, "Out of Memory!!!\n");
+
+	ret = sqlite3_exec(manifest_db, query, __app_list_cb, (void *)info, &error_message);
+	tryvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "Don't execute query = %s error message = %s\n", query, error_message);
+	memset(query, '\0', MAX_QUERY_LEN);
+
+	if (info->manifest_info->uiapplication) {
+		LISTHEAD(info->manifest_info->uiapplication, ptr1);
+		info->manifest_info->uiapplication = ptr1;
+	}
+	if (info->manifest_info->serviceapplication) {
+		LISTHEAD(info->manifest_info->serviceapplication, ptr2);
+		info->manifest_info->serviceapplication = ptr2;
+	}
+
+	/*UI Apps*/
+	for(ptr1 = info->manifest_info->uiapplication; ptr1; ptr1 = ptr1->next)
+	{
+		snprintf(query, MAX_QUERY_LEN, "select * from package_app_info where app_id='%s' and app_component='%s'",
+							ptr1->appid, "uiapp");
+		ret = sqlite3_exec(manifest_db, query, __uiapp_list_cb, (void *)filtinfo, &error_message);
+		tryvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "Don't execute query = %s error message = %s\n", query, error_message);
+		memset(query, '\0', MAX_QUERY_LEN);
+	}
+	/*Service Apps*/
+	for(ptr2 = info->manifest_info->serviceapplication; ptr2; ptr2 = ptr2->next)
+	{
+		snprintf(query, MAX_QUERY_LEN, "select * from package_app_info where app_id='%s' and app_component='%s'",
+							ptr2->appid, "svcapp");
+		ret = sqlite3_exec(manifest_db, query, __svcapp_list_cb, (void *)filtinfo, &error_message);
+		tryvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "Don't execute query = %s error message = %s\n", query, error_message);
+		memset(query, '\0', MAX_QUERY_LEN);
+	}
+	/*Filtered UI Apps*/
+	if (filtinfo->manifest_info->uiapplication) {
+		LISTHEAD(filtinfo->manifest_info->uiapplication, ptr1);
+		filtinfo->manifest_info->uiapplication = ptr1;
+	}
+	/*If the callback func return < 0 we break and no more call back is called*/
+	while(ptr1 != NULL)
+	{
+		appinfo->uiapp_info = ptr1;
+		appinfo->app_component = PMINFO_UI_APP;
+		ret = app_cb((void *)appinfo, user_data);
+		if (ret < 0)
+			break;
+		ptr1 = ptr1->next;
+	}
+	/*Filtered Service Apps*/
+	if (filtinfo->manifest_info->serviceapplication) {
+		LISTHEAD(filtinfo->manifest_info->serviceapplication, ptr2);
+		filtinfo->manifest_info->serviceapplication = ptr2;
+	}
+	/*If the callback func return < 0 we break and no more call back is called*/
+	while(ptr2 != NULL)
+	{
+		appinfo->svcapp_info = ptr2;
+		appinfo->app_component = PMINFO_SVC_APP;
+		ret = app_cb((void *)appinfo, user_data);
+		if (ret < 0)
+			break;
+		ptr2 = ptr2->next;
+	}
+	ret = PMINFO_R_OK;
+catch:
+	if (locale) {
+		free(locale);
+		locale = NULL;
+	}
+	if (syslocale) {
+		free(syslocale);
+		syslocale = NULL;
+	}
+	sqlite3_free(error_message);
+	sqlite3_close(manifest_db);
+	if (appinfo) {
+		free(appinfo);
+		appinfo = NULL;
+	}
+	__cleanup_pkginfo(info);
+	__cleanup_pkginfo(filtinfo);
+	return ret;
+}
+
 API int pkgmgrinfo_pkginfo_create_certinfo(pkgmgrinfo_certinfo_h *handle)
 {
-	if (!handle) {
-		_LOGE("Argument supplied is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	int ret = 0;
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 	pkgmgr_certinfo_x *certinfo = NULL;
 	certinfo = calloc(1, sizeof(pkgmgr_certinfo_x));
-	if (!certinfo) {
-		_LOGE("Malloc Failed\n");
-		return PMINFO_R_ERROR;
-	}
+	retvm_if(certinfo == NULL, PMINFO_R_ERROR, "Malloc Failed\n");
 	*handle = (void *)certinfo;
-	/*Open db. It will be closed in destroy handle API*/
-	ret = db_util_open_with_options(CERT_DB, &cert_db,
-					SQLITE_OPEN_READONLY, NULL);
-	if (ret != SQLITE_OK) {
-		_LOGE("connect db [%s] failed!\n", MANIFEST_DB);
-		free(certinfo);
-		return PMINFO_R_ERROR;
-	}
 	return PMINFO_R_OK;
 }
 
 API int pkgmgrinfo_pkginfo_load_certinfo(const char *pkgid, pkgmgrinfo_certinfo_h handle)
 {
-	if (pkgid == NULL) {
-		_LOGE("package ID is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (handle == NULL) {
-		_LOGE("Certinfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(pkgid == NULL, PMINFO_R_EINVAL, "package ID is NULL\n");
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "Certinfo handle is NULL\n");
 	pkgmgr_certinfo_x *certinfo = NULL;
 	char *error_message = NULL;
 	int ret = PMINFO_R_OK;
 	char query[MAX_QUERY_LEN] = {'\0'};
 	int exist = 0;
+	int i = 0;
 
+	/*Open db.*/
+	ret = db_util_open_with_options(CERT_DB, &cert_db,
+					SQLITE_OPEN_READONLY, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGE("connect db [%s] failed!\n", CERT_DB);
+		return PMINFO_R_ERROR;
+	}
 	/*validate pkgid*/
 	snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_cert_info where package='%s')", pkgid);
 	if (SQLITE_OK !=
@@ -6042,7 +6126,8 @@ API int pkgmgrinfo_pkginfo_load_certinfo(const char *pkgid, pkgmgrinfo_certinfo_
 		_LOGE("Don't execute query = %s error message = %s\n", query,
 		       error_message);
 		sqlite3_free(error_message);
-		return PMINFO_R_ERROR;
+		ret = PMINFO_R_ERROR;
+		goto err;
 	}
 	if (exist == 0) {
 		_LOGE("Package not found in DB\n");
@@ -6058,651 +6143,339 @@ API int pkgmgrinfo_pkginfo_load_certinfo(const char *pkgid, pkgmgrinfo_certinfo_
 		ret = PMINFO_R_ERROR;
 		goto err;
 	}
-	return PMINFO_R_OK;
+	for (i = 0; i < MAX_CERT_TYPE; i++) {
+		memset(query, '\0', MAX_QUERY_LEN);
+		snprintf(query, MAX_QUERY_LEN, "select cert_info from package_cert_index_info where cert_id=%d ", (certinfo->cert_id)[i]);
+		ret = __exec_certinfo_query(query, (void *)certinfo);
+		if (ret == -1) {
+			_LOGE("Cert Info DB Information retrieval failed\n");
+			ret = PMINFO_R_ERROR;
+			goto err;
+		}
+		if (certinfo->cert_value) {
+			(certinfo->cert_info)[i] = strdup(certinfo->cert_value);
+			free(certinfo->cert_value);
+			certinfo->cert_value = NULL;
+		}
+	}
 err:
+	sqlite3_close(cert_db);
 	return ret;
 }
 
 API int pkgmgrinfo_pkginfo_get_cert_value(pkgmgrinfo_certinfo_h handle, pkgmgrinfo_cert_type cert_type, const char **cert_value)
 {
-	if (!handle || !cert_value) {
-		_LOGE("Argument supplied is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if ((cert_type < PMINFO_AUTHOR_ROOT_CERT) || (cert_type > PMINFO_DISTRIBUTOR2_SIGNER_CERT)) {
-		_LOGE("Invalid certificate type\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "Argument supplied is NULL\n");
+	retvm_if(cert_value == NULL, PMINFO_R_EINVAL, "Argument supplied is NULL\n");
+	retvm_if(cert_type < PMINFO_AUTHOR_ROOT_CERT, PMINFO_R_EINVAL, "Invalid certificate type\n");
+	retvm_if(cert_type > PMINFO_DISTRIBUTOR2_SIGNER_CERT, PMINFO_R_EINVAL, "Invalid certificate type\n");
 	pkgmgr_certinfo_x *certinfo = NULL;
-	char *error_message = NULL;
-	int ret = PMINFO_R_OK;
-	char query[MAX_QUERY_LEN] = {'\0'};
-	int exist = 0;
 	certinfo = (pkgmgr_certinfo_x *)handle;
-	*cert_value = NULL;
-	switch(cert_type) {
-	case PMINFO_AUTHOR_SIGNER_CERT:
-		snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_cert_info where package='%s')", certinfo->auth_signer_cert);
-		if (SQLITE_OK !=
-		    sqlite3_exec(cert_db, query, __validate_cb, (void *)&exist, &error_message)) {
-			_LOGE("Don't execute query = %s error message = %s\n", query,
-			       error_message);
-			sqlite3_free(error_message);
-			return PMINFO_R_ERROR;
-		}
-		if (exist == 0)
-			*cert_value = certinfo->auth_signer_cert;
-		else {
-			memset(query, '\0', MAX_QUERY_LEN);
-			snprintf(query, MAX_QUERY_LEN, "select author_signer_cert from package_cert_info " \
-				"where package='%s'", certinfo->auth_signer_cert);
-			free(certinfo->auth_signer_cert);
-			certinfo->auth_signer_cert = NULL;
-			ret = __exec_certinfo_query(query, (void *)certinfo);
-			if (ret == -1) {
-				_LOGE("Cert Info DB Information retrieval failed\n");
-				return PMINFO_R_ERROR;
-			}
-			*cert_value = certinfo->auth_signer_cert;
-		}
-		break;
-	case PMINFO_AUTHOR_INTERMEDIATE_CERT:
-		snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_cert_info where package='%s')", certinfo->auth_im_cert);
-		if (SQLITE_OK !=
-		    sqlite3_exec(cert_db, query, __validate_cb, (void *)&exist, &error_message)) {
-			_LOGE("Don't execute query = %s error message = %s\n", query,
-			       error_message);
-			sqlite3_free(error_message);
-			return PMINFO_R_ERROR;
-		}
-		if (exist == 0)
-			*cert_value = certinfo->auth_im_cert;
-		else {
-			memset(query, '\0', MAX_QUERY_LEN);
-			snprintf(query, MAX_QUERY_LEN, "select author_im_cert from package_cert_info " \
-				"where package='%s'", certinfo->auth_im_cert);
-			free(certinfo->auth_im_cert);
-			certinfo->auth_im_cert = NULL;
-			ret = __exec_certinfo_query(query, (void *)certinfo);
-			if (ret == -1) {
-				_LOGE("Cert Info DB Information retrieval failed\n");
-				return PMINFO_R_ERROR;
-			}
-			*cert_value = certinfo->auth_im_cert;
-		}
-		break;
-	case PMINFO_AUTHOR_ROOT_CERT:
-		snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_cert_info where package='%s')", certinfo->auth_root_cert);
-		if (SQLITE_OK !=
-		    sqlite3_exec(cert_db, query, __validate_cb, (void *)&exist, &error_message)) {
-			_LOGE("Don't execute query = %s error message = %s\n", query,
-			       error_message);
-			sqlite3_free(error_message);
-			return PMINFO_R_ERROR;
-		}
-		if (exist == 0)
-			*cert_value = certinfo->auth_root_cert;
-		else {
-			memset(query, '\0', MAX_QUERY_LEN);
-			snprintf(query, MAX_QUERY_LEN, "select author_root_cert from package_cert_info " \
-				"where package='%s'", certinfo->auth_root_cert);
-			free(certinfo->auth_root_cert);
-			certinfo->auth_root_cert = NULL;
-			ret = __exec_certinfo_query(query, (void *)certinfo);
-			if (ret == -1) {
-				_LOGE("Cert Info DB Information retrieval failed\n");
-				return PMINFO_R_ERROR;
-			}
-			*cert_value = certinfo->auth_root_cert;
-		}
-		break;
-	case PMINFO_DISTRIBUTOR_SIGNER_CERT:
-		snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_cert_info where package='%s')", certinfo->dist_signer_cert);
-		if (SQLITE_OK !=
-		    sqlite3_exec(cert_db, query, __validate_cb, (void *)&exist, &error_message)) {
-			_LOGE("Don't execute query = %s error message = %s\n", query,
-			       error_message);
-			sqlite3_free(error_message);
-			return PMINFO_R_ERROR;
-		}
-		if (exist == 0)
-			*cert_value = certinfo->dist_signer_cert;
-		else {
-			memset(query, '\0', MAX_QUERY_LEN);
-			snprintf(query, MAX_QUERY_LEN, "select dist_signer_cert from package_cert_info " \
-				"where package='%s'", certinfo->dist_signer_cert);
-			free(certinfo->dist_signer_cert);
-			certinfo->dist_signer_cert = NULL;
-			ret = __exec_certinfo_query(query, (void *)certinfo);
-			if (ret == -1) {
-				_LOGE("Cert Info DB Information retrieval failed\n");
-				return PMINFO_R_ERROR;
-			}
-			*cert_value = certinfo->dist_signer_cert;
-		}
-		break;
-	case PMINFO_DISTRIBUTOR_INTERMEDIATE_CERT:
-		snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_cert_info where package='%s')", certinfo->dist_im_cert);
-		if (SQLITE_OK !=
-		    sqlite3_exec(cert_db, query, __validate_cb, (void *)&exist, &error_message)) {
-			_LOGE("Don't execute query = %s error message = %s\n", query,
-			       error_message);
-			sqlite3_free(error_message);
-			return PMINFO_R_ERROR;
-		}
-		if (exist == 0)
-			*cert_value = certinfo->dist_im_cert;
-		else {
-			memset(query, '\0', MAX_QUERY_LEN);
-			snprintf(query, MAX_QUERY_LEN, "select dist_im_cert from package_cert_info " \
-				"where package='%s'", certinfo->dist_im_cert);
-			free(certinfo->dist_im_cert);
-			certinfo->dist_im_cert = NULL;
-			ret = __exec_certinfo_query(query, (void *)certinfo);
-			if (ret == -1) {
-				_LOGE("Cert Info DB Information retrieval failed\n");
-				return PMINFO_R_ERROR;
-			}
-			*cert_value = certinfo->dist_im_cert;
-		}
-		break;
-	case PMINFO_DISTRIBUTOR_ROOT_CERT:
-		snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_cert_info where package='%s')", certinfo->dist_root_cert);
-		if (SQLITE_OK !=
-		    sqlite3_exec(cert_db, query, __validate_cb, (void *)&exist, &error_message)) {
-			_LOGE("Don't execute query = %s error message = %s\n", query,
-			       error_message);
-			sqlite3_free(error_message);
-			return PMINFO_R_ERROR;
-		}
-		if (exist == 0)
-			*cert_value = certinfo->dist_root_cert;
-		else {
-			memset(query, '\0', MAX_QUERY_LEN);
-			snprintf(query, MAX_QUERY_LEN, "select dist_root_cert from package_cert_info " \
-				"where package='%s'", certinfo->dist_root_cert);
-			free(certinfo->dist_root_cert);
-			certinfo->dist_root_cert = NULL;
-			ret = __exec_certinfo_query(query, (void *)certinfo);
-			if (ret == -1) {
-				_LOGE("Cert Info DB Information retrieval failed\n");
-				return PMINFO_R_ERROR;
-			}
-			*cert_value = certinfo->dist_root_cert;
-		}
-		break;
-	case PMINFO_DISTRIBUTOR2_SIGNER_CERT:
-		snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_cert_info where package='%s')", certinfo->dist2_signer_cert);
-		if (SQLITE_OK !=
-		    sqlite3_exec(cert_db, query, __validate_cb, (void *)&exist, &error_message)) {
-			_LOGE("Don't execute query = %s error message = %s\n", query,
-			       error_message);
-			sqlite3_free(error_message);
-			return PMINFO_R_ERROR;
-		}
-		if (exist == 0)
-			*cert_value = certinfo->dist2_signer_cert;
-		else {
-			memset(query, '\0', MAX_QUERY_LEN);
-			snprintf(query, MAX_QUERY_LEN, "select dist2_signer_cert from package_cert_info " \
-				"where package='%s'", certinfo->dist2_signer_cert);
-			free(certinfo->dist2_signer_cert);
-			certinfo->dist2_signer_cert = NULL;
-			ret = __exec_certinfo_query(query, (void *)certinfo);
-			if (ret == -1) {
-				_LOGE("Cert Info DB Information retrieval failed\n");
-				return PMINFO_R_ERROR;
-			}
-			*cert_value = certinfo->dist2_signer_cert;
-		}
-		break;
-	case PMINFO_DISTRIBUTOR2_INTERMEDIATE_CERT:
-		snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_cert_info where package='%s')", certinfo->dist2_im_cert);
-		if (SQLITE_OK !=
-		    sqlite3_exec(cert_db, query, __validate_cb, (void *)&exist, &error_message)) {
-			_LOGE("Don't execute query = %s error message = %s\n", query,
-			       error_message);
-			sqlite3_free(error_message);
-			return PMINFO_R_ERROR;
-		}
-		if (exist == 0)
-			*cert_value = certinfo->dist2_im_cert;
-		else {
-			memset(query, '\0', MAX_QUERY_LEN);
-			snprintf(query, MAX_QUERY_LEN, "select dist2_im_cert from package_cert_info " \
-				"where package='%s'", certinfo->dist2_im_cert);
-			free(certinfo->dist2_im_cert);
-			certinfo->dist2_im_cert = NULL;
-			ret = __exec_certinfo_query(query, (void *)certinfo);
-			if (ret == -1) {
-				_LOGE("Cert Info DB Information retrieval failed\n");
-				return PMINFO_R_ERROR;
-			}
-			*cert_value = certinfo->dist2_im_cert;
-		}
-		break;
-	case PMINFO_DISTRIBUTOR2_ROOT_CERT:
-		snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_cert_info where package='%s')", certinfo->dist2_root_cert);
-		if (SQLITE_OK !=
-		    sqlite3_exec(cert_db, query, __validate_cb, (void *)&exist, &error_message)) {
-			_LOGE("Don't execute query = %s error message = %s\n", query,
-			       error_message);
-			sqlite3_free(error_message);
-			return PMINFO_R_ERROR;
-		}
-		if (exist == 0)
-			*cert_value = certinfo->dist2_root_cert;
-		else {
-			memset(query, '\0', MAX_QUERY_LEN);
-			snprintf(query, MAX_QUERY_LEN, "select dist2_root_cert from package_cert_info " \
-				"where package='%s'", certinfo->dist2_root_cert);
-			free(certinfo->dist2_root_cert);
-			certinfo->dist2_root_cert = NULL;
-			ret = __exec_certinfo_query(query, (void *)certinfo);
-			if (ret == -1) {
-				_LOGE("Cert Info DB Information retrieval failed\n");
-				return PMINFO_R_ERROR;
-			}
-			*cert_value = certinfo->dist2_root_cert;
-		}
-		break;
-	}
+	if ((certinfo->cert_info)[cert_type])
+		*cert_value = (certinfo->cert_info)[cert_type];
+	else
+		*cert_value = NULL;
 	return PMINFO_R_OK;
 }
 
 API int pkgmgrinfo_pkginfo_destroy_certinfo(pkgmgrinfo_certinfo_h handle)
 {
-	if (!handle) {
-		_LOGE("Argument supplied is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "Argument supplied is NULL\n");
+	int i = 0;
 	pkgmgr_certinfo_x *certinfo = NULL;
 	certinfo = (pkgmgr_certinfo_x *)handle;
 	if (certinfo->pkgid) {
 		free(certinfo->pkgid);
 		certinfo->pkgid = NULL;
 	}
-	if (certinfo->auth_signer_cert) {
-		free(certinfo->auth_signer_cert);
-		certinfo->auth_signer_cert = NULL;
-	}
-	if (certinfo->auth_im_cert) {
-		free(certinfo->auth_im_cert);
-		certinfo->auth_im_cert = NULL;
-	}
-	if (certinfo->auth_root_cert) {
-		free(certinfo->auth_root_cert);
-		certinfo->auth_root_cert = NULL;
-	}
-	if (certinfo->dist_signer_cert) {
-		free(certinfo->dist_signer_cert);
-		certinfo->dist_signer_cert = NULL;
-	}
-	if (certinfo->dist_im_cert) {
-		free(certinfo->dist_im_cert);
-		certinfo->dist_im_cert = NULL;
-	}
-	if (certinfo->dist_root_cert) {
-		free(certinfo->dist_root_cert);
-		certinfo->dist_root_cert = NULL;
-	}
-	if (certinfo->dist2_signer_cert) {
-		free(certinfo->dist2_signer_cert);
-		certinfo->dist2_signer_cert = NULL;
-	}
-	if (certinfo->dist2_im_cert) {
-		free(certinfo->dist2_im_cert);
-		certinfo->dist2_im_cert = NULL;
-	}
-	if (certinfo->dist2_root_cert) {
-		free(certinfo->dist2_root_cert);
-		certinfo->dist2_root_cert = NULL;
+	for (i = 0; i < MAX_CERT_TYPE; i++) {
+		if ((certinfo->cert_info)[i]) {
+			free((certinfo->cert_info)[i]);
+			(certinfo->cert_info)[i] = NULL;
+		}
 	}
 	free(certinfo);
 	certinfo = NULL;
-	sqlite3_close(cert_db);
 	return PMINFO_R_OK;
 }
 
 API int pkgmgrinfo_create_certinfo_set_handle(pkgmgrinfo_instcertinfo_h *handle)
 {
-	if (!handle) {
-		_LOGE("Argument supplied is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 	pkgmgr_instcertinfo_x *certinfo = NULL;
-	int ret = 0;
 	certinfo = calloc(1, sizeof(pkgmgr_instcertinfo_x));
-	if (!certinfo) {
-		_LOGE("Malloc Failed\n");
-		return PMINFO_R_ERROR;
-	}
+	retvm_if(certinfo == NULL, PMINFO_R_ERROR, "Malloc Failed\n");
 	*handle = (void *)certinfo;
-	/*Open db. It will be closed in destroy handle API*/
-	ret = db_util_open(CERT_DB, &cert_db,
-		DB_UTIL_REGISTER_HOOK_METHOD);
-	if (ret != SQLITE_OK) {
-		_LOGE("connect db [%s] failed!\n", CERT_DB);
-		free(certinfo);
-		return PMINFO_R_ERROR;
-	}
 	return PMINFO_R_OK;
 }
 
 API int pkgmgrinfo_set_cert_value(pkgmgrinfo_instcertinfo_h handle, pkgmgrinfo_instcert_type cert_type, char *cert_value)
 {
-	if (!handle || !cert_value) {
-		_LOGE("Argument supplied is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if ((cert_type < PMINFO_SET_AUTHOR_ROOT_CERT) || (cert_type > PMINFO_SET_DISTRIBUTOR2_SIGNER_CERT)) {
-		_LOGE("Invalid certificate type\n");
-		return PMINFO_R_EINVAL;
-	}
-	char query[MAX_QUERY_LEN] = {'\0'};
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "Argument supplied is NULL\n");
+	retvm_if(cert_value == NULL, PMINFO_R_EINVAL, "Argument supplied is NULL\n");
+	retvm_if(cert_type < PMINFO_SET_AUTHOR_ROOT_CERT, PMINFO_R_EINVAL, "Invalid certificate type\n");
+	retvm_if(cert_type > PMINFO_SET_DISTRIBUTOR2_SIGNER_CERT, PMINFO_R_EINVAL, "Invalid certificate type\n");
 	pkgmgr_instcertinfo_x *certinfo = NULL;
-	int ret = 0;
 	certinfo = (pkgmgr_instcertinfo_x *)handle;
-	switch(cert_type) {
-	case PMINFO_SET_AUTHOR_SIGNER_CERT:
-		snprintf(query, MAX_QUERY_LEN, "select package from package_cert_info " \
-			"where author_signer_cert='%s'", cert_value);
-		ret = __exec_certinfo_query(query, (void *)certinfo);
-		if (ret == -1) {
-			_LOGE("Cert Info DB Information retrieval failed\n");
-			return PMINFO_R_ERROR;
-		}
-		if (certinfo->pkgid)
-			certinfo->auth_signer_cert = strdup(certinfo->pkgid);
-		else
-			certinfo->auth_signer_cert = strdup(cert_value);
-		break;
-	case PMINFO_SET_AUTHOR_INTERMEDIATE_CERT:
-		snprintf(query, MAX_QUERY_LEN, "select package from package_cert_info " \
-			"where author_im_cert='%s'", cert_value);
-		ret = __exec_certinfo_query(query, (void *)certinfo);
-		if (ret == -1) {
-			_LOGE("Cert Info DB Information retrieval failed\n");
-			return PMINFO_R_ERROR;
-		}
-		if (certinfo->pkgid)
-			certinfo->auth_im_cert = strdup(certinfo->pkgid);
-		else
-			certinfo->auth_im_cert = strdup(cert_value);
-		break;
-	case PMINFO_SET_AUTHOR_ROOT_CERT:
-		snprintf(query, MAX_QUERY_LEN, "select package from package_cert_info " \
-			"where author_root_cert='%s'", cert_value);
-		ret = __exec_certinfo_query(query, (void *)certinfo);
-		if (ret == -1) {
-			_LOGE("Cert Info DB Information retrieval failed\n");
-			return PMINFO_R_ERROR;
-		}
-		if (certinfo->pkgid)
-			certinfo->auth_root_cert = strdup(certinfo->pkgid);
-		else
-			certinfo->auth_root_cert = strdup(cert_value);
-		break;
-	case PMINFO_SET_DISTRIBUTOR_SIGNER_CERT:
-		snprintf(query, MAX_QUERY_LEN, "select package from package_cert_info " \
-			"where dist_signer_cert='%s'", cert_value);
-		ret = __exec_certinfo_query(query, (void *)certinfo);
-		if (ret == -1) {
-			_LOGE("Cert Info DB Information retrieval failed\n");
-			return PMINFO_R_ERROR;
-		}
-		if (certinfo->pkgid)
-			certinfo->dist_signer_cert = strdup(certinfo->pkgid);
-		else
-			certinfo->dist_signer_cert = strdup(cert_value);
-		break;
-	case PMINFO_SET_DISTRIBUTOR_INTERMEDIATE_CERT:
-		snprintf(query, MAX_QUERY_LEN, "select package from package_cert_info " \
-			"where dist_im_cert='%s'", cert_value);
-		ret = __exec_certinfo_query(query, (void *)certinfo);
-		if (ret == -1) {
-			_LOGE("Cert Info DB Information retrieval failed\n");
-			return PMINFO_R_ERROR;
-		}
-		if (certinfo->pkgid)
-			certinfo->dist_im_cert = strdup(certinfo->pkgid);
-		else
-			certinfo->dist_im_cert = strdup(cert_value);
-		break;
-	case PMINFO_SET_DISTRIBUTOR_ROOT_CERT:
-		snprintf(query, MAX_QUERY_LEN, "select package from package_cert_info " \
-			"where dist_root_cert='%s'", cert_value);
-		ret = __exec_certinfo_query(query, (void *)certinfo);
-		if (ret == -1) {
-			_LOGE("Cert Info DB Information retrieval failed\n");
-			return PMINFO_R_ERROR;
-		}
-		if (certinfo->pkgid)
-			certinfo->dist_root_cert = strdup(certinfo->pkgid);
-		else
-			certinfo->dist_root_cert = strdup(cert_value);
-		break;
-	case PMINFO_SET_DISTRIBUTOR2_SIGNER_CERT:
-		snprintf(query, MAX_QUERY_LEN, "select package from package_cert_info " \
-			"where dist2_signer_cert='%s'", cert_value);
-		ret = __exec_certinfo_query(query, (void *)certinfo);
-		if (ret == -1) {
-			_LOGE("Cert Info DB Information retrieval failed\n");
-			return PMINFO_R_ERROR;
-		}
-		if (certinfo->pkgid)
-			certinfo->dist2_signer_cert = strdup(certinfo->pkgid);
-		else
-			certinfo->dist2_signer_cert = strdup(cert_value);
-		break;
-	case PMINFO_SET_DISTRIBUTOR2_INTERMEDIATE_CERT:
-		snprintf(query, MAX_QUERY_LEN, "select package from package_cert_info " \
-			"where dist2_im_cert='%s'", cert_value);
-		ret = __exec_certinfo_query(query, (void *)certinfo);
-		if (ret == -1) {
-			_LOGE("Cert Info DB Information retrieval failed\n");
-			return PMINFO_R_ERROR;
-		}
-		if (certinfo->pkgid)
-			certinfo->dist2_im_cert = strdup(certinfo->pkgid);
-		else
-			certinfo->dist2_im_cert = strdup(cert_value);
-		break;
-	case PMINFO_SET_DISTRIBUTOR2_ROOT_CERT:
-		snprintf(query, MAX_QUERY_LEN, "select package from package_cert_info " \
-			"where dist2_root_cert='%s'", cert_value);
-		ret = __exec_certinfo_query(query, (void *)certinfo);
-		if (ret == -1) {
-			_LOGE("Cert Info DB Information retrieval failed\n");
-			return PMINFO_R_ERROR;
-		}
-		if (certinfo->pkgid)
-			certinfo->dist2_root_cert = strdup(certinfo->pkgid);
-		else
-			certinfo->dist2_root_cert = strdup(cert_value);
-		break;
-	}
-	if (certinfo->pkgid) {
-		free(certinfo->pkgid);
-		certinfo->pkgid = NULL;
-	}
+	(certinfo->cert_info)[cert_type] = strdup(cert_value);
 	return PMINFO_R_OK;
 }
 
 API int pkgmgrinfo_save_certinfo(const char *pkgid, pkgmgrinfo_instcertinfo_h handle)
 {
-	if (!handle || !pkgid) {
-		_LOGE("Argument supplied is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(pkgid == NULL, PMINFO_R_EINVAL, "package ID is NULL\n");
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "Certinfo handle is NULL\n");
 	char *error_message = NULL;
-	int exist = -1;
 	char query[MAX_QUERY_LEN] = {'\0'};
 	char *vquery = NULL;
 	int len = 0;
+	int i = 0;
+	int j = 0;
+	int c = 0;
+	int unique_id[MAX_CERT_TYPE] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+	int newid = 0;
+	int is_new = 0;
+	int exist = -1;
+	int ret = -1;
+	int maxid = 0;
+	int flag = 0;
 	pkgmgr_instcertinfo_x *info = (pkgmgr_instcertinfo_x *)handle;
+	pkgmgr_certindexinfo_x *indexinfo = NULL;
+	indexinfo = calloc(1, sizeof(pkgmgr_certindexinfo_x));
+	if (indexinfo == NULL) {
+		_LOGE("Out of Memory!!!");
+		return PMINFO_R_ERROR;
+	}
 	info->pkgid = strdup(pkgid);
+
+	/*Open db.*/
+	ret = db_util_open_with_options(CERT_DB, &cert_db,
+					SQLITE_OPEN_READWRITE, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGE("connect db [%s] failed!\n", CERT_DB);
+		ret = PMINFO_R_ERROR;
+		goto err;
+	}
+	/*Begin Transaction*/
+	ret = sqlite3_exec(cert_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGE("Failed to begin transaction\n");
+		ret = PMINFO_R_ERROR;
+		goto err;
+	}
+	_LOGE("Transaction Begin\n");
+	/*Check if request is to insert/update*/
 	snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_cert_info where package='%s')", pkgid);
 	if (SQLITE_OK !=
 	    sqlite3_exec(cert_db, query, __validate_cb, (void *)&exist, &error_message)) {
 		_LOGE("Don't execute query = %s error message = %s\n", query,
 		       error_message);
 		sqlite3_free(error_message);
-		return PMINFO_R_ERROR;
+		ret = PMINFO_R_ERROR;
+		goto err;
 	}
-
-	len = 4096;
-	if (info->auth_root_cert)
-		len += strlen(info->auth_root_cert);
-	if (info->auth_im_cert)
-		len += strlen(info->auth_im_cert);
-	if (info->auth_signer_cert)
-		len += strlen(info->auth_signer_cert);
-	if (info->dist_root_cert)
-		len += strlen(info->dist_root_cert);
-	if (info->dist_im_cert)
-		len += strlen(info->dist_im_cert);
-	if (info->dist_signer_cert)
-		len += strlen(info->dist_signer_cert);
-	if (info->dist2_root_cert)
-		len += strlen(info->dist2_root_cert);
-	if (info->dist2_im_cert)
-		len += strlen(info->dist2_im_cert);
-	if (info->dist2_signer_cert)
-		len += strlen(info->dist2_signer_cert);
+	if (exist) {
+		/*Update request.
+		We cant just issue update query directly. We need to manage index table also.
+		Hence it is better to delete and insert again in case of update*/
+		ret = __delete_certinfo(pkgid);
+		if (ret < 0)
+			_LOGE("Certificate Deletion Failed\n");
+	}
+	for (i = 0; i < MAX_CERT_TYPE; i++) {
+		if ((info->cert_info)[i]) {
+			for (j = 0; j < i; j++) {
+				if ( (info->cert_info)[j]) {
+					if (strcmp((info->cert_info)[i], (info->cert_info)[j]) == 0) {
+						(info->cert_id)[i] = (info->cert_id)[j];
+						(info->is_new)[i] = 0;
+						(info->ref_count)[i] = (info->ref_count)[j];
+						break;
+					}
+				}
+			}
+			if (j < i)
+				continue;
+			memset(query, '\0', MAX_QUERY_LEN);
+			snprintf(query, MAX_QUERY_LEN, "select * from package_cert_index_info " \
+				"where cert_info='%s'",(info->cert_info)[i]);
+			ret = __exec_certindexinfo_query(query, (void *)indexinfo);
+			if (ret == -1) {
+				_LOGE("Cert Info DB Information retrieval failed\n");
+				ret = PMINFO_R_ERROR;
+				goto err;
+			}
+			if (indexinfo->cert_id == 0) {
+				/*New certificate. Get newid*/
+				memset(query, '\0', MAX_QUERY_LEN);
+				snprintf(query, MAX_QUERY_LEN, "select MAX(cert_id) from package_cert_index_info ");
+				if (SQLITE_OK !=
+				    sqlite3_exec(cert_db, query, __maxid_cb, (void *)&newid, &error_message)) {
+					_LOGE("Don't execute query = %s error message = %s\n", query,
+					       error_message);
+					sqlite3_free(error_message);
+					ret = PMINFO_R_ERROR;
+					goto err;
+				}
+				newid = newid + 1;
+				if (flag == 0) {
+					maxid = newid;
+					flag = 1;
+				}
+				indexinfo->cert_id = maxid;
+				indexinfo->cert_ref_count = 1;
+				is_new = 1;
+				maxid = maxid + 1;
+			}
+			(info->cert_id)[i] = indexinfo->cert_id;
+			(info->is_new)[i] = is_new;
+			(info->ref_count)[i] = indexinfo->cert_ref_count;
+			_LOGE("Id:Count = %d %d\n", indexinfo->cert_id, indexinfo->cert_ref_count);
+			indexinfo->cert_id = 0;
+			indexinfo->cert_ref_count = 0;
+			is_new = 0;
+		}
+	}
+	len = MAX_QUERY_LEN;
+	for (i = 0; i < MAX_CERT_TYPE; i++) {
+		if ((info->cert_info)[i])
+			len+= strlen((info->cert_info)[i]);
+	}
 	vquery = (char *)calloc(1, len);
-
-	if (exist == 0) {
-		_LOGE("pkgid not found in DB\n");
-		/*insert*/
-		snprintf(vquery, len,
-	                 "insert into package_cert_info(package, author_root_cert, author_im_cert, author_signer_cert, dist_root_cert, " \
-	                "dist_im_cert, dist_signer_cert, dist2_root_cert, dist2_im_cert, dist2_signer_cert) " \
-	                "values('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
-	                 info->pkgid, info->auth_root_cert, info->auth_im_cert, info->auth_signer_cert, info->dist_root_cert, info->dist_im_cert,
-	                 info->dist_signer_cert, info->dist2_root_cert, info->dist2_im_cert, info->dist2_signer_cert);
-	} else {
-		_LOGE("pkgid exists in DB..Update it\n");
-		/*Update*/
-		snprintf(vquery, len,
-	                 "update package_cert_info set author_root_cert='%s', author_im_cert='%s', author_signer_cert='%s', dist_root_cert='%s', " \
-	                "dist_im_cert='%s', dist_signer_cert='%s', dist2_root_cert='%s', dist2_im_cert='%s', dist2_signer_cert='%s' " \
-	                "where package='%s'",\
-	                 info->auth_root_cert, info->auth_im_cert, info->auth_signer_cert, info->dist_root_cert, info->dist_im_cert,
-	                 info->dist_signer_cert, info->dist2_root_cert, info->dist2_im_cert, info->dist2_signer_cert, info->pkgid);
-	}
+	/*insert*/
+	snprintf(vquery, len,
+                 "insert into package_cert_info(package, author_root_cert, author_im_cert, author_signer_cert, dist_root_cert, " \
+                "dist_im_cert, dist_signer_cert, dist2_root_cert, dist2_im_cert, dist2_signer_cert) " \
+                "values('%s', %d, %d, %d, %d, %d, %d, %d, %d, %d)",\
+                 info->pkgid,(info->cert_id)[PMINFO_SET_AUTHOR_ROOT_CERT],(info->cert_id)[PMINFO_SET_AUTHOR_INTERMEDIATE_CERT],
+		(info->cert_id)[PMINFO_SET_AUTHOR_SIGNER_CERT], (info->cert_id)[PMINFO_SET_DISTRIBUTOR_ROOT_CERT],
+		(info->cert_id)[PMINFO_SET_DISTRIBUTOR_INTERMEDIATE_CERT], (info->cert_id)[PMINFO_SET_DISTRIBUTOR_SIGNER_CERT],
+		(info->cert_id)[PMINFO_SET_DISTRIBUTOR2_ROOT_CERT],(info->cert_id)[PMINFO_SET_DISTRIBUTOR2_INTERMEDIATE_CERT],
+		(info->cert_id)[PMINFO_SET_DISTRIBUTOR2_SIGNER_CERT]);
         if (SQLITE_OK !=
             sqlite3_exec(cert_db, vquery, NULL, NULL, &error_message)) {
 		_LOGE("Don't execute query = %s error message = %s\n", vquery,
 		       error_message);
 		sqlite3_free(error_message);
-		return PMINFO_R_ERROR;
+		ret = PMINFO_R_ERROR;
+		goto err;
         }
-	return PMINFO_R_OK;
+	/*Update index table info*/
+	/*If cert_id exists and is repeated for current package, ref count should only be increased once*/
+	for (i = 0; i < MAX_CERT_TYPE; i++) {
+		if ((info->cert_info)[i]) {
+			memset(vquery, '\0', len);
+			if ((info->is_new)[i]) {
+				snprintf(vquery, len, "insert into package_cert_index_info(cert_info, cert_id, cert_ref_count) " \
+				"values('%s', '%d', '%d') ", (info->cert_info)[i], (info->cert_id)[i], 1);
+				unique_id[c++] = (info->cert_id)[i];
+			} else {
+				/*Update*/
+				for (j = 0; j < MAX_CERT_TYPE; j++) {
+					if ((info->cert_id)[i] == unique_id[j]) {
+						/*Ref count has already been increased. Just continue*/
+						break;
+					}
+				}
+				if (j == MAX_CERT_TYPE)
+					unique_id[c++] = (info->cert_id)[i];
+				else
+					continue;
+				snprintf(vquery, len, "update package_cert_index_info set cert_ref_count=%d " \
+				"where cert_id=%d",  (info->ref_count)[i] + 1, (info->cert_id)[i]);
+			}
+		        if (SQLITE_OK !=
+		            sqlite3_exec(cert_db, vquery, NULL, NULL, &error_message)) {
+				_LOGE("Don't execute query = %s error message = %s\n", vquery,
+				       error_message);
+				sqlite3_free(error_message);
+				ret = PMINFO_R_ERROR;
+				goto err;
+		        }
+		}
+	}
+	/*Commit transaction*/
+	ret = sqlite3_exec(cert_db, "COMMIT", NULL, NULL, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGE("Failed to commit transaction, Rollback now\n");
+		sqlite3_exec(cert_db, "ROLLBACK", NULL, NULL, NULL);
+		ret = PMINFO_R_ERROR;
+		goto err;
+	}
+	_LOGE("Transaction Commit and End\n");
+	ret =  PMINFO_R_OK;
+err:
+	sqlite3_close(cert_db);
+	if (vquery) {
+		free(vquery);
+		vquery = NULL;
+	}
+	if (indexinfo) {
+		free(indexinfo);
+		indexinfo = NULL;
+	}
+	return ret;
 }
 
 API int pkgmgrinfo_destroy_certinfo_set_handle(pkgmgrinfo_instcertinfo_h handle)
 {
-	if (!handle) {
-		_LOGE("Argument supplied is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "Argument supplied is NULL\n");
+	int i = 0;
 	pkgmgr_instcertinfo_x *certinfo = NULL;
 	certinfo = (pkgmgr_instcertinfo_x *)handle;
 	if (certinfo->pkgid) {
 		free(certinfo->pkgid);
 		certinfo->pkgid = NULL;
 	}
-	if (certinfo->auth_signer_cert) {
-		free(certinfo->auth_signer_cert);
-		certinfo->auth_signer_cert = NULL;
-	}
-	if (certinfo->auth_im_cert) {
-		free(certinfo->auth_im_cert);
-		certinfo->auth_im_cert = NULL;
-	}
-	if (certinfo->auth_root_cert) {
-		free(certinfo->auth_root_cert);
-		certinfo->auth_root_cert = NULL;
-	}
-	if (certinfo->dist_signer_cert) {
-		free(certinfo->dist_signer_cert);
-		certinfo->dist_signer_cert = NULL;
-	}
-	if (certinfo->dist_im_cert) {
-		free(certinfo->dist_im_cert);
-		certinfo->dist_im_cert = NULL;
-	}
-	if (certinfo->dist_root_cert) {
-		free(certinfo->dist_root_cert);
-		certinfo->dist_root_cert = NULL;
-	}
-	if (certinfo->dist2_signer_cert) {
-		free(certinfo->dist2_signer_cert);
-		certinfo->dist2_signer_cert = NULL;
-	}
-	if (certinfo->dist2_im_cert) {
-		free(certinfo->dist2_im_cert);
-		certinfo->dist2_im_cert = NULL;
-	}
-	if (certinfo->dist2_root_cert) {
-		free(certinfo->dist2_root_cert);
-		certinfo->dist2_root_cert = NULL;
+	for (i = 0; i < MAX_CERT_TYPE; i++) {
+		if ((certinfo->cert_info)[i]) {
+			free((certinfo->cert_info)[i]);
+			(certinfo->cert_info)[i] = NULL;
+		}
 	}
 	free(certinfo);
 	certinfo = NULL;
-	sqlite3_close(cert_db);
 	return PMINFO_R_OK;
 }
 
 API int pkgmgrinfo_delete_certinfo(const char *pkgid)
 {
-	if (!pkgid) {
-		_LOGE("Argument supplied is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(pkgid == NULL, PMINFO_R_EINVAL, "Argument supplied is NULL\n");
 	int ret = -1;
-	int i = 0;
-	char *error_message = NULL;
-	char query[MAX_QUERY_LEN] = {'\0'};
-	ret = db_util_open(CERT_DB, &cert_db,
-		DB_UTIL_REGISTER_HOOK_METHOD);
+	/*Open db.*/
+	ret = db_util_open_with_options(CERT_DB, &cert_db,
+					SQLITE_OPEN_READWRITE, NULL);
 	if (ret != SQLITE_OK) {
 		_LOGE("connect db [%s] failed!\n", CERT_DB);
-		return PMINFO_R_ERROR;
+		ret = PMINFO_R_ERROR;
+		goto err;
 	}
-	/*First make copy of all entries for which other packages have an index here*/
-	snprintf(query, MAX_QUERY_LEN, "select * from package_cert_info where package!='%s'", pkgid);
-        if (SQLITE_OK !=
-            sqlite3_exec(cert_db, query, __delete_certinfo_cb, (void *)pkgid, &error_message)) {
-                _LOGE("Don't execute query = %s error message = %s\n", query,
-                       error_message);
-		sqlite3_free(error_message);
-		sqlite3_close(cert_db);
+	/*Begin Transaction*/
+	ret = sqlite3_exec(cert_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGE("Failed to begin transaction\n");
 		ret = PMINFO_R_ERROR;
 		goto err;
-        }
-	/*Now delete the entry from db*/
-	snprintf(query, MAX_QUERY_LEN, "delete from package_cert_info where package='%s'", pkgid);
-        if (SQLITE_OK !=
-            sqlite3_exec(cert_db, query, NULL, NULL, &error_message)) {
-                _LOGE("Don't execute query = %s error message = %s\n", query,
-                       error_message);
-		sqlite3_free(error_message);
-		sqlite3_close(cert_db);
+	}
+	_LOGE("Transaction Begin\n");
+	ret = __delete_certinfo(pkgid);
+	if (ret < 0) {
+		_LOGE("Certificate Deletion Failed\n");
+	} else {
+		_LOGE("Certificate Deletion Success\n");
+	}
+	/*Commit transaction*/
+	ret = sqlite3_exec(cert_db, "COMMIT", NULL, NULL, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGE("Failed to commit transaction, Rollback now\n");
+		sqlite3_exec(cert_db, "ROLLBACK", NULL, NULL, NULL);
 		ret = PMINFO_R_ERROR;
 		goto err;
-        }
+	}
+	_LOGE("Transaction Commit and End\n");
 	ret = PMINFO_R_OK;
 err:
 	sqlite3_close(cert_db);
-	for (i = 0; i < 9; i++) {
-		gflag[i] = 0;
-		if (gpkgcert[i]) {
-			free(gpkgcert[i]);
-			gpkgcert[i] = NULL;
-		}
-	}
 	return ret;
 }
 

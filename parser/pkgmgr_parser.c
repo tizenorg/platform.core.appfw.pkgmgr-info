@@ -601,9 +601,9 @@ static void __ps_free_metadata(metadata_x *metadata)
 {
 	if (metadata == NULL)
 		return;
-	if (metadata->name) {
-		free((void *)metadata->name);
-		metadata->name = NULL;
+	if (metadata->key) {
+		free((void *)metadata->key);
+		metadata->key = NULL;
 	}
 	if (metadata->value) {
 		free((void *)metadata->value);
@@ -1255,6 +1255,10 @@ static void __ps_free_uiapplication(uiapplication_x *uiapplication)
 		free((void *)uiapplication->recentimage);
 		uiapplication->recentimage = NULL;
 	}
+	if (uiapplication->package) {
+		free((void *)uiapplication->package);
+		uiapplication->package = NULL;
+	}
 	/*Free Label*/
 	if (uiapplication->label) {
 		label_x *label = uiapplication->label;
@@ -1421,6 +1425,14 @@ static void __ps_free_serviceapplication(serviceapplication_x *serviceapplicatio
 	if (serviceapplication->type) {
 		free((void *)serviceapplication->type);
 		serviceapplication->type = NULL;
+	}
+	if (serviceapplication->enabled) {
+		free((void *)serviceapplication->enabled);
+		serviceapplication->enabled = NULL;
+	}
+	if (serviceapplication->package) {
+		free((void *)serviceapplication->package);
+		serviceapplication->package = NULL;
 	}
 	/*Free Label*/
 	if (serviceapplication->label) {
@@ -1697,11 +1709,10 @@ static int __ps_process_category(xmlTextReaderPtr reader, category_x *category)
 
 static int __ps_process_metadata(xmlTextReaderPtr reader, metadata_x *metadata)
 {
-	/*name and value both should exist. If any one attribute is missing then dont parse*/
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("name")) && xmlTextReaderGetAttribute(reader, XMLCHAR("value"))) {
-		metadata->name = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("name")));
+	if (xmlTextReaderGetAttribute(reader, XMLCHAR("key")))
+		metadata->key = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("key")));
+	if (xmlTextReaderGetAttribute(reader, XMLCHAR("value")))
 		metadata->value = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("value")));
-	}
 	return 0;
 }
 
@@ -3051,6 +3062,8 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx)
 			continue;
 		} else if (!strcmp(ASCII(node), "privileges")) {
 			continue;
+		} else if (!strcmp(ASCII(node), "ime")) {
+			continue;
 		} else
 			return -1;
 
@@ -3917,7 +3930,7 @@ API manifest_x *pkgmgr_parser_process_manifest_xml(const char *manifest)
 
 API int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char *const tagv[])
 {
-	char *temp[] = {"shortcut-list", "livebox", "account", "notifications", "privileges", NULL};
+	char *temp[] = {"shortcut-list", "livebox", "account", "notifications", "privileges", "ime", NULL};
 	if (manifest == NULL) {
 		DBG("argument supplied is NULL\n");
 		return PMINFO_R_EINVAL;
@@ -3980,7 +3993,7 @@ API int pkgmgr_parser_create_desktop_file(manifest_x *mfx)
 
 API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *const tagv[])
 {
-	char *temp[] = {"shortcut-list", "livebox", "account", "notifications", "privileges", NULL};
+	char *temp[] = {"shortcut-list", "livebox", "account", "notifications", "privileges", "ime", NULL};
 	if (manifest == NULL) {
 		DBG("argument supplied is NULL\n");
 		return PMINFO_R_EINVAL;
@@ -4020,7 +4033,7 @@ API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *con
 
 API int pkgmgr_parser_parse_manifest_for_uninstallation(const char *manifest, char *const tagv[])
 {
-	char *temp[] = {"shortcut-list", "livebox", "account", "notifications", "privileges", NULL};
+	char *temp[] = {"shortcut-list", "livebox", "account", "notifications", "privileges", "ime", NULL};
 	if (manifest == NULL) {
 		DBG("argument supplied is NULL\n");
 		return PMINFO_R_EINVAL;
