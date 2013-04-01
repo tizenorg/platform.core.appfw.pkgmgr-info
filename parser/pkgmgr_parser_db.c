@@ -1062,7 +1062,7 @@ static int __insert_uiapplication_appmetadata_info(manifest_x *mfx)
 		md = up->metadata;
 		while (md != NULL)
 		{
-			if (md->key && md->value) {
+			if (md->key) {
 				snprintf(query, MAX_QUERY_LEN,
 					"insert into package_app_app_metadata(app_id, md_key, md_value) " \
 					"values('%s','%s', '%s')",\
@@ -1394,7 +1394,7 @@ static int __insert_serviceapplication_appmetadata_info(manifest_x *mfx)
 		md = sp->metadata;
 		while (md != NULL)
 		{
-			if (md->key && md->value) {
+			if (md->key) {
 				snprintf(query, MAX_QUERY_LEN,
 					"insert into package_app_app_metadata(app_id, md_key, md_value) " \
 					"values('%s','%s', '%s')",\
