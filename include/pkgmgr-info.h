@@ -237,6 +237,21 @@ typedef int (*pkgmgrinfo_app_category_list_cb ) (const char *category_name,
 							void *user_data);
 
 /**
+ * @fn int (*pkgmgrinfo_pkg_privilege_list_cb ) (const char *privilege_name, void *user_data)
+ *
+ * @brief Specifies the type of function passed to pkgmgrinfo_pkginfo_foreach_privilege()
+ *
+ * @param[in] privilege_name the name of the privilege
+ * @param[in] user_data user data passed to pkgmgrinfo_pkginfo_foreach_privilege()
+ *
+ * @return 0 if success, negative value(<0) if fail. Callback is not called if return value is negative.\n
+ *
+ * @see  pkgmgrinfo_pkginfo_foreach_privilege()
+ */
+typedef int (*pkgmgrinfo_pkg_privilege_list_cb ) (const char *privilege_name,
+							void *user_data);
+
+/**
  * @fn int (*pkgmgrinfo_app_metadata_list_cb ) (const char *metadata_key, const char *metadata_value, void *user_data)
  *
  * @brief Specifies the type of function passed to pkgmgrinfo_appinfo_foreach_metadata()
@@ -1901,6 +1916,51 @@ static int get_rpm_pkg_count()
  * @endcode
  */
 int pkgmgrinfo_pkginfo_filter_count(pkgmgrinfo_pkginfo_filter_h handle, int *count);
+
+/**
+ * @fn	int pkgmgrinfo_pkginfo_foreach_privilege(pkgmgrinfo_pkginfo_h handle,
+			pkgmgrinfo_pkg_privilege_list_cb privilege_func, void *user_data);
+ * @brief	This API gets the list of privilege for a particular package
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ * @param[in]	handle		pointer to the package info handle.
+ * @param[in]	privilege_func		callback function for list
+ * @param[in] user_data	user data to be passed to callback function
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		pkgmgrinfo_pkginfo_get_pkginfo()
+ * @post		pkgmgrinfo_pkginfo_destroy_pkginfo()
+ * @code
+int privilege_func(const char *name, void *user_data)
+{
+	if (strcmp(name, (char *)user_data) == 0)
+		return -1;
+	else
+		return 0;
+}
+
+static int list_privilege(const char *package, char *privilege)
+{
+	int ret = 0;
+	pkgmgrinfo_pkginfo_h handle;
+	ret = pkgmgrinfo_pkginfo_get_pkginfo(package, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_pkginfo_foreach_privilege(handle, privilege_func, (void *)privilege);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_pkginfo_destroy_pkginfo(handle);
+		return -1;
+	}
+	pkgmgrinfo_pkginfo_destroy_pkginfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_pkginfo_foreach_privilege(pkgmgrinfo_pkginfo_h handle,
+			pkgmgrinfo_pkg_privilege_list_cb privilege_func, void *user_data);
 
 /**
  * @fn	int pkgmgrinfo_appinfo_get_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_app_component component,

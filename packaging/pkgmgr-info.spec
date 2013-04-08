@@ -1,6 +1,6 @@
 Name:       pkgmgr-info
 Summary:    Packager Manager infomation api for package
-Version:    0.0.92
+Version:    0.0.95
 Release:    1
 Group:      Application Framework/Package Management
 License:    Apache-2.0
@@ -43,7 +43,7 @@ Dev package for libpkgmgr-parser
 %setup -q
 
 %build
-%cmake . 
+%cmake .
 make %{?jobs:-j%jobs}
 
 %install

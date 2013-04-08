@@ -166,6 +166,15 @@
   <xs:element name="ime">
   </xs:element>
   <xs:element name="privileges">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:choice maxOccurs="unbounded" minOccurs="0">
+          <xs:element ref="packages:privilege"/>
+        </xs:choice>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="privilege">
   </xs:element>
   <xs:element name="font">
     <xs:complexType>

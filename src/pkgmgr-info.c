@@ -28,6 +28,7 @@
 #include <sqlite3.h>
 #include <vconf.h>
 #include <glib.h>
+#include <ctype.h>
 #include <assert.h>
 
 #include <libxml/parser.h>
@@ -37,6 +38,7 @@
 #include "pkgmgr_parser.h"
 #include "pkgmgr-info-internal.h"
 #include "pkgmgr-info.h"
+#include "pkgmgr_parser_db.h"
 #include <dirent.h>
 #include <sys/stat.h>
 
@@ -201,8 +203,6 @@ static int __uiapp_list_cb(void *data, int ncols, char **coltxt, char **colname)
 static int __svcapp_list_cb(void *data, int ncols, char **coltxt, char **colname);
 static int __pkg_list_cb(void *data, int ncols, char **coltxt, char **colname);
 static int __app_list_cb(void *data, int ncols, char **coltxt, char **colname);
-static int __pkgmgr_appinfo_new_handle_id();
-static int __pkgmgr_pkginfo_new_handle_id();
 static void __cleanup_pkginfo(pkgmgr_pkginfo_x *data);
 static void __cleanup_appinfo(pkgmgr_appinfo_x *data);
 static char* __convert_system_locale_to_manifest_locale(char *syslocale);
@@ -921,6 +921,7 @@ static int __pkginfo_cb(void *data, int ncols, char **coltxt, char **colname)
 	icon_x *icon = NULL;
 	label_x *label = NULL;
 	description_x *description = NULL;
+	privilege_x *privilege = NULL;
 
 	author = calloc(1, sizeof(author_x));
 	LISTADD(info->manifest_info->author, author);
@@ -930,6 +931,8 @@ static int __pkginfo_cb(void *data, int ncols, char **coltxt, char **colname)
 	LISTADD(info->manifest_info->label, label);
 	description = calloc(1, sizeof(description_x));
 	LISTADD(info->manifest_info->description, description);
+	privilege = calloc(1, sizeof(privilege_x));
+	LISTADD(info->manifest_info->privileges->privilege, privilege);
 	for(i = 0; i < ncols; i++)
 	{
 		if (strcmp(colname[i], "package_version") == 0) {
@@ -1022,7 +1025,11 @@ static int __pkginfo_cb(void *data, int ncols, char **coltxt, char **colname)
 				info->manifest_info->root_path = strdup(coltxt[i]);
 			else
 				info->manifest_info->root_path = NULL;
-
+		} else if (strcmp(colname[i], "privilege") == 0 ){
+			if (coltxt[i])
+				info->manifest_info->privileges->privilege->text = strdup(coltxt[i]);
+			else
+				info->manifest_info->privileges->privilege->text = NULL;
 		} else if (strcmp(colname[i], "package_locale") == 0 ){
 			if (coltxt[i]) {
 				info->manifest_info->author->lang = strdup(coltxt[i]);
@@ -1737,30 +1744,33 @@ static int __check_validation_of_qurey_cb(void *data, int ncols, char **coltxt, 
 static int __check_app_locale_from_app_localized_info_by_exact(sqlite3 *db, const char *appid, const char *locale)
 {
 	int result_query = -1;
+	int ret = 0;
 	char query[MAX_QUERY_LEN];
 
 	snprintf(query, MAX_QUERY_LEN, "select exists(select app_locale from package_app_localized_info where app_id='%s' and app_locale='%s')", appid, locale);
-	__exec_db_query(db, query, __check_validation_of_qurey_cb, (void *)&result_query);
-
+	ret = __exec_db_query(db, query, __check_validation_of_qurey_cb, (void *)&result_query);
+	retvm_if(ret == -1, PMINFO_R_ERROR, "Exec DB query failed");
 	return result_query;
 }
 
 static int __check_app_locale_from_app_localized_info_by_fallback(sqlite3 *db, const char *appid, const char *locale)
 {
 	int result_query = -1;
+	int ret = 0;
 	char wildcard[2] = {'%','\0'};
 	char query[MAX_QUERY_LEN];
 	char lang[3] = {'\0'};
 	strncpy(lang, locale, LANGUAGE_LENGTH);
 
 	snprintf(query, MAX_QUERY_LEN, "select exists(select app_locale from package_app_localized_info where app_id='%s' and app_locale like '%s%s')", appid, lang, wildcard);
-	__exec_db_query(db, query, __check_validation_of_qurey_cb, (void *)&result_query);
-
+	ret = __exec_db_query(db, query, __check_validation_of_qurey_cb, (void *)&result_query);
+	retvm_if(ret == -1, PMINFO_R_ERROR, "Exec DB query failed");
 	return result_query;
 }
 
 static char* __get_app_locale_from_app_localized_info_by_fallback(sqlite3 *db, const char *appid, const char *locale)
 {
+	int ret = 0;
 	char wildcard[2] = {'%','\0'};
 	char lang[3] = {'\0'};
 	char query[MAX_QUERY_LEN];
@@ -1772,15 +1782,21 @@ static char* __get_app_locale_from_app_localized_info_by_fallback(sqlite3 *db, c
 		_LOGE("Out of Memory!!!\n");
 		return NULL;
 	}
-	memset(info, NULL, sizeof(*info));
+	memset(info, '\0', sizeof(*info));
 
 	strncpy(lang, locale, 2);
 	snprintf(query, MAX_QUERY_LEN, "select app_locale from package_app_localized_info where app_id='%s' and app_locale like '%s%s'", appid, lang, wildcard);
-	__exec_db_query(db, query, __fallback_locale_cb, (void *)info);
+	ret = __exec_db_query(db, query, __fallback_locale_cb, (void *)info);
+	tryvm_if(ret == -1, PMINFO_R_ERROR, "Exec DB query failed");
 	locale_new = info->locale;
 	free(info);
-
 	return locale_new;
+catch:
+	if (info) {
+		free(info);
+		info = NULL;
+	}
+	return NULL;
 }
 
 static char* __convert_syslocale_to_manifest_locale(char *syslocale)
@@ -1804,7 +1820,7 @@ static char* __get_app_locale_by_fallback(sqlite3 *db, const char *appid, const 
 	char *locale_new = NULL;
 	int check_result = 0;
 
-	locale = __convert_syslocale_to_manifest_locale(syslocale);
+	locale = __convert_syslocale_to_manifest_locale((char *)syslocale);
 
 	/*check exact matching */
 	check_result = __check_app_locale_from_app_localized_info_by_exact(db, appid, locale);
@@ -1987,10 +2003,7 @@ err:
 
 API int pkgmgrinfo_pkginfo_get_list(pkgmgrinfo_pkg_list_cb pkg_list_cb, void *user_data)
 {
-	if (pkg_list_cb == NULL) {
-		_LOGE("callback function is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(pkg_list_cb == NULL, PMINFO_R_EINVAL, "callback function is NULL\n");
 	char *error_message = NULL;
 	int ret = PMINFO_R_OK;
 	char query[MAX_QUERY_LEN] = {'\0'};
@@ -2001,6 +2014,7 @@ API int pkgmgrinfo_pkginfo_get_list(pkgmgrinfo_pkg_list_cb pkg_list_cb, void *us
 	icon_x *tmp2 = NULL;
 	description_x *tmp3 = NULL;
 	author_x *tmp4 = NULL;
+	privilege_x *tmp5 = NULL;
 
 	syslocale = vconf_get_str(VCONFKEY_LANGSET);
 	if (syslocale == NULL) {
@@ -2021,7 +2035,7 @@ API int pkgmgrinfo_pkginfo_get_list(pkgmgrinfo_pkg_list_cb pkg_list_cb, void *us
 		ret = PMINFO_R_ERROR;
 		goto err;
 	}
-	pkgmgr_pkginfo_x *tmphead = calloc(1, sizeof(pkgmgr_pkginfo_x));
+	pkgmgr_pkginfo_x *tmphead = (pkgmgr_pkginfo_x *)calloc(1, sizeof(pkgmgr_pkginfo_x));
 	pkgmgr_pkginfo_x *node = NULL;
 	pkgmgr_pkginfo_x *temp_node = NULL;
 
@@ -2040,12 +2054,26 @@ API int pkgmgrinfo_pkginfo_get_list(pkgmgrinfo_pkg_list_cb pkg_list_cb, void *us
 
 	for(node = node->next; node ; node = node->next) {
 		pkginfo = node;
-
+		pkginfo->manifest_info->privileges = (privileges_x *)calloc(1, sizeof(privileges_x));
+		if (pkginfo->manifest_info->privileges == NULL) {
+			_LOGE("Failed to allocate memory for privileges info\n");
+			ret = PMINFO_R_ERROR;
+			goto err;
+		}
 		/*populate manifest_info from DB*/
 		snprintf(query, MAX_QUERY_LEN, "select * from package_info where package='%s' ", pkginfo->manifest_info->package);
 		ret = __exec_pkginfo_query(query, (void *)pkginfo);
 		if (ret == -1) {
 			_LOGE("Package Info DB Information retrieval failed\n");
+			ret = PMINFO_R_ERROR;
+			goto err;
+		}
+		memset(query, '\0', MAX_QUERY_LEN);
+		/*populate privilege_info from DB*/
+		snprintf(query, MAX_QUERY_LEN, "select * from package_privilege_info where package='%s' ", pkginfo->manifest_info->package);
+		ret = __exec_pkginfo_query(query, (void *)pkginfo);
+		if (ret == -1) {
+			_LOGE("Package Privilege Info DB Information retrieval failed\n");
 			ret = PMINFO_R_ERROR;
 			goto err;
 		}
@@ -2083,6 +2111,10 @@ API int pkgmgrinfo_pkginfo_get_list(pkgmgrinfo_pkg_list_cb pkg_list_cb, void *us
 		if (pkginfo->manifest_info->author) {
 			LISTHEAD(pkginfo->manifest_info->author, tmp4);
 			pkginfo->manifest_info->author = tmp4;
+		}
+		if (pkginfo->manifest_info->privileges->privilege) {
+			LISTHEAD(pkginfo->manifest_info->privileges->privilege, tmp5);
+			pkginfo->manifest_info->privileges->privilege = tmp5;
 		}
 	}
 
@@ -2122,14 +2154,8 @@ err:
 
 API int pkgmgrinfo_pkginfo_get_pkginfo(const char *pkgid, pkgmgrinfo_pkginfo_h *handle)
 {
-	if (pkgid == NULL) {
-		_LOGE("package name is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (handle == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(pkgid == NULL, PMINFO_R_EINVAL, "pkgid is NULL\n");
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 	pkgmgr_pkginfo_x *pkginfo = NULL;
 	char *error_message = NULL;
 	int ret = PMINFO_R_OK;
@@ -2141,6 +2167,7 @@ API int pkgmgrinfo_pkginfo_get_pkginfo(const char *pkgid, pkgmgrinfo_pkginfo_h *
 	icon_x *tmp2 = NULL;
 	description_x *tmp3 = NULL;
 	author_x *tmp4 = NULL;
+	privilege_x *tmp5 = NULL;
 
 	/*validate pkgid*/
 	ret = __open_manifest_db();
@@ -2191,11 +2218,26 @@ API int pkgmgrinfo_pkginfo_get_pkginfo(const char *pkgid, pkgmgrinfo_pkginfo_h *
 		goto err;
 	}
 	pkginfo->manifest_info->package = strdup(pkgid);
+	pkginfo->manifest_info->privileges = (privileges_x *)calloc(1, sizeof(privileges_x));
+	if (pkginfo->manifest_info->privileges == NULL) {
+		_LOGE("Failed to allocate memory for privileges info\n");
+		ret = PMINFO_R_ERROR;
+		goto err;
+	}
 	/*populate manifest_info from DB*/
 	snprintf(query, MAX_QUERY_LEN, "select * from package_info where package='%s' ", pkgid);
 	ret = __exec_pkginfo_query(query, (void *)pkginfo);
 	if (ret == -1) {
 		_LOGE("Package Info DB Information retrieval failed\n");
+		ret = PMINFO_R_ERROR;
+		goto err;
+	}
+	memset(query, '\0', MAX_QUERY_LEN);
+	/*populate privilege_info from DB*/
+	snprintf(query, MAX_QUERY_LEN, "select * from package_privilege_info where package='%s' ", pkgid);
+	ret = __exec_pkginfo_query(query, (void *)pkginfo);
+	if (ret == -1) {
+		_LOGE("Package Privilege Info DB Information retrieval failed\n");
 		ret = PMINFO_R_ERROR;
 		goto err;
 	}
@@ -2234,6 +2276,10 @@ API int pkgmgrinfo_pkginfo_get_pkginfo(const char *pkgid, pkgmgrinfo_pkginfo_h *
 		LISTHEAD(pkginfo->manifest_info->author, tmp4);
 		pkginfo->manifest_info->author = tmp4;
 	}
+	if (pkginfo->manifest_info->privileges->privilege) {
+		LISTHEAD(pkginfo->manifest_info->privileges->privilege, tmp5);
+		pkginfo->manifest_info->privileges->privilege = tmp5;
+	}
 	*handle = (void *)pkginfo;
 	sqlite3_close(manifest_db);
 	if (syslocale) {
@@ -2264,17 +2310,11 @@ err:
 
 API int pkgmgrinfo_pkginfo_get_pkgname(pkgmgrinfo_pkginfo_h handle, char **pkg_name)
 {
-	if (handle == NULL) {
-		_LOGE("pkginfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (pkg_name == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
+	retvm_if(pkg_name == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
 	if (info->manifest_info->package)
-		*pkg_name = info->manifest_info->package;
+		*pkg_name = (char *)info->manifest_info->package;
 	else
 		return PMINFO_R_ERROR;
 
@@ -2283,17 +2323,11 @@ API int pkgmgrinfo_pkginfo_get_pkgname(pkgmgrinfo_pkginfo_h handle, char **pkg_n
 
 API int pkgmgrinfo_pkginfo_get_pkgid(pkgmgrinfo_pkginfo_h handle, char **pkgid)
 {
-	if (handle == NULL) {
-		_LOGE("pkginfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (pkgid == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
+	retvm_if(pkgid == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
 	if (info->manifest_info->package)
-		*pkgid = info->manifest_info->package;
+		*pkgid = (char *)info->manifest_info->package;
 	else
 		return PMINFO_R_ERROR;
 
@@ -2302,17 +2336,11 @@ API int pkgmgrinfo_pkginfo_get_pkgid(pkgmgrinfo_pkginfo_h handle, char **pkgid)
 
 API int pkgmgrinfo_pkginfo_get_type(pkgmgrinfo_pkginfo_h handle, char **type)
 {
-	if (handle == NULL) {
-		_LOGE("pkginfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (type == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
+	retvm_if(type == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
 	if (info->manifest_info->type)
-		*type = info->manifest_info->type;
+		*type = (char *)info->manifest_info->type;
 	else
 		*type = pkgtype;
 	return PMINFO_R_OK;
@@ -2320,14 +2348,8 @@ API int pkgmgrinfo_pkginfo_get_type(pkgmgrinfo_pkginfo_h handle, char **type)
 
 API int pkgmgrinfo_pkginfo_get_version(pkgmgrinfo_pkginfo_h handle, char **version)
 {
-	if (handle == NULL) {
-		_LOGE("pkginfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (version == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
+	retvm_if(version == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
 	*version = (char *)info->manifest_info->version;
 	return PMINFO_R_OK;
@@ -2335,14 +2357,8 @@ API int pkgmgrinfo_pkginfo_get_version(pkgmgrinfo_pkginfo_h handle, char **versi
 
 API int pkgmgrinfo_pkginfo_get_install_location(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_install_location *location)
 {
-	if (handle == NULL) {
-		_LOGE("pkginfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (location == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
+	retvm_if(location == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 	char *val = NULL;
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
 	val = (char *)info->manifest_info->installlocation;
@@ -2359,14 +2375,8 @@ API int pkgmgrinfo_pkginfo_get_install_location(pkgmgrinfo_pkginfo_h handle, pkg
 
 API int pkgmgrinfo_pkginfo_get_package_size(pkgmgrinfo_pkginfo_h handle, int *size)
 {
-	if (handle == NULL) {
-		_LOGE("pkginfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (size == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
+	retvm_if(size == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 	char *val = NULL;
 	char *location = NULL;
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
@@ -2389,14 +2399,8 @@ API int pkgmgrinfo_pkginfo_get_package_size(pkgmgrinfo_pkginfo_h handle, int *si
 
 API int pkgmgrinfo_pkginfo_get_total_size(pkgmgrinfo_pkginfo_h handle, int *size)
 {
-	if (handle == NULL) {
-		_LOGE("pkginfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (size == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
+	retvm_if(size == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 
 	char *pkgid = NULL;
 	char device_path[PKG_STRING_LEN_MAX] = { '\0', };
@@ -2530,14 +2534,8 @@ API int pkgmgrinfo_pkginfo_get_total_size(pkgmgrinfo_pkginfo_h handle, int *size
 
 API int pkgmgrinfo_pkginfo_get_data_size(pkgmgrinfo_pkginfo_h handle, int *size)
 {
-	if (handle == NULL) {
-		_LOGE("pkginfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (size == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
+	retvm_if(size == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 
 	char *pkgid = NULL;
 	char device_path[PKG_STRING_LEN_MAX] = { '\0', };
@@ -2678,14 +2676,8 @@ catch:
 
 API int pkgmgrinfo_pkginfo_get_description(pkgmgrinfo_pkginfo_h handle, char **description)
 {
-	if (handle == NULL) {
-		_LOGE("pkginfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (description == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
+	retvm_if(description == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 	char *locale = NULL;
 	description_x *ptr = NULL;
 	*description = NULL;
@@ -2713,14 +2705,8 @@ API int pkgmgrinfo_pkginfo_get_description(pkgmgrinfo_pkginfo_h handle, char **d
 
 API int pkgmgrinfo_pkginfo_get_author_name(pkgmgrinfo_pkginfo_h handle, char **author_name)
 {
-	if (handle == NULL) {
-		_LOGE("pkginfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (author_name == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
+	retvm_if(author_name == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 	char *locale = NULL;
 	author_x *ptr = NULL;
 	*author_name = NULL;
@@ -2748,14 +2734,8 @@ API int pkgmgrinfo_pkginfo_get_author_name(pkgmgrinfo_pkginfo_h handle, char **a
 
 API int pkgmgrinfo_pkginfo_get_author_email(pkgmgrinfo_pkginfo_h handle, char **author_email)
 {
-	if (handle == NULL) {
-		_LOGE("pkginfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (author_email == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
+	retvm_if(author_email == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
 	*author_email = (char *)info->manifest_info->author->email;
 	return PMINFO_R_OK;
@@ -2763,14 +2743,8 @@ API int pkgmgrinfo_pkginfo_get_author_email(pkgmgrinfo_pkginfo_h handle, char **
 
 API int pkgmgrinfo_pkginfo_get_author_href(pkgmgrinfo_pkginfo_h handle, char **author_href)
 {
-	if (handle == NULL) {
-		_LOGE("pkginfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (author_href == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
+	retvm_if(author_href == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
 	*author_href = (char *)info->manifest_info->author->href;
 	return PMINFO_R_OK;
@@ -2778,8 +2752,10 @@ API int pkgmgrinfo_pkginfo_get_author_href(pkgmgrinfo_pkginfo_h handle, char **a
 
 API int pkgmgrinfo_pkginfo_get_installed_storage(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_installed_storage *storage)
 {
-	char *pkgid;
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
+	retvm_if(storage == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 
+	char *pkgid = NULL;
 	pkgmgrinfo_pkginfo_get_pkgid(handle, &pkgid);
 	if (pkgid == NULL){
 		 _LOGE("invalid func parameters\n");
@@ -2832,14 +2808,8 @@ API int pkgmgrinfo_pkginfo_get_installed_storage(pkgmgrinfo_pkginfo_h handle, pk
 
 API int pkgmgrinfo_pkginfo_get_installed_time(pkgmgrinfo_pkginfo_h handle, int *installed_time)
 {
-	if (handle == NULL) {
-		_LOGE("pkginfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (installed_time == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
+	retvm_if(installed_time == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
 	if (info->manifest_info->installed_time)
 		*installed_time = atoi(info->manifest_info->installed_time);
@@ -2851,14 +2821,8 @@ API int pkgmgrinfo_pkginfo_get_installed_time(pkgmgrinfo_pkginfo_h handle, int *
 
 API int pkgmgrinfo_pkginfo_get_storeclientid(pkgmgrinfo_pkginfo_h handle, char **storeclientid)
 {
-	if (handle == NULL) {
-		_LOGE("pkginfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (storeclientid == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
+	retvm_if(storeclientid == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
 	*storeclientid = (char *)info->manifest_info->storeclient_id;
 	return PMINFO_R_OK;
@@ -2866,14 +2830,8 @@ API int pkgmgrinfo_pkginfo_get_storeclientid(pkgmgrinfo_pkginfo_h handle, char *
 
 API int pkgmgrinfo_pkginfo_get_mainappid(pkgmgrinfo_pkginfo_h handle, char **mainappid)
 {
-	if (handle == NULL) {
-		_LOGE("pkginfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (mainappid == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
+	retvm_if(mainappid == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
 	*mainappid = (char *)info->manifest_info->mainapp_id;
 	return PMINFO_R_OK;
@@ -2881,14 +2839,8 @@ API int pkgmgrinfo_pkginfo_get_mainappid(pkgmgrinfo_pkginfo_h handle, char **mai
 
 API int pkgmgrinfo_pkginfo_get_url(pkgmgrinfo_pkginfo_h handle, char **url)
 {
-	if (handle == NULL) {
-		_LOGE("pkginfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (url == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
+	retvm_if(url == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
 	*url = (char *)info->manifest_info->package_url;
 	return PMINFO_R_OK;
@@ -2896,19 +2848,11 @@ API int pkgmgrinfo_pkginfo_get_url(pkgmgrinfo_pkginfo_h handle, char **url)
 
 API int pkgmgrinfo_pkginfo_get_size_from_xml(const char *manifest, int *size)
 {
-	char *val = NULL;
+	const char *val = NULL;
 	const xmlChar *node;
 	xmlTextReaderPtr reader;
-
-	if (manifest == NULL) {
-		_LOGE("input argument is NULL\n");
-		return PMINFO_R_ERROR;
-	}
-
-	if (size == NULL) {
-		_LOGE("output argument is NULL\n");
-		return PMINFO_R_ERROR;
-	}
+	retvm_if(manifest == NULL, PMINFO_R_EINVAL, "Input argument is NULL\n");
+	retvm_if(size == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 
 	xmlInitParser();
 	reader = xmlReaderForFile(manifest, NULL, 0);
@@ -2957,19 +2901,11 @@ API int pkgmgrinfo_pkginfo_get_size_from_xml(const char *manifest, int *size)
 
 API int pkgmgrinfo_pkginfo_get_location_from_xml(const char *manifest, pkgmgrinfo_install_location *location)
 {
-	char *val = NULL;
+	const char *val = NULL;
 	const xmlChar *node;
 	xmlTextReaderPtr reader;
-
-	if (manifest == NULL) {
-		_LOGE("input argument is NULL\n");
-		return PMINFO_R_ERROR;
-	}
-
-	if (location == NULL) {
-		_LOGE("output argument is NULL\n");
-		return PMINFO_R_ERROR;
-	}
+	retvm_if(manifest == NULL, PMINFO_R_EINVAL, "Input argument is NULL\n");
+	retvm_if(location == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 
 	xmlInitParser();
 	reader = xmlReaderForFile(manifest, NULL, 0);
@@ -3018,18 +2954,12 @@ API int pkgmgrinfo_pkginfo_get_location_from_xml(const char *manifest, pkgmgrinf
 
 API int pkgmgrinfo_pkginfo_get_root_path(pkgmgrinfo_pkginfo_h handle, char **path)
 {
-	if (handle == NULL) {
-		_LOGE("pkginfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (path == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
+	retvm_if(path == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
 	if (info->manifest_info->root_path)
-		*path = info->manifest_info->root_path;
+		*path = (char *)info->manifest_info->root_path;
 	else
 		return PMINFO_R_ERROR;
 
@@ -3247,8 +3177,9 @@ API int pkgmgrinfo_pkginfo_compare_app_cert_info(const char *lhs_app_id, const c
 
 API int pkgmgrinfo_pkginfo_is_accessible(pkgmgrinfo_pkginfo_h handle, bool *accessible)
 {
-	char *pkgid;
-
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
+	retvm_if(accessible == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
+	char *pkgid = NULL;
 	pkgmgrinfo_pkginfo_get_pkgid(handle, &pkgid);
 	if (pkgid == NULL){
 		 _LOGD("invalid func parameters\n");
@@ -3305,14 +3236,8 @@ API int pkgmgrinfo_pkginfo_is_accessible(pkgmgrinfo_pkginfo_h handle, bool *acce
 
 API int pkgmgrinfo_pkginfo_is_removable(pkgmgrinfo_pkginfo_h handle, bool *removable)
 {
-	if (handle == NULL) {
-		_LOGE("pkginfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (removable == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
+	retvm_if(removable == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 	char *val = NULL;
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
 	val = (char *)info->manifest_info->removable;
@@ -3350,14 +3275,8 @@ API int pkgmgrinfo_pkginfo_is_movable(pkgmgrinfo_pkginfo_h handle, bool *movable
 
 API int pkgmgrinfo_pkginfo_is_preload(pkgmgrinfo_pkginfo_h handle, bool *preload)
 {
-	if (handle == NULL) {
-		_LOGE("pkginfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (preload == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
+	retvm_if(preload == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 	char *val = NULL;
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
 	val = (char *)info->manifest_info->preload;
@@ -3374,14 +3293,8 @@ API int pkgmgrinfo_pkginfo_is_preload(pkgmgrinfo_pkginfo_h handle, bool *preload
 
 API int pkgmgrinfo_pkginfo_is_readonly(pkgmgrinfo_pkginfo_h handle, bool *readonly)
 {
-	if (handle == NULL) {
-		_LOGE("pkginfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (readonly == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
+	retvm_if(readonly == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 	char *val = NULL;
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
 	val = (char *)info->manifest_info->readonly;
@@ -3417,10 +3330,7 @@ API int pkgmgrinfo_pkginfo_is_update(pkgmgrinfo_pkginfo_h handle, bool *update)
 
 API int pkgmgrinfo_pkginfo_destroy_pkginfo(pkgmgrinfo_pkginfo_h handle)
 {
-	if (handle == NULL) {
-		_LOGE("pkginfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
 	__cleanup_pkginfo(info);
 	return PMINFO_R_OK;
@@ -3428,10 +3338,7 @@ API int pkgmgrinfo_pkginfo_destroy_pkginfo(pkgmgrinfo_pkginfo_h handle)
 
 API int pkgmgrinfo_pkginfo_filter_create(pkgmgrinfo_pkginfo_filter_h *handle)
 {
-	if (handle == NULL) {
-		_LOGE("Filter handle output parameter is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "Filter handle output parameter is NULL\n");
 	*handle = NULL;
 	pkgmgrinfo_filter_x *filter = (pkgmgrinfo_filter_x*)calloc(1, sizeof(pkgmgrinfo_filter_x));
 	if (filter == NULL) {
@@ -3444,10 +3351,7 @@ API int pkgmgrinfo_pkginfo_filter_create(pkgmgrinfo_pkginfo_filter_h *handle)
 
 API int pkgmgrinfo_pkginfo_filter_destroy(pkgmgrinfo_pkginfo_filter_h handle)
 {
-	if (handle == NULL) {
-		_LOGE("Filter handle input parameter is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "Filter handle input parameter is NULL\n");
 	pkgmgrinfo_filter_x *filter = (pkgmgrinfo_filter_x*)handle;
 	if (filter->list){
 		g_slist_foreach(filter->list, __destroy_each_node, NULL);
@@ -3461,10 +3365,8 @@ API int pkgmgrinfo_pkginfo_filter_destroy(pkgmgrinfo_pkginfo_filter_h handle)
 API int pkgmgrinfo_pkginfo_filter_add_int(pkgmgrinfo_pkginfo_filter_h handle,
 				const char *property, const int value)
 {
-	if (handle == NULL || property == NULL) {
-		_LOGE("Filter handle input parameter is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "Filter handle input parameter is NULL\n");
+	retvm_if(property == NULL, PMINFO_R_EINVAL, "Filter handle input parameter is NULL\n");
 	char buf[PKG_VALUE_STRING_LEN_MAX] = {'\0'};
 	char *val = NULL;
 	GSList *link = NULL;
@@ -3504,10 +3406,8 @@ API int pkgmgrinfo_pkginfo_filter_add_int(pkgmgrinfo_pkginfo_filter_h handle,
 API int pkgmgrinfo_pkginfo_filter_add_bool(pkgmgrinfo_pkginfo_filter_h handle,
 				const char *property, const bool value)
 {
-	if (handle == NULL || property == NULL) {
-		_LOGE("Filter handle input parameter is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "Filter handle input parameter is NULL\n");
+	retvm_if(property == NULL, PMINFO_R_EINVAL, "Filter handle input parameter is NULL\n");
 	char *val = NULL;
 	GSList *link = NULL;
 	int prop = -1;
@@ -3548,10 +3448,9 @@ API int pkgmgrinfo_pkginfo_filter_add_bool(pkgmgrinfo_pkginfo_filter_h handle,
 API int pkgmgrinfo_pkginfo_filter_add_string(pkgmgrinfo_pkginfo_filter_h handle,
 				const char *property, const char *value)
 {
-	if (handle == NULL || property == NULL || value == NULL) {
-		_LOGE("Filter handle input parameter is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "Filter handle input parameter is NULL\n");
+	retvm_if(property == NULL, PMINFO_R_EINVAL, "Filter handle input parameter is NULL\n");
+	retvm_if(value == NULL, PMINFO_R_EINVAL, "Filter handle input parameter is NULL\n");
 	char *val = NULL;
 	GSList *link = NULL;
 	int prop = -1;
@@ -3599,10 +3498,8 @@ API int pkgmgrinfo_pkginfo_filter_add_string(pkgmgrinfo_pkginfo_filter_h handle,
 
 API int pkgmgrinfo_pkginfo_filter_count(pkgmgrinfo_pkginfo_filter_h handle, int *count)
 {
-	if (handle == NULL || count == NULL) {
-		_LOGE("Filter handle input parameter is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "Filter handle input parameter is NULL\n");
+	retvm_if(count == NULL, PMINFO_R_EINVAL, "Filter handle input parameter is NULL\n");
 	char *syslocale = NULL;
 	char *locale = NULL;
 	char *condition = NULL;
@@ -3685,10 +3582,8 @@ err:
 API int pkgmgrinfo_pkginfo_filter_foreach_pkginfo(pkgmgrinfo_pkginfo_filter_h handle,
 				pkgmgrinfo_pkg_list_cb pkg_cb, void *user_data)
 {
-	if (handle == NULL || pkg_cb == NULL) {
-		_LOGE("Filter handle input parameter is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "Filter handle input parameter is NULL\n");
+	retvm_if(pkg_cb == NULL, PMINFO_R_EINVAL, "Filter handle input parameter is NULL\n");
 	char *syslocale = NULL;
 	char *locale = NULL;
 	char *condition = NULL;
@@ -3701,6 +3596,7 @@ API int pkgmgrinfo_pkginfo_filter_foreach_pkginfo(pkgmgrinfo_pkginfo_filter_h ha
 	icon_x *tmp2 = NULL;
 	description_x *tmp3 = NULL;
 	author_x *tmp4 = NULL;
+	privilege_x *tmp5 = NULL;
 	pkgmgr_pkginfo_x *node = NULL;
 	pkgmgr_pkginfo_x *tmphead = NULL;
 	pkgmgr_pkginfo_x *pkginfo = NULL;
@@ -3768,6 +3664,12 @@ API int pkgmgrinfo_pkginfo_filter_foreach_pkginfo(pkgmgrinfo_pkginfo_filter_h ha
 	LISTHEAD(tmphead, node);
 	for(node = node->next ; node ; node = node->next) {
 		pkginfo = node;
+		pkginfo->manifest_info->privileges = (privileges_x *)calloc(1, sizeof(privileges_x));
+		if (pkginfo->manifest_info->privileges == NULL) {
+			_LOGE("Failed to allocate memory for privileges info\n");
+			ret = PMINFO_R_ERROR;
+			goto err;
+		}
 
 		/*populate manifest_info from DB*/
 		snprintf(query, MAX_QUERY_LEN, "select * from package_info where package='%s' ", pkginfo->manifest_info->package);
@@ -3812,6 +3714,10 @@ API int pkgmgrinfo_pkginfo_filter_foreach_pkginfo(pkgmgrinfo_pkginfo_filter_h ha
 			LISTHEAD(pkginfo->manifest_info->author, tmp4);
 			pkginfo->manifest_info->author = tmp4;
 		}
+		if (pkginfo->manifest_info->privileges->privilege) {
+			LISTHEAD(pkginfo->manifest_info->privileges->privilege, tmp5);
+			pkginfo->manifest_info->privileges->privilege = tmp5;
+		}
 	}
 
 	LISTHEAD(tmphead, node);
@@ -3838,6 +3744,23 @@ err:
 	return ret;
 }
 
+API int pkgmgrinfo_pkginfo_foreach_privilege(pkgmgrinfo_pkginfo_h handle,
+			pkgmgrinfo_pkg_privilege_list_cb privilege_func, void *user_data)
+{
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL");
+	retvm_if(privilege_func == NULL, PMINFO_R_EINVAL, "Callback function is NULL");
+	int ret = -1;
+	privilege_x *ptr = NULL;
+	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
+	ptr = info->manifest_info->privileges->privilege;
+	for (; ptr; ptr = ptr->next) {
+		ret = privilege_func(ptr->text, user_data);
+		if (ret < 0)
+			break;
+	}
+	return PMINFO_R_OK;
+}
+
 API int pkgmgrinfo_appinfo_get_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_app_component component,
 						pkgmgrinfo_app_list_cb app_func, void *user_data)
 {
@@ -3854,10 +3777,10 @@ API int pkgmgrinfo_appinfo_get_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_app_
 	pkgmgr_appinfo_x *appinfo = NULL;
 	icon_x *ptr1 = NULL;
 	label_x *ptr2 = NULL;
-	category_x *tmp3 = NULL;
-	metadata_x *tmp4 = NULL;
-	permission_x *tmp5 = NULL;
-	image_x *tmp6 = NULL;
+	category_x *ptr3 = NULL;
+	metadata_x *ptr4 = NULL;
+	permission_x *ptr5 = NULL;
+	image_x *ptr6 = NULL;
 	sqlite3 *appinfo_db = NULL;
 
 	/*get system locale*/
@@ -3870,7 +3793,7 @@ API int pkgmgrinfo_appinfo_get_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_app_
 
 	/*calloc allinfo*/
 	strncpy(glocale, locale, PKG_LOCALE_STRING_LEN_MAX  - 1);
-	allinfo = (pkgmgr_appinfo_x *)calloc(1, sizeof(pkgmgr_appinfo_x));
+	allinfo = (pkgmgr_pkginfo_x *)calloc(1, sizeof(pkgmgr_pkginfo_x));
 	tryvm_if(allinfo == NULL, ret = PMINFO_R_ERROR, "Failed to allocate memory for appinfo");
 
 	/*calloc manifest_info*/
@@ -3954,20 +3877,20 @@ API int pkgmgrinfo_appinfo_get_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_app_
 				appinfo->uiapp_info->icon = ptr1;
 			}
 			if (appinfo->uiapp_info->category) {
-				LISTHEAD(appinfo->uiapp_info->category, tmp3);
-				appinfo->uiapp_info->category = tmp3;
+				LISTHEAD(appinfo->uiapp_info->category, ptr3);
+				appinfo->uiapp_info->category = ptr3;
 			}
 			if (appinfo->uiapp_info->metadata) {
-				LISTHEAD(appinfo->uiapp_info->metadata, tmp4);
-				appinfo->uiapp_info->metadata = tmp4;
+				LISTHEAD(appinfo->uiapp_info->metadata, ptr4);
+				appinfo->uiapp_info->metadata = ptr4;
 			}
 			if (appinfo->uiapp_info->permission) {
-				LISTHEAD(appinfo->uiapp_info->permission, tmp5);
-				appinfo->uiapp_info->permission = tmp5;
+				LISTHEAD(appinfo->uiapp_info->permission, ptr5);
+				appinfo->uiapp_info->permission = ptr5;
 			}
 			if (appinfo->uiapp_info->image) {
-				LISTHEAD(appinfo->uiapp_info->image, tmp6);
-				appinfo->uiapp_info->image = tmp6;
+				LISTHEAD(appinfo->uiapp_info->image, ptr6);
+				appinfo->uiapp_info->image = ptr6;
 			}
 			ret = app_func((void *)appinfo, user_data);
 			if (ret < 0)
@@ -4009,16 +3932,16 @@ API int pkgmgrinfo_appinfo_get_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_app_
 				appinfo->svcapp_info->icon = ptr1;
 			}
 			if (appinfo->svcapp_info->category) {
-				LISTHEAD(appinfo->svcapp_info->category, tmp3);
-				appinfo->svcapp_info->category = tmp3;
+				LISTHEAD(appinfo->svcapp_info->category, ptr3);
+				appinfo->svcapp_info->category = ptr3;
 			}
 			if (appinfo->svcapp_info->metadata) {
-				LISTHEAD(appinfo->svcapp_info->metadata, tmp4);
-				appinfo->svcapp_info->metadata = tmp4;
+				LISTHEAD(appinfo->svcapp_info->metadata, ptr4);
+				appinfo->svcapp_info->metadata = ptr4;
 			}
 			if (appinfo->svcapp_info->permission) {
-				LISTHEAD(appinfo->svcapp_info->permission, tmp5);
-				appinfo->svcapp_info->permission = tmp5;
+				LISTHEAD(appinfo->svcapp_info->permission, ptr5);
+				appinfo->svcapp_info->permission = ptr5;
 			}
 			ret = app_func((void *)appinfo, user_data);
 			if (ret < 0)
@@ -4077,20 +4000,20 @@ API int pkgmgrinfo_appinfo_get_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_app_
 				appinfo->uiapp_info->icon = ptr1;
 			}
 			if (appinfo->uiapp_info->category) {
-				LISTHEAD(appinfo->uiapp_info->category, tmp3);
-				appinfo->uiapp_info->category = tmp3;
+				LISTHEAD(appinfo->uiapp_info->category, ptr3);
+				appinfo->uiapp_info->category = ptr3;
 			}
 			if (appinfo->uiapp_info->metadata) {
-				LISTHEAD(appinfo->uiapp_info->metadata, tmp4);
-				appinfo->uiapp_info->metadata = tmp4;
+				LISTHEAD(appinfo->uiapp_info->metadata, ptr4);
+				appinfo->uiapp_info->metadata = ptr4;
 			}
 			if (appinfo->uiapp_info->permission) {
-				LISTHEAD(appinfo->uiapp_info->permission, tmp5);
-				appinfo->uiapp_info->permission = tmp5;
+				LISTHEAD(appinfo->uiapp_info->permission, ptr5);
+				appinfo->uiapp_info->permission = ptr5;
 			}
 			if (appinfo->uiapp_info->image) {
-				LISTHEAD(appinfo->uiapp_info->image, tmp6);
-				appinfo->uiapp_info->image = tmp6;
+				LISTHEAD(appinfo->uiapp_info->image, ptr6);
+				appinfo->uiapp_info->image = ptr6;
 			}
 			ret = app_func((void *)appinfo, user_data);
 			if (ret < 0)
@@ -4129,16 +4052,16 @@ API int pkgmgrinfo_appinfo_get_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_app_
 				appinfo->svcapp_info->icon = ptr1;
 			}
 			if (appinfo->svcapp_info->category) {
-				LISTHEAD(appinfo->svcapp_info->category, tmp3);
-				appinfo->svcapp_info->category = tmp3;
+				LISTHEAD(appinfo->svcapp_info->category, ptr3);
+				appinfo->svcapp_info->category = ptr3;
 			}
 			if (appinfo->svcapp_info->metadata) {
-				LISTHEAD(appinfo->svcapp_info->metadata, tmp4);
-				appinfo->svcapp_info->metadata = tmp4;
+				LISTHEAD(appinfo->svcapp_info->metadata, ptr4);
+				appinfo->svcapp_info->metadata = ptr4;
 			}
 			if (appinfo->svcapp_info->permission) {
-				LISTHEAD(appinfo->svcapp_info->permission, tmp5);
-				appinfo->svcapp_info->permission = tmp5;
+				LISTHEAD(appinfo->svcapp_info->permission, ptr5);
+				appinfo->svcapp_info->permission = ptr5;
 			}
 			ret = app_func((void *)appinfo, user_data);
 			if (ret < 0)
@@ -4162,7 +4085,7 @@ catch:
 	}
 	if (appinfo) {
 		if (appinfo->package) {
-			free(appinfo->package);
+			free((void *)appinfo->package);
 			appinfo->package = NULL;
 		}
 		free(appinfo);
@@ -4307,7 +4230,7 @@ API int pkgmgrinfo_appinfo_get_installed_list(pkgmgrinfo_app_list_cb app_func, v
 		ret = app_func((void *)appinfo, user_data);
 		if (ret < 0)
 			break;
-		free(appinfo->package);
+		free((void *)appinfo->package);
 		appinfo->package = NULL;
 	}
 	/*Service Apps*/
@@ -4362,7 +4285,7 @@ API int pkgmgrinfo_appinfo_get_installed_list(pkgmgrinfo_app_list_cb app_func, v
 		ret = app_func((void *)appinfo, user_data);
 		if (ret < 0)
 			break;
-		free(appinfo->package);
+		free((void *)appinfo->package);
 		appinfo->package = NULL;
 	}
 	ret = PMINFO_R_OK;
@@ -4567,14 +4490,8 @@ catch:
 
 API int pkgmgrinfo_appinfo_get_appid(pkgmgrinfo_appinfo_h  handle, char **appid)
 {
-	if (handle == NULL) {
-		_LOGE("appinfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (appid == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
+	retvm_if(appid == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 
 	if (info->app_component == PMINFO_UI_APP)
@@ -4587,14 +4504,8 @@ API int pkgmgrinfo_appinfo_get_appid(pkgmgrinfo_appinfo_h  handle, char **appid)
 
 API int pkgmgrinfo_appinfo_get_pkgname(pkgmgrinfo_appinfo_h  handle, char **pkg_name)
 {
-	if (handle == NULL) {
-		_LOGE("appinfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (pkg_name == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
+	retvm_if(pkg_name == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 
 	*pkg_name = (char *)info->package;
@@ -4604,14 +4515,8 @@ API int pkgmgrinfo_appinfo_get_pkgname(pkgmgrinfo_appinfo_h  handle, char **pkg_
 
 API int pkgmgrinfo_appinfo_get_pkgid(pkgmgrinfo_appinfo_h  handle, char **pkgid)
 {
-	if (handle == NULL) {
-		_LOGE("appinfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (pkgid == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
+	retvm_if(pkgid == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 
 	*pkgid = (char *)info->package;
@@ -4621,14 +4526,8 @@ API int pkgmgrinfo_appinfo_get_pkgid(pkgmgrinfo_appinfo_h  handle, char **pkgid)
 
 API int pkgmgrinfo_appinfo_get_exec(pkgmgrinfo_appinfo_h  handle, char **exec)
 {
-	if (handle == NULL) {
-		_LOGE("appinfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (exec == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
+	retvm_if(exec == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 
 	if (info->app_component == PMINFO_UI_APP)
@@ -4642,14 +4541,8 @@ API int pkgmgrinfo_appinfo_get_exec(pkgmgrinfo_appinfo_h  handle, char **exec)
 
 API int pkgmgrinfo_appinfo_get_icon(pkgmgrinfo_appinfo_h  handle, char **icon)
 {
-        if (handle == NULL) {
-                _LOGE("appinfo handle is NULL\n");
-                return PMINFO_R_EINVAL;
-        }
-        if (icon == NULL) {
-                _LOGE("Argument supplied to hold return value is NULL\n");
-                return PMINFO_R_EINVAL;
-        }
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
+	retvm_if(icon == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
         char *locale = NULL;
         icon_x *ptr = NULL;
         icon_x *start = NULL;
@@ -4683,14 +4576,8 @@ API int pkgmgrinfo_appinfo_get_icon(pkgmgrinfo_appinfo_h  handle, char **icon)
 
 API int pkgmgrinfo_appinfo_get_label(pkgmgrinfo_appinfo_h  handle, char **label)
 {
-	if (handle == NULL) {
-		_LOGE("appinfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (label == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
+	retvm_if(label == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 	char *locale = NULL;
 	label_x *ptr = NULL;
 	label_x *start = NULL;
@@ -4731,14 +4618,8 @@ API int pkgmgrinfo_appinfo_get_label(pkgmgrinfo_appinfo_h  handle, char **label)
 
 API int pkgmgrinfo_appinfo_get_component(pkgmgrinfo_appinfo_h  handle, pkgmgrinfo_app_component *component)
 {
-	if (handle == NULL) {
-		_LOGE("appinfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (component == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
+	retvm_if(component == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 
 	if (info->app_component == PMINFO_UI_APP)
@@ -4753,14 +4634,8 @@ API int pkgmgrinfo_appinfo_get_component(pkgmgrinfo_appinfo_h  handle, pkgmgrinf
 
 API int pkgmgrinfo_appinfo_get_apptype(pkgmgrinfo_appinfo_h  handle, char **app_type)
 {
-	if (handle == NULL) {
-		_LOGE("appinfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (app_type == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
+	retvm_if(app_type == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 
 	if (info->app_component == PMINFO_UI_APP)
@@ -4774,14 +4649,9 @@ API int pkgmgrinfo_appinfo_get_apptype(pkgmgrinfo_appinfo_h  handle, char **app_
 API int pkgmgrinfo_appinfo_get_operation(pkgmgrinfo_appcontrol_h  handle,
 					int *operation_count, char ***operation)
 {
-	if (handle == NULL) {
-		_LOGE("appcontrol handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (operation_count == NULL || operation == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
+	retvm_if(operation == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
+	retvm_if(operation_count == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 	pkgmgrinfo_appcontrol_x *data = (pkgmgrinfo_appcontrol_x *)handle;
 	*operation_count = data->operation_count;
 	*operation = data->operation;
@@ -4791,14 +4661,9 @@ API int pkgmgrinfo_appinfo_get_operation(pkgmgrinfo_appcontrol_h  handle,
 API int pkgmgrinfo_appinfo_get_uri(pkgmgrinfo_appcontrol_h  handle,
 					int *uri_count, char ***uri)
 {
-	if (handle == NULL) {
-		_LOGE("appcontrol handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (uri_count == NULL || uri == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
+	retvm_if(uri == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
+	retvm_if(uri_count == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 	pkgmgrinfo_appcontrol_x *data = (pkgmgrinfo_appcontrol_x *)handle;
 	*uri_count = data->uri_count;
 	*uri = data->uri;
@@ -4808,14 +4673,9 @@ API int pkgmgrinfo_appinfo_get_uri(pkgmgrinfo_appcontrol_h  handle,
 API int pkgmgrinfo_appinfo_get_mime(pkgmgrinfo_appcontrol_h  handle,
 					int *mime_count, char ***mime)
 {
-	if (handle == NULL) {
-		_LOGE("appcontrol handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (mime_count == NULL || mime == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
+	retvm_if(mime == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
+	retvm_if(mime_count == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 	pkgmgrinfo_appcontrol_x *data = (pkgmgrinfo_appcontrol_x *)handle;
 	*mime_count = data->mime_count;
 	*mime = data->mime;
@@ -4877,14 +4737,8 @@ API int pkgmgrinfo_appinfo_get_notification_icon(pkgmgrinfo_appinfo_h  handle, c
 
 API int pkgmgrinfo_appinfo_get_recent_image_type(pkgmgrinfo_appinfo_h  handle, pkgmgrinfo_app_recentimage *type)
 {
-	if (handle == NULL) {
-		_LOGE("appinfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (type == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
+	retvm_if(type == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 	char *val = NULL;
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 	val = (char *)info->uiapp_info->recentimage;
@@ -4964,14 +4818,8 @@ API int pkgmgrinfo_appinfo_get_permission_type(pkgmgrinfo_appinfo_h  handle, pkg
 API int pkgmgrinfo_appinfo_foreach_category(pkgmgrinfo_appinfo_h handle,
 			pkgmgrinfo_app_category_list_cb category_func, void *user_data)
 {
-	if (handle == NULL) {
-		_LOGE("appinfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (category_func == NULL) {
-		_LOGE("Callback function is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
+	retvm_if(category_func == NULL, PMINFO_R_EINVAL, "Callback function is NULL");
 	int ret = -1;
 	category_x *ptr = NULL;
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
@@ -4992,14 +4840,8 @@ API int pkgmgrinfo_appinfo_foreach_category(pkgmgrinfo_appinfo_h handle,
 API int pkgmgrinfo_appinfo_foreach_metadata(pkgmgrinfo_appinfo_h handle,
 			pkgmgrinfo_app_metadata_list_cb metadata_func, void *user_data)
 {
-	if (handle == NULL) {
-		_LOGE("appinfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (metadata_func == NULL) {
-		_LOGE("Callback function is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
+	retvm_if(metadata_func == NULL, PMINFO_R_EINVAL, "Callback function is NULL");
 	int ret = -1;
 	metadata_x *ptr = NULL;
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
@@ -5020,14 +4862,8 @@ API int pkgmgrinfo_appinfo_foreach_metadata(pkgmgrinfo_appinfo_h handle,
 API int pkgmgrinfo_appinfo_foreach_appcontrol(pkgmgrinfo_appinfo_h handle,
 			pkgmgrinfo_app_control_list_cb appcontrol_func, void *user_data)
 {
-	if (handle == NULL) {
-		_LOGE("appinfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (appcontrol_func == NULL) {
-		_LOGE("Callback function is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
+	retvm_if(appcontrol_func == NULL, PMINFO_R_EINVAL, "Callback function is NULL");
 	int i = 0;
 	int ret = -1;
 	int oc = 0;
@@ -5180,14 +5016,8 @@ API int pkgmgrinfo_appinfo_foreach_appcontrol(pkgmgrinfo_appinfo_h handle,
 
 API int pkgmgrinfo_appinfo_is_nodisplay(pkgmgrinfo_appinfo_h  handle, bool *nodisplay)
 {
-	if (handle == NULL) {
-		_LOGE("appinfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (nodisplay == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
+	retvm_if(nodisplay == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 	char *val = NULL;
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 	val = (char *)info->uiapp_info->nodisplay;
@@ -5204,14 +5034,8 @@ API int pkgmgrinfo_appinfo_is_nodisplay(pkgmgrinfo_appinfo_h  handle, bool *nodi
 
 API int pkgmgrinfo_appinfo_is_multiple(pkgmgrinfo_appinfo_h  handle, bool *multiple)
 {
-	if (handle == NULL) {
-		_LOGE("appinfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (multiple == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
+	retvm_if(multiple == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 	char *val = NULL;
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 	val = (char *)info->uiapp_info->multiple;
@@ -5228,14 +5052,8 @@ API int pkgmgrinfo_appinfo_is_multiple(pkgmgrinfo_appinfo_h  handle, bool *multi
 
 API int pkgmgrinfo_appinfo_is_indicator_display_allowed(pkgmgrinfo_appinfo_h handle, bool *indicator_disp)
 {
-	if (handle == NULL) {
-		_LOGE("appinfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (indicator_disp == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
+	retvm_if(indicator_disp == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 	char *val = NULL;
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 	val = (char *)info->uiapp_info->indicatordisplay;
@@ -5254,18 +5072,9 @@ API int pkgmgrinfo_appinfo_is_indicator_display_allowed(pkgmgrinfo_appinfo_h han
 
 API int pkgmgrinfo_appinfo_get_effectimage(pkgmgrinfo_appinfo_h  handle, char **portrait_img, char **landscape_img)
 {
-	if (handle == NULL) {
-		_LOGE("appinfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (portrait_img == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (landscape_img == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
+	retvm_if(portrait_img == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
+	retvm_if(landscape_img == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 
 	if (info->app_component == PMINFO_UI_APP){
@@ -5278,14 +5087,8 @@ API int pkgmgrinfo_appinfo_get_effectimage(pkgmgrinfo_appinfo_h  handle, char **
 
 API int pkgmgrinfo_appinfo_is_taskmanage(pkgmgrinfo_appinfo_h  handle, bool *taskmanage)
 {
-	if (handle == NULL) {
-		_LOGE("appinfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (taskmanage == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
+	retvm_if(taskmanage == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 	char *val = NULL;
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 	val = (char *)info->uiapp_info->taskmanage;
@@ -5302,14 +5105,8 @@ API int pkgmgrinfo_appinfo_is_taskmanage(pkgmgrinfo_appinfo_h  handle, bool *tas
 
 API int pkgmgrinfo_appinfo_is_enabled(pkgmgrinfo_appinfo_h  handle, bool *enabled)
 {
-	if (handle == NULL) {
-		_LOGE("appinfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (enabled == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
+	retvm_if(enabled == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 	char *val = NULL;
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 	if (info->app_component == PMINFO_UI_APP)
@@ -5335,14 +5132,8 @@ API int pkgmgrinfo_appinfo_is_enabled(pkgmgrinfo_appinfo_h  handle, bool *enable
 
 API int pkgmgrinfo_appinfo_get_hwacceleration(pkgmgrinfo_appinfo_h  handle, pkgmgrinfo_app_hwacceleration *hwacceleration)
 {
-	if (handle == NULL) {
-		_LOGE("appinfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (hwacceleration == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
+	retvm_if(hwacceleration == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 	char *val = NULL;
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 	val = (char *)info->uiapp_info->hwacceleration;
@@ -5359,14 +5150,8 @@ API int pkgmgrinfo_appinfo_get_hwacceleration(pkgmgrinfo_appinfo_h  handle, pkgm
 
 API int pkgmgrinfo_appinfo_is_onboot(pkgmgrinfo_appinfo_h  handle, bool *onboot)
 {
-	if (handle == NULL) {
-		_LOGE("appinfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (onboot == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
+	retvm_if(onboot == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 	char *val = NULL;
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 	val = (char *)info->svcapp_info->onboot;
@@ -5383,14 +5168,8 @@ API int pkgmgrinfo_appinfo_is_onboot(pkgmgrinfo_appinfo_h  handle, bool *onboot)
 
 API int pkgmgrinfo_appinfo_is_autorestart(pkgmgrinfo_appinfo_h  handle, bool *autorestart)
 {
-	if (handle == NULL) {
-		_LOGE("appinfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (autorestart == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
+	retvm_if(autorestart == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 	char *val = NULL;
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 	val = (char *)info->svcapp_info->autorestart;
@@ -5407,14 +5186,8 @@ API int pkgmgrinfo_appinfo_is_autorestart(pkgmgrinfo_appinfo_h  handle, bool *au
 
 API int pkgmgrinfo_appinfo_is_mainapp(pkgmgrinfo_appinfo_h  handle, bool *mainapp)
 {
-	if (handle == NULL) {
-		_LOGE("appinfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (mainapp == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
+	retvm_if(mainapp == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 	char *val = NULL;
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 	val = (char *)info->uiapp_info->mainapp;
@@ -5431,10 +5204,7 @@ API int pkgmgrinfo_appinfo_is_mainapp(pkgmgrinfo_appinfo_h  handle, bool *mainap
 
 API int pkgmgrinfo_appinfo_destroy_appinfo(pkgmgrinfo_appinfo_h  handle)
 {
-	if (handle == NULL) {
-		_LOGE("appinfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 	__cleanup_appinfo(info);
 	return PMINFO_R_OK;
@@ -5453,10 +5223,8 @@ API int pkgmgrinfo_appinfo_filter_destroy(pkgmgrinfo_appinfo_filter_h handle)
 API int pkgmgrinfo_appinfo_filter_add_int(pkgmgrinfo_appinfo_filter_h handle,
 				const char *property, const int value)
 {
-	if (handle == NULL || property == NULL) {
-		_LOGE("Filter handle input parameter is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "Filter handle input parameter is NULL\n");
+	retvm_if(property == NULL, PMINFO_R_EINVAL, "Filter handle input parameter is NULL\n");
 	char buf[PKG_VALUE_STRING_LEN_MAX] = {'\0'};
 	char *val = NULL;
 	GSList *link = NULL;
@@ -5496,10 +5264,8 @@ API int pkgmgrinfo_appinfo_filter_add_int(pkgmgrinfo_appinfo_filter_h handle,
 API int pkgmgrinfo_appinfo_filter_add_bool(pkgmgrinfo_appinfo_filter_h handle,
 				const char *property, const bool value)
 {
-	if (handle == NULL || property == NULL) {
-		_LOGE("Filter handle input parameter is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "Filter handle input parameter is NULL\n");
+	retvm_if(property == NULL, PMINFO_R_EINVAL, "Filter handle input parameter is NULL\n");
 	char *val = NULL;
 	GSList *link = NULL;
 	int prop = -1;
@@ -5540,10 +5306,9 @@ API int pkgmgrinfo_appinfo_filter_add_bool(pkgmgrinfo_appinfo_filter_h handle,
 API int pkgmgrinfo_appinfo_filter_add_string(pkgmgrinfo_appinfo_filter_h handle,
 				const char *property, const char *value)
 {
-	if (handle == NULL || property == NULL || value == NULL) {
-		_LOGE("Filter handle input parameter is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "Filter handle input parameter is NULL\n");
+	retvm_if(property == NULL, PMINFO_R_EINVAL, "Filter handle input parameter is NULL\n");
+	retvm_if(value == NULL, PMINFO_R_EINVAL, "Filter handle input parameter is NULL\n");
 	char *val = NULL;
 	pkgmgrinfo_node_x *ptr = NULL;
 	char prev[PKG_STRING_LEN_MAX] = {'\0'};
@@ -5620,10 +5385,8 @@ API int pkgmgrinfo_appinfo_filter_add_string(pkgmgrinfo_appinfo_filter_h handle,
 
 API int pkgmgrinfo_appinfo_filter_count(pkgmgrinfo_appinfo_filter_h handle, int *count)
 {
-	if (handle == NULL || count == NULL) {
-		_LOGE("Filter handle input parameter is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "Filter handle input parameter is NULL\n");
+	retvm_if(count == NULL, PMINFO_R_EINVAL, "Filter handle input parameter is NULL\n");
 	char *syslocale = NULL;
 	char *locale = NULL;
 	char *condition = NULL;
@@ -5706,10 +5469,8 @@ err:
 API int pkgmgrinfo_appinfo_filter_foreach_appinfo(pkgmgrinfo_appinfo_filter_h handle,
 				pkgmgrinfo_app_list_cb app_cb, void * user_data)
 {
-	if (handle == NULL || app_cb == NULL) {
-		_LOGE("Filter handle input parameter is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "Filter handle input parameter is NULL\n");
+	retvm_if(app_cb == NULL, PMINFO_R_EINVAL, "Filter handle input parameter is NULL\n");
 	char *syslocale = NULL;
 	char *locale = NULL;
 	char *condition = NULL;
@@ -6555,9 +6316,9 @@ API int pkgmgrinfo_set_install_location_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h hand
 		}
 	}
 	if (location == INSTALL_INTERNAL) {
-		strcpy(mfx->installlocation, "internal-only");
+		strcpy((char *)mfx->installlocation, "internal-only");
 	} else if (location == INSTALL_EXTERNAL) {
-		strcpy(mfx->installlocation, "prefer-external");
+		strcpy((char *)mfx->installlocation, "prefer-external");
 	} else {
 		_LOGE("Invalid location type\n");
 		return PMINFO_R_ERROR;
@@ -6718,9 +6479,9 @@ API int pkgmgrinfo_set_removable_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, int
 		}
 	}
 	if (removable == 0) {
-		strcpy(mfx->removable, "false");
+		strcpy((char *)mfx->removable, "false");
 	} else if (removable == 1) {
-		strcpy(mfx->removable, "true");
+		strcpy((char *)mfx->removable, "true");
 	} else {
 		_LOGE("Invalid removable type\n");
 		return PMINFO_R_ERROR;
@@ -6747,9 +6508,9 @@ API int pkgmgrinfo_set_preload_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, int p
 		}
 	}
 	if (preload == 0) {
-		strcpy(mfx->preload, "false");
+		strcpy((char *)mfx->preload, "false");
 	} else if (preload == 1) {
-		strcpy(mfx->preload, "true");
+		strcpy((char *)mfx->preload, "true");
 	} else {
 		_LOGE("Invalid preload type\n");
 		return PMINFO_R_ERROR;
@@ -6817,10 +6578,7 @@ API int pkgmgrinfo_pkginfo_set_state_enabled(const char *pkgid, bool enabled)
 
 API int pkgmgrinfo_appinfo_set_state_enabled(const char *appid, bool enabled)
 {
-	if (appid == NULL) {
-		_LOGE("appid is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(appid == NULL, PMINFO_R_EINVAL, "appid is NULL\n");
 	int ret = -1;
 	char query[MAX_QUERY_LEN] = {'\0'};
 	ret = __open_manifest_db();
@@ -6874,23 +6632,10 @@ API int pkgmgrinfo_appinfo_set_state_enabled(const char *appid, bool enabled)
 
 API int pkgmgrinfo_datacontrol_get_info(const char *providerid, const char * type, char **appid, char **access)
 {
-	if (providerid == NULL) {
-		_LOGE("Argument supplied is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (type == NULL) {
-		_LOGE("Argument supplied is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (appid == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (access == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-
+	retvm_if(providerid == NULL, PMINFO_R_EINVAL, "Argument supplied is NULL\n");
+	retvm_if(type == NULL, PMINFO_R_EINVAL, "Argument supplied is NULL\n");
+	retvm_if(appid == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
+	retvm_if(access == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 	int ret = PMINFO_R_OK;
 	char query[MAX_QUERY_LEN] = {'\0'};
 	char *error_message = NULL;
@@ -6932,10 +6677,7 @@ API int pkgmgrinfo_datacontrol_get_info(const char *providerid, const char * typ
 
 API int pkgmgrinfo_appinfo_set_default_label(const char *appid, const char *label)
 {
-	if (appid == NULL) {
-		_LOGE("appid is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(appid == NULL, PMINFO_R_EINVAL, "appid is NULL\n");
 	int ret = -1;
 	char query[MAX_QUERY_LEN] = {'\0'};
 	char *error_message = NULL;
@@ -6987,14 +6729,8 @@ API int pkgmgrinfo_appinfo_set_default_label(const char *appid, const char *labe
 
 API int pkgmgrinfo_appinfo_is_guestmode_visibility(pkgmgrinfo_appinfo_h handle, bool *status)
 {
-	if (handle == NULL) {
-		_LOGE("appinfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (status == NULL) {
-		_LOGE("Argument supplied to hold return value is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL\n");
+	retvm_if(status == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 	char *val = NULL;
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 	val = (char *)info->uiapp_info->guestmode_visibility;
@@ -7012,10 +6748,7 @@ API int pkgmgrinfo_appinfo_is_guestmode_visibility(pkgmgrinfo_appinfo_h handle, 
 
 API int pkgmgrinfo_appinfo_set_guestmode_visibility(pkgmgrinfo_appinfo_h handle, bool status)
 {
-	if (handle == NULL) {
-		_LOGE("appinfo handle is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL\n");
 	char *val = NULL;
 	int ret = 0;
 	char *noti_string = NULL;

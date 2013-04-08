@@ -19,11 +19,15 @@
  * limitations under the License.
  *
  */
-
+#define _GNU_SOURCE
 #include <dlfcn.h>
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <unistd.h>
+#include <ctype.h>
+#include <time.h>
+#include <string.h>
 #include <libxml/parser.h>
 #include <libxml/xmlreader.h>
 #include <libxml/xmlschemas.h>
@@ -48,9 +52,11 @@ typedef enum {
 	ACTION_MAX
 } ACTION_TYPE;
 
-char *package;
+const char *package;
 
 static int __ps_process_label(xmlTextReaderPtr reader, label_x *label);
+static int __ps_process_privilege(xmlTextReaderPtr reader, privilege_x *privilege);
+static int __ps_process_privileges(xmlTextReaderPtr reader, privileges_x *privileges);
 static int __ps_process_deviceprofile(xmlTextReaderPtr reader, deviceprofile_x *deviceprofile);
 static int __ps_process_allowed(xmlTextReaderPtr reader, allowed_x *allowed);
 static int __ps_process_operation(xmlTextReaderPtr reader, operation_x *operation);
@@ -66,12 +72,9 @@ static int __ps_process_compatibility(xmlTextReaderPtr reader, compatibility_x *
 static int __ps_process_resolution(xmlTextReaderPtr reader, resolution_x *resolution);
 static int __ps_process_request(xmlTextReaderPtr reader, request_x *request);
 static int __ps_process_define(xmlTextReaderPtr reader, define_x *define);
-static int __ps_process_registry(xmlTextReaderPtr reader, registry_x *registry);
-static int __ps_process_database(xmlTextReaderPtr reader, database_x *database);
 static int __ps_process_appsvc(xmlTextReaderPtr reader, appsvc_x *appsvc);
 static int __ps_process_launchconditions(xmlTextReaderPtr reader, launchconditions_x *launchconditions);
 static int __ps_process_datashare(xmlTextReaderPtr reader, datashare_x *datashare);
-static int __ps_process_layout(xmlTextReaderPtr reader, layout_x *layout);
 static int __ps_process_icon(xmlTextReaderPtr reader, icon_x *icon);
 static int __ps_process_author(xmlTextReaderPtr reader, author_x *author);
 static int __ps_process_description(xmlTextReaderPtr reader, description_x *description);
@@ -86,6 +89,8 @@ static int __ps_process_theme(xmlTextReaderPtr reader, theme_x *theme);
 static int __ps_process_daemon(xmlTextReaderPtr reader, daemon_x *daemon);
 static int __ps_process_ime(xmlTextReaderPtr reader, ime_x *ime);
 static void __ps_free_label(label_x *label);
+static void __ps_free_privilege(privilege_x *privilege);
+static void __ps_free_privileges(privileges_x *privileges);
 static void __ps_free_deviceprofile(deviceprofile_x * deviceprofile);
 static void __ps_free_allowed(allowed_x *allowed);
 static void __ps_free_operation(operation_x *operation);
@@ -101,12 +106,9 @@ static void __ps_free_compatibility(compatibility_x *compatibility);
 static void __ps_free_resolution(resolution_x *resolution);
 static void __ps_free_request(request_x *request);
 static void __ps_free_define(define_x *define);
-static void __ps_free_registry(registry_x *registry);
-static void __ps_free_database(database_x *database);
 static void __ps_free_appsvc(appsvc_x *appsvc);
 static void __ps_free_launchconditions(launchconditions_x *launchconditions);
 static void __ps_free_datashare(datashare_x *datashare);
-static void __ps_free_layout(layout_x *layout);
 static void __ps_free_icon(icon_x *icon);
 static void __ps_free_author(author_x *author);
 static void __ps_free_description(description_x *description);
@@ -404,9 +406,8 @@ static int __run_parser_prestep(xmlTextReaderPtr reader, ACTION_TYPE action, con
 	if (temp == NULL)
 		return -1;
 	xmlNode *next_node = NULL;
-	while(cur_node != NULL)
-	{
-		if ( (strcmp(temp->name, cur_node->name) == 0) &&
+	while(cur_node != NULL) {
+		if ( (strcmp(ASCII(temp->name), ASCII(cur_node->name)) == 0) &&
 			(temp->line == cur_node->line) ) {
 			break;
 		}
@@ -447,7 +448,7 @@ static int __run_parser_prestep(xmlTextReaderPtr reader, ACTION_TYPE action, con
 	fclose(fp);
 #endif
 
-	ret = __ps_run_parser(copyDocPtr, name, action, pkgid);
+	ret = __ps_run_parser(copyDocPtr, ASCII(name), action, pkgid);
  END:
 
 	return ret;
@@ -495,7 +496,7 @@ __processNode(xmlTextReaderPtr reader, ACTION_TYPE action, char *const tagv[], c
 			else {
 				i = 0;
 				for (tag = tagv[0]; tag; tag = tagv[++i])
-					if (strcmp(tag, elementName) == 0) {
+					if (strcmp(tag, ASCII(elementName)) == 0) {
 						DBG("__run_parser_prestep tag[%s] pkgid[%s]\n", tag, pkgid);
 						__run_parser_prestep(reader,
 								     action, pkgid);
@@ -595,6 +596,36 @@ static void __ps_free_category(category_x *category)
 	}
 	free((void*)category);
 	category = NULL;
+}
+
+static void __ps_free_privilege(privilege_x *privilege)
+{
+	if (privilege == NULL)
+		return;
+	if (privilege->text) {
+		free((void *)privilege->text);
+		privilege->text = NULL;
+	}
+	free((void*)privilege);
+	privilege = NULL;
+}
+
+static void __ps_free_privileges(privileges_x *privileges)
+{
+	if (privileges == NULL)
+		return;
+	/*Free Privilege*/
+	if (privileges->privilege) {
+		privilege_x *privilege = privileges->privilege;
+		privilege_x *tmp = NULL;
+		while(privilege != NULL) {
+			tmp = privilege->next;
+			__ps_free_privilege(privilege);
+			privilege = tmp;
+		}
+	}
+	free((void*)privileges);
+	privileges = NULL;
 }
 
 static void __ps_free_metadata(metadata_x *metadata)
@@ -809,8 +840,7 @@ static void __ps_free_capability(capability_x *capability)
 	if (capability->resolution) {
 		resolution_x *resolution = capability->resolution;
 		resolution_x *tmp = NULL;
-		while(resolution != NULL)
-		{
+		while(resolution != NULL) {
 			tmp = resolution->next;
 			__ps_free_resolution(resolution);
 			resolution = tmp;
@@ -860,8 +890,7 @@ static void __ps_free_datacontrol(datacontrol_x *datacontrol)
 	if (datacontrol->capability) {
 		capability_x *capability = datacontrol->capability;
 		capability_x *tmp = NULL;
-		while(capability != NULL)
-		{
+		while(capability != NULL) {
 			tmp = capability->next;
 			__ps_free_capability(capability);
 			capability = tmp;
@@ -883,8 +912,7 @@ static void __ps_free_launchconditions(launchconditions_x *launchconditions)
 	if (launchconditions->condition) {
 		condition_x *condition = launchconditions->condition;
 		condition_x *tmp = NULL;
-		while(condition != NULL)
-		{
+		while(condition != NULL) {
 			tmp = condition->next;
 			__ps_free_condition(condition);
 			condition = tmp;
@@ -906,8 +934,7 @@ static void __ps_free_appcontrol(appcontrol_x *appcontrol)
 	if (appcontrol->operation) {
 		operation_x *operation = appcontrol->operation;
 		operation_x *tmp = NULL;
-		while(operation != NULL)
-		{
+		while(operation != NULL) {
 			tmp = operation->next;
 			__ps_free_operation(operation);
 			operation = tmp;
@@ -917,8 +944,7 @@ static void __ps_free_appcontrol(appcontrol_x *appcontrol)
 	if (appcontrol->uri) {
 		uri_x *uri = appcontrol->uri;
 		uri_x *tmp = NULL;
-		while(uri != NULL)
-		{
+		while(uri != NULL) {
 			tmp = uri->next;
 			__ps_free_uri(uri);
 			uri = tmp;
@@ -928,8 +954,7 @@ static void __ps_free_appcontrol(appcontrol_x *appcontrol)
 	if (appcontrol->mime) {
 		mime_x *mime = appcontrol->mime;
 		mime_x *tmp = NULL;
-		while(mime != NULL)
-		{
+		while(mime != NULL) {
 			tmp = mime->next;
 			__ps_free_mime(mime);
 			mime = tmp;
@@ -939,8 +964,7 @@ static void __ps_free_appcontrol(appcontrol_x *appcontrol)
 	if (appcontrol->subapp) {
 		subapp_x *subapp = appcontrol->subapp;
 		subapp_x *tmp = NULL;
-		while(subapp != NULL)
-		{
+		while(subapp != NULL) {
 			tmp = subapp->next;
 			__ps_free_subapp(subapp);
 			subapp = tmp;
@@ -962,8 +986,7 @@ static void __ps_free_appsvc(appsvc_x *appsvc)
 	if (appsvc->operation) {
 		operation_x *operation = appsvc->operation;
 		operation_x *tmp = NULL;
-		while(operation != NULL)
-		{
+		while(operation != NULL) {
 			tmp = operation->next;
 			__ps_free_operation(operation);
 			operation = tmp;
@@ -973,8 +996,7 @@ static void __ps_free_appsvc(appsvc_x *appsvc)
 	if (appsvc->uri) {
 		uri_x *uri = appsvc->uri;
 		uri_x *tmp = NULL;
-		while(uri != NULL)
-		{
+		while(uri != NULL) {
 			tmp = uri->next;
 			__ps_free_uri(uri);
 			uri = tmp;
@@ -984,8 +1006,7 @@ static void __ps_free_appsvc(appsvc_x *appsvc)
 	if (appsvc->mime) {
 		mime_x *mime = appsvc->mime;
 		mime_x *tmp = NULL;
-		while(mime != NULL)
-		{
+		while(mime != NULL) {
 			tmp = mime->next;
 			__ps_free_mime(mime);
 			mime = tmp;
@@ -995,8 +1016,7 @@ static void __ps_free_appsvc(appsvc_x *appsvc)
 	if (appsvc->subapp) {
 		subapp_x *subapp = appsvc->subapp;
 		subapp_x *tmp = NULL;
-		while(subapp != NULL)
-		{
+		while(subapp != NULL) {
 			tmp = subapp->next;
 			__ps_free_subapp(subapp);
 			subapp = tmp;
@@ -1023,8 +1043,7 @@ static void __ps_free_define(define_x *define)
 	if (define->request) {
 		request_x *request = define->request;
 		request_x *tmp = NULL;
-		while(request != NULL)
-		{
+		while(request != NULL) {
 			tmp = request->next;
 			__ps_free_request(request);
 			request = tmp;
@@ -1034,8 +1053,7 @@ static void __ps_free_define(define_x *define)
 	if (define->allowed) {
 		allowed_x *allowed = define->allowed;
 		allowed_x *tmp = NULL;
-		while(allowed != NULL)
-		{
+		while(allowed != NULL) {
 			tmp = allowed->next;
 			__ps_free_allowed(allowed);
 			allowed = tmp;
@@ -1043,38 +1061,6 @@ static void __ps_free_define(define_x *define)
 	}
 	free((void*)define);
 	define = NULL;
-}
-
-static void __ps_free_registry(registry_x *registry)
-{
-	if (registry == NULL)
-		return;
-	if (registry->name) {
-		free((void *)registry->name);
-		registry->name = NULL;
-	}
-	if (registry->text) {
-		free((void *)registry->text);
-		registry->text = NULL;
-	}
-	free((void*)registry);
-	registry = NULL;
-}
-
-static void __ps_free_database(database_x *database)
-{
-	if (database == NULL)
-		return;
-	if (database->name) {
-		free((void *)database->name);
-		database->name = NULL;
-	}
-	if (database->text) {
-		free((void *)database->text);
-		database->text = NULL;
-	}
-	free((void*)database);
-	database = NULL;
 }
 
 static void __ps_free_datashare(datashare_x *datashare)
@@ -1085,8 +1071,7 @@ static void __ps_free_datashare(datashare_x *datashare)
 	if (datashare->define) {
 		define_x *define =  datashare->define;
 		define_x *tmp = NULL;
-		while(define != NULL)
-		{
+		while(define != NULL) {
 			tmp = define->next;
 			__ps_free_define(define);
 			define = tmp;
@@ -1096,8 +1081,7 @@ static void __ps_free_datashare(datashare_x *datashare)
 	if (datashare->request) {
 		request_x *request = datashare->request;
 		request_x *tmp = NULL;
-		while(request != NULL)
-		{
+		while(request != NULL) {
 			tmp = request->next;
 			__ps_free_request(request);
 			request = tmp;
@@ -1105,22 +1089,6 @@ static void __ps_free_datashare(datashare_x *datashare)
 	}
 	free((void*)datashare);
 	datashare = NULL;
-}
-
-static void __ps_free_layout(layout_x *layout)
-{
-	if (layout == NULL)
-		return;
-	if (layout->name) {
-		free((void *)layout->name);
-		layout->name = NULL;
-	}
-	if (layout->text) {
-		free((void *)layout->text);
-		layout->text = NULL;
-	}
-	free((void*)layout);
-	layout = NULL;
 }
 
 static void __ps_free_label(label_x *label)
@@ -1263,8 +1231,7 @@ static void __ps_free_uiapplication(uiapplication_x *uiapplication)
 	if (uiapplication->label) {
 		label_x *label = uiapplication->label;
 		label_x *tmp = NULL;
-		while(label != NULL)
-		{
+		while(label != NULL) {
 			tmp = label->next;
 			__ps_free_label(label);
 			label = tmp;
@@ -1274,8 +1241,7 @@ static void __ps_free_uiapplication(uiapplication_x *uiapplication)
 	if (uiapplication->icon) {
 		icon_x *icon = uiapplication->icon;
 		icon_x *tmp = NULL;
-		while(icon != NULL)
-		{
+		while(icon != NULL) {
 			tmp = icon->next;
 			__ps_free_icon(icon);
 			icon = tmp;
@@ -1285,8 +1251,7 @@ static void __ps_free_uiapplication(uiapplication_x *uiapplication)
 	if (uiapplication->image) {
 		image_x *image = uiapplication->image;
 		image_x *tmp = NULL;
-		while(image != NULL)
-		{
+		while(image != NULL) {
 			tmp = image->next;
 			__ps_free_image(image);
 			image = tmp;
@@ -1296,8 +1261,7 @@ static void __ps_free_uiapplication(uiapplication_x *uiapplication)
 	if (uiapplication->appcontrol) {
 		appcontrol_x *appcontrol = uiapplication->appcontrol;
 		appcontrol_x *tmp = NULL;
-		while(appcontrol != NULL)
-		{
+		while(appcontrol != NULL) {
 			tmp = appcontrol->next;
 			__ps_free_appcontrol(appcontrol);
 			appcontrol = tmp;
@@ -1307,8 +1271,7 @@ static void __ps_free_uiapplication(uiapplication_x *uiapplication)
 	if (uiapplication->launchconditions) {
 		launchconditions_x *launchconditions = uiapplication->launchconditions;
 		launchconditions_x *tmp = NULL;
-		while(launchconditions != NULL)
-		{
+		while(launchconditions != NULL) {
 			tmp = launchconditions->next;
 			__ps_free_launchconditions(launchconditions);
 			launchconditions = tmp;
@@ -1318,8 +1281,7 @@ static void __ps_free_uiapplication(uiapplication_x *uiapplication)
 	if (uiapplication->notification) {
 		notification_x *notification = uiapplication->notification;
 		notification_x *tmp = NULL;
-		while(notification != NULL)
-		{
+		while(notification != NULL) {
 			tmp = notification->next;
 			__ps_free_notification(notification);
 			notification = tmp;
@@ -1329,8 +1291,7 @@ static void __ps_free_uiapplication(uiapplication_x *uiapplication)
 	if (uiapplication->datashare) {
 		datashare_x *datashare = uiapplication->datashare;
 		datashare_x *tmp = NULL;
-		while(datashare != NULL)
-		{
+		while(datashare != NULL) {
 			tmp = datashare->next;
 			__ps_free_datashare(datashare);
 			datashare = tmp;
@@ -1340,8 +1301,7 @@ static void __ps_free_uiapplication(uiapplication_x *uiapplication)
 	if (uiapplication->appsvc) {
 		appsvc_x *appsvc = uiapplication->appsvc;
 		appsvc_x *tmp = NULL;
-		while(appsvc != NULL)
-		{
+		while(appsvc != NULL) {
 			tmp = appsvc->next;
 			__ps_free_appsvc(appsvc);
 			appsvc = tmp;
@@ -1351,8 +1311,7 @@ static void __ps_free_uiapplication(uiapplication_x *uiapplication)
 	if (uiapplication->category) {
 		category_x *category = uiapplication->category;
 		category_x *tmp = NULL;
-		while(category != NULL)
-		{
+		while(category != NULL) {
 			tmp = category->next;
 			__ps_free_category(category);
 			category = tmp;
@@ -1362,8 +1321,7 @@ static void __ps_free_uiapplication(uiapplication_x *uiapplication)
 	if (uiapplication->metadata) {
 		metadata_x *metadata = uiapplication->metadata;
 		metadata_x *tmp = NULL;
-		while(metadata != NULL)
-		{
+		while(metadata != NULL) {
 			tmp = metadata->next;
 			__ps_free_metadata(metadata);
 			metadata = tmp;
@@ -1373,8 +1331,7 @@ static void __ps_free_uiapplication(uiapplication_x *uiapplication)
 	if (uiapplication->permission) {
 		permission_x *permission = uiapplication->permission;
 		permission_x *tmp = NULL;
-		while(permission != NULL)
-		{
+		while(permission != NULL) {
 			tmp = permission->next;
 			__ps_free_permission(permission);
 			permission = tmp;
@@ -1438,8 +1395,7 @@ static void __ps_free_serviceapplication(serviceapplication_x *serviceapplicatio
 	if (serviceapplication->label) {
 		label_x *label = serviceapplication->label;
 		label_x *tmp = NULL;
-		while(label != NULL)
-		{
+		while(label != NULL) {
 			tmp = label->next;
 			__ps_free_label(label);
 			label = tmp;
@@ -1449,8 +1405,7 @@ static void __ps_free_serviceapplication(serviceapplication_x *serviceapplicatio
 	if (serviceapplication->icon) {
 		icon_x *icon = serviceapplication->icon;
 		icon_x *tmp = NULL;
-		while(icon != NULL)
-		{
+		while(icon != NULL) {
 			tmp = icon->next;
 			__ps_free_icon(icon);
 			icon = tmp;
@@ -1460,8 +1415,7 @@ static void __ps_free_serviceapplication(serviceapplication_x *serviceapplicatio
 	if (serviceapplication->appcontrol) {
 		appcontrol_x *appcontrol = serviceapplication->appcontrol;
 		appcontrol_x *tmp = NULL;
-		while(appcontrol != NULL)
-		{
+		while(appcontrol != NULL) {
 			tmp = appcontrol->next;
 			__ps_free_appcontrol(appcontrol);
 			appcontrol = tmp;
@@ -1471,8 +1425,7 @@ static void __ps_free_serviceapplication(serviceapplication_x *serviceapplicatio
 	if (serviceapplication->datacontrol) {
 		datacontrol_x *datacontrol = serviceapplication->datacontrol;
 		datacontrol_x *tmp = NULL;
-		while(datacontrol != NULL)
-		{
+		while(datacontrol != NULL) {
 			tmp = datacontrol->next;
 			__ps_free_datacontrol(datacontrol);
 			datacontrol = tmp;
@@ -1482,8 +1435,7 @@ static void __ps_free_serviceapplication(serviceapplication_x *serviceapplicatio
 	if (serviceapplication->launchconditions) {
 		launchconditions_x *launchconditions = serviceapplication->launchconditions;
 		launchconditions_x *tmp = NULL;
-		while(launchconditions != NULL)
-		{
+		while(launchconditions != NULL) {
 			tmp = launchconditions->next;
 			__ps_free_launchconditions(launchconditions);
 			launchconditions = tmp;
@@ -1493,8 +1445,7 @@ static void __ps_free_serviceapplication(serviceapplication_x *serviceapplicatio
 	if (serviceapplication->notification) {
 		notification_x *notification = serviceapplication->notification;
 		notification_x *tmp = NULL;
-		while(notification != NULL)
-		{
+		while(notification != NULL) {
 			tmp = notification->next;
 			__ps_free_notification(notification);
 			notification = tmp;
@@ -1504,8 +1455,7 @@ static void __ps_free_serviceapplication(serviceapplication_x *serviceapplicatio
 	if (serviceapplication->datashare) {
 		datashare_x *datashare = serviceapplication->datashare;
 		datashare_x *tmp = NULL;
-		while(datashare != NULL)
-		{
+		while(datashare != NULL) {
 			tmp = datashare->next;
 			__ps_free_datashare(datashare);
 			datashare = tmp;
@@ -1515,8 +1465,7 @@ static void __ps_free_serviceapplication(serviceapplication_x *serviceapplicatio
 	if (serviceapplication->appsvc) {
 		appsvc_x *appsvc = serviceapplication->appsvc;
 		appsvc_x *tmp = NULL;
-		while(appsvc != NULL)
-		{
+		while(appsvc != NULL) {
 			tmp = appsvc->next;
 			__ps_free_appsvc(appsvc);
 			appsvc = tmp;
@@ -1526,8 +1475,7 @@ static void __ps_free_serviceapplication(serviceapplication_x *serviceapplicatio
 	if (serviceapplication->category) {
 		category_x *category = serviceapplication->category;
 		category_x *tmp = NULL;
-		while(category != NULL)
-		{
+		while(category != NULL) {
 			tmp = category->next;
 			__ps_free_category(category);
 			category = tmp;
@@ -1537,8 +1485,7 @@ static void __ps_free_serviceapplication(serviceapplication_x *serviceapplicatio
 	if (serviceapplication->metadata) {
 		metadata_x *metadata = serviceapplication->metadata;
 		metadata_x *tmp = NULL;
-		while(metadata != NULL)
-		{
+		while(metadata != NULL) {
 			tmp = metadata->next;
 			__ps_free_metadata(metadata);
 			metadata = tmp;
@@ -1548,8 +1495,7 @@ static void __ps_free_serviceapplication(serviceapplication_x *serviceapplicatio
 	if (serviceapplication->permission) {
 		permission_x *permission = serviceapplication->permission;
 		permission_x *tmp = NULL;
-		while(permission != NULL)
-		{
+		while(permission != NULL) {
 			tmp = permission->next;
 			__ps_free_permission(permission);
 			permission = tmp;
@@ -1707,6 +1653,15 @@ static int __ps_process_category(xmlTextReaderPtr reader, category_x *category)
 	return 0;
 }
 
+static int __ps_process_privilege(xmlTextReaderPtr reader, privilege_x *privilege)
+{
+	xmlTextReaderRead(reader);
+	if (xmlTextReaderValue(reader)) {
+		privilege->text = ASCII(xmlTextReaderValue(reader));
+	}
+	return 0;
+}
+
 static int __ps_process_metadata(xmlTextReaderPtr reader, metadata_x *metadata)
 {
 	if (xmlTextReaderGetAttribute(reader, XMLCHAR("key")))
@@ -1724,7 +1679,7 @@ static int __ps_process_permission(xmlTextReaderPtr reader, permission_x *permis
 	xmlTextReaderRead(reader);
 	if (xmlTextReaderValue(reader))
 		permission->value = ASCII(xmlTextReaderValue(reader));
-
+	return 0;
 }
 
 static int __ps_process_compatibility(xmlTextReaderPtr reader, compatibility_x *compatibility)
@@ -1807,18 +1762,6 @@ static int __ps_process_define(xmlTextReaderPtr reader, define_x *define)
 		define->request = tmp2;
 	}
 	return ret;
-}
-
-static int __ps_process_registry(xmlTextReaderPtr reader, registry_x *registry)
-{
-	/*TODO: once policy is set*/
-	return 0;
-}
-
-static int __ps_process_database(xmlTextReaderPtr reader, database_x *database)
-{
-	/*TODO: once policy is set*/
-	return 0;
 }
 
 static int __ps_process_appcontrol(xmlTextReaderPtr reader, appcontrol_x *appcontrol)
@@ -1999,6 +1942,45 @@ static int __ps_process_appsvc(xmlTextReaderPtr reader, appsvc_x *appsvc)
 	return ret;
 }
 
+
+static int __ps_process_privileges(xmlTextReaderPtr reader, privileges_x *privileges)
+{
+	const xmlChar *node;
+	int ret = -1;
+	int depth = -1;
+	privilege_x *tmp1 = NULL;
+
+	depth = xmlTextReaderDepth(reader);
+	while ((ret = __next_child_element(reader, depth))) {
+		node = xmlTextReaderConstName(reader);
+		if (!node) {
+			DBG("xmlTextReaderConstName value is NULL\n");
+			return -1;
+		}
+
+		if (strcmp(ASCII(node), "privilege") == 0) {
+			privilege_x *privilege = malloc(sizeof(privilege_x));
+			if (privilege == NULL) {
+				DBG("Malloc Failed\n");
+				return -1;
+			}
+			memset(privilege, '\0', sizeof(privilege_x));
+			LISTADD(privileges->privilege, privilege);
+			ret = __ps_process_privilege(reader, privilege);
+		} else
+			return -1;
+		if (ret < 0) {
+			DBG("Processing privileges failed\n");
+			return ret;
+		}
+	}
+	if (privileges->privilege) {
+		LISTHEAD(privileges->privilege, tmp1);
+		privileges->privilege = tmp1;
+	}
+	return ret;
+}
+
 static int __ps_process_launchconditions(xmlTextReaderPtr reader, launchconditions_x *launchconditions)
 {
 	const xmlChar *node;
@@ -2093,14 +2075,8 @@ static int __ps_process_datashare(xmlTextReaderPtr reader, datashare_x *datashar
 	return ret;
 }
 
-static int __ps_process_layout(xmlTextReaderPtr reader, layout_x *layout)
-{
-	/*TODO: once policy is set*/
-	return 0;
-}
-
 static char*
-__get_icon_with_path(char* icon)
+__get_icon_with_path(const char* icon)
 {
 	if (!icon)
 		return NULL;
@@ -2190,10 +2166,10 @@ static int __ps_process_icon(xmlTextReaderPtr reader, icon_x *icon)
 		icon->resolution = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("resolution")));
 	xmlTextReaderRead(reader);
 	if (xmlTextReaderValue(reader)) {
-		char *text  = ASCII(xmlTextReaderValue(reader));
+		const char *text  = ASCII(xmlTextReaderValue(reader));
 		if(text) {
-			icon->text = __get_icon_with_path(text);
-			free(text);
+			icon->text = (const char *)__get_icon_with_path(text);
+			free((void *)text);
 		}
 	}
 
@@ -2926,6 +2902,7 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx)
 	icon_x *tmp11 = NULL;
 	compatibility_x *tmp12 = NULL;
 	deviceprofile_x *tmp13 = NULL;
+	privileges_x *tmp14 = NULL;
 
 	depth = xmlTextReaderDepth(reader);
 	while ((ret = __next_child_element(reader, depth))) {
@@ -2971,6 +2948,15 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx)
 			memset(license, '\0', sizeof(license_x));
 			LISTADD(mfx->license, license);
 			ret = __ps_process_license(reader, license);
+		} else if (!strcmp(ASCII(node), "privileges")) {
+			privileges_x *privileges = malloc(sizeof(privileges_x));
+			if (privileges == NULL) {
+				DBG("Malloc Failed\n");
+				return -1;
+			}
+			memset(privileges, '\0', sizeof(privileges_x));
+			LISTADD(mfx->privileges, privileges);
+			ret = __ps_process_privileges(reader, privileges);
 		} else if (!strcmp(ASCII(node), "ui-application")) {
 			uiapplication_x *uiapplication = malloc(sizeof(uiapplication_x));
 			if (uiapplication == NULL) {
@@ -3060,8 +3046,6 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx)
 			continue;
 		} else if (!strcmp(ASCII(node), "notifications")) {
 			continue;
-		} else if (!strcmp(ASCII(node), "privileges")) {
-			continue;
 		} else if (!strcmp(ASCII(node), "ime")) {
 			continue;
 		} else
@@ -3124,7 +3108,10 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx)
 		LISTHEAD(mfx->deviceprofile, tmp13);
 		mfx->deviceprofile= tmp13;
 	}
-
+	if (mfx->privileges) {
+		LISTHEAD(mfx->privileges, tmp14);
+		mfx->privileges = tmp14;
+	}
 	return ret;
 }
 
@@ -3432,19 +3419,17 @@ static int __ps_make_nativeapp_desktop(manifest_x * mfx, bool is_update)
 			mime_x *mi = NULL;
 			uri_x *ui = NULL;
 			subapp_x *sub = NULL;
-			char *operation = NULL;
-			char *mime = NULL;
-			char *uri = NULL;
-			char *subapp = NULL;
+			const char *operation = NULL;
+			const char *mime = NULL;
+			const char *uri = NULL;
+			const char *subapp = NULL;
 			int i = 0;
 
 
 			asvc = up->appsvc;
-			while(asvc != NULL)
-			{
+			while(asvc != NULL) {
 				op = asvc->operation;
-				while(op != NULL)
-				{
+				while(op != NULL) {
 					if (op)
 						operation = op->name;
 					mi = asvc->mime;
@@ -3511,18 +3496,16 @@ static int __ps_make_nativeapp_desktop(manifest_x * mfx, bool is_update)
 			mime_x *mi = NULL;
 			uri_x *ui = NULL;
 			subapp_x *sub = NULL;
-			char *operation = NULL;
-			char *mime = NULL;
-			char *uri = NULL;
-			char *subapp = NULL;
+			const char *operation = NULL;
+			const char *mime = NULL;
+			const char *uri = NULL;
+			const char *subapp = NULL;
 			int i = 0;
 
 			acontrol = up->appcontrol;
-			while(acontrol != NULL)
-			{
+			while(acontrol != NULL) {
 				op = acontrol->operation;
-				while(op != NULL)
-				{
+				while(op != NULL) {
 					if (op)
 						operation = op->name;
 					mi = acontrol->mime;
@@ -3622,13 +3605,13 @@ static int __add_preload_info(manifest_x * mfx, const char *manifest)
 	int state = 0;
 
 	if(strstr(manifest, MANIFEST_RO_PREFIX)) {
-		free(mfx->readonly);
+		free((void *)mfx->readonly);
 		mfx->readonly = strdup("True");
 
-		free(mfx->preload);
+		free((void *)mfx->preload);
 		mfx->preload = strdup("True");
 
-		free(mfx->removable);
+		free((void *)mfx->removable);
 		mfx->removable = strdup("False");
 
 		return 0;
@@ -3653,17 +3636,17 @@ static int __add_preload_info(manifest_x * mfx, const char *manifest)
 		__str_trim(buffer);
 
 		if(!strcmp(mfx->package, buffer)) {
-			free(mfx->preload);
+			free((void *)mfx->preload);
 			mfx->preload = strdup("True");
 			if(state == 2){
-				free(mfx->readonly);
+				free((void *)mfx->readonly);
 				mfx->readonly = strdup("False");
-				free(mfx->removable);
+				free((void *)mfx->removable);
 				mfx->removable = strdup("False");
 			} else if(state == 3){
-				free(mfx->readonly);
+				free((void *)mfx->readonly);
 				mfx->readonly = strdup("False");
-				free(mfx->removable);
+				free((void *)mfx->removable);
 				mfx->removable = strdup("True");
 			}
 		}
@@ -3755,8 +3738,7 @@ API void pkgmgr_parser_free_manifest_xml(manifest_x *mfx)
 	if (mfx->icon) {
 		icon_x *icon = mfx->icon;
 		icon_x *tmp = NULL;
-		while(icon != NULL)
-		{
+		while(icon != NULL) {
 			tmp = icon->next;
 			__ps_free_icon(icon);
 			icon = tmp;
@@ -3766,8 +3748,7 @@ API void pkgmgr_parser_free_manifest_xml(manifest_x *mfx)
 	if (mfx->label) {
 		label_x *label = mfx->label;
 		label_x *tmp = NULL;
-		while(label != NULL)
-		{
+		while(label != NULL) {
 			tmp = label->next;
 			__ps_free_label(label);
 			label = tmp;
@@ -3777,8 +3758,7 @@ API void pkgmgr_parser_free_manifest_xml(manifest_x *mfx)
 	if (mfx->author) {
 		author_x *author = mfx->author;
 		author_x *tmp = NULL;
-		while(author != NULL)
-		{
+		while(author != NULL) {
 			tmp = author->next;
 			__ps_free_author(author);
 			author = tmp;
@@ -3788,8 +3768,7 @@ API void pkgmgr_parser_free_manifest_xml(manifest_x *mfx)
 	if (mfx->description) {
 		description_x *description = mfx->description;
 		description_x *tmp = NULL;
-		while(description != NULL)
-		{
+		while(description != NULL) {
 			tmp = description->next;
 			__ps_free_description(description);
 			description = tmp;
@@ -3799,19 +3778,27 @@ API void pkgmgr_parser_free_manifest_xml(manifest_x *mfx)
 	if (mfx->license) {
 		license_x *license = mfx->license;
 		license_x *tmp = NULL;
-		while(license != NULL)
-		{
+		while(license != NULL) {
 			tmp = license->next;
 			__ps_free_license(license);
 			license = tmp;
+		}
+	}
+	/*Free Privileges*/
+	if (mfx->privileges) {
+		privileges_x *privileges = mfx->privileges;
+		privileges_x *tmp = NULL;
+		while(privileges != NULL) {
+			tmp = privileges->next;
+			__ps_free_privileges(privileges);
+			privileges = tmp;
 		}
 	}
 	/*Free UiApplication*/
 	if (mfx->uiapplication) {
 		uiapplication_x *uiapplication = mfx->uiapplication;
 		uiapplication_x *tmp = NULL;
-		while(uiapplication != NULL)
-		{
+		while(uiapplication != NULL) {
 			tmp = uiapplication->next;
 			__ps_free_uiapplication(uiapplication);
 			uiapplication = tmp;
@@ -3821,8 +3808,7 @@ API void pkgmgr_parser_free_manifest_xml(manifest_x *mfx)
 	if (mfx->serviceapplication) {
 		serviceapplication_x *serviceapplication = mfx->serviceapplication;
 		serviceapplication_x *tmp = NULL;
-		while(serviceapplication != NULL)
-		{
+		while(serviceapplication != NULL) {
 			tmp = serviceapplication->next;
 			__ps_free_serviceapplication(serviceapplication);
 			serviceapplication = tmp;
@@ -3832,8 +3818,7 @@ API void pkgmgr_parser_free_manifest_xml(manifest_x *mfx)
 	if (mfx->daemon) {
 		daemon_x *daemon = mfx->daemon;
 		daemon_x *tmp = NULL;
-		while(daemon != NULL)
-		{
+		while(daemon != NULL) {
 			tmp = daemon->next;
 			__ps_free_daemon(daemon);
 			daemon = tmp;
@@ -3843,8 +3828,7 @@ API void pkgmgr_parser_free_manifest_xml(manifest_x *mfx)
 	if (mfx->theme) {
 		theme_x *theme = mfx->theme;
 		theme_x *tmp = NULL;
-		while(theme != NULL)
-		{
+		while(theme != NULL) {
 			tmp = theme->next;
 			__ps_free_theme(theme);
 			theme = tmp;
@@ -3854,8 +3838,7 @@ API void pkgmgr_parser_free_manifest_xml(manifest_x *mfx)
 	if (mfx->font) {
 		font_x *font = mfx->font;
 		font_x *tmp = NULL;
-		while(font != NULL)
-		{
+		while(font != NULL) {
 			tmp = font->next;
 			__ps_free_font(font);
 			font = tmp;
@@ -3865,8 +3848,7 @@ API void pkgmgr_parser_free_manifest_xml(manifest_x *mfx)
 	if (mfx->ime) {
 		ime_x *ime = mfx->ime;
 		ime_x *tmp = NULL;
-		while(ime != NULL)
-		{
+		while(ime != NULL) {
 			tmp = ime->next;
 			__ps_free_ime(ime);
 			ime = tmp;
@@ -3876,8 +3858,7 @@ API void pkgmgr_parser_free_manifest_xml(manifest_x *mfx)
 	if (mfx->compatibility) {
 		compatibility_x *compatibility = mfx->compatibility;
 		compatibility_x *tmp = NULL;
-		while(compatibility != NULL)
-		{
+		while(compatibility != NULL) {
 			tmp = compatibility->next;
 			__ps_free_compatibility(compatibility);
 			compatibility = tmp;
@@ -3887,8 +3868,7 @@ API void pkgmgr_parser_free_manifest_xml(manifest_x *mfx)
 	if (mfx->deviceprofile) {
 		deviceprofile_x *deviceprofile = mfx->deviceprofile;
 		deviceprofile_x *tmp = NULL;
-		while(deviceprofile != NULL)
-		{
+		while(deviceprofile != NULL) {
 			tmp = deviceprofile->next;
 			__ps_free_deviceprofile(deviceprofile);
 			deviceprofile = tmp;

@@ -122,6 +122,18 @@ typedef struct metadata_x {
 	struct metadata_x *next;
 } metadata_x;
 
+typedef struct privilege_x {
+	const char *text;
+	struct privilege_x *prev;
+	struct privilege_x *next;
+} privilege_x;
+
+typedef struct privileges_x {
+	struct privilege_x *privilege;
+	struct privileges_x *prev;
+	struct privileges_x *next;
+} privileges_x;
+
 typedef struct permission_x {
 	const char *type;
 	const char *value;
@@ -145,8 +157,8 @@ typedef struct image_x {
 	const char *text;
 	const char *lang;
 	const char *section;
-	struct icon_x *prev;
-	struct icon_x *next;
+	struct image_x *prev;
+	struct image_x *next;
 } image_x;
 
 typedef struct allowed_x {
@@ -448,6 +460,7 @@ typedef struct manifest_x {
 	struct author_x *author;		/**< package author*/
 	struct description_x *description;		/**< package description*/
 	struct license_x *license;		/**< package license*/
+	struct privileges_x *privileges;	/**< package privileges*/
 	struct uiapplication_x *uiapplication;		/**< package's ui application*/
 	struct serviceapplication_x *serviceapplication;		/**< package's service application*/
 	struct daemon_x *daemon;		/**< package daemon*/
