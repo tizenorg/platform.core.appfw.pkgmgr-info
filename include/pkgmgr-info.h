@@ -4052,6 +4052,599 @@ static int delete_cert_info(const char *pkgid)
  int pkgmgrinfo_delete_certinfo(const char *pkgid);
 
 /**
+ * @fn int pkgmgrinfo_create_pkgdbinfo(const char *pkgid, pkgmgrinfo_pkgdbinfo_h *handle)
+ * @brief	This API creates the package db information handle to set data in db.
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in] pkgid	pointer to the package ID.
+ * @param[out] handle		pointer to the package db info handle.
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		None
+ * @post		pkgmgrinfo_destroy_pkgdbinfo()
+ * @see		pkgmgrinfo_save_pkgdbinfo()
+ * @see		pkgmgrinfo_set_type_to_pkgdbinfo()
+ * @code
+static int set_pkg_in_db(const char *pkgid)
+{
+	int ret = 0;
+	pkgmgrinfo_pkgdbinfo_h handle;
+	ret = pkgmgrinfo_create_pkgdbinfo(pkgid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_set_version_to_pkgdbinfo(handle, "0.0.1");
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_destroy_pkgdbinfo(handle);
+		return -1;
+	}
+	ret = pkgmgrinfo_save_pkgdbinfo(handle);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_destroy_pkgdbinfo(handle);
+		return -1;
+	}
+	pkgmgrinfo_destroy_pkgdbinfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_create_pkgdbinfo(const char *pkgid, pkgmgrinfo_pkgdbinfo_h *handle);
+
+/**
+ * @fn int pkgmgrinfo_set_type_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, const char *type)
+ * @brief	This API sets the package type in db handle
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in] handle	pointer to the pkgdbinfo handle.
+ * @param[in] type		pointer to the package type.
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		pkgmgrinfo_create_pkgdbinfo()
+ * @post		pkgmgrinfo_destroy_pkgdbinfo()
+ * @see		pkgmgrinfo_save_pkgdbinfo()
+ * @see		pkgmgrinfo_set_version_to_pkgdbinfo()
+ * @code
+static int set_pkg_type_in_db(const char *pkgid)
+{
+	int ret = 0;
+	pkgmgrinfo_pkgdbinfo_h handle;
+	ret = pkgmgrinfo_create_pkgdbinfo(pkgid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_set_type_to_pkgdbinfo(handle, "wgt");
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_destroy_pkgdbinfo(handle);
+		return -1;
+	}
+	ret = pkgmgrinfo_save_pkgdbinfo(handle);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_destroy_pkgdbinfo(handle);
+		return -1;
+	}
+	pkgmgrinfo_destroy_pkgdbinfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_set_type_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, const char *type);
+
+/**
+ * @fn int pkgmgrinfo_set_version_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, const char *version)
+ * @brief	This API sets the package version in db handle
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in] handle	pointer to the pkgdbinfo handle.
+ * @param[in] version		pointer to the package version
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		pkgmgrinfo_create_pkgdbinfo()
+ * @post		pkgmgrinfo_destroy_pkgdbinfo()
+ * @see		pkgmgrinfo_save_pkgdbinfo()
+ * @see		pkgmgrinfo_set_type_to_pkgdbinfo()
+ * @code
+static int set_pkg_version_in_db(const char *pkgid)
+{
+	int ret = 0;
+	pkgmgrinfo_pkgdbinfo_h handle;
+	ret = pkgmgrinfo_create_pkgdbinfo(pkgid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_set_version_to_pkgdbinfo(handle, "0.0.1");
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_destroy_pkgdbinfo(handle);
+		return -1;
+	}
+	ret = pkgmgrinfo_save_pkgdbinfo(handle);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_destroy_pkgdbinfo(handle);
+		return -1;
+	}
+	pkgmgrinfo_destroy_pkgdbinfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_set_version_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, const char *version);
+
+/**
+ * @fn int pkgmgrinfo_set_install_location_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, INSTALL_LOCATION location)
+ * @brief	This API sets the package install location in db handle
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in] handle	pointer to the pkgdbinfo handle.
+ * @param[in] location	package install location
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		pkgmgrinfo_create_pkgdbinfo()
+ * @post		pkgmgrinfo_destroy_pkgdbinfo()
+ * @see		pkgmgrinfo_save_pkgdbinfo()
+ * @see		pkgmgrinfo_set_type_to_pkgdbinfo()
+ * @code
+static int set_pkg_install_location_in_db(const char *pkgid)
+{
+	int ret = 0;
+	pkgmgrinfo_pkgdbinfo_h handle;
+	ret = pkgmgrinfo_create_pkgdbinfo(pkgid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_set_install_location_to_pkgdbinfo(handle, INSTALL_INTERNAL);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_destroy_pkgdbinfo(handle);
+		return -1;
+	}
+	ret = pkgmgrinfo_save_pkgdbinfo(handle);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_destroy_pkgdbinfo(handle);
+		return -1;
+	}
+	pkgmgrinfo_destroy_pkgdbinfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_set_install_location_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, INSTALL_LOCATION location);
+
+/**
+ * @fn int pkgmgrinfo_set_size_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, const char *size)
+ * @brief	This API sets the package size in db handle
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in] handle	pointer to the pkgdbinfo handle.
+ * @param[in] size		pointer to the package size
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		pkgmgrinfo_create_pkgdbinfo()
+ * @post		pkgmgrinfo_destroy_pkgdbinfo()
+ * @see		pkgmgrinfo_save_pkgdbinfo()
+ * @see		pkgmgrinfo_set_type_to_pkgdbinfo()
+ * @code
+static int set_pkg_size_in_db(const char *pkgid)
+{
+	int ret = 0;
+	pkgmgrinfo_pkgdbinfo_h handle;
+	ret = pkgmgrinfo_create_pkgdbinfo(pkgid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_set_size_to_pkgdbinfo(handle, "15");
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_destroy_pkgdbinfo(handle);
+		return -1;
+	}
+	ret = pkgmgrinfo_save_pkgdbinfo(handle);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_destroy_pkgdbinfo(handle);
+		return -1;
+	}
+	pkgmgrinfo_destroy_pkgdbinfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_set_size_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, const char *size);
+
+/**
+ * @fn int pkgmgrinfo_set_label_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, const char *label, const char *locale)
+ * @brief	This API sets the package label in db handle
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in] handle	pointer to the pkgdbinfo handle.
+ * @param[in] label		pointer to the package label
+ * @param[in] locale	pointer to the locale
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		pkgmgrinfo_create_pkgdbinfo()
+ * @post		pkgmgrinfo_destroy_pkgdbinfo()
+ * @see		pkgmgrinfo_save_pkgdbinfo()
+ * @see		pkgmgrinfo_set_type_to_pkgdbinfo()
+ * @code
+static int set_pkg_label_in_db(const char *pkgid)
+{
+	int ret = 0;
+	pkgmgrinfo_pkgdbinfo_h handle;
+	ret = pkgmgrinfo_create_pkgdbinfo(pkgid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_set_label_to_pkgdbinfo(handle, "helloworld", "en-us");
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_destroy_pkgdbinfo(handle);
+		return -1;
+	}
+	ret = pkgmgrinfo_save_pkgdbinfo(handle);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_destroy_pkgdbinfo(handle);
+		return -1;
+	}
+	pkgmgrinfo_destroy_pkgdbinfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_set_label_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, const char *label, const char *locale);
+
+/**
+ * @fn int pkgmgrinfo_set_icon_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, const char *icon, const char *locale)
+ * @brief	This API sets the package icon in db handle
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in] handle	pointer to the pkgdbinfo handle.
+ * @param[in] icon		pointer to the package icon
+ * @param[in] locale	pointer to the locale
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		pkgmgrinfo_create_pkgdbinfo()
+ * @post		pkgmgrinfo_destroy_pkgdbinfo()
+ * @see		pkgmgrinfo_save_pkgdbinfo()
+ * @see		pkgmgrinfo_set_type_to_pkgdbinfo()
+ * @code
+static int set_pkg_icon_in_db(const char *pkgid)
+{
+	int ret = 0;
+	pkgmgrinfo_pkgdbinfo_h handle;
+	ret = pkgmgrinfo_create_pkgdbinfo(pkgid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_set_icon_to_pkgdbinfo(handle, "helloworld.png", "en-us");
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_destroy_pkgdbinfo(handle);
+		return -1;
+	}
+	ret = pkgmgrinfo_save_pkgdbinfo(handle);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_destroy_pkgdbinfo(handle);
+		return -1;
+	}
+	pkgmgrinfo_destroy_pkgdbinfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_set_icon_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, const char *icon, const char *locale);
+
+/**
+ * @fn int pkgmgrinfo_set_description_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, const char *description, const char *locale)
+ * @brief	This API sets the package description in db handle
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in] handle	pointer to the pkgdbinfo handle.
+ * @param[in] description		pointer to the package description
+ * @param[in] locale	pointer to the locale
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		pkgmgrinfo_create_pkgdbinfo()
+ * @post		pkgmgrinfo_destroy_pkgdbinfo()
+ * @see		pkgmgrinfo_save_pkgdbinfo()
+ * @see		pkgmgrinfo_set_type_to_pkgdbinfo()
+ * @code
+static int set_pkg_description_in_db(const char *pkgid)
+{
+	int ret = 0;
+	pkgmgrinfo_pkgdbinfo_h handle;
+	ret = pkgmgrinfo_create_pkgdbinfo(pkgid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_set_description_to_pkgdbinfo(handle, "helloworld application", "en-us");
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_destroy_pkgdbinfo(handle);
+		return -1;
+	}
+	ret = pkgmgrinfo_save_pkgdbinfo(handle);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_destroy_pkgdbinfo(handle);
+		return -1;
+	}
+	pkgmgrinfo_destroy_pkgdbinfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_set_description_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, const char *description, const char *locale);
+
+/**
+ * @fn int pkgmgrinfo_set_author_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, const char *author_name,
+ const char *author_email, const char *author_href, const char *locale)
+ * @brief	This API sets the package author info in db handle
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in] handle	pointer to the pkgdbinfo handle.
+ * @param[in] author_name		pointer to the package author name
+ * @param[in] author_email		pointer to the package author email
+ * @param[in] author_href		pointer to the package author href
+ * @param[in] locale	pointer to the locale
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		pkgmgrinfo_create_pkgdbinfo()
+ * @post		pkgmgrinfo_destroy_pkgdbinfo()
+ * @see		pkgmgrinfo_save_pkgdbinfo()
+ * @see		pkgmgrinfo_set_type_to_pkgdbinfo()
+ * @code
+static int set_pkg_author_in_db(const char *pkgid)
+{
+	int ret = 0;
+	pkgmgrinfo_pkgdbinfo_h handle;
+	ret = pkgmgrinfo_create_pkgdbinfo(pkgid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_set_author_to_pkgdbinfo(handle, "John", "john@samsung.com", "www.samsung.com", "en-us");
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_destroy_pkgdbinfo(handle);
+		return -1;
+	}
+	ret = pkgmgrinfo_save_pkgdbinfo(handle);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_destroy_pkgdbinfo(handle);
+		return -1;
+	}
+	pkgmgrinfo_destroy_pkgdbinfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_set_author_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, const char *author_name,
+			const char *author_email, const char *author_href, const char *locale);
+
+/**
+ * @fn int pkgmgrinfo_set_removable_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, int removable)
+ * @brief	This API sets the package 'removable' value in db handle
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in] handle	pointer to the pkgdbinfo handle.
+ * @param[in] removable		package removable value
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		pkgmgrinfo_create_pkgdbinfo()
+ * @post		pkgmgrinfo_destroy_pkgdbinfo()
+ * @see		pkgmgrinfo_save_pkgdbinfo()
+ * @see		pkgmgrinfo_set_type_to_pkgdbinfo()
+ * @code
+static int set_pkg_removable_in_db(const char *pkgid)
+{
+	int ret = 0;
+	pkgmgrinfo_pkgdbinfo_h handle;
+	ret = pkgmgrinfo_create_pkgdbinfo(pkgid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_set_removable_to_pkgdbinfo(handle, 1);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_destroy_pkgdbinfo(handle);
+		return -1;
+	}
+	ret = pkgmgrinfo_save_pkgdbinfo(handle);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_destroy_pkgdbinfo(handle);
+		return -1;
+	}
+	pkgmgrinfo_destroy_pkgdbinfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_set_removable_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, int removable);
+
+/**
+ * @fn int pkgmgrinfo_set_preload_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, int preload)
+ * @brief	This API sets the package 'preload' value in db handle
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in] handle	pointer to the pkgdbinfo handle.
+ * @param[in] preload		package preload value
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		pkgmgrinfo_create_pkgdbinfo()
+ * @post		pkgmgrinfo_destroy_pkgdbinfo()
+ * @see		pkgmgrinfo_save_pkgdbinfo()
+ * @see		pkgmgrinfo_set_type_to_pkgdbinfo()
+ * @code
+static int set_pkg_preload_in_db(const char *pkgid)
+{
+	int ret = 0;
+	pkgmgrinfo_pkgdbinfo_h handle;
+	ret = pkgmgrinfo_create_pkgdbinfo(pkgid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_set_preload_to_pkgdbinfo(handle, 1);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_destroy_pkgdbinfo(handle);
+		return -1;
+	}
+	ret = pkgmgrinfo_save_pkgdbinfo(handle);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_destroy_pkgdbinfo(handle);
+		return -1;
+	}
+	pkgmgrinfo_destroy_pkgdbinfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_set_preload_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, int preload);
+
+/**
+ * @fn int pkgmgrinfo_set_installed_storage_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, INSTALL_LOCATION location)
+ * @brief	This API sets the package 'installed_storage' value in db handle
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in] handle	pointer to the pkgdbinfo handle.
+ * @param[in] location		installed_storage value
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		pkgmgrinfo_create_pkgdbinfo()
+ * @post		pkgmgrinfo_destroy_pkgdbinfo()
+ * @see		pkgmgrinfo_save_pkgdbinfo()
+ * @code
+static int set_pkg_installed_storage_in_db(const char *pkgid)
+{
+	int ret = 0;
+	pkgmgrinfo_pkgdbinfo_h handle;
+	ret = pkgmgrinfo_create_pkgdbinfo(pkgid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_set_installed_storage_to_pkgdbinfo(handle, INSTALL_INTERNAL);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_destroy_pkgdbinfo(handle);
+		return -1;
+	}
+	ret = pkgmgrinfo_save_pkgdbinfo(handle);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_destroy_pkgdbinfo(handle);
+		return -1;
+	}
+	pkgmgrinfo_destroy_pkgdbinfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_set_installed_storage_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, INSTALL_LOCATION location);
+
+/**
+ * @fn int pkgmgrinfo_save_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle)
+ * @brief	This API saves all the information from the handle to the DB.
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in] handle		pointer to the package db info handle.
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		pkgmgrinfo_create_pkgdbinfo()
+ * @post		pkgmgrinfo_destroy_pkgdbinfo()
+ * @see		pkgmgrinfo_set_type_to_pkgdbinfo()
+ * @code
+static int set_pkg_in_db(const char *pkgid)
+{
+	int ret = 0;
+	pkgmgrinfo_pkgdbinfo_h handle;
+	ret = pkgmgrinfo_create_pkgdbinfo(pkgid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_set_version_to_pkgdbinfo(handle, "0.0.1");
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_destroy_pkgdbinfo(handle);
+		return -1;
+	}
+	ret = pkgmgrinfo_save_pkgdbinfo(handle);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_destroy_pkgdbinfo(handle);
+		return -1;
+	}
+	pkgmgrinfo_destroy_pkgdbinfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_save_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle);
+
+/**
+ * @fn int pkgmgrinfo_destroy_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle)
+ * @brief	This API destroys the package db information handle freeing up all the resources
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in] handle		pointer to the package db info handle.
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		pkgmgrinfo_create_pkgdbinfo()
+ * @post		None
+ * @see		pkgmgrinfo_save_pkgdbinfo()
+ * @see		pkgmgrinfo_set_type_to_pkgdbinfo()
+ * @code
+static int set_pkg_in_db(const char *pkgid)
+{
+	int ret = 0;
+	pkgmgrinfo_pkgdbinfo_h handle;
+	ret = pkgmgrinfo_create_pkgdbinfo(pkgid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_set_version_to_pkgdbinfo(handle, "0.0.1");
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_destroy_pkgdbinfo(handle);
+		return -1;
+	}
+	ret = pkgmgrinfo_save_pkgdbinfo(handle);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_destroy_pkgdbinfo(handle);
+		return -1;
+	}
+	pkgmgrinfo_destroy_pkgdbinfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_destroy_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle);
+
+
+/**
  * @fn int pkgmgrinfo_create_certinfo_set_handle(pkgmgrinfo_instcertinfo_h *handle)
  * @brief	This API creates the package cert information handle to set data in db.
  *

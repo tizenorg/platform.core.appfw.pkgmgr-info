@@ -2381,18 +2381,13 @@ API int pkgmgrinfo_pkginfo_get_package_size(pkgmgrinfo_pkginfo_h handle, int *si
 	char *location = NULL;
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
 	location = (char *)info->manifest_info->installlocation;
-	if (strcmp(location, "prefer-external") == 0)
-	{
-		val = (char *)info->manifest_info->package_size;
-		if (val) {
-			*size = atoi(val);
-		} else {
-			*size = 0;
-			_LOGE("package size is not specified\n");
-			return PMINFO_R_ERROR;
-		}
+	val = (char *)info->manifest_info->package_size;
+	if (val) {
+		*size = atoi(val);
 	} else {
 		*size = 0;
+		_LOGE("package size is not specified\n");
+		return PMINFO_R_ERROR;
 	}
 	return PMINFO_R_OK;
 }
@@ -6242,133 +6237,95 @@ err:
 
 API int pkgmgrinfo_create_pkgdbinfo(const char *pkgid, pkgmgrinfo_pkgdbinfo_h *handle)
 {
-	if (!pkgid || !handle) {
-		_LOGE("Argument supplied is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(!pkgid, PMINFO_R_EINVAL, "pkgid is NULL");
+	retvm_if(!handle, PMINFO_R_EINVAL, "Argument supplied is NULL");
+
+	char *manifest = NULL;
 	manifest_x *mfx = NULL;
-	mfx = calloc(1, sizeof(manifest_x));
-	if (!mfx) {
-		_LOGE("Malloc Failed\n");
-		return PMINFO_R_ERROR;
+
+	manifest = pkgmgr_parser_get_manifest_file(pkgid);
+	retvm_if(manifest == NULL, PMINFO_R_EINVAL, "pkg[%s] dont have manifest file", pkgid);
+
+	mfx = pkgmgr_parser_process_manifest_xml(manifest);
+	if (manifest) {
+		free(manifest);
+		manifest = NULL;
 	}
-	mfx->package = strdup(pkgid);
+	retvm_if(mfx == NULL, PMINFO_R_EINVAL, "pkg[%s] parsing fail", pkgid);
+
 	*handle = (void *)mfx;
+
 	return PMINFO_R_OK;
 }
 
 API int pkgmgrinfo_set_type_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, const char *type)
 {
-	if (!type || !handle) {
-		_LOGE("Argument supplied is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	int len = strlen(type);
-	manifest_x *mfx = (manifest_x *)handle;
-	if (len > PKG_TYPE_STRING_LEN_MAX) {
-		_LOGE("pkg type length exceeds the max limit\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (mfx->type == NULL)
-		mfx->type = strndup(type, PKG_TYPE_STRING_LEN_MAX);
-	else
-		mfx->type = type;
+	retvm_if(!type, PMINFO_R_EINVAL, "Argument supplied is NULL");
+	retvm_if(!handle, PMINFO_R_EINVAL, "Argument supplied is NULL");
 
+	int len = strlen(type);
+	retvm_if(len > PKG_TYPE_STRING_LEN_MAX, PMINFO_R_EINVAL, "pkg type length exceeds the max limit");
+
+	manifest_x *mfx = (manifest_x *)handle;
+
+	mfx->type = strndup(type, PKG_TYPE_STRING_LEN_MAX);
 	return PMINFO_R_OK;
 }
 
 API int pkgmgrinfo_set_version_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, const char *version)
 {
-	if (!version || !handle) {
-		_LOGE("Argument supplied is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	int len = strlen(version);
-	manifest_x *mfx = (manifest_x *)handle;
-	if (len > PKG_VERSION_STRING_LEN_MAX) {
-		_LOGE("pkg version length exceeds the max limit\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (mfx->version == NULL)
-		mfx->version = strndup(version, PKG_VERSION_STRING_LEN_MAX);
-	else
-		mfx->version = version;
+	retvm_if(!version, PMINFO_R_EINVAL, "Argument supplied is NULL");
+	retvm_if(!handle, PMINFO_R_EINVAL, "Argument supplied is NULL");
 
+	int len = strlen(version);
+	retvm_if(len > PKG_TYPE_STRING_LEN_MAX, PMINFO_R_EINVAL, "pkg type length exceeds the max limit");
+
+	manifest_x *mfx = (manifest_x *)handle;
+
+	mfx->version = strndup(version, PKG_VERSION_STRING_LEN_MAX);
 	return PMINFO_R_OK;
 }
 
 API int pkgmgrinfo_set_install_location_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, INSTALL_LOCATION location)
 {
-	if (!handle) {
-		_LOGE("Argument supplied is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (location < 0 || location > 1) {
-		_LOGE("Argument supplied is invalid\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(!handle, PMINFO_R_EINVAL, "Argument supplied is NULL");
+	retvm_if((location < 0) || (location > 1), PMINFO_R_EINVAL, "Argument supplied is NULL");
+
 	manifest_x *mfx = (manifest_x *)handle;
-	if (mfx->installlocation == NULL) {
-		mfx->installlocation = (char *)calloc(1, strlen("prefer-external") + 1);
-		if (mfx->installlocation == NULL) {
-			_LOGE("Malloc Failed\n");
-			return PMINFO_R_ERROR;
-		}
-	}
-	if (location == INSTALL_INTERNAL) {
-		strcpy((char *)mfx->installlocation, "internal-only");
-	} else if (location == INSTALL_EXTERNAL) {
-		strcpy((char *)mfx->installlocation, "prefer-external");
-	} else {
-		_LOGE("Invalid location type\n");
-		return PMINFO_R_ERROR;
-	}
+
+	if (location == INSTALL_INTERNAL)
+		strcpy(mfx->installlocation, "internal-only");
+	else if (location == INSTALL_EXTERNAL)
+		strcpy(mfx->installlocation, "prefer-external");
+
 	return PMINFO_R_OK;
 }
 
 API int pkgmgrinfo_set_size_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, const char *size)
 {
-	if (!handle) {
-		_LOGE("Argument supplied is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (size == NULL) {
-		_LOGE("Argument supplied is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(!handle, PMINFO_R_EINVAL, "Argument supplied is NULL");
+	retvm_if(size == NULL, PMINFO_R_EINVAL, "Argument supplied is NULL");
+
 	manifest_x *mfx = (manifest_x *)handle;
-	if (mfx->installlocation == NULL) {
-		_LOGE("cant set size without specifying install location\n");
-		return PMINFO_R_ERROR;
-	}
-	if (strcmp(mfx->installlocation, "prefer-external") == 0) {
-		if (mfx->package_size == NULL)
-			mfx->package_size = strdup(size);
-		else
-			mfx->package_size = size;
-	} else {
-		_LOGE("cant set size for internal location\n");
-		return PMINFO_R_ERROR;
-	}
+
+	mfx->package_size = strdup(size);
+
 	return PMINFO_R_OK;
 }
+
 API int pkgmgrinfo_set_label_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, const char *label_txt, const char *locale)
 {
-	if (!handle || !label_txt) {
-		_LOGE("Argument supplied is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(!handle, PMINFO_R_EINVAL, "Argument supplied is NULL");
+	retvm_if(!label_txt, PMINFO_R_EINVAL, "Argument supplied is NULL");
+
 	int len = strlen(label_txt);
+	retvm_if(len > PKG_TYPE_STRING_LEN_MAX, PMINFO_R_EINVAL, "pkg type length exceeds the max limit");
+
 	manifest_x *mfx = (manifest_x *)handle;
-	if (len > PKG_VALUE_STRING_LEN_MAX) {
-		_LOGE("label length exceeds the max limit\n");
-		return PMINFO_R_EINVAL;
-	}
+
 	label_x *label = calloc(1, sizeof(label_x));
-	if (label == NULL) {
-		_LOGE("Malloc Failed\n");
-		return PMINFO_R_ERROR;
-	}
+	retvm_if(label == NULL, PMINFO_R_EINVAL, "Malloc Failed");
+
 	LISTADD(mfx->label, label);
 	if (locale)
 		mfx->label->lang = strdup(locale);
@@ -6381,21 +6338,17 @@ API int pkgmgrinfo_set_label_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, const c
 
 API int pkgmgrinfo_set_icon_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, const char *icon_txt, const char *locale)
 {
-	if (!handle || !icon_txt) {
-		_LOGE("Argument supplied is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(!handle, PMINFO_R_EINVAL, "Argument supplied is NULL");
+	retvm_if(!icon_txt, PMINFO_R_EINVAL, "Argument supplied is NULL");
+
 	int len = strlen(icon_txt);
+	retvm_if(len > PKG_TYPE_STRING_LEN_MAX, PMINFO_R_EINVAL, "pkg type length exceeds the max limit");
+
 	manifest_x *mfx = (manifest_x *)handle;
-	if (len > PKG_VALUE_STRING_LEN_MAX) {
-		_LOGE("icon length exceeds the max limit\n");
-		return PMINFO_R_EINVAL;
-	}
+
 	icon_x *icon = calloc(1, sizeof(icon_x));
-	if (icon == NULL) {
-		_LOGE("Malloc Failed\n");
-		return PMINFO_R_ERROR;
-	}
+	retvm_if(icon == NULL, PMINFO_R_EINVAL, "Malloc Failed");
+
 	LISTADD(mfx->icon, icon);
 	if (locale)
 		mfx->icon->lang = strdup(locale);
@@ -6408,21 +6361,17 @@ API int pkgmgrinfo_set_icon_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, const ch
 
 API int pkgmgrinfo_set_description_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, const char *desc_txt, const char *locale)
 {
-	if (!handle || !desc_txt) {
-		_LOGE("Argument supplied is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(!handle, PMINFO_R_EINVAL, "Argument supplied is NULL");
+	retvm_if(!desc_txt, PMINFO_R_EINVAL, "Argument supplied is NULL");
+
 	int len = strlen(desc_txt);
+	retvm_if(len > PKG_TYPE_STRING_LEN_MAX, PMINFO_R_EINVAL, "pkg type length exceeds the max limit");
+
 	manifest_x *mfx = (manifest_x *)handle;
-	if (len > PKG_VALUE_STRING_LEN_MAX) {
-		_LOGE("description length exceeds the max limit\n");
-		return PMINFO_R_EINVAL;
-	}
+
 	description_x *description = calloc(1, sizeof(description_x));
-	if (description == NULL) {
-		_LOGE("Malloc Failed\n");
-		return PMINFO_R_ERROR;
-	}
+	retvm_if(description == NULL, PMINFO_R_EINVAL, "Malloc Failed");
+
 	LISTADD(mfx->description, description);
 	if (locale)
 		mfx->description->lang = strdup(locale);
@@ -6436,16 +6385,11 @@ API int pkgmgrinfo_set_description_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, c
 API int pkgmgrinfo_set_author_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, const char *author_name,
 		const char *author_email, const char *author_href, const char *locale)
 {
-	if (!handle) {
-		_LOGE("Argument supplied is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(!handle, PMINFO_R_EINVAL, "Argument supplied is NULL");
 	manifest_x *mfx = (manifest_x *)handle;
 	author_x *author = calloc(1, sizeof(author_x));
-	if (author == NULL) {
-		_LOGE("Malloc Failed\n");
-		return PMINFO_R_ERROR;
-	}
+	retvm_if(author == NULL, PMINFO_R_EINVAL, "Argument supplied is NULL");
+
 	LISTADD(mfx->author, author);
 	if (author_name)
 		mfx->author->text = strdup(author_name);
@@ -6462,93 +6406,58 @@ API int pkgmgrinfo_set_author_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, const 
 
 API int pkgmgrinfo_set_removable_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, int removable)
 {
-	if (!handle) {
-		_LOGE("Argument supplied is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (removable < 0 || removable > 1) {
-		_LOGE("Argument supplied is invalid\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(!handle, PMINFO_R_EINVAL, "Argument supplied is NULL");
+	retvm_if((removable < 0) || (removable > 1), PMINFO_R_EINVAL, "Argument supplied is NULL");
+
 	manifest_x *mfx = (manifest_x *)handle;
-	if (mfx->removable == NULL) {
-		mfx->removable = (char *)calloc(1, strlen("false") + 1);
-		if (mfx->removable == NULL) {
-			_LOGE("Malloc Failed\n");
-			return PMINFO_R_ERROR;
-		}
-	}
-	if (removable == 0) {
-		strcpy((char *)mfx->removable, "false");
-	} else if (removable == 1) {
-		strcpy((char *)mfx->removable, "true");
-	} else {
-		_LOGE("Invalid removable type\n");
-		return PMINFO_R_ERROR;
-	}
+
+	if (removable == 0)
+		strcpy(mfx->removable, "false");
+	else if (removable == 1)
+		strcpy(mfx->removable, "true");
+
 	return PMINFO_R_OK;
 }
 
 API int pkgmgrinfo_set_preload_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, int preload)
 {
-	if (!handle) {
-		_LOGE("Argument supplied is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	if (preload < 0 || preload > 1) {
-		_LOGE("Argument supplied is invalid\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(!handle, PMINFO_R_EINVAL, "Argument supplied is NULL");
+	retvm_if((preload < 0) || (preload > 1), PMINFO_R_EINVAL, "Argument supplied is NULL");
+
 	manifest_x *mfx = (manifest_x *)handle;
-	if (mfx->preload == NULL) {
-		mfx->preload = (char *)calloc(1, strlen("false") + 1);
-		if (mfx->preload == NULL) {
-			_LOGE("Malloc Failed\n");
-			return PMINFO_R_ERROR;
-		}
-	}
-	if (preload == 0) {
-		strcpy((char *)mfx->preload, "false");
-	} else if (preload == 1) {
-		strcpy((char *)mfx->preload, "true");
-	} else {
-		_LOGE("Invalid preload type\n");
-		return PMINFO_R_ERROR;
-	}
+
+	if (preload == 0)
+		strcpy(mfx->preload, "false");
+	else if (preload == 1)
+		strcpy(mfx->preload, "true");
+
+	return PMINFO_R_OK;
+}
+
+API int pkgmgrinfo_set_installed_storage_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, INSTALL_LOCATION location)
+{
+	retvm_if(!handle, PMINFO_R_EINVAL, "Argument supplied is NULL");
+	retvm_if((location < 0) || (location > 1), PMINFO_R_EINVAL, "Argument supplied is NULL");
+
+	manifest_x *mfx = (manifest_x *)handle;
+
+	if (location == INSTALL_INTERNAL)
+		strcpy(mfx->installed_storage, "installed_internal");
+	else if (location == INSTALL_EXTERNAL)
+		strcpy(mfx->installed_storage, "installed_external");
+
 	return PMINFO_R_OK;
 }
 
 API int pkgmgrinfo_save_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle)
 {
-	if (!handle) {
-		_LOGE("Argument supplied is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(!handle, PMINFO_R_EINVAL, "Argument supplied is NULL");
+
 	int ret = 0;
 	manifest_x *mfx = NULL;
-	label_x *tmp1 = NULL;
-	icon_x *tmp2 = NULL;
-	description_x *tmp3 = NULL;
-	author_x *tmp4 = NULL;
 	mfx = (manifest_x *)handle;
-	/*First move to head of all list pointers*/
-	if (mfx->label) {
-		LISTHEAD(mfx->label, tmp1);
-		mfx->label = tmp1;
-	}
-	if (mfx->icon) {
-		LISTHEAD(mfx->icon, tmp2);
-		mfx->icon = tmp2;
-	}
-	if (mfx->description) {
-		LISTHEAD(mfx->description, tmp3);
-		mfx->description= tmp3;
-	}
-	if (mfx->author) {
-		LISTHEAD(mfx->author, tmp4);
-		mfx->author = tmp4;
-	}
-	ret = pkgmgr_parser_insert_manifest_info_in_db(mfx);
+
+	ret = pkgmgr_parser_update_manifest_info_in_db(mfx);
 	if (ret == 0) {
 		_LOGE("Successfully stored info in DB\n");
 		return PMINFO_R_OK;
@@ -6560,10 +6469,8 @@ API int pkgmgrinfo_save_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle)
 
 API int pkgmgrinfo_destroy_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle)
 {
-	if (!handle) {
-		_LOGE("Argument supplied is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
+	retvm_if(!handle, PMINFO_R_EINVAL, "Argument supplied is NULL");
+
 	manifest_x *mfx = NULL;
 	mfx = (manifest_x *)handle;
 	pkgmgr_parser_free_manifest_xml(mfx);
