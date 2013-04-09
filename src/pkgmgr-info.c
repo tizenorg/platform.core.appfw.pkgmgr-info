@@ -37,6 +37,7 @@
 
 #include "pkgmgr_parser.h"
 #include "pkgmgr-info-internal.h"
+#include "pkgmgr-info-debug.h"
 #include "pkgmgr-info.h"
 #include "pkgmgr_parser_db.h"
 #include <dirent.h>
@@ -189,7 +190,6 @@ __thread sqlite3 *cert_db = NULL;
 
 static int __open_manifest_db();
 static int __exec_pkginfo_query(char *query, void *data);
-static int __exec_appinfo_query(char *query, void *data);
 static int __exec_certinfo_query(char *query, void *data);
 static int __exec_certindexinfo_query(char *query, void *data);
 static int __pkginfo_cb(void *data, int ncols, char **coltxt, char **colname);
@@ -1455,40 +1455,6 @@ static int __datacontrol_cb(void *data, int ncols, char **coltxt, char **colname
 	return 0;
 }
 
-static int __icon_name_cb(void *data, int ncols, char **coltxt, char **colname)
-{
-	pkgmgr_iconpath_x *icon_name = (pkgmgr_iconpath_x *)data;
-	int i = 0;
-	for(i = 0; i < ncols; i++)
-	{
-		if (strcmp(colname[i], "app_icon") == 0) {
-			if (coltxt[i])
-				icon_name->iconpath = strdup(coltxt[i]);
-			else
-				icon_name->iconpath = NULL;
-		} else
-			continue;
-	}
-	return 0;
-}
-
-static int __image_path_cb(void *data, int ncols, char **coltxt, char **colname)
-{
-	pkgmgr_image_x *image_path = (pkgmgr_image_x *)data;
-	int i = 0;
-	for(i = 0; i < ncols; i++)
-	{
-		if (strcmp(colname[i], "app_image") == 0) {
-			if (coltxt[i])
-				image_path->imagepath = strdup(coltxt[i]);
-			else
-				image_path->imagepath = NULL;
-		} else
-			continue;
-	}
-	return 0;
-}
-
 static int __cert_cb(void *data, int ncols, char **coltxt, char **colname)
 {
 	pkgmgr_cert_x *info = (pkgmgr_cert_x *)data;
@@ -1567,35 +1533,6 @@ static int __exec_certindexinfo_query(char *query, void *data)
 	return 0;
 }
 
-static int __exec_appcomponent_query(char *query, void *data)
-{
-	char *error_message = NULL;
-	if (SQLITE_OK !=
-	    sqlite3_exec(manifest_db, query, __appcomponent_cb, data, &error_message)) {
-		_LOGE("Don't execute query = %s error message = %s\n", query,
-		       error_message);
-		sqlite3_free(error_message);
-		return -1;
-	}
-	sqlite3_free(error_message);
-	return 0;
-}
-
-
-static int __exec_appinfo_query(char *query, void *data)
-{
-	char *error_message = NULL;
-	if (SQLITE_OK !=
-	    sqlite3_exec(manifest_db, query, __appinfo_cb, data, &error_message)) {
-		_LOGE("Don't execute query = %s error message = %s\n", query,
-		       error_message);
-		sqlite3_free(error_message);
-		return -1;
-	}
-	sqlite3_free(error_message);
-	return 0;
-}
-
 static int __exec_db_query(sqlite3 *db, char *query, sqlite_query_callback callback, void *data)
 {
 	char *error_message = NULL;
@@ -1640,98 +1577,6 @@ static int __child_element(xmlTextReaderPtr reader, int depth)
 		cur = xmlTextReaderDepth(reader);
 	}
 	return ret;
-}
-
-static char *__get_package_from_icon(char *icon)
-{
-	char *package;
-	char *extension;
-
-	retv_if(!icon, NULL);
-
-	package = strdup(icon);
-	retv_if(!package, NULL);
-	extension = rindex(package, '.');
-	if (extension) {
-		*extension = '\0';
-	} else {
-		_LOGE("cannot extract from icon [%s] to package.", icon);
-	}
-
-	return package;
-}
-
-static char *__get_icon_with_path(char *icon)
-{
-	retv_if(!icon, NULL);
-
-	if (index(icon, '/') == NULL) {
-		char *package;
-		char *theme = NULL;
-		char *icon_with_path = NULL;
-		int len;
-
-		package = __get_package_from_icon(icon);
-		retv_if(!package, NULL);
-
-		theme = vconf_get_str("db/setting/theme");
-		if (!theme) {
-			theme = strdup("default");
-			if(!theme) {
-				free(package);
-				return NULL;
-			}
-		}
-
-		len = (0x01 << 7) + strlen(icon) + strlen(package) + strlen(theme);
-		icon_with_path = malloc(len);
-		if(icon_with_path == NULL) {
-			_LOGE("(icon_with_path == NULL) return\n");
-			free(package);
-			free(theme);
-			return NULL;
-		}
-
-		memset(icon_with_path, 0, len);
-
-		sqlite3_snprintf( len, icon_with_path,"/opt/share/icons/%q/small/%q", theme, icon);
-		do {
-			if (access(icon_with_path, R_OK) == 0) break;
-			sqlite3_snprintf( len, icon_with_path,"/usr/share/icons/%q/small/%q", theme, icon);
-			if (access(icon_with_path, R_OK) == 0) break;
-			_LOGE("cannot find icon %s", icon_with_path);
-			sqlite3_snprintf( len, icon_with_path, "/opt/share/icons/default/small/%q", icon);
-			if (access(icon_with_path, R_OK) == 0) break;
-			sqlite3_snprintf( len, icon_with_path, "/usr/share/icons/default/small/%q", icon);
-			if (access(icon_with_path, R_OK) == 0) break;
-
-			#if 1 /* this will be remove when finish the work for moving icon path */
-			_LOGE("icon file must be moved to %s", icon_with_path);
-			sqlite3_snprintf( len, icon_with_path,  "/opt/apps/%q/res/icons/%q/small/%q", package, theme, icon);
-			if (access(icon_with_path, R_OK) == 0) break;
-			sqlite3_snprintf( len, icon_with_path, "/usr/apps/%q/res/icons/%q/small/%q", package, theme, icon);
-			if (access(icon_with_path, R_OK) == 0) break;
-			_LOGE("cannot find icon %s", icon_with_path);
-			sqlite3_snprintf( len, icon_with_path, "/opt/apps/%q/res/icons/default/small/%q", package, icon);
-			if (access(icon_with_path, R_OK) == 0) break;
-			sqlite3_snprintf( len, icon_with_path, "/usr/apps/%q/res/icons/default/small/%q", package, icon);
-			if (access(icon_with_path, R_OK) == 0) break;
-			#endif
-		} while (0);
-
-		free(theme);
-		free(package);
-
-		_LOGD("Icon path : %s ---> %s", icon, icon_with_path);
-
-		return icon_with_path;
-	} else {
-		char* confirmed_icon = NULL;
-
-		confirmed_icon = strdup(icon);
-		retv_if(!confirmed_icon, NULL);
-		return confirmed_icon;
-	}
 }
 
 static int __check_validation_of_qurey_cb(void *data, int ncols, char **coltxt, char **colname)
@@ -2157,7 +2002,6 @@ API int pkgmgrinfo_pkginfo_get_pkginfo(const char *pkgid, pkgmgrinfo_pkginfo_h *
 	retvm_if(pkgid == NULL, PMINFO_R_EINVAL, "pkgid is NULL\n");
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 	pkgmgr_pkginfo_x *pkginfo = NULL;
-	char *error_message = NULL;
 	int ret = PMINFO_R_OK;
 	char query[MAX_QUERY_LEN] = {'\0'};
 	char *syslocale = NULL;
@@ -2168,98 +2012,61 @@ API int pkgmgrinfo_pkginfo_get_pkginfo(const char *pkgid, pkgmgrinfo_pkginfo_h *
 	description_x *tmp3 = NULL;
 	author_x *tmp4 = NULL;
 	privilege_x *tmp5 = NULL;
+	sqlite3 *pkginfo_db = NULL;
 
 	/*validate pkgid*/
-	ret = __open_manifest_db();
-	if (ret == -1) {
-		_LOGE("Fail to open manifest DB\n");
-		ret = PMINFO_R_ERROR;
-		goto err;
-	}
-	snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_info where package='%s')", pkgid);
-	if (SQLITE_OK !=
-	    sqlite3_exec(manifest_db, query, __validate_cb, (void *)&exist, &error_message)) {
-		_LOGE("Don't execute query = %s error message = %s\n", query,
-		       error_message);
-		sqlite3_free(error_message);
-		sqlite3_close(manifest_db);
-		return PMINFO_R_ERROR;
-	}
-	if (exist == 0) {
-		_LOGE("Package not found in DB\n");
-		ret = PMINFO_R_ERROR;
-		goto err;
-	}
+	ret = db_util_open_with_options(MANIFEST_DB, &pkginfo_db, SQLITE_OPEN_READONLY, NULL);
+	retvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "connect db [%s] failed!", MANIFEST_DB);
 
+	/*check pkgid exist on db*/
+	snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_info where package='%s')", pkgid);
+	ret = __exec_db_query(pkginfo_db, query, __validate_cb, (void *)&exist);
+	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "sqlite3_exec[%s] fail", pkgid);
+	tryvm_if(exist == 0, ret = PMINFO_R_ERROR, "pkgid[%s] not found in DB", pkgid);
+
+	/*get system locale*/
 	syslocale = vconf_get_str(VCONFKEY_LANGSET);
-	if (syslocale == NULL) {
-		_LOGE("current locale is NULL\n");
-		ret = PMINFO_R_ERROR;
-		goto err;
-	}
+	tryvm_if(syslocale == NULL, ret = PMINFO_R_ERROR, "current locale is NULL");
+
+	/*get locale on db*/
 	locale = __convert_system_locale_to_manifest_locale(syslocale);
-	if (locale == NULL) {
-		_LOGE("manifest locale is NULL\n");
-		ret = PMINFO_R_EINVAL;
-		goto err;
-	}
+	tryvm_if(locale == NULL, ret = PMINFO_R_ERROR, "manifest locale is NULL");
+
 	strncpy(glocale, locale, PKG_LOCALE_STRING_LEN_MAX  - 1);
 	pkginfo = (pkgmgr_pkginfo_x *)calloc(1, sizeof(pkgmgr_pkginfo_x));
-	if (pkginfo == NULL) {
-		_LOGE("Failed to allocate memory for pkginfo\n");
-		ret = PMINFO_R_ERROR;
-		goto err;
-	}
+	tryvm_if(pkginfo == NULL, ret = PMINFO_R_ERROR, "Failed to allocate memory for pkginfo");
 
 	pkginfo->manifest_info = (manifest_x *)calloc(1, sizeof(manifest_x));
-	if (pkginfo->manifest_info == NULL) {
-		_LOGE("Failed to allocate memory for manifest info\n");
-		ret = PMINFO_R_ERROR;
-		goto err;
-	}
+	tryvm_if(pkginfo->manifest_info == NULL, ret = PMINFO_R_ERROR, "Failed to allocate memory for manifest info");
+
 	pkginfo->manifest_info->package = strdup(pkgid);
 	pkginfo->manifest_info->privileges = (privileges_x *)calloc(1, sizeof(privileges_x));
-	if (pkginfo->manifest_info->privileges == NULL) {
-		_LOGE("Failed to allocate memory for privileges info\n");
-		ret = PMINFO_R_ERROR;
-		goto err;
-	}
+	tryvm_if(pkginfo->manifest_info->privileges == NULL, ret = PMINFO_R_ERROR, "Failed to allocate memory for privileges info");
+
 	/*populate manifest_info from DB*/
 	snprintf(query, MAX_QUERY_LEN, "select * from package_info where package='%s' ", pkgid);
-	ret = __exec_pkginfo_query(query, (void *)pkginfo);
-	if (ret == -1) {
-		_LOGE("Package Info DB Information retrieval failed\n");
-		ret = PMINFO_R_ERROR;
-		goto err;
-	}
+	ret = __exec_db_query(pkginfo_db, query, __pkginfo_cb, (void *)pkginfo);
+	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "Package Info DB Information retrieval failed");
+
 	memset(query, '\0', MAX_QUERY_LEN);
 	/*populate privilege_info from DB*/
 	snprintf(query, MAX_QUERY_LEN, "select * from package_privilege_info where package='%s' ", pkgid);
-	ret = __exec_pkginfo_query(query, (void *)pkginfo);
-	if (ret == -1) {
-		_LOGE("Package Privilege Info DB Information retrieval failed\n");
-		ret = PMINFO_R_ERROR;
-		goto err;
-	}
+	ret = __exec_db_query(pkginfo_db, query, __pkginfo_cb, (void *)pkginfo);
+	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "Package Privilege Info DB Information retrieval failed");
+
 	memset(query, '\0', MAX_QUERY_LEN);
 	snprintf(query, MAX_QUERY_LEN, "select * from package_localized_info where" \
 		" package='%s' and package_locale='%s'", pkgid, locale);
-	ret = __exec_pkginfo_query(query, (void *)pkginfo);
-	if (ret == -1) {
-		_LOGE("Package Info DB Information retrieval failed\n");
-		ret = PMINFO_R_ERROR;
-		goto err;
-	}
+	ret = __exec_db_query(pkginfo_db, query, __pkginfo_cb, (void *)pkginfo);
+	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "Package Info DB Information retrieval failed");
+
 	/*Also store the values corresponding to default locales*/
 	memset(query, '\0', MAX_QUERY_LEN);
 	snprintf(query, MAX_QUERY_LEN, "select * from package_localized_info where" \
 		" package='%s' and package_locale='%s'", pkgid, DEFAULT_LOCALE);
-	ret = __exec_pkginfo_query(query, (void *)pkginfo);
-	if (ret == -1) {
-		_LOGE("Package Info DB Information retrieval failed\n");
-		ret = PMINFO_R_ERROR;
-		goto err;
-	}
+	ret = __exec_db_query(pkginfo_db, query, __pkginfo_cb, (void *)pkginfo);
+	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "Package Info DB Information retrieval failed");
+
 	if (pkginfo->manifest_info->label) {
 		LISTHEAD(pkginfo->manifest_info->label, tmp1);
 		pkginfo->manifest_info->label = tmp1;
@@ -2280,22 +2087,16 @@ API int pkgmgrinfo_pkginfo_get_pkginfo(const char *pkgid, pkgmgrinfo_pkginfo_h *
 		LISTHEAD(pkginfo->manifest_info->privileges->privilege, tmp5);
 		pkginfo->manifest_info->privileges->privilege = tmp5;
 	}
-	*handle = (void *)pkginfo;
-	sqlite3_close(manifest_db);
-	if (syslocale) {
-		free(syslocale);
-		syslocale = NULL;
-	}
-	if (locale) {
-		free(locale);
-		locale = NULL;
-	}
-	return PMINFO_R_OK;
 
-err:
-	*handle = NULL;
-	__cleanup_pkginfo(pkginfo);
-	sqlite3_close(manifest_db);
+catch:
+	if (ret == PMINFO_R_OK)
+		*handle = (void*)pkginfo;
+	else {
+		*handle = NULL;
+		__cleanup_pkginfo(pkginfo);
+	}
+	sqlite3_close(pkginfo_db);
+
 	if (syslocale) {
 		free(syslocale);
 		syslocale = NULL;
@@ -4330,7 +4131,7 @@ API int pkgmgrinfo_appinfo_get_appinfo(const char *appid, pkgmgrinfo_appinfo_h *
 	snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_app_info where app_id='%s')", appid);
 	ret = __exec_db_query(appinfo_db, query, __validate_cb, (void *)&exist);
 	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "sqlite3_exec fail");
-	tryvm_if(exist == 0, ret = PMINFO_R_ERROR, "Appid not found in DB");
+	tryvm_if(exist == 0, ret = PMINFO_R_ERROR, "Appid[%s] not found in DB", appid);
 
 	/*get system locale*/
 	syslocale = vconf_get_str(VCONFKEY_LANGSET);

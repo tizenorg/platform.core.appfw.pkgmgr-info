@@ -24,6 +24,7 @@
 
 #include <dlog.h>
 
+#undef LOG_TAG
 #define LOG_TAG		"PKGMGR_INFO"
 #define _LOGE(fmt, arg...) LOGE(fmt, ##arg)
 #define _LOGD(fmt, arg...) LOGD(fmt, ##arg)
@@ -85,7 +86,6 @@
 #define ret_if(expr) do { \
 	if (expr) { \
 		PKGMGR_INFO_DEBUG_ERR("(%s) ", #expr); \
-		PKGMGR_INFO_END();\
 		return; \
 	} \
 } while (0)
@@ -93,7 +93,6 @@
 #define retm_if(expr, fmt, arg...) do { \
 	 if (expr) { \
 		 PKGMGR_INFO_DEBUG_ERR("(%s) "fmt, #expr, ##arg); \
-		 PKGMGR_INFO_END();\
 		 return; \
 	 } \
  } while (0)
@@ -101,7 +100,6 @@
 #define retv_if(expr, val) do { \
 		if (expr) { \
 			PKGMGR_INFO_DEBUG_ERR("(%s) ", #expr); \
-			PKGMGR_INFO_END();\
 			return (val); \
 		} \
 	} while (0)
@@ -109,7 +107,6 @@
 #define retvm_if(expr, val, fmt, arg...) do { \
 	if (expr) { \
 		PKGMGR_INFO_DEBUG_ERR("(%s) "fmt, #expr, ##arg); \
-		PKGMGR_INFO_END();\
 		return (val); \
 	} \
 } while (0)

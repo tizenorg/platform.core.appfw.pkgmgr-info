@@ -24,9 +24,6 @@
 #ifndef __PKGMGR_INFO_INTERNAL_H__
 #define __PKGMGR_INFO_INTERNAL_H__
 
-#include <dlog.h>
-#include "pkgmgr-info-debug.h"
-
 #ifndef DEPRECATED
 #define DEPRECATED	__attribute__ ((__deprecated__))
 #endif
