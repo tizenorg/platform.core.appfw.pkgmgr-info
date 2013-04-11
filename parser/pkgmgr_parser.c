@@ -276,7 +276,10 @@ static int __ps_run_parser(xmlDocPtr docPtr, const char *tag,
 	void *lib_handle = NULL;
 	int (*plugin_install) (xmlDocPtr, const char *);
 	int ret = -1;
-	char *ac;
+	char *ac = NULL;
+	int cpid = -1;
+	int status = 0;
+	int w = 0;
 
 	switch (action) {
 	case ACTION_INSTALL:
@@ -296,25 +299,50 @@ static int __ps_run_parser(xmlDocPtr docPtr, const char *tag,
 	if (!lib_path) {
 		goto END;
 	}
-
-	if ((lib_handle = dlopen(lib_path, RTLD_LAZY)) == NULL) {
-		DBGE("dlopen is failed lib_path[%s]\n", lib_path);
+	/*fork a child*/
+	cpid = fork();
+	switch (cpid) {
+	case -1:
+		DBGE("fork() failed\n");
 		goto END;
+	case 0:
+		/*child process*/
+		if ((lib_handle = dlopen(lib_path, RTLD_LAZY)) == NULL) {
+			DBGE("dlopen is failed lib_path[%s]\n", lib_path);
+			exit(-1);
+		}
+		if ((plugin_install =
+		     dlsym(lib_handle, ac)) == NULL || dlerror() != NULL) {
+			DBGE("can not find symbol \n");
+			if (lib_handle)
+				dlclose(lib_handle);
+			exit(-1);
+		}
+		ret = plugin_install(docPtr, pkgid);
+		if (lib_handle)
+			dlclose(lib_handle);
+		exit(ret);
+	default:
+		/*parent process*/
+		do {
+			w = waitpid(cpid, &status, WUNTRACED | WCONTINUED);
+			if (w == -1) {
+				DBGE("waitpid() failed\n");
+				break;
+			}
+		} while (!WIFEXITED(status) && !WIFSIGNALED(status));
+		if (WIFEXITED(status))
+			ret = WEXITSTATUS(status);
+		else if (WIFSIGNALED(status))
+			ret = WTERMSIG(status);
+		else
+			ret = 0;
+		DBGE("Child exit status=%d\n", ret);
+		break;
 	}
-
-	if ((plugin_install =
-	     dlsym(lib_handle, ac)) == NULL || dlerror() != NULL) {
-		DBGE("can not find symbol \n");
-		goto END;
-	}
-
-	ret = plugin_install(docPtr, pkgid);
-
- END:
+END:
 	if (lib_path)
 		free(lib_path);
-	if (lib_handle)
-		dlclose(lib_handle);
 	return ret;
 }
 

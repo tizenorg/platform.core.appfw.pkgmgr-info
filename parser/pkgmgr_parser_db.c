@@ -1440,6 +1440,7 @@ static int __insert_manifest_info_in_db(manifest_x *mfx)
 	privileges_x *pvs = NULL;
 	privilege_x *pv = NULL;
 	char query[MAX_QUERY_LEN] = { '\0' };
+	char root[MAX_QUERY_LEN] = { '\0' };
 	int ret = -1;
 	char *type = NULL;
 	char *path = NULL;
@@ -1465,9 +1466,11 @@ static int __insert_manifest_info_in_db(manifest_x *mfx)
 		path = strdup(mfx->root_path);
 	else{
 		if (strcmp(type,"rpm")==0)
-			path = strdup("/usr/apps");
+			snprintf(root, MAX_QUERY_LEN - 1, "/usr/apps/%s", mfx->package);
 		else
-			path = strdup("/opt/usr/apps");
+			snprintf(root, MAX_QUERY_LEN - 1, "/opt/usr/apps/%s", mfx->package);
+
+		path = strdup(root);
 	}
 	snprintf(query, MAX_QUERY_LEN,
 		 "insert into package_info(package, package_type, package_version, install_location, package_size, " \
