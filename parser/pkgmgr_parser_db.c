@@ -302,6 +302,10 @@ static int __guestmode_visibility_cb(void *data, int ncols, char **coltxt, char 
 				status = strdup(coltxt[i]);
 		}
 	}
+	if (appid == NULL) {
+		DBG("app id is NULL\n");
+		return -1;
+	}
 	/*update guest mode visibility*/
 	for (; uiapp != NULL; uiapp = uiapp->next) {
 		if (strcmp(uiapp->appid, appid) == 0) {

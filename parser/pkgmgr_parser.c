@@ -33,7 +33,6 @@
 #include <libxml/xmlschemas.h>
 #include <vconf.h>
 
-
 #include "pkgmgr_parser.h"
 #include "pkgmgr_parser_internal.h"
 #include "pkgmgr_parser_db.h"
@@ -3158,6 +3157,8 @@ static int __process_manifest(xmlTextReaderPtr reader, manifest_x * mfx)
 			} else {
 				mfx->appsetting = strdup("false");
 			}
+			if (xmlTextReaderGetAttribute(reader, XMLCHAR("storeclient-id")))
+				mfx->storeclient_id= ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("storeclient-id")));
 
 			/*Assign default values. If required it will be overwritten in __add_preload_info()*/
 			mfx->preload = strdup("False");
@@ -3581,11 +3582,12 @@ static int __ps_remove_nativeapp_desktop(manifest_x *mfx)
 {
 	char filepath[PKG_STRING_LEN_MAX] = "";
 	int ret = 0;
+	uiapplication_x *uiapplication = mfx->uiapplication;
 
-	for(; mfx->uiapplication; mfx->uiapplication=mfx->uiapplication->next) {
-	        snprintf(filepath, sizeof(filepath),"%s%s.desktop", DESKTOP_RW_PATH, mfx->uiapplication->appid);
+	for(; uiapplication; uiapplication=uiapplication->next) {
+	        snprintf(filepath, sizeof(filepath),"%s%s.desktop", DESKTOP_RW_PATH, uiapplication->appid);
 
-		__ail_change_info(AIL_REMOVE, mfx->uiapplication->appid);
+		__ail_change_info(AIL_REMOVE, uiapplication->appid);
 
 		ret = remove(filepath);
 		if (ret <0)
@@ -3593,6 +3595,39 @@ static int __ps_remove_nativeapp_desktop(manifest_x *mfx)
 	}
 
         return 0;
+}
+
+#define LIBAPPSVC_PATH "/usr/lib/libappsvc.so.0"
+
+static int __ps_remove_appsvc_db(manifest_x *mfx)
+{
+	void *lib_handle = NULL;
+	int (*appsvc_operation) (const char *);
+	int ret = 0;
+	uiapplication_x *uiapplication = mfx->uiapplication;
+
+	if ((lib_handle = dlopen(LIBAPPSVC_PATH, RTLD_LAZY)) == NULL) {
+		DBGE("dlopen is failed LIBAIL_PATH[%s]\n", LIBAPPSVC_PATH);
+		goto END;
+	}
+
+	if ((appsvc_operation =
+		 dlsym(lib_handle, "appsvc_unset_defapp")) == NULL || dlerror() != NULL) {
+		DBGE("can not find symbol \n");
+		goto END;
+	}
+
+	for(; uiapplication; uiapplication=uiapplication->next) {
+		ret = appsvc_operation(uiapplication->appid);
+		if (ret <0)
+			DBGE("can not operation  symbol \n");
+	}
+
+END:
+	if (lib_handle)
+		dlclose(lib_handle);
+
+	return ret;
 }
 
 #define MANIFEST_RO_PREFIX "/usr/share/packages/"
@@ -4041,6 +4076,12 @@ API int pkgmgr_parser_parse_manifest_for_uninstallation(const char *manifest, ch
 		DBG("Removing desktop file failed\n");
 	else
 		DBG("Removing desktop file Success\n");
+
+	ret = __ps_remove_appsvc_db(mfx);
+	if (ret == -1)
+		DBG("Removing appsvc_db failed\n");
+	else
+		DBG("Removing appsvc_db Success\n");
 
 	pkgmgr_parser_free_manifest_xml(mfx);
 	DBG("Free Done\n");
