@@ -32,6 +32,7 @@
       <xs:attribute name="size" type="xs:NMTOKEN"/>
 	  <xs:attribute name="root_path" type="xs:string"/>
 	  <xs:attribute name="appsetting" type="xs:boolean"/>
+	  <xs:attribute name="nodisplay-setting" type="xs:boolean"/>
     </xs:complexType>
   </xs:element>
 
@@ -139,6 +140,7 @@
       <xs:attribute name="portrait-effectimage" type="xs:string"/>
       <xs:attribute name="landscape-effectimage" type="xs:string"/>
       <xs:attribute name="guestmode-visibility" type="xs:string"/>
+	  <xs:attribute name="launchcondition" type="xs:boolean"/>
     </xs:complexType>
   </xs:element>
   <xs:element name="ime-application">

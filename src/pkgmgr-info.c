@@ -314,6 +314,10 @@ static void __get_filter_condition(gpointer data, char **condition)
 	case E_PMINFO_PKGINFO_PROP_PACKAGE_APPSETTING:
 		snprintf(buf, MAX_QUERY_LEN, "package_info.package_appsetting IN %s", node->value);
 		break;
+	case E_PMINFO_PKGINFO_PROP_PACKAGE_NODISPLAY_SETTING:
+		snprintf(buf, MAX_QUERY_LEN, "package_info.package_nodisplay IN %s", node->value);
+		break;
+
 	case E_PMINFO_APPINFO_PROP_APP_ID:
 		snprintf(buf, MAX_QUERY_LEN, "package_app_info.app_id='%s'", node->value);
 		break;
@@ -362,6 +366,9 @@ static void __get_filter_condition(gpointer data, char **condition)
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_HWACCELERATION:
 		snprintf(buf, MAX_QUERY_LEN, "package_app_info.app_hwacceleration='%s'", node->value);
+		break;
+	case E_PMINFO_APPINFO_PROP_APP_LAUNCHCONDITION:
+		snprintf(buf, MAX_QUERY_LEN, "package_app_info.app_launchcondition='%s'", node->value);
 		break;
 	default:
 		_LOGE("Invalid Property Type\n");
@@ -2357,58 +2364,32 @@ API int pkgmgrinfo_pkginfo_get_icon(pkgmgrinfo_pkginfo_h handle, char **icon)
 {
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL");
 	retvm_if(icon == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
-
-	pkgmgr_pkginfo_x *info_tmp = (pkgmgr_pkginfo_x *)handle;
-	pkgmgrinfo_appinfo_h apphandle;
-	bool ismainapp = 0;
 	int ret = PMINFO_R_OK;
 
-	ret = pkgmgrinfo_appinfo_get_appinfo(info_tmp->manifest_info->mainapp_id, &apphandle);
-	retvm_if(ret < 0, PMINFO_R_ERROR, "pkgmgrinfo_appinfo_get_appinfo fail");
+	char *locale = NULL;
+	icon_x *ptr = NULL;
+	*icon = NULL;
+	locale = glocale;
+	retvm_if(locale == NULL, ret = PMINFO_R_ERROR, "manifest locale is NULL");
 
-	ret = pkgmgrinfo_appinfo_is_mainapp(apphandle, &ismainapp);
-	tryvm_if(ret < 0, ret = PMINFO_R_ERROR, "pkgmgrinfo_appinfo_is_mainapp fail");
-
-	if (ismainapp){
-		ret = pkgmgrinfo_appinfo_get_icon(apphandle, &info_tmp->tmp);
-		tryvm_if(ret < 0, ret = PMINFO_R_ERROR, "pkgmgrinfo_appinfo_get_icon fail");
-		tryvm_if(info_tmp->tmp == NULL, ret = PMINFO_R_EINVAL, "icon is NULL");
-
-		if (info_tmp->tmp_dup){
-			free((void *)info_tmp->tmp_dup);
-			info_tmp->tmp_dup = NULL;
-		}
-
-		info_tmp->tmp_dup= strdup(info_tmp->tmp);
-		*icon = info_tmp->tmp_dup;
-	} else {
-		char *locale = NULL;
-		icon_x *ptr = NULL;
-		*icon = NULL;
-		locale = glocale;
-		tryvm_if(locale == NULL, ret = PMINFO_R_ERROR, "manifest locale is NULL");
-		pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
-		for(ptr = info->manifest_info->icon; ptr != NULL; ptr = ptr->next)
-		{
-			if (ptr->lang) {
-				if (strcmp(ptr->lang, locale) == 0) {
-					*icon = (char *)ptr->text;
-					if (strcasecmp(*icon, "(null)") == 0) {
-						locale = DEFAULT_LOCALE;
-						continue;
-					} else
-						break;
-				} else if (strcmp(ptr->lang, DEFAULT_LOCALE) == 0) {
-					*icon = (char *)ptr->text;
+	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
+	for(ptr = info->manifest_info->icon; ptr != NULL; ptr = ptr->next)
+	{
+		if (ptr->lang) {
+			if (strcmp(ptr->lang, locale) == 0) {
+				*icon = (char *)ptr->text;
+				if (strcasecmp(*icon, "(null)") == 0) {
+					locale = DEFAULT_LOCALE;
+					continue;
+				} else
 					break;
-				}
+			} else if (strcmp(ptr->lang, DEFAULT_LOCALE) == 0) {
+				*icon = (char *)ptr->text;
+				break;
 			}
 		}
-		
 	}
 
-catch:
-	pkgmgrinfo_appinfo_destroy_appinfo(apphandle);
 	return ret;
 }
 
@@ -2416,57 +2397,32 @@ API int pkgmgrinfo_pkginfo_get_label(pkgmgrinfo_pkginfo_h handle, char **label)
 {
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL");
 	retvm_if(label == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
-
-	pkgmgr_pkginfo_x *info_tmp = (pkgmgr_pkginfo_x *)handle;
-	pkgmgrinfo_appinfo_h apphandle;
-	bool ismainapp = 0;
 	int ret = PMINFO_R_OK;
 
-	ret = pkgmgrinfo_appinfo_get_appinfo(info_tmp->manifest_info->mainapp_id, &apphandle);
-	retvm_if(ret < 0, PMINFO_R_ERROR, "pkgmgrinfo_appinfo_get_appinfo fail");
+	char *locale = NULL;
+	label_x *ptr = NULL;
+	*label = NULL;
+	locale = glocale;
+	retvm_if(locale == NULL, ret = PMINFO_R_ERROR, "manifest locale is NULL");
 
-	ret = pkgmgrinfo_appinfo_is_mainapp(apphandle, &ismainapp);
-	tryvm_if(ret < 0, ret = PMINFO_R_ERROR, "pkgmgrinfo_appinfo_is_mainapp fail");
-
-	if (ismainapp){
-		ret = pkgmgrinfo_appinfo_get_label(apphandle, &info_tmp->tmp);
-		tryvm_if(ret < 0, ret = PMINFO_R_ERROR, "pkgmgrinfo_appinfo_get_label fail");
-		tryvm_if(info_tmp->tmp == NULL, ret = PMINFO_R_EINVAL, "label is NULL");
-
-		if (info_tmp->tmp_dup){
-			free((void *)info_tmp->tmp_dup);
-			info_tmp->tmp_dup = NULL;
-		}
-
-		info_tmp->tmp_dup = strdup(info_tmp->tmp);
-		*label = info_tmp->tmp_dup;
-	} else {
-		char *locale = NULL;
-		label_x *ptr = NULL;
-		*label = NULL;
-		locale = glocale;
-		tryvm_if(locale == NULL, ret = PMINFO_R_ERROR, "manifest locale is NULL");
-		pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
-		for(ptr = info->manifest_info->label; ptr != NULL; ptr = ptr->next)
-		{
-			if (ptr->lang) {
-				if (strcmp(ptr->lang, locale) == 0) {
-					*label = (char *)ptr->text;
-					if (strcasecmp(*label, "(null)") == 0) {
-						locale = DEFAULT_LOCALE;
-						continue;
-					} else
-						break;
-				} else if (strcmp(ptr->lang, DEFAULT_LOCALE) == 0) {
-					*label = (char *)ptr->text;
+	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
+	for(ptr = info->manifest_info->label; ptr != NULL; ptr = ptr->next)
+	{
+		if (ptr->lang) {
+			if (strcmp(ptr->lang, locale) == 0) {
+				*label = (char *)ptr->text;
+				if (strcasecmp(*label, "(null)") == 0) {
+					locale = DEFAULT_LOCALE;
+					continue;
+				} else
 					break;
-				}
+			} else if (strcmp(ptr->lang, DEFAULT_LOCALE) == 0) {
+				*label = (char *)ptr->text;
+				break;
 			}
 		}
 	}
 
-catch:
-	pkgmgrinfo_appinfo_destroy_appinfo(apphandle);
 	return ret;
 }
 
@@ -4568,7 +4524,7 @@ API int pkgmgrinfo_appinfo_get_preview_image(pkgmgrinfo_appinfo_h  handle, char 
 			val = (char *)ptr->section;
 
 			if (strcmp(val, "preview") == 0)
-				*preview_img = (char *)info->uiapp_info->image->text;
+				*preview_img = (char *)ptr->text;
 
 			break;
 		}

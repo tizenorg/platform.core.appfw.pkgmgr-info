@@ -54,7 +54,8 @@ typedef enum _pkgmgrinfo_pkginfo_filter_prop_bool {
 	E_PMINFO_PKGINFO_PROP_PACKAGE_READONLY,
 	E_PMINFO_PKGINFO_PROP_PACKAGE_UPDATE,
 	E_PMINFO_PKGINFO_PROP_PACKAGE_APPSETTING,
-	E_PMINFO_PKGINFO_PROP_PACKAGE_MAX_BOOL = E_PMINFO_PKGINFO_PROP_PACKAGE_APPSETTING
+	E_PMINFO_PKGINFO_PROP_PACKAGE_NODISPLAY_SETTING,
+	E_PMINFO_PKGINFO_PROP_PACKAGE_MAX_BOOL = E_PMINFO_PKGINFO_PROP_PACKAGE_NODISPLAY_SETTING
 } pkgmgrinfo_pkginfo_filter_prop_bool;
 
 /*Integer properties for filtering based on package info*/
@@ -88,7 +89,8 @@ typedef enum _pkgmgrinfo_appinfo_filter_prop_bool {
 	E_PMINFO_APPINFO_PROP_APP_ONBOOT,
 	E_PMINFO_APPINFO_PROP_APP_AUTORESTART,
 	E_PMINFO_APPINFO_PROP_APP_TASKMANAGE,
-	E_PMINFO_APPINFO_PROP_APP_MAX_BOOL = E_PMINFO_APPINFO_PROP_APP_TASKMANAGE
+	E_PMINFO_APPINFO_PROP_APP_LAUNCHCONDITION,
+	E_PMINFO_APPINFO_PROP_APP_MAX_BOOL = E_PMINFO_APPINFO_PROP_APP_LAUNCHCONDITION
 } pkgmgrinfo_appinfo_filter_prop_bool;
 
 /*Integer properties for filtering based on app info*/
@@ -98,6 +100,15 @@ typedef enum _pkgmgrinfo_appinfo_filter_prop_int {
 	E_PMINFO_APPINFO_PROP_APP_MAX_INT = E_PMINFO_APPINFO_PROP_APP_MIN_INT
 } pkgmgrinfo_appinfo_filter_prop_int;
 
+/*Integer properties for filtering based on app info*/
+typedef enum _pkgmgrinfo_pkginfo_filter_prop_range {
+	/*Currently No Fields*/
+	E_PMINFO_PKGINFO_PROP_RANGE_MIN_INT = 701,
+	E_PMINFO_PKGINFO_PROP_RANGE_BASIC,
+	E_PMINFO_PKGINFO_PROP_RANGE_MAX_INT = E_PMINFO_PKGINFO_PROP_RANGE_BASIC
+} pkgmgrinfo_pkginfo_filter_prop_range;
+
+
 pkgmgrinfo_pkginfo_filter_prop_str _pminfo_pkginfo_convert_to_prop_str(const char *property);
 pkgmgrinfo_pkginfo_filter_prop_int _pminfo_pkginfo_convert_to_prop_int(const char *property);
 pkgmgrinfo_pkginfo_filter_prop_bool _pminfo_pkginfo_convert_to_prop_bool(const char *property);
@@ -105,5 +116,7 @@ pkgmgrinfo_pkginfo_filter_prop_bool _pminfo_pkginfo_convert_to_prop_bool(const c
 pkgmgrinfo_appinfo_filter_prop_str _pminfo_appinfo_convert_to_prop_str(const char *property);
 pkgmgrinfo_appinfo_filter_prop_int _pminfo_appinfo_convert_to_prop_int(const char *property);
 pkgmgrinfo_appinfo_filter_prop_bool _pminfo_appinfo_convert_to_prop_bool(const char *property);
+
+pkgmgrinfo_pkginfo_filter_prop_range _pminfo_pkginfo_convert_to_prop_range(const char *property);
 
 #endif  /* __PKGMGR_INFO_INTERNAL_H__ */

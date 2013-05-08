@@ -368,6 +368,8 @@ typedef enum {
 #define	PMINFO_PKGINFO_PROP_PACKAGE_UPDATE		"PMINFO_PKGINFO_PROP_PACKAGE_UPDATE"
   /** Boolean property for filtering based on package info*/
 #define	PMINFO_PKGINFO_PROP_PACKAGE_APPSETTING		"PMINFO_PKGINFO_PROP_PACKAGE_APPSETTING"
+   /** Boolean property for filtering based on package info*/
+#define	PMINFO_PKGINFO_PROP_PACKAGE_NODISPLAY_SETTING		"PMINFO_PKGINFO_PROP_PACKAGE_NODISPLAY_SETTING"
 
  /** Integer property for filtering based on package info*/
 #define	PMINFO_PKGINFO_PROP_PACKAGE_SIZE		"PMINFO_PKGINFO_PROP_PACKAGE_SIZE"
@@ -403,6 +405,12 @@ typedef enum {
 #define	PMINFO_APPINFO_PROP_APP_AUTORESTART	"PMINFO_APPINFO_PROP_APP_AUTORESTART"
  /** Boolean property for filtering based on app info*/
 #define	PMINFO_APPINFO_PROP_APP_TASKMANAGE	"PMINFO_APPINFO_PROP_APP_TASKMANAGE"
+ /** Boolean property for filtering based on app info*/
+#define	PMINFO_APPINFO_PROP_APP_LAUNCHCONDITION	"PMINFO_APPINFO_PROP_APP_LAUNCHCONDITION"
+
+ /** will be updated*/
+ /** string property for filtering based on pkg info*/
+#define	PMINFO_PKGINFO_PROP_RANGE_BASIC	"PMINFO_PKGINFO_PROP_RANGE_BASIC"
 
 /**
  * @fn	int pkgmgrinfo_pkginfo_get_list(pkgmgrinfo_pkg_list_cb pkg_list_cb, void *user_data)

@@ -367,6 +367,7 @@ typedef struct uiapplication_x {
 	const char *mainapp;
 	const char *package;
 	const char *recentimage;
+	const char *launchcondition;
 	const char *indicatordisplay;
 	const char *portraitimg;
 	const char *landscapeimg;
@@ -455,6 +456,7 @@ typedef struct manifest_x {
 	const char *mainapp_id;		/**< app id of main application*/
 	const char *package_url;		/**< app id of main application*/
 	const char *root_path;		/**< package root path*/
+	const char *nodisplay_setting;		/**< package no display setting menu*/
 	struct icon_x *icon;		/**< package icon*/
 	struct label_x *label;		/**< package label*/
 	struct author_x *author;		/**< package author*/

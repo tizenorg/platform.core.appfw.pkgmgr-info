@@ -54,6 +54,7 @@ char *prev = NULL;
 						"package_readonly text DEFAULT 'false', " \
 						"package_update text DEFAULT 'false', " \
 						"package_appsetting text DEFAULT 'false', " \
+						"package_nodisplay text DEFAULT 'false', " \
 						"author_name text, " \
 						"author_email text, " \
 						"author_href text," \
@@ -99,6 +100,7 @@ char *prev = NULL;
 						"app_hwacceleration text DEFAULT 'use-system-setting', " \
 						"app_mainapp text, " \
 						"app_recentimage text, " \
+						"app_launchcondition text, " \
 						"app_indicatordisplay text DEFAULT 'true', " \
 						"app_portraitimg text, " \
 						"app_landscapeimg text, " \
@@ -369,6 +371,19 @@ static int __exec_query(char *query)
 	sqlite3_free(error_message);
 	return 0;
 }
+
+static int __exec_query_no_msg(char *query)
+{
+	char *error_message = NULL;
+	if (SQLITE_OK !=
+	    sqlite3_exec(pkgmgr_parser_db, query, NULL, NULL, &error_message)) {
+		sqlite3_free(error_message);
+		return -1;
+	}
+	sqlite3_free(error_message);
+	return 0;
+}
+
 static GList *__create_locale_list(GList *locale, label_x *lbl, license_x *lcn, icon_x *icn, description_x *dcn, author_x *ath)
 {
 
@@ -600,9 +615,9 @@ static void __insert_pkglocale_info(gpointer data, gpointer userdata)
 	__extract_data(data, lbl, lcn, icn, dcn, ath, &label, &license, &icon, &description, &author);
 	if (!label && !description && !icon && !license && !author)
 		return;
-	snprintf(query, MAX_QUERY_LEN, "insert into package_localized_info(package, package_locale, " \
+	sqlite3_snprintf(MAX_QUERY_LEN, query, "insert into package_localized_info(package, package_locale, " \
 		"package_label, package_icon, package_description, package_license, package_author) values " \
-		"('%s', '%s', '%s', '%s', '%s', '%s', '%s')", mfx->package, (char*)data,
+		"('%q', '%q', '%q', '%q', '%q', '%q', '%q')", mfx->package, (char*)data,
 		label, icon, description, license, author);
 	ret = __exec_query(query);
 	if (ret == -1)
@@ -616,6 +631,7 @@ static void __insert_uiapplication_locale_info(gpointer data, gpointer userdata)
 	char *icon = NULL;
 	char query[MAX_QUERY_LEN] = {'\0'};
 
+	manifest_x *mfx = (manifest_x *)userdata;
 	uiapplication_x *up = (uiapplication_x*)userdata;
 	label_x *lbl = up->label;
 	icon_x *icn = up->icon;
@@ -631,6 +647,16 @@ static void __insert_uiapplication_locale_info(gpointer data, gpointer userdata)
 	if (ret == -1)
 		DBG("Package UiApp Localized Info DB Insert failed\n");
 
+	/*insert ui app locale info to pkg locale to get mainapp data */
+	if (strcasecmp(up->mainapp, "true")==0) {
+		sqlite3_snprintf(MAX_QUERY_LEN, query, "insert into package_localized_info(package, package_locale, " \
+			"package_label, package_icon, package_description, package_license, package_author) values " \
+			"('%q', '%q', '%q', '%q', '%q', '%q', '%q')", mfx->package, (char*)data,
+			label, icon, NULL, NULL, NULL);
+		ret = __exec_query_no_msg(query);
+		if (ret == -1)
+			DBG("Package locale info inserted before.\n");
+	}
 }
 
 static void __insert_uiapplication_icon_section_info(gpointer data, gpointer userdata)
@@ -775,10 +801,10 @@ static int __insert_uiapplication_info(manifest_x *mfx)
 	{
 		snprintf(query, MAX_QUERY_LEN,
 			 "insert into package_app_info(app_id, app_component, app_exec, app_nodisplay, app_type, app_onboot, " \
-			"app_multiple, app_autorestart, app_taskmanage, app_enabled, app_hwacceleration, app_mainapp , app_recentimage, app_indicatordisplay, app_portraitimg, app_landscapeimg, app_guestmodevisibility, package) " \
-			"values('%s', '%s', '%s', '%s', '%s', '%s','%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
+			"app_multiple, app_autorestart, app_taskmanage, app_enabled, app_hwacceleration, app_mainapp , app_recentimage, app_launchcondition, app_indicatordisplay, app_portraitimg, app_landscapeimg, app_guestmodevisibility, package) " \
+			"values('%s', '%s', '%s', '%s', '%s', '%s','%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
 			 up->appid, "uiapp", up->exec, up->nodisplay, up->type, "\0", up->multiple,
-			 "\0", up->taskmanage, up->enabled, up->hwacceleration,up->mainapp, up->recentimage, up->indicatordisplay, up->portraitimg, up->landscapeimg, up->guestmode_visibility, mfx->package);
+			 "\0", up->taskmanage, up->enabled, up->hwacceleration,up->mainapp, up->recentimage, up->launchcondition, up->indicatordisplay, up->portraitimg, up->landscapeimg, up->guestmode_visibility, mfx->package);
 		ret = __exec_query(query);
 		if (ret == -1) {
 			DBG("Package UiApp Info DB Insert Failed\n");
@@ -1478,10 +1504,10 @@ static int __insert_manifest_info_in_db(manifest_x *mfx)
 	}
 	snprintf(query, MAX_QUERY_LEN,
 		 "insert into package_info(package, package_type, package_version, install_location, package_size, " \
-		"package_removable, package_preload, package_readonly, package_update, package_appsetting, author_name, author_email, author_href, installed_time, installed_storage, storeclient_id, mainapp_id, package_url, root_path) " \
-		"values('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
+		"package_removable, package_preload, package_readonly, package_update, package_appsetting, package_nodisplay, author_name, author_email, author_href, installed_time, installed_storage, storeclient_id, mainapp_id, package_url, root_path) " \
+		"values('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
 		 mfx->package, type, mfx->version, mfx->installlocation, mfx->package_size, mfx->removable, mfx->preload,
-		 mfx->readonly, mfx->update, mfx->appsetting, auth_name, auth_email, auth_href, mfx->installed_time, mfx->installed_storage, mfx->storeclient_id, mfx->mainapp_id, mfx->package_url, path);
+		 mfx->readonly, mfx->update, mfx->appsetting, mfx->nodisplay_setting, auth_name, auth_email, auth_href, mfx->installed_time, mfx->installed_storage, mfx->storeclient_id, mfx->mainapp_id, mfx->package_url, path);
 	ret = __exec_query(query);
 	if (ret == -1) {
 		DBG("Package Info DB Insert Failed\n");
@@ -1523,6 +1549,10 @@ static int __insert_manifest_info_in_db(manifest_x *mfx)
 		}
 		pvs = pvs->next;
 	}
+
+	ret = __insert_ui_mainapp_info(mfx);
+	if (ret == -1)
+		return -1;
 
 	/*Insert the package locale and app locale info */
 	pkglocale = __create_locale_list(pkglocale, lbl, lcn, icn, dcn, ath);
@@ -1609,9 +1639,6 @@ static int __insert_manifest_info_in_db(manifest_x *mfx)
 
 	/*Insert in the package_app_info DB*/
 	ret = __insert_uiapplication_info(mfx);
-	if (ret == -1)
-		return -1;
-	ret = __insert_ui_mainapp_info(mfx);
 	if (ret == -1)
 		return -1;
 	ret = __insert_serviceapplication_info(mfx);

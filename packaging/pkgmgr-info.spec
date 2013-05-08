@@ -1,6 +1,6 @@
 Name:       pkgmgr-info
 Summary:    Packager Manager infomation api for package
-Version:    0.0.102
+Version:    0.0.106
 Release:    1
 Group:      Application Framework/Package Management
 License:    Apache-2.0
@@ -49,9 +49,20 @@ make %{?jobs:-j%jobs}
 %install
 %make_install
 
-%post -p /sbin/ldconfig
+%post
 
-%postun -p /sbin/ldconfig
+mkdir -p /opt/usr/apps/tmp
+chown 5100:5100 /opt/usr/apps/tmp
+chmod 771 /opt/usr/apps/tmp
+chsmack -a '*' /opt/usr/apps/tmp
+chsmack -t /opt/usr/apps/tmp
+
+touch /opt/usr/apps/tmp/pkgmgr_tmp.txt
+
+chsmack -a 'pkgmgr::db' /opt/usr/apps/tmp/pkgmgr_tmp.txt
+
+%postun
+
 
 %files
 %manifest pkgmgr-info.manifest

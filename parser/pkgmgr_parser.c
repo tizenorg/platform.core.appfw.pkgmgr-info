@@ -1225,6 +1225,10 @@ static void __ps_free_uiapplication(uiapplication_x *uiapplication)
 		free((void *)uiapplication->package);
 		uiapplication->package = NULL;
 	}
+	if (uiapplication->launchcondition) {
+		free((void *)uiapplication->launchcondition);
+		uiapplication->launchcondition = NULL;
+	}
 	/*Free Label*/
 	if (uiapplication->label) {
 		label_x *label = uiapplication->label;
@@ -2127,6 +2131,8 @@ __get_icon_with_path(const char* icon)
 			if (access(icon_with_path, R_OK) == 0) break;
 			snprintf(icon_with_path, len, "/usr/apps/%s/res/icons/default/small/%s", package, icon);
 			if (access(icon_with_path, R_OK) == 0) break;
+			snprintf(icon_with_path, len, "/usr/ug/res/images/%s/%s", package, icon);
+			if (access(icon_with_path, R_OK) == 0) break;
 		} while (0);
 
 		free(theme);
@@ -2144,6 +2150,54 @@ __get_icon_with_path(const char* icon)
 	}
 }
 
+static void __ps_process_tag(manifest_x * mfx, char *const tagv[])
+{
+	int i = 0;
+	char delims[] = "=";
+	char *ret_result = NULL;
+	char *tag = NULL;
+
+	if (tagv == NULL)
+		return;
+
+	for (tag = strdup(tagv[0]); tag != NULL; ) {
+		ret_result = strtok(tag, delims);
+
+		/*check tag :  preload */
+		if (strcmp(ret_result, "preload") == 0) {
+			ret_result = strtok(NULL, delims);
+			if (strcmp(ret_result, "true") == 0) {
+				free((void *)mfx->preload);
+				mfx->preload = strdup("true");
+			} else if (strcmp(ret_result, "false") == 0) {
+				free((void *)mfx->preload);
+				mfx->preload = strdup("false");
+			}
+		/*check tag :  removable*/
+		} else if (strcmp(ret_result, "removable") == 0) {
+			ret_result = strtok(NULL, delims);
+			if (strcmp(ret_result, "true") == 0){
+				free((void *)mfx->removable);
+				mfx->removable = strdup("true");
+			} else if (strcmp(ret_result, "false") == 0) {
+				free((void *)mfx->removable);
+				mfx->removable = strdup("false");
+			}
+		/*check tag :  not matched*/
+		} else
+			DBG("tag process [%s]is not defined\n", ret_result);
+
+		free(tag);
+
+		/*check next value*/
+		if (tagv[++i] != NULL)
+			tag = strdup(tagv[i]);
+		else {
+			DBG("tag process success...\n");
+			return;
+		}
+	}
+}
 
 static int __ps_process_icon(xmlTextReaderPtr reader, icon_x *icon)
 {
@@ -2444,6 +2498,14 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 	} else {
 		uiapplication->mainapp = strdup("false");
 	}
+	if (xmlTextReaderGetAttribute(reader, XMLCHAR("launchcondition"))) {
+		uiapplication->launchcondition = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("launchcondition")));
+		if (uiapplication->launchcondition == NULL)
+			uiapplication->launchcondition = strdup("false");
+	} else {
+		uiapplication->launchcondition = strdup("false");
+	}
+
 	if (xmlTextReaderGetAttribute(reader, XMLCHAR("indicatordisplay"))) {
 		uiapplication->indicatordisplay = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("indicatordisplay")));
 		if (uiapplication->indicatordisplay == NULL)
@@ -3159,6 +3221,13 @@ static int __process_manifest(xmlTextReaderPtr reader, manifest_x * mfx)
 			}
 			if (xmlTextReaderGetAttribute(reader, XMLCHAR("storeclient-id")))
 				mfx->storeclient_id= ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("storeclient-id")));
+			if (xmlTextReaderGetAttribute(reader, XMLCHAR("nodisplay-setting"))) {
+				mfx->nodisplay_setting = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("nodisplay-setting")));
+				if (mfx->nodisplay_setting == NULL)
+					mfx->nodisplay_setting = strdup("false");
+			} else {
+				mfx->nodisplay_setting = strdup("false");
+			}
 
 			/*Assign default values. If required it will be overwritten in __add_preload_info()*/
 			mfx->preload = strdup("False");
@@ -3767,6 +3836,10 @@ API void pkgmgr_parser_free_manifest_xml(manifest_x *mfx)
 		free((void *)mfx->appsetting);
 		mfx->appsetting = NULL;
 	}
+	if (mfx->nodisplay_setting) {
+		free((void *)mfx->nodisplay_setting);
+		mfx->nodisplay_setting = NULL;
+	}
 
 	/*Free Icon*/
 	if (mfx->icon) {
@@ -3969,6 +4042,8 @@ API int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char
 		mfx->update = strdup("true");
 	else
 		mfx->update = strdup("false");
+
+	__ps_process_tag(mfx, tagv);
 
 	ret = pkgmgr_parser_insert_manifest_info_in_db(mfx);
 	if (ret == -1)
