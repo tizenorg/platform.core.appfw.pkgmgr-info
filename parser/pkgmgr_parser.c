@@ -4090,6 +4090,9 @@ API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *con
 	DBG("parsing manifest for upgradation: %s\n", manifest);
 	manifest_x *mfx = NULL;
 	int ret = -1;
+	bool preload;
+	pkgmgrinfo_pkginfo_h handle;
+
 	xmlInitParser();
 	mfx = pkgmgr_parser_process_manifest_xml(manifest);
 	DBG("Parsing Finished\n");
@@ -4099,6 +4102,19 @@ API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *con
 	__streamFile(manifest, ACTION_UPGRADE, temp, mfx->package);
 	__add_preload_info(mfx, manifest);
 	DBG("Added preload infomation\n");
+
+	ret = pkgmgrinfo_pkginfo_get_pkginfo(mfx->package, &handle);
+	if (ret != PMINFO_R_OK)
+		DBG("pkgmgrinfo_pkginfo_get_pkginfo failed\n");
+
+	ret = pkgmgrinfo_pkginfo_is_preload(handle, &preload);
+	if (ret != PMINFO_R_OK)
+		DBG("pkgmgrinfo_pkginfo_is_preload failed\n");
+
+	if (preload){
+		free((void *)mfx->preload);
+		mfx->preload = strdup("true");
+	}
 
 	mfx->update = strdup("true");
 	ret = pkgmgr_parser_update_manifest_info_in_db(mfx);
@@ -4113,6 +4129,7 @@ API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *con
 	else
 		DBG("Creating desktop file Success\n");
 
+	pkgmgrinfo_pkginfo_destroy_pkginfo(handle);
 	pkgmgr_parser_free_manifest_xml(mfx);
 	DBG("Free Done\n");
 	xmlCleanupParser();
