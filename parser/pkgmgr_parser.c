@@ -3228,6 +3228,8 @@ static int __process_manifest(xmlTextReaderPtr reader, manifest_x * mfx)
 			} else {
 				mfx->nodisplay_setting = strdup("false");
 			}
+			if (xmlTextReaderGetAttribute(reader, XMLCHAR("url")))
+				mfx->package_url= ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("url")));
 
 			/*Assign default values. If required it will be overwritten in __add_preload_info()*/
 			mfx->preload = strdup("False");

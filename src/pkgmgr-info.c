@@ -114,8 +114,7 @@ typedef struct _pkgmgr_certindexinfo_x {
 
 typedef struct _pkgmgr_pkginfo_x {
 	manifest_x *manifest_info;
-	char *tmp;
-	char *tmp_dup;
+	char *locale;
 
 	struct _pkgmgr_pkginfo_x *prev;
 	struct _pkgmgr_pkginfo_x *next;
@@ -146,6 +145,7 @@ typedef struct _pkgmgr_locale_x {
 
 typedef struct _pkgmgr_appinfo_x {
 	const char *package;
+	char *locale;
 	pkgmgrinfo_app_component app_component;
 	union {
 		uiapplication_x *uiapp_info;
@@ -183,7 +183,6 @@ typedef struct _pkgmgrinfo_appcontrol_x {
 typedef int (*sqlite_query_callback)(void *data, int ncols, char **coltxt, char **colname);
 
 char *pkgtype = "rpm";
-static char glocale[PKG_LOCALE_STRING_LEN_MAX];
 __thread sqlite3 *manifest_db = NULL;
 __thread sqlite3 *datacontrol_db = NULL;
 __thread sqlite3 *cert_db = NULL;
@@ -397,9 +396,9 @@ static char* __convert_system_locale_to_manifest_locale(char *syslocale)
 static void __cleanup_pkginfo(pkgmgr_pkginfo_x *data)
 {
 	ret_if(data == NULL);
-	if (data->tmp_dup){
-		free((void *)data->tmp_dup);
-		data->tmp_dup = NULL;
+	if (data->locale){
+		free((void *)data->locale);
+		data->locale = NULL;
 	}
 
 	pkgmgr_parser_free_manifest_xml(data->manifest_info);
@@ -414,6 +413,10 @@ static void __cleanup_appinfo(pkgmgr_appinfo_x *data)
 	if (data->package){
 		free((void *)data->package);
 		data->package = NULL;
+	}
+	if (data->locale){
+		free((void *)data->locale);
+		data->locale = NULL;
 	}
 
 	manifest_x *mfx = calloc(1, sizeof(manifest_x));
@@ -1880,7 +1883,7 @@ API int pkgmgrinfo_pkginfo_get_list(pkgmgrinfo_pkg_list_cb pkg_list_cb, void *us
 		ret = PMINFO_R_EINVAL;
 		goto err;
 	}
-	strncpy(glocale, locale, PKG_LOCALE_STRING_LEN_MAX - 1);
+
 	ret = __open_manifest_db();
 	if (ret == -1) {
 		_LOGE("Fail to open manifest DB\n");
@@ -1906,6 +1909,7 @@ API int pkgmgrinfo_pkginfo_get_list(pkgmgrinfo_pkg_list_cb pkg_list_cb, void *us
 
 	for(node = node->next; node ; node = node->next) {
 		pkginfo = node;
+		pkginfo->locale = strdup(locale);
 		pkginfo->manifest_info->privileges = (privileges_x *)calloc(1, sizeof(privileges_x));
 		if (pkginfo->manifest_info->privileges == NULL) {
 			_LOGE("Failed to allocate memory for privileges info\n");
@@ -2023,7 +2027,7 @@ API int pkgmgrinfo_pkginfo_get_pkginfo(const char *pkgid, pkgmgrinfo_pkginfo_h *
 
 	/*validate pkgid*/
 	ret = db_util_open_with_options(MANIFEST_DB, &pkginfo_db, SQLITE_OPEN_READONLY, NULL);
-	retvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "connect db [%s] failed!", MANIFEST_DB);
+	retvm_if(ret != SQLITE_OK, PMINFO_R_ERROR, "connect db [%s] failed!", MANIFEST_DB);
 
 	/*check pkgid exist on db*/
 	snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_info where package='%s')", pkgid);
@@ -2039,9 +2043,10 @@ API int pkgmgrinfo_pkginfo_get_pkginfo(const char *pkgid, pkgmgrinfo_pkginfo_h *
 	locale = __convert_system_locale_to_manifest_locale(syslocale);
 	tryvm_if(locale == NULL, ret = PMINFO_R_ERROR, "manifest locale is NULL");
 
-	strncpy(glocale, locale, PKG_LOCALE_STRING_LEN_MAX  - 1);
 	pkginfo = (pkgmgr_pkginfo_x *)calloc(1, sizeof(pkgmgr_pkginfo_x));
 	tryvm_if(pkginfo == NULL, ret = PMINFO_R_ERROR, "Failed to allocate memory for pkginfo");
+
+	pkginfo->locale = strdup(locale);
 
 	pkginfo->manifest_info = (manifest_x *)calloc(1, sizeof(manifest_x));
 	tryvm_if(pkginfo->manifest_info == NULL, ret = PMINFO_R_ERROR, "Failed to allocate memory for manifest info");
@@ -2365,14 +2370,15 @@ API int pkgmgrinfo_pkginfo_get_icon(pkgmgrinfo_pkginfo_h handle, char **icon)
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL");
 	retvm_if(icon == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 	int ret = PMINFO_R_OK;
-
 	char *locale = NULL;
 	icon_x *ptr = NULL;
 	*icon = NULL;
-	locale = glocale;
-	retvm_if(locale == NULL, ret = PMINFO_R_ERROR, "manifest locale is NULL");
 
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
+
+	locale = info->locale;
+	retvm_if(locale == NULL, PMINFO_R_ERROR, "manifest locale is NULL");
+
 	for(ptr = info->manifest_info->icon; ptr != NULL; ptr = ptr->next)
 	{
 		if (ptr->lang) {
@@ -2398,14 +2404,14 @@ API int pkgmgrinfo_pkginfo_get_label(pkgmgrinfo_pkginfo_h handle, char **label)
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL");
 	retvm_if(label == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 	int ret = PMINFO_R_OK;
-
 	char *locale = NULL;
 	label_x *ptr = NULL;
 	*label = NULL;
-	locale = glocale;
-	retvm_if(locale == NULL, ret = PMINFO_R_ERROR, "manifest locale is NULL");
 
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
+	locale = info->locale;
+	retvm_if(locale == NULL, PMINFO_R_ERROR, "manifest locale is NULL");
+
 	for(ptr = info->manifest_info->label; ptr != NULL; ptr = ptr->next)
 	{
 		if (ptr->lang) {
@@ -2433,9 +2439,11 @@ API int pkgmgrinfo_pkginfo_get_description(pkgmgrinfo_pkginfo_h handle, char **d
 	char *locale = NULL;
 	description_x *ptr = NULL;
 	*description = NULL;
-	locale = glocale;
-	retvm_if(locale == NULL, PMINFO_R_ERROR, "manifest locale is NULL");
+
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
+	locale = info->locale;
+	retvm_if(locale == NULL, PMINFO_R_ERROR, "manifest locale is NULL");
+
 	for(ptr = info->manifest_info->description; ptr != NULL; ptr = ptr->next)
 	{
 		if (ptr->lang) {
@@ -2462,9 +2470,11 @@ API int pkgmgrinfo_pkginfo_get_author_name(pkgmgrinfo_pkginfo_h handle, char **a
 	char *locale = NULL;
 	author_x *ptr = NULL;
 	*author_name = NULL;
-	locale = glocale;
-	retvm_if(locale == NULL, PMINFO_R_ERROR, "manifest locale is NULL");
+
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
+	locale = info->locale;
+	retvm_if(locale == NULL, PMINFO_R_ERROR, "manifest locale is NULL");
+
 	for(ptr = info->manifest_info->author; ptr != NULL; ptr = ptr->next)
 	{
 		if (ptr->lang) {
@@ -3274,7 +3284,7 @@ API int pkgmgrinfo_pkginfo_filter_count(pkgmgrinfo_pkginfo_filter_h handle, int 
 		free(syslocale);
 		return PMINFO_R_ERROR;
 	}
-	strncpy(glocale, locale, PKG_LOCALE_STRING_LEN_MAX - 1);
+
 	ret = __open_manifest_db();
 	if (ret == -1) {
 		_LOGE("Fail to open manifest DB\n");
@@ -3366,7 +3376,7 @@ API int pkgmgrinfo_pkginfo_filter_foreach_pkginfo(pkgmgrinfo_pkginfo_filter_h ha
 		free(syslocale);
 		return PMINFO_R_ERROR;
 	}
-	strncpy(glocale, locale, PKG_LOCALE_STRING_LEN_MAX  - 1);
+
 	ret = __open_manifest_db();
 	if (ret == -1) {
 		_LOGE("Fail to open manifest DB\n");
@@ -3416,6 +3426,7 @@ API int pkgmgrinfo_pkginfo_filter_foreach_pkginfo(pkgmgrinfo_pkginfo_filter_h ha
 	LISTHEAD(tmphead, node);
 	for(node = node->next ; node ; node = node->next) {
 		pkginfo = node;
+		pkginfo->locale = strdup(locale);
 		pkginfo->manifest_info->privileges = (privileges_x *)calloc(1, sizeof(privileges_x));
 		if (pkginfo->manifest_info->privileges == NULL) {
 			_LOGE("Failed to allocate memory for privileges info\n");
@@ -3544,7 +3555,6 @@ API int pkgmgrinfo_appinfo_get_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_app_
 	tryvm_if(locale == NULL, ret = PMINFO_R_EINVAL, "manifest locale is NULL");
 
 	/*calloc allinfo*/
-	strncpy(glocale, locale, PKG_LOCALE_STRING_LEN_MAX  - 1);
 	allinfo = (pkgmgr_pkginfo_x *)calloc(1, sizeof(pkgmgr_pkginfo_x));
 	tryvm_if(allinfo == NULL, ret = PMINFO_R_ERROR, "Failed to allocate memory for appinfo");
 
@@ -3590,6 +3600,7 @@ API int pkgmgrinfo_appinfo_get_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_app_
 		/*If the callback func return < 0 we break and no more call back is called*/
 		while(tmp != NULL)
 		{
+			appinfo->locale = strdup(locale);
 			appinfo->uiapp_info = tmp;
 			if (strcmp(appinfo->uiapp_info->type,"c++app") == 0){
 				if (locale) {
@@ -3664,6 +3675,7 @@ API int pkgmgrinfo_appinfo_get_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_app_
 		/*If the callback func return < 0 we break and no more call back is called*/
 		while(tmp1 != NULL)
 		{
+			appinfo->locale = strdup(locale);
 			appinfo->svcapp_info = tmp1;
 			memset(query, '\0', MAX_QUERY_LEN);
 			snprintf(query, MAX_QUERY_LEN, "select * from package_app_localized_info where app_id='%s' and app_locale='%s'", appinfo->svcapp_info->appid, locale);
@@ -3720,6 +3732,7 @@ API int pkgmgrinfo_appinfo_get_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_app_
 		/*If the callback func return < 0 we break and no more call back is called*/
 		while(tmp2 != NULL)
 		{
+			appinfo->locale = strdup(locale);
 			appinfo->uiapp_info = tmp2;
 			memset(query, '\0', MAX_QUERY_LEN);
 			snprintf(query, MAX_QUERY_LEN, "select * from package_app_localized_info where app_id='%s' and app_locale='%s'", appinfo->uiapp_info->appid, locale);
@@ -3784,6 +3797,7 @@ API int pkgmgrinfo_appinfo_get_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_app_
 		/*If the callback func return < 0 we break and no more call back is called*/
 		while(tmp3 != NULL)
 		{
+			appinfo->locale = strdup(locale);
 			appinfo->svcapp_info = tmp3;
 			memset(query, '\0', MAX_QUERY_LEN);
 			snprintf(query, MAX_QUERY_LEN, "select * from package_app_localized_info where app_id='%s' and app_locale='%s'", appinfo->svcapp_info->appid, locale);
@@ -3881,7 +3895,6 @@ API int pkgmgrinfo_appinfo_get_installed_list(pkgmgrinfo_app_list_cb app_func, v
 	retvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "connect db [%s] failed!", MANIFEST_DB);
 
 	/*calloc pkginfo*/
-	strncpy(glocale, locale, PKG_LOCALE_STRING_LEN_MAX  - 1);
 	pkgmgr_pkginfo_x *info = NULL;
 	info = (pkgmgr_pkginfo_x *)calloc(1, sizeof(pkgmgr_pkginfo_x));
 	tryvm_if(info == NULL, ret = PMINFO_R_ERROR, "Out of Memory!!!");
@@ -3910,6 +3923,7 @@ API int pkgmgrinfo_appinfo_get_installed_list(pkgmgrinfo_app_list_cb app_func, v
 	/*UI Apps*/
 	for(ptr1 = info->manifest_info->uiapplication; ptr1; ptr1 = ptr1->next)
 	{
+		appinfo->locale = strdup(locale);
 		appinfo->app_component = PMINFO_UI_APP;
 		appinfo->package = strdup(ptr1->package);
 		appinfo->uiapp_info = ptr1;
@@ -3988,6 +4002,7 @@ API int pkgmgrinfo_appinfo_get_installed_list(pkgmgrinfo_app_list_cb app_func, v
 	/*Service Apps*/
 	for(ptr2 = info->manifest_info->serviceapplication; ptr2; ptr2 = ptr2->next)
 	{
+		appinfo->locale = strdup(locale);
 		appinfo->app_component = PMINFO_SVC_APP;
 		appinfo->package = strdup(ptr2->package);
 		appinfo->svcapp_info = ptr2;
@@ -4098,7 +4113,6 @@ API int pkgmgrinfo_appinfo_get_appinfo(const char *appid, pkgmgrinfo_appinfo_h *
 	tryvm_if(locale == NULL, ret = PMINFO_R_ERROR, "manifest locale is NULL");
 
 	/*calloc appinfo*/
-	strncpy(glocale, locale, PKG_LOCALE_STRING_LEN_MAX - 1);
 	appinfo = (pkgmgr_appinfo_x *)calloc(1, sizeof(pkgmgr_appinfo_x));
 	tryvm_if(appinfo == NULL, ret = PMINFO_R_ERROR, "Failed to allocate memory for appinfo");
 
@@ -4116,6 +4130,7 @@ API int pkgmgrinfo_appinfo_get_appinfo(const char *appid, pkgmgrinfo_appinfo_h *
 		appinfo->svcapp_info = (serviceapplication_x *)calloc(1, sizeof(serviceapplication_x));
 		tryvm_if(appinfo->svcapp_info == NULL, ret = PMINFO_R_ERROR, "Failed to allocate memory for svcapp info");
 	}
+	appinfo->locale = strdup(locale);
 
 	/*populate app_info from DB*/
 	memset(query, '\0', MAX_QUERY_LEN);
@@ -4299,9 +4314,11 @@ API int pkgmgrinfo_appinfo_get_icon(pkgmgrinfo_appinfo_h  handle, char **icon)
         icon_x *ptr = NULL;
         icon_x *start = NULL;
         *icon = NULL;
-	locale= glocale;
-	retvm_if(locale == NULL, PMINFO_R_ERROR, "manifest locale is NULL");
+
         pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
+		locale = info->locale;
+		retvm_if(locale == NULL, PMINFO_R_ERROR, "manifest locale is NULL");
+
         if (info->app_component == PMINFO_UI_APP)
                 start = info->uiapp_info->icon;
         if (info->app_component == PMINFO_SVC_APP)
@@ -4334,9 +4351,11 @@ API int pkgmgrinfo_appinfo_get_label(pkgmgrinfo_appinfo_h  handle, char **label)
 	label_x *ptr = NULL;
 	label_x *start = NULL;
 	*label = NULL;
-	locale = glocale;
-	retvm_if(locale == NULL, PMINFO_R_ERROR, "manifest locale is NULL");
+
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
+	locale = info->locale;
+	retvm_if(locale == NULL, PMINFO_R_ERROR, "manifest locale is NULL");
+
 	if (info->app_component == PMINFO_UI_APP)
 		start = info->uiapp_info->label;
 	if (info->app_component == PMINFO_SVC_APP)
@@ -5161,7 +5180,7 @@ API int pkgmgrinfo_appinfo_filter_count(pkgmgrinfo_appinfo_filter_h handle, int 
 		free(syslocale);
 		return PMINFO_R_ERROR;
 	}
-	strncpy(glocale, locale, PKG_LOCALE_STRING_LEN_MAX - 1);
+
 	ret = __open_manifest_db();
 	if (ret == -1) {
 		_LOGE("Fail to open manifest DB\n");
@@ -5246,7 +5265,7 @@ API int pkgmgrinfo_appinfo_filter_foreach_appinfo(pkgmgrinfo_appinfo_filter_h ha
 		free(syslocale);
 		return PMINFO_R_ERROR;
 	}
-	strncpy(glocale, locale, PKG_LOCALE_STRING_LEN_MAX - 1);
+
 	ret = __open_manifest_db();
 	if (ret == -1) {
 		_LOGE("Fail to open manifest DB\n");
@@ -5363,6 +5382,7 @@ API int pkgmgrinfo_appinfo_filter_foreach_appinfo(pkgmgrinfo_appinfo_filter_h ha
 	/*If the callback func return < 0 we break and no more call back is called*/
 	while(ptr1 != NULL)
 	{
+		appinfo->locale = strdup(locale);
 		appinfo->uiapp_info = ptr1;
 		appinfo->app_component = PMINFO_UI_APP;
 		ret = app_cb((void *)appinfo, user_data);
@@ -5378,6 +5398,7 @@ API int pkgmgrinfo_appinfo_filter_foreach_appinfo(pkgmgrinfo_appinfo_filter_h ha
 	/*If the callback func return < 0 we break and no more call back is called*/
 	while(ptr2 != NULL)
 	{
+		appinfo->locale = strdup(locale);
 		appinfo->svcapp_info = ptr2;
 		appinfo->app_component = PMINFO_SVC_APP;
 		ret = app_cb((void *)appinfo, user_data);
@@ -5480,7 +5501,7 @@ API int pkgmgrinfo_appinfo_metadata_filter_foreach(pkgmgrinfo_appinfo_metadata_f
 	retvm_if(syslocale == NULL, PMINFO_R_ERROR, "current locale is NULL\n");
 	locale = __convert_system_locale_to_manifest_locale(syslocale);
 	tryvm_if(locale == NULL, ret = PMINFO_R_ERROR, "manifest locale is NULL\n");
-	strncpy(glocale, locale, PKG_LOCALE_STRING_LEN_MAX - 1);
+
 	ret = __open_manifest_db();
 	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "Fail to open manifest DB\n");
 
@@ -5561,6 +5582,7 @@ API int pkgmgrinfo_appinfo_metadata_filter_foreach(pkgmgrinfo_appinfo_metadata_f
 	/*If the callback func return < 0 we break and no more call back is called*/
 	while(ptr1 != NULL)
 	{
+		appinfo->locale = strdup(locale);
 		appinfo->uiapp_info = ptr1;
 		appinfo->app_component = PMINFO_UI_APP;
 		ret = app_cb((void *)appinfo, user_data);
@@ -5576,6 +5598,7 @@ API int pkgmgrinfo_appinfo_metadata_filter_foreach(pkgmgrinfo_appinfo_metadata_f
 	/*If the callback func return < 0 we break and no more call back is called*/
 	while(ptr2 != NULL)
 	{
+		appinfo->locale = strdup(locale);
 		appinfo->svcapp_info = ptr2;
 		appinfo->app_component = PMINFO_SVC_APP;
 		ret = app_cb((void *)appinfo, user_data);

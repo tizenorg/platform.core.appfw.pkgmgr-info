@@ -33,6 +33,7 @@
 	  <xs:attribute name="root_path" type="xs:string"/>
 	  <xs:attribute name="appsetting" type="xs:boolean"/>
 	  <xs:attribute name="nodisplay-setting" type="xs:boolean"/>
+	  <xs:attribute name="url" type="xs:string"/>
     </xs:complexType>
   </xs:element>
 
