@@ -1053,6 +1053,11 @@ static int __pkginfo_cb(void *data, int ncols, char **coltxt, char **colname)
 				info->manifest_info->label->lang = NULL;
 				info->manifest_info->description->lang = NULL;
 			}
+		} else if (strcmp(colname[i], "package_url") == 0 ){
+			if (coltxt[i])
+				info->manifest_info->package_url = strdup(coltxt[i]);
+			else
+				info->manifest_info->package_url = NULL;
 		} else
 			continue;
 	}
