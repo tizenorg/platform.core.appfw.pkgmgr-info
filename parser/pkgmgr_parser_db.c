@@ -105,6 +105,7 @@ char *prev = NULL;
 						"app_portraitimg text, " \
 						"app_landscapeimg text, " \
 						"app_guestmodevisibility text DEFAULT 'true', " \
+						"app_permissiontype text DEFAULT 'normal', " \
 						"package text not null, " \
 						"FOREIGN KEY(package) " \
 						"REFERENCES package_info(package) " \
@@ -183,7 +184,7 @@ char *prev = NULL;
 						"(app_id text not null, " \
 						"pm_type text not null, " \
 						"pm_value text not null, " \
-						"PRIMARY KEY(app_id) " \
+						"PRIMARY KEY(app_id, pm_type, pm_value) " \
 						"FOREIGN KEY(app_id) " \
 						"REFERENCES package_app_info(app_id) " \
 						"ON DELETE CASCADE)"
@@ -801,10 +802,12 @@ static int __insert_uiapplication_info(manifest_x *mfx)
 	{
 		snprintf(query, MAX_QUERY_LEN,
 			 "insert into package_app_info(app_id, app_component, app_exec, app_nodisplay, app_type, app_onboot, " \
-			"app_multiple, app_autorestart, app_taskmanage, app_enabled, app_hwacceleration, app_mainapp , app_recentimage, app_launchcondition, app_indicatordisplay, app_portraitimg, app_landscapeimg, app_guestmodevisibility, package) " \
-			"values('%s', '%s', '%s', '%s', '%s', '%s','%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
+			"app_multiple, app_autorestart, app_taskmanage, app_enabled, app_hwacceleration, app_mainapp , app_recentimage, " \
+			"app_launchcondition, app_indicatordisplay, app_portraitimg, app_landscapeimg, app_guestmodevisibility, app_permissiontype, package) " \
+			"values('%s', '%s', '%s', '%s', '%s', '%s','%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
 			 up->appid, "uiapp", up->exec, up->nodisplay, up->type, "\0", up->multiple,
-			 "\0", up->taskmanage, up->enabled, up->hwacceleration,up->mainapp, up->recentimage, up->launchcondition, up->indicatordisplay, up->portraitimg, up->landscapeimg, up->guestmode_visibility, mfx->package);
+			 "\0", up->taskmanage, up->enabled, up->hwacceleration,up->mainapp, up->recentimage,
+			 up->launchcondition, up->indicatordisplay, up->portraitimg, up->landscapeimg, up->guestmode_visibility, up->permission_type, mfx->package);
 		ret = __exec_query(query);
 		if (ret == -1) {
 			DBG("Package UiApp Info DB Insert Failed\n");
@@ -1133,10 +1136,10 @@ static int __insert_serviceapplication_info(manifest_x *mfx)
 	{
 		snprintf(query, MAX_QUERY_LEN,
 			 "insert into package_app_info(app_id, app_component, app_exec, app_type, app_onboot, " \
-			"app_multiple, app_autorestart, app_enabled, package) " \
-			"values('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
+			"app_multiple, app_autorestart, app_enabled, app_permissiontype, package) " \
+			"values('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
 			 sp->appid, "svcapp", sp->exec, sp->type, sp->onboot, "\0",
-			 sp->autorestart, sp->enabled, mfx->package);
+			 sp->autorestart, sp->enabled, sp->permission_type, mfx->package);
 		ret = __exec_query(query);
 		if (ret == -1) {
 			DBG("Package ServiceApp Info DB Insert Failed\n");

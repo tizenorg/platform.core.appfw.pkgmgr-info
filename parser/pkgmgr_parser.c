@@ -1357,6 +1357,15 @@ static void __ps_free_uiapplication(uiapplication_x *uiapplication)
 		free((void *)uiapplication->guestmode_visibility);
 		uiapplication->guestmode_visibility = NULL;
 	}
+	if (uiapplication->app_component) {
+		free((void *)uiapplication->app_component);
+		uiapplication->app_component = NULL;
+	}
+	if (uiapplication->permission_type) {
+		free((void *)uiapplication->permission_type);
+		uiapplication->permission_type = NULL;
+	}
+
 	free((void*)uiapplication);
 	uiapplication = NULL;
 }
@@ -1392,6 +1401,10 @@ static void __ps_free_serviceapplication(serviceapplication_x *serviceapplicatio
 	if (serviceapplication->package) {
 		free((void *)serviceapplication->package);
 		serviceapplication->package = NULL;
+	}
+	if (serviceapplication->permission_type) {
+		free((void *)serviceapplication->permission_type);
+		serviceapplication->permission_type = NULL;
 	}
 	/*Free Label*/
 	if (serviceapplication->label) {
@@ -2528,6 +2541,13 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 	} else {
 		uiapplication->guestmode_visibility = strdup("true");
 	}
+	if (xmlTextReaderGetAttribute(reader, XMLCHAR("permission-type"))) {
+		uiapplication->permission_type = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("permission-type")));
+		if (uiapplication->permission_type == NULL)
+			uiapplication->permission_type = strdup("normal");
+	} else {
+		uiapplication->permission_type = strdup("normal");
+	}
 
 	depth = xmlTextReaderDepth(reader);
 	while ((ret = __next_child_element(reader, depth))) {
@@ -2748,6 +2768,13 @@ static int __ps_process_serviceapplication(xmlTextReaderPtr reader, serviceappli
 			serviceapplication->autorestart = strdup("false");
 	} else {
 		serviceapplication->autorestart = strdup("false");
+	}
+	if (xmlTextReaderGetAttribute(reader, XMLCHAR("permission-type"))) {
+		serviceapplication->permission_type = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("permission-type")));
+		if (serviceapplication->permission_type == NULL)
+			serviceapplication->permission_type = strdup("normal");
+	} else {
+		serviceapplication->permission_type = strdup("normal");
 	}
 
 	depth = xmlTextReaderDepth(reader);
@@ -4019,7 +4046,7 @@ API manifest_x *pkgmgr_parser_process_manifest_xml(const char *manifest)
 
 API int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char *const tagv[])
 {
-	char *temp[] = {"shortcut-list", "livebox", "account", "notifications", "privileges", "ime", NULL};
+	char *temp[] = {"shortcut-list", "livebox", "account", "notifications", "privileges", "ime", "font", NULL};
 	if (manifest == NULL) {
 		DBG("argument supplied is NULL\n");
 		return PMINFO_R_EINVAL;
@@ -4084,7 +4111,7 @@ API int pkgmgr_parser_create_desktop_file(manifest_x *mfx)
 
 API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *const tagv[])
 {
-	char *temp[] = {"shortcut-list", "livebox", "account", "notifications", "privileges", "ime", NULL};
+	char *temp[] = {"shortcut-list", "livebox", "account", "notifications", "privileges", "ime", "font", NULL};
 	if (manifest == NULL) {
 		DBG("argument supplied is NULL\n");
 		return PMINFO_R_EINVAL;
@@ -4141,7 +4168,7 @@ API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *con
 
 API int pkgmgr_parser_parse_manifest_for_uninstallation(const char *manifest, char *const tagv[])
 {
-	char *temp[] = {"shortcut-list", "livebox", "account", "notifications", "privileges", "ime", NULL};
+	char *temp[] = {"shortcut-list", "livebox", "account", "notifications", "privileges", "ime", "font", NULL};
 	if (manifest == NULL) {
 		DBG("argument supplied is NULL\n");
 		return PMINFO_R_EINVAL;

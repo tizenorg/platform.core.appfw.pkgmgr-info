@@ -647,6 +647,11 @@ static int __uiapp_list_cb(void *data, int ncols, char **coltxt, char **colname)
 				info->manifest_info->uiapplication->icon->lang = NULL;
 				info->manifest_info->uiapplication->label->lang = NULL;
 			}
+		} else if (strcmp(colname[i], "app_permissiontype") == 0 ) {
+			if (coltxt[i])
+				info->manifest_info->uiapplication->permission_type = strdup(coltxt[i]);
+			else
+				info->manifest_info->uiapplication->permission_type = NULL;
 		} else
 			continue;
 	}
@@ -718,6 +723,11 @@ static int __svcapp_list_cb(void *data, int ncols, char **coltxt, char **colname
 				info->manifest_info->serviceapplication->icon->lang = NULL;
 				info->manifest_info->serviceapplication->label->lang = NULL;
 			}
+		} else if (strcmp(colname[i], "app_permissiontype") == 0 ) {
+			if (coltxt[i])
+				info->manifest_info->serviceapplication->permission_type = strdup(coltxt[i]);
+			else
+				info->manifest_info->serviceapplication->permission_type = NULL;
 		} else
 			continue;
 	}
@@ -833,6 +843,11 @@ static int __allapp_list_cb(void *data, int ncols, char **coltxt, char **colname
 								info->manifest_info->uiapplication->icon->lang = NULL;
 								info->manifest_info->uiapplication->label->lang = NULL;
 							}
+						} else if (strcmp(colname[i], "app_permissiontype") == 0 ) {
+							if (coltxt[i])
+								info->manifest_info->uiapplication->permission_type = strdup(coltxt[i]);
+							else
+								info->manifest_info->uiapplication->permission_type = NULL;
 						} else
 							continue;
 					}
@@ -894,6 +909,11 @@ static int __allapp_list_cb(void *data, int ncols, char **coltxt, char **colname
 								info->manifest_info->serviceapplication->icon->lang = NULL;
 								info->manifest_info->serviceapplication->label->lang = NULL;
 							}
+						} else if (strcmp(colname[i], "app_permissiontype") == 0 ) {
+							if (coltxt[i])
+								info->manifest_info->serviceapplication->permission_type = strdup(coltxt[i]);
+							else
+								info->manifest_info->serviceapplication->permission_type = NULL;
 						} else
 							continue;
 					}
@@ -1162,6 +1182,118 @@ static int __certinfo_cb(void *data, int ncols, char **coltxt, char **colname)
 	return 0;
 }
 
+static int __mini_appinfo_cb(void *data, int ncols, char **coltxt, char **colname)
+{
+	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)data;
+	int i = 0;
+	uiapplication_x *uiapp = NULL;
+	uiapp = calloc(1, sizeof(uiapplication_x));
+	if (uiapp == NULL) {
+		_LOGE("Out of Memory!!!\n");
+		return -1;
+	}
+
+	LISTADD(info->uiapp_info, uiapp);
+
+	for(i = 0; i < ncols; i++)
+	{
+		if (strcmp(colname[i], "app_id") == 0) {
+			/*appid being foreign key, is column in every table
+			Hence appid gets strduped every time leading to memory leak.
+			If appid is already set, just continue.*/
+			if (info->uiapp_info->appid)
+				continue;
+			if (coltxt[i])
+				info->uiapp_info->appid = strdup(coltxt[i]);
+			else
+				info->uiapp_info->appid = NULL;
+		} else if (strcmp(colname[i], "app_exec") == 0) {
+			if (coltxt[i])
+				info->uiapp_info->exec = strdup(coltxt[i]);
+			else
+				info->uiapp_info->exec = NULL;
+		} else if (strcmp(colname[i], "app_nodisplay") == 0) {
+			if (coltxt[i])
+				info->uiapp_info->nodisplay = strdup(coltxt[i]);
+			else
+				info->uiapp_info->nodisplay = NULL;
+		} else if (strcmp(colname[i], "app_type") == 0 ) {
+			if (coltxt[i])
+				info->uiapp_info->type = strdup(coltxt[i]);
+			else
+				info->uiapp_info->type = NULL;
+		} else if (strcmp(colname[i], "app_multiple") == 0 ) {
+			if (coltxt[i])
+				info->uiapp_info->multiple = strdup(coltxt[i]);
+			else
+				info->uiapp_info->multiple = NULL;
+		} else if (strcmp(colname[i], "app_taskmanage") == 0 ) {
+			if (coltxt[i])
+				info->uiapp_info->taskmanage = strdup(coltxt[i]);
+			else
+				info->uiapp_info->taskmanage = NULL;
+		} else if (strcmp(colname[i], "app_hwacceleration") == 0 ) {
+			if (coltxt[i])
+				info->uiapp_info->hwacceleration = strdup(coltxt[i]);
+			else
+				info->uiapp_info->hwacceleration = NULL;
+		} else if (strcmp(colname[i], "app_enabled") == 0 ) {
+			if (coltxt[i])
+				info->uiapp_info->enabled= strdup(coltxt[i]);
+			else
+				info->uiapp_info->enabled = NULL;
+		} else if (strcmp(colname[i], "app_indicatordisplay") == 0){
+			if (coltxt[i])
+				info->uiapp_info->indicatordisplay = strdup(coltxt[i]);
+			else
+				info->uiapp_info->indicatordisplay = NULL;
+		} else if (strcmp(colname[i], "app_portraitimg") == 0){
+			if (coltxt[i])
+				info->uiapp_info->portraitimg = strdup(coltxt[i]);
+			else
+				info->uiapp_info->portraitimg = NULL;
+		} else if (strcmp(colname[i], "app_landscapeimg") == 0){
+			if (coltxt[i])
+				info->uiapp_info->landscapeimg = strdup(coltxt[i]);
+			else
+				info->uiapp_info->landscapeimg = NULL;
+		} else if (strcmp(colname[i], "app_guestmodevisibility") == 0){
+			if (coltxt[i])
+				info->uiapp_info->guestmode_visibility = strdup(coltxt[i]);
+			else
+				info->uiapp_info->guestmode_visibility = NULL;
+		} else if (strcmp(colname[i], "app_recentimage") == 0 ) {
+			if (coltxt[i])
+				info->uiapp_info->recentimage = strdup(coltxt[i]);
+			else
+				info->uiapp_info->recentimage = NULL;
+		} else if (strcmp(colname[i], "app_mainapp") == 0 ) {
+			if (coltxt[i])
+				info->uiapp_info->mainapp = strdup(coltxt[i]);
+			else
+				info->uiapp_info->mainapp = NULL;
+		} else if (strcmp(colname[i], "package") == 0 ) {
+			if (coltxt[i])
+				info->uiapp_info->package = strdup(coltxt[i]);
+			else
+				info->uiapp_info->package = NULL;
+		} else if (strcmp(colname[i], "app_component") == 0) {
+			if (coltxt[i])
+				info->uiapp_info->app_component = strdup(coltxt[i]);
+			else
+				info->uiapp_info->app_component = NULL;
+		} else if (strcmp(colname[i], "app_permissiontype") == 0 ) {
+			if (coltxt[i])
+				info->uiapp_info->permission_type = strdup(coltxt[i]);
+			else
+				info->uiapp_info->permission_type = NULL;
+		} else
+			continue;
+	}
+
+	return 0;
+}
+
 static int __appinfo_cb(void *data, int ncols, char **coltxt, char **colname)
 {
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)data;
@@ -1324,6 +1456,11 @@ static int __appinfo_cb(void *data, int ncols, char **coltxt, char **colname)
 						info->uiapp_info->image->section= strdup(coltxt[i]);
 					else
 						info->uiapp_info->image->section = NULL;
+			} else if (strcmp(colname[i], "app_permissiontype") == 0 ) {
+				if (coltxt[i])
+					info->uiapp_info->permission_type = strdup(coltxt[i]);
+				else
+					info->uiapp_info->permission_type = NULL;
 			} else
 				continue;
 		}
@@ -1420,6 +1557,11 @@ static int __appinfo_cb(void *data, int ncols, char **coltxt, char **colname)
 					info->svcapp_info->icon->lang = NULL;
 					info->svcapp_info->label->lang = NULL;
 				}
+			} else if (strcmp(colname[i], "app_permissiontype") == 0 ) {
+				if (coltxt[i])
+					info->svcapp_info->permission_type = strdup(coltxt[i]);
+				else
+					info->svcapp_info->permission_type = NULL;
 			} else
 				continue;
 		}
@@ -3868,6 +4010,68 @@ catch:
 	return ret;
 }
 
+API int pkgmgrinfo_appinfo_get_install_list(pkgmgrinfo_app_list_cb app_func, void *user_data)
+{
+	retvm_if(app_func == NULL, PMINFO_R_EINVAL, "callback function is NULL");
+
+	int ret = PMINFO_R_OK;
+	char query[MAX_QUERY_LEN] = {'\0'};
+	pkgmgr_appinfo_x *info = NULL;
+	pkgmgr_appinfo_x *appinfo = NULL;
+	uiapplication_x *ptr1 = NULL;
+	sqlite3 *appinfo_db = NULL;
+
+	/*open db*/
+	ret = db_util_open_with_options(MANIFEST_DB, &appinfo_db, SQLITE_OPEN_READONLY, NULL);
+	retvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "connect db [%s] failed!", MANIFEST_DB);
+
+	/*calloc appinfo*/
+	info = (pkgmgr_appinfo_x *)calloc(1, sizeof(pkgmgr_appinfo_x));
+	tryvm_if(info == NULL, ret = PMINFO_R_ERROR, "Out of Memory!!!");
+
+	/*calloc uiapplication_x*/
+	info->uiapp_info= (uiapplication_x *)calloc(1, sizeof(uiapplication_x));
+	tryvm_if(info->uiapp_info == NULL, ret = PMINFO_R_ERROR, "Out of Memory!!!");
+
+	/*calloc appinfo*/
+	appinfo = (pkgmgr_appinfo_x *)calloc(1, sizeof(pkgmgr_appinfo_x));
+	tryvm_if(appinfo == NULL, ret = PMINFO_R_ERROR, "Out of Memory!!!");
+
+	/*query package_app_info*/
+	snprintf(query, MAX_QUERY_LEN, "select * from package_app_info");
+	ret = __exec_db_query(appinfo_db, query, __mini_appinfo_cb, (void *)info);
+	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App Info DB Information retrieval failed");
+
+	LISTHEAD(info->uiapp_info, ptr1);
+
+	/*call back*/
+	for(ptr1 = ptr1->next ; ptr1 ; ptr1 = ptr1->next)
+	{
+		appinfo->uiapp_info= ptr1;
+		appinfo->package = strdup(ptr1->package);
+		if (strcmp(ptr1->app_component, "uiapp") == 0)
+			appinfo->app_component = PMINFO_UI_APP;
+		else
+			appinfo->app_component = PMINFO_SVC_APP;
+
+		ret = app_func((void *)appinfo, user_data);
+		if (ret < 0)
+			break;
+		free((void *)appinfo->package);
+		appinfo->package = NULL;
+	}
+
+catch:
+	sqlite3_close(appinfo_db);
+
+	if (appinfo) {
+		free(appinfo);
+		appinfo = NULL;
+	}
+	__cleanup_appinfo(info);
+	return ret;
+}
+
 API int pkgmgrinfo_appinfo_get_installed_list(pkgmgrinfo_app_list_cb app_func, void *user_data)
 {
 	retvm_if(app_func == NULL, PMINFO_R_EINVAL, "callback function is NULL");
@@ -4562,31 +4766,45 @@ API int pkgmgrinfo_appinfo_get_permission_type(pkgmgrinfo_appinfo_h  handle, pkg
 	retvm_if(permission == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 
 	char *val = NULL;
-	permission_x *ptr = NULL;
-	permission_x *start = NULL;
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 
 	if (info->app_component == PMINFO_UI_APP)
-		start = info->uiapp_info->permission;
+		val = info->uiapp_info->permission_type;
 	else if (info->app_component == PMINFO_SVC_APP)
-		start = info->svcapp_info->permission;
+		val = info->svcapp_info->permission_type;
+	else {
+		_LOGE("app_component is not supported\n");
+		return PMINFO_R_EINVAL;
+	}
+
+	if (strcmp(val, "signature") == 0)
+		*permission = PMINFO_PERMISSION_SIGNATURE;
+	else if (strcmp(val, "privilege") == 0)
+		*permission = PMINFO_PERMISSION_PRIVILEGE;
+	else
+		*permission = PMINFO_PERMISSION_NORMAL;
+
+	return PMINFO_R_OK;
+}
+
+API int pkgmgrinfo_appinfo_foreach_permission(pkgmgrinfo_appinfo_h handle,
+			pkgmgrinfo_app_permission_list_cb permission_func, void *user_data)
+{
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
+	retvm_if(permission_func == NULL, PMINFO_R_EINVAL, "Callback function is NULL");
+	int ret = -1;
+	permission_x *ptr = NULL;
+	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
+	if (info->app_component == PMINFO_UI_APP)
+		ptr = info->uiapp_info->permission;
+	else if (info->app_component == PMINFO_SVC_APP)
+		ptr = info->svcapp_info->permission;
 	else
 		return PMINFO_R_EINVAL;
-
-	for(ptr = start; ptr != NULL; ptr = ptr->next)
-	{
-		if (ptr->type) {
-			val = (char *)ptr->type;
-
-			if (strcmp(val, "signature") == 0)
-				*permission = PMINFO_PERMISSION_SIGNATURE;
-			else if (strcmp(val, "privilege") == 0)
-				*permission = PMINFO_PERMISSION_PRIVILEGE;
-			else
-				*permission = PMINFO_PERMISSION_NORMAL;
-
+	for (; ptr; ptr = ptr->next) {
+		ret = permission_func(ptr->value, user_data);
+		if (ret < 0)
 			break;
-		}
 	}
 	return PMINFO_R_OK;
 }

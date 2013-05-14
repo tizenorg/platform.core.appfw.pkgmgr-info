@@ -372,6 +372,8 @@ typedef struct uiapplication_x {
 	const char *portraitimg;
 	const char *landscapeimg;
 	const char *guestmode_visibility;
+	const char *app_component;
+	const char *permission_type;
 	struct label_x *label;
 	struct icon_x *icon;
 	struct image_x *image;
@@ -395,6 +397,7 @@ typedef struct serviceapplication_x {
 	const char *enabled;
 	const char *type;
 	const char *package;
+	const char *permission_type;
 	struct label_x *label;
 	struct icon_x *icon;
 	struct appsvc_x *appsvc;

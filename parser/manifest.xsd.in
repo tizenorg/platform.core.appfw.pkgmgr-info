@@ -109,6 +109,7 @@
       <xs:attribute name="exec" use="required"/>
       <xs:attribute name="on-boot" use="required" type="xs:boolean"/>
       <xs:attribute name="type" use="required" type="packages:TypeType"/>
+	  <xs:attribute name="permission-type" type="xs:string"/>
     </xs:complexType>
   </xs:element>
   <xs:element name="ui-application">
@@ -142,6 +143,7 @@
       <xs:attribute name="landscape-effectimage" type="xs:string"/>
       <xs:attribute name="guestmode-visibility" type="xs:string"/>
 	  <xs:attribute name="launchcondition" type="xs:boolean"/>
+	  <xs:attribute name="permission-type" type="xs:string"/>
     </xs:complexType>
   </xs:element>
   <xs:element name="ime-application">

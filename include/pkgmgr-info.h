@@ -237,6 +237,21 @@ typedef int (*pkgmgrinfo_app_category_list_cb ) (const char *category_name,
 							void *user_data);
 
 /**
+ * @fn int (*pkgmgrinfo_app_permission_list_cb ) (const char *permission_type, void *user_data)
+ *
+ * @brief Specifies the type of function passed to pkgmgrinfo_appinfo_foreach_category()
+ *
+ * @param[in] permission_name the name of the permission
+ * @param[in] user_data user data passed to pkgmgrinfo_appinfo_foreach_category()
+ *
+ * @return 0 if success, negative value(<0) if fail. Callback is not called if return value is negative.\n
+ *
+ * @see  pkgmgrinfo_appinfo_foreach_category()
+ */
+typedef int (*pkgmgrinfo_app_permission_list_cb ) (const char *permission_type,
+							void *user_data);
+
+/**
  * @fn int (*pkgmgrinfo_pkg_privilege_list_cb ) (const char *privilege_name, void *user_data)
  *
  * @brief Specifies the type of function passed to pkgmgrinfo_pkginfo_foreach_privilege()
@@ -2015,6 +2030,47 @@ static int list_apps(const char *pkgid)
  */
 int pkgmgrinfo_appinfo_get_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_app_component component,
 							pkgmgrinfo_app_list_cb app_func, void *user_data);
+/**
+ * @fn	int pkgmgrinfo_appinfo_get_install_list(pkgmgrinfo_app_list_cb app_func, void *user_data);
+ * @brief	This API gets list of installed applications from all packages with  minimum informaion.
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ * @param[in]	app_func		iteration function for list
+ * @param[in] user_data	user data to be passed to callback function
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		None
+ * @post		None
+ * @code
+int app_list_cb(pkgmgrinfo_appinfo_h handle, void *user_data)
+{
+	char *pkgid1 = NULL;
+	char *pkgid2 = NULL;
+	pkgid1 = (char *)user_data;
+	pkgmgrinfo_appinfo_get_pkgid(handle, &pkgid2);
+	if (strcmp(pkgid1, pkgid2) == 0) {
+		return -1;
+	} else {
+		return 0;
+	}
+}
+
+static int list_apps()
+{
+	int ret = 0;
+	char *name = "helloworld";
+	ret = pkgmgrinfo_appinfo_get_install_list(app_list_cb, (void *)name);
+	if (ret != PMINFO_R_OK) {
+		return -1;
+	}
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_appinfo_get_install_list(pkgmgrinfo_app_list_cb app_func, void *user_data);
 
 /**
  * @fn	int pkgmgrinfo_appinfo_get_installed_list(pkgmgrinfo_app_list_cb app_func, void *user_data);
@@ -2765,6 +2821,51 @@ static int get_app_permission(const char *appid)
  * @endcode
  */
 int pkgmgrinfo_appinfo_get_permission_type(pkgmgrinfo_appinfo_h handle, pkgmgrinfo_permission_type *permission);
+
+/**
+ * @fn	int pkgmgrinfo_appinfo_foreach_permission(pkgmgrinfo_appinfo_h handle,
+			pkgmgrinfo_app_permission_list_cb permission_func, void *user_data);
+ * @brief	This API gets the list of permission for a particular application
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ * @param[in]	handle		pointer to the application info handle.
+ * @param[in]	permission_func		callback function for list
+ * @param[in] user_data	user data to be passed to callback function
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		pkgmgrinfo_appinfo_get_appinfo()
+ * @post		pkgmgrinfo_appinfo_destroy_appinfo()
+ * @code
+int permission_func(const char *name, void *user_data)
+{
+	if (strcmp(name, (char *)user_data) == 0)
+		return -1;
+	else
+		return 0;
+}
+
+static int list_permission(const char *appid, char *permission)
+{
+	int ret = 0;
+	pkgmgrinfo_appinfo_h handle;
+	ret = pkgmgrinfo_appinfo_get_appinfo(appid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_appinfo_foreach_permission(handle, permission_func, (void *)permission);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_appinfo_destroy_appinfo(handle);
+		return -1;
+	}
+	pkgmgrinfo_appinfo_destroy_appinfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_appinfo_foreach_permission(pkgmgrinfo_appinfo_h handle,
+			pkgmgrinfo_app_permission_list_cb permission_func, void *user_data);
 
 /**
  * @fn	int pkgmgrinfo_appinfo_foreach_category(pkgmgrinfo_appinfo_h handle,
