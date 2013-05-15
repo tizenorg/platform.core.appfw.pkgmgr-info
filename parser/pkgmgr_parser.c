@@ -3448,6 +3448,37 @@ static int __ps_make_nativeapp_desktop(manifest_x * mfx, bool is_update)
 		        fwrite(buf, 1, strlen(buf), file);
 		}
 
+		// MIME types
+		if(mfx->uiapplication && mfx->uiapplication->appsvc) {
+			appsvc_x *asvc = mfx->uiapplication->appsvc;
+			mime_x *mi = NULL;
+			const char *mime = NULL;
+			const char *mime_delim = "; ";
+			int mime_count = 0;
+
+			strncpy(buf, "MimeType=", BUFMAX-1);
+			while (asvc) {
+				mi = asvc->mime;
+				while (mi) {
+					mime_count++;
+					mime = mi->name;
+					DBG("MIME type: %s\n", mime);
+					strncat(buf, mime, BUFMAX-strlen(buf)-1);
+					if(mi->next) {
+						strncat(buf, mime_delim, BUFMAX-strlen(buf)-1);
+					}
+
+					mi = mi->next;
+					mime = NULL;
+				}
+				asvc = asvc->next;
+			}
+			DBG("MIME types: buf[%s]\n", buf);
+			DBG("MIME count: %d\n", mime_count);
+			if(mime_count)
+				fwrite(buf, 1, strlen(buf), file);
+		}
+
 		if(mfx->version) {
 		        snprintf(buf, BUFMAX, "Version=%s\n", mfx->version);
 		        fwrite(buf, 1, strlen(buf), file);
