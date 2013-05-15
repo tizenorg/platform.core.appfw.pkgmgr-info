@@ -4768,14 +4768,7 @@ API int pkgmgrinfo_appinfo_get_permission_type(pkgmgrinfo_appinfo_h  handle, pkg
 	char *val = NULL;
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 
-	if (info->app_component == PMINFO_UI_APP)
-		val = info->uiapp_info->permission_type;
-	else if (info->app_component == PMINFO_SVC_APP)
-		val = info->svcapp_info->permission_type;
-	else {
-		_LOGE("app_component is not supported\n");
-		return PMINFO_R_EINVAL;
-	}
+	val = info->uiapp_info->permission_type;
 
 	if (strcmp(val, "signature") == 0)
 		*permission = PMINFO_PERMISSION_SIGNATURE;
