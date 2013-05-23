@@ -623,6 +623,11 @@ static int __uiapp_list_cb(void *data, int ncols, char **coltxt, char **colname)
 				info->manifest_info->uiapplication->icon->text = strdup(coltxt[i]);
 			else
 				info->manifest_info->uiapplication->icon->text = NULL;
+		} else if (strcmp(colname[i], "app_enabled") == 0 ) {
+			if (coltxt[i])
+				info->manifest_info->uiapplication->enabled= strdup(coltxt[i]);
+			else
+				info->manifest_info->uiapplication->enabled = NULL;
 		} else if (strcmp(colname[i], "app_label") == 0 ) {
 			if (coltxt[i])
 				info->manifest_info->uiapplication->label->text = strdup(coltxt[i]);
