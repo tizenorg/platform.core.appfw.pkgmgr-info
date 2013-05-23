@@ -632,7 +632,6 @@ static void __insert_uiapplication_locale_info(gpointer data, gpointer userdata)
 	char *icon = NULL;
 	char query[MAX_QUERY_LEN] = {'\0'};
 
-	manifest_x *mfx = (manifest_x *)userdata;
 	uiapplication_x *up = (uiapplication_x*)userdata;
 	label_x *lbl = up->label;
 	icon_x *icn = up->icon;
@@ -652,11 +651,14 @@ static void __insert_uiapplication_locale_info(gpointer data, gpointer userdata)
 	if (strcasecmp(up->mainapp, "true")==0) {
 		sqlite3_snprintf(MAX_QUERY_LEN, query, "insert into package_localized_info(package, package_locale, " \
 			"package_label, package_icon, package_description, package_license, package_author) values " \
-			"('%q', '%q', '%q', '%q', '%q', '%q', '%q')", mfx->package, (char*)data,
+			"('%q', '%q', '%q', '%q', '%q', '%q', '%q')", up->package, (char*)data,
 			label, icon, NULL, NULL, NULL);
 		ret = __exec_query_no_msg(query);
-		if (ret == -1)
-			DBG("Package locale info inserted before.\n");
+		if (ret == -1) {
+			snprintf(query, MAX_QUERY_LEN,
+				"update package_localized_info set  package_label='%s', package_icon='%s' where package='%s' and package_locale='%s'", label, icon, up->package, (char*)data);
+			__exec_query_no_msg(query);
+		}
 	}
 }
 
@@ -754,17 +756,11 @@ static int __insert_ui_mainapp_info(manifest_x *mfx)
 	}
 
 	if (mfx->mainapp_id == NULL){
-		if (mfx->uiapplication
-		&& mfx->uiapplication->appid) {
-			snprintf(query, MAX_QUERY_LEN,
-			"update package_app_info set app_mainapp='true' where app_id='%s'", mfx->uiapplication->appid);
-		} else if (mfx->serviceapplication
-			&& mfx->serviceapplication->appid) {
-	                snprintf(query, MAX_QUERY_LEN,
-                        "update package_app_info set app_mainapp='true' where app_id='%s'", mfx->serviceapplication->appid);
-                } else {
+		if (mfx->uiapplication && mfx->uiapplication->appid) {
+			snprintf(query, MAX_QUERY_LEN, "update package_app_info set app_mainapp='true' where app_id='%s'", mfx->uiapplication->appid);
+		} else {
 			DBG("Not valid appid\n");
-                        return -1;
+			return -1;
 		}
 
 		ret = __exec_query(query);
@@ -772,12 +768,11 @@ static int __insert_ui_mainapp_info(manifest_x *mfx)
 			DBG("Package UiApp Info DB Insert Failed\n");
 			return -1;
 		}
-                if (mfx->uiapplication && mfx->uiapplication->appid)
-                        mfx->mainapp_id = strdup(mfx->uiapplication->appid);
-                else if (mfx->serviceapplication && mfx->serviceapplication->appid)
-                        mfx->mainapp_id = strdup(mfx->serviceapplication->appid);
 
-}
+		free((void *)mfx->uiapplication->mainapp);
+		mfx->uiapplication->mainapp= strdup("true");
+		mfx->mainapp_id = strdup(mfx->uiapplication->appid);
+	}
 
 	memset(query, '\0', MAX_QUERY_LEN);
 	snprintf(query, MAX_QUERY_LEN,

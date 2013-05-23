@@ -367,7 +367,7 @@ static void __get_filter_condition(gpointer data, char **condition)
 		snprintf(buf, MAX_QUERY_LEN, "package_app_info.app_hwacceleration='%s'", node->value);
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_LAUNCHCONDITION:
-		snprintf(buf, MAX_QUERY_LEN, "package_app_info.app_launchcondition='%s'", node->value);
+		snprintf(buf, MAX_QUERY_LEN, "package_app_info.app_launchcondition IN %s", node->value);
 		break;
 	default:
 		_LOGE("Invalid Property Type\n");
@@ -4049,10 +4049,7 @@ API int pkgmgrinfo_appinfo_get_install_list(pkgmgrinfo_app_list_cb app_func, voi
 	{
 		appinfo->uiapp_info= ptr1;
 		appinfo->package = strdup(ptr1->package);
-		if (strcmp(ptr1->app_component, "uiapp") == 0)
-			appinfo->app_component = PMINFO_UI_APP;
-		else
-			appinfo->app_component = PMINFO_SVC_APP;
+		appinfo->app_component = PMINFO_UI_APP;
 
 		ret = app_func((void *)appinfo, user_data);
 		if (ret < 0)

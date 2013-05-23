@@ -2458,6 +2458,7 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 				free((void *)uiapplication->appid);
 			uiapplication->appid = newappid;
 		}
+		uiapplication->package= strdup(package);
 	}
 	if (xmlTextReaderGetAttribute(reader, XMLCHAR("exec")))
 		uiapplication->exec = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("exec")));
@@ -3823,6 +3824,24 @@ static int __add_preload_info(manifest_x * mfx, const char *manifest)
 	return 0;
 }
 
+static int __check_preload_updated(manifest_x * mfx, const char *manifest)
+{
+	char filepath[PKG_STRING_LEN_MAX] = "";
+	int ret = 0;
+	uiapplication_x *uiapplication = mfx->uiapplication;
+
+	if(strstr(manifest, MANIFEST_RO_PREFIX)) {
+/* if preload app is updated, then remove previous desktop file on RW*/
+		for(; uiapplication; uiapplication=uiapplication->next) {
+				snprintf(filepath, sizeof(filepath),"%s%s.desktop", DESKTOP_RW_PATH, uiapplication->appid);
+			ret = remove(filepath);
+			if (ret <0)
+				return -1;
+		}
+
+		return 0;
+	}
+}
 
 API void pkgmgr_parser_free_manifest_xml(manifest_x *mfx)
 {
@@ -4162,6 +4181,7 @@ API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *con
 	__streamFile(manifest, ACTION_UPGRADE, temp, mfx->package);
 	__add_preload_info(mfx, manifest);
 	DBG("Added preload infomation\n");
+	__check_preload_updated(mfx, manifest);
 
 	ret = pkgmgrinfo_pkginfo_get_pkginfo(mfx->package, &handle);
 	if (ret != PMINFO_R_OK)

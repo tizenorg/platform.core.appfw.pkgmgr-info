@@ -183,12 +183,6 @@
   <xs:element name="privilege">
   </xs:element>
   <xs:element name="font">
-    <xs:complexType>
-      <xs:sequence>
-        <xs:element ref="packages:label"/>
-        <xs:element ref="packages:icon"/>
-      </xs:sequence>
-    </xs:complexType>
   </xs:element>
   <xs:element name="label">
     <xs:complexType mixed="true">
