@@ -3302,7 +3302,7 @@ static char* __convert_to_system_locale(const char *mlocale)
 	return locale;
 }
 
-#define LIBAIL_PATH "/usr/lib/libail.so.0"
+#define LIBAIL_PATH LIB_PATH "/libail.so.0"
 
 /* operation_type */
 typedef enum {
@@ -3695,7 +3695,7 @@ static int __ps_remove_nativeapp_desktop(manifest_x *mfx)
         return 0;
 }
 
-#define LIBAPPSVC_PATH "/usr/lib/libappsvc.so.0"
+#define LIBAPPSVC_PATH LIB_PATH "/libappsvc.so.0"
 
 static int __ps_remove_appsvc_db(manifest_x *mfx)
 {

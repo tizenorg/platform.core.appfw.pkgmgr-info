@@ -30,7 +30,7 @@ pkg_check_modules(parser_pkgs REQUIRED dlog libxml-2.0 glib-2.0 sqlite3 db-util 
 foreach(flag ${parser_pkgs_CFLAGS})
 	set(parser_pkgs_CFLAGS_str "${parser_pkgs_CFLAGS_str} ${flag}")
 endforeach()
-
+ADD_DEFINITIONS("-DLIB_PATH=\"${LIB_INSTALL_DIR}\"")
 ## Additional flag
 SET(EXTRA_CFLAGS "${EXTRA_CFLAGS} -fvisibility=hidden")
 SET(EXTRA_CFLAGS "${EXTRA_CFLAGS} -g -Wall")
