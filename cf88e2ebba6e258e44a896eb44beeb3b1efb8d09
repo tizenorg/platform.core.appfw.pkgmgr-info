@@ -1,0 +1,8 @@
+Change-Id: Icf88e2ebba6e258e44a896eb44beeb3b1efb8d09
+Code-Review+2: Anas Nashif
+Verified+1: Baptiste DURAND <baptiste.durand@eurogiciel.fr>
+Submitted-by: Anas Nashif
+Submitted-at: Wed, 29 May 2013 08:04:39 -0700
+Reviewed-on: https://review.tizen.org/gerrit/3750
+Project: platform/core/appfw/pkgmgr-info
+Branch: refs/heads/tizen
