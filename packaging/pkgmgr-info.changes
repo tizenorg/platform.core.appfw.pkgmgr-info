@@ -1,0 +1,3 @@
+* Wed May 29 2013 Baptiste DURAND <baptiste.durand@eurogiciel.fr> accepted/tizen/20130520.100925@bdc01e7
+- Fix spec file according to RPMLINT Rules
+- Fix x64 arch compatibility
