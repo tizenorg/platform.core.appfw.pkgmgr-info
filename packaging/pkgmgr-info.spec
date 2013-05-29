@@ -67,6 +67,7 @@ chsmack -a 'pkgmgr::db' /opt/usr/apps/tmp/pkgmgr_tmp.txt
 %post -n pkgmgr-info-parser -p /sbin/ldconfig
 
 %postun  -n pkgmgr-info-parser -p /sbin/ldconfig
+
 %files
 %manifest pkgmgr-info.manifest
 %defattr(-,root,root,-)
