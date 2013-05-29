@@ -50,6 +50,7 @@ make %{?jobs:-j%jobs}
 %make_install
 
 %post
+/sbin/ldconfig
 
 mkdir -p /opt/usr/apps/tmp
 chown 5100:5100 /opt/usr/apps/tmp
@@ -61,9 +62,11 @@ touch /opt/usr/apps/tmp/pkgmgr_tmp.txt
 
 chsmack -a 'pkgmgr::db' /opt/usr/apps/tmp/pkgmgr_tmp.txt
 
-%postun
+%postun -p /sbin/ldconfig
 
+%post -n pkgmgr-info-parser -p /sbin/ldconfig
 
+%postun  -n pkgmgr-info-parser -p /sbin/ldconfig
 %files
 %manifest pkgmgr-info.manifest
 %defattr(-,root,root,-)
