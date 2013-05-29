@@ -459,6 +459,7 @@ typedef struct manifest_x {
 	const char *mainapp_id;		/**< app id of main application*/
 	const char *package_url;		/**< app id of main application*/
 	const char *root_path;		/**< package root path*/
+	const char *csc_path;		/**< package csc path*/
 	const char *nodisplay_setting;		/**< package no display setting menu*/
 	struct icon_x *icon;		/**< package icon*/
 	struct label_x *label;		/**< package label*/

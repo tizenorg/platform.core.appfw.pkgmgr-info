@@ -3240,6 +3240,8 @@ static int __process_manifest(xmlTextReaderPtr reader, manifest_x * mfx)
 				mfx->type = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("type")));
 			if (xmlTextReaderGetAttribute(reader, XMLCHAR("root_path")))
 				mfx->root_path = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("root_path")));
+			if (xmlTextReaderGetAttribute(reader, XMLCHAR("csc_path")))
+				mfx->csc_path = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("csc_path")));
 			if (xmlTextReaderGetAttribute(reader, XMLCHAR("appsetting"))) {
 				mfx->appsetting = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("appsetting")));
 				if (mfx->appsetting == NULL)
@@ -3263,6 +3265,7 @@ static int __process_manifest(xmlTextReaderPtr reader, manifest_x * mfx)
 			mfx->preload = strdup("False");
 			mfx->removable = strdup("True");
 			mfx->readonly = strdup("False");
+			mfx->update = strdup("False");
 			char buf[PKG_STRING_LEN_MAX] = {'\0'};
 			char *val = NULL;
 			time_t current_time;
@@ -3284,6 +3287,7 @@ static int __process_manifest(xmlTextReaderPtr reader, manifest_x * mfx)
 
 #define DESKTOP_RW_PATH "/opt/share/applications/"
 #define DESKTOP_RO_PATH "/usr/share/applications/"
+#define MANIFEST_RO_PREFIX "/usr/share/packages/"
 
 static char* __convert_to_system_locale(const char *mlocale)
 {
@@ -3360,7 +3364,7 @@ END:
 /* desktop shoud be generated automatically based on manifest */
 /* Currently removable, taskmanage, etc fields are not considerd. it will be decided soon.*/
 #define BUFMAX 1024*128
-static int __ps_make_nativeapp_desktop(manifest_x * mfx, bool is_update)
+static int __ps_make_nativeapp_desktop(manifest_x * mfx, const char *manifest, bool is_update)
 {
         FILE* file = NULL;
         int fd = 0;
@@ -3384,8 +3388,17 @@ static int __ps_make_nativeapp_desktop(manifest_x * mfx, bool is_update)
 
 	for(; mfx->uiapplication; mfx->uiapplication=mfx->uiapplication->next) {
 
+		if (manifest != NULL) {
+			/* skip making a deskfile and update ail, if preload app is updated */
+			if(strstr(manifest, MANIFEST_RO_PREFIX)) {
+				__ail_change_info(AIL_INSTALL, mfx->uiapplication->appid);
+	            DBGE("preload app is update : skip and update ail : %s", manifest);
+				continue;
+			}
+		}
+
 		if(mfx->readonly && !strcasecmp(mfx->readonly, "True"))
-		        snprintf(filepath, sizeof(filepath),"%s%s.desktop", DESKTOP_RO_PATH, mfx->uiapplication->appid);
+			snprintf(filepath, sizeof(filepath),"%s%s.desktop", DESKTOP_RO_PATH, mfx->uiapplication->appid);
 		else
 			snprintf(filepath, sizeof(filepath),"%s%s.desktop", DESKTOP_RW_PATH, mfx->uiapplication->appid);
 
@@ -3760,7 +3773,6 @@ END:
 	return ret;
 }
 
-#define MANIFEST_RO_PREFIX "/usr/share/packages/"
 #define PRELOAD_PACKAGE_LIST "/usr/etc/package-manager/preload/preload_list.txt"
 static int __add_preload_info(manifest_x * mfx, const char *manifest)
 {
@@ -3831,16 +3843,20 @@ static int __check_preload_updated(manifest_x * mfx, const char *manifest)
 	uiapplication_x *uiapplication = mfx->uiapplication;
 
 	if(strstr(manifest, MANIFEST_RO_PREFIX)) {
-/* if preload app is updated, then remove previous desktop file on RW*/
+		/* if preload app is updated, then remove previous desktop file on RW*/
 		for(; uiapplication; uiapplication=uiapplication->next) {
 				snprintf(filepath, sizeof(filepath),"%s%s.desktop", DESKTOP_RW_PATH, uiapplication->appid);
 			ret = remove(filepath);
 			if (ret <0)
 				return -1;
 		}
-
-		return 0;
+	} else {
+		/* if downloaded app is updated, then update tag set true*/
+		free((void *)mfx->update);
+		mfx->update = strdup("true");
 	}
+
+	return 0;
 }
 
 API void pkgmgr_parser_free_manifest_xml(manifest_x *mfx)
@@ -3910,6 +3926,10 @@ API void pkgmgr_parser_free_manifest_xml(manifest_x *mfx)
 	if (mfx->root_path) {
 		free((void *)mfx->root_path);
 		mfx->root_path = NULL;
+	}
+	if (mfx->csc_path) {
+		free((void *)mfx->csc_path);
+		mfx->csc_path = NULL;
 	}
 	if (mfx->appsetting) {
 		free((void *)mfx->appsetting);
@@ -4116,12 +4136,6 @@ API int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char
 	__add_preload_info(mfx, manifest);
 	DBG("Added preload infomation\n");
 
-	snprintf(roxml_check, PKG_STRING_LEN_MAX, MANIFEST_RO_DIRECTORY "/%s.xml", mfx->package);
-	if (access(roxml_check, F_OK) == 0)
-		mfx->update = strdup("true");
-	else
-		mfx->update = strdup("false");
-
 	__ps_process_tag(mfx, tagv);
 
 	ret = pkgmgr_parser_insert_manifest_info_in_db(mfx);
@@ -4130,7 +4144,7 @@ API int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char
 	else
 		DBG("DB Insert Success\n");
 
-	ret = __ps_make_nativeapp_desktop(mfx, 0);
+	ret = __ps_make_nativeapp_desktop(mfx, NULL, 0);
 	if (ret == -1)
 		DBG("Creating desktop file failed\n");
 	else
@@ -4150,7 +4164,7 @@ API int pkgmgr_parser_create_desktop_file(manifest_x *mfx)
 		DBG("Manifest pointer is NULL\n");
 		return -1;
 	}
-        ret = __ps_make_nativeapp_desktop(mfx, 0);
+        ret = __ps_make_nativeapp_desktop(mfx, NULL, 0);
         if (ret == -1)
                 DBG("Creating desktop file failed\n");
         else
@@ -4196,14 +4210,13 @@ API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *con
 		mfx->preload = strdup("true");
 	}
 
-	mfx->update = strdup("true");
 	ret = pkgmgr_parser_update_manifest_info_in_db(mfx);
 	if (ret == -1)
 		DBG("DB Update failed\n");
 	else
 		DBG("DB Update Success\n");
 
-	ret = __ps_make_nativeapp_desktop(mfx, 1);
+	ret = __ps_make_nativeapp_desktop(mfx, manifest, 1);
 	if (ret == -1)
 		DBG("Creating desktop file failed\n");
 	else

@@ -1280,6 +1280,43 @@ static int get_root_path(const char *pkgid)
  */
 int pkgmgrinfo_pkginfo_get_root_path(pkgmgrinfo_pkginfo_h handle, char **path);
 
+
+/**
+ * @fn int pkgmgrinfo_pkginfo_get_csc_path(pkgmgrinfo_pkginfo_h handle, char **path)
+ * @brief	This API gets the csc path of package
+ *
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in] handle		pointer to package info handle
+ * @param[out] path		pointer to hold csc path of package
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @code
+static int get_csc_path(const char *pkgid)
+{
+	int ret = 0;
+	char *path = 0;
+	pkgmgrinfo_pkginfo_h handle;
+	ret = pkgmgrinfo_pkginfo_get_pkginfo(pkgid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+
+	ret = pkgmgrinfo_pkginfo_get_csc_path(handle, &path);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_pkginfo_destroy_pkginfo(handle);
+		return -1;
+	}
+	printf("path : %s\n", path);
+	pkgmgrinfo_pkginfo_destroy_pkginfo(handle);
+
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_pkginfo_get_csc_path(pkgmgrinfo_pkginfo_h handle, char **path);
+
 /**
  * @fn int pkgmgrinfo_pkginfo_compare_pkg_cert_info(const char *lhs_package_id, const char *rhs_package_id, pkgmgrinfo_cert_compare_result_type_e *compare_result)
  * @brief	This API compare the cert information from given package id

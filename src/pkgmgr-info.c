@@ -1060,6 +1060,11 @@ static int __pkginfo_cb(void *data, int ncols, char **coltxt, char **colname)
 				info->manifest_info->root_path = strdup(coltxt[i]);
 			else
 				info->manifest_info->root_path = NULL;
+		} else if (strcmp(colname[i], "csc_path") == 0 ){
+			if (coltxt[i])
+				info->manifest_info->csc_path = strdup(coltxt[i]);
+			else
+				info->manifest_info->csc_path = NULL;
 		} else if (strcmp(colname[i], "privilege") == 0 ){
 			if (coltxt[i])
 				info->manifest_info->privileges->privilege->text = strdup(coltxt[i]);
@@ -2880,6 +2885,19 @@ API int pkgmgrinfo_pkginfo_get_root_path(pkgmgrinfo_pkginfo_h handle, char **pat
 	return PMINFO_R_OK;
 }
 
+API int pkgmgrinfo_pkginfo_get_csc_path(pkgmgrinfo_pkginfo_h handle, char **path)
+{
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
+	retvm_if(path == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
+
+	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
+	if (info->manifest_info->csc_path)
+		*path = (char *)info->manifest_info->csc_path;
+	else
+		*path = (char *)info->manifest_info->csc_path;
+
+	return PMINFO_R_OK;
+}
 
 API int pkgmgrinfo_pkginfo_compare_pkg_cert_info(const char *lhs_package_id, const char *rhs_package_id, pkgmgrinfo_cert_compare_result_type_e *compare_result)
 {
@@ -3669,9 +3687,11 @@ API int pkgmgrinfo_pkginfo_foreach_privilege(pkgmgrinfo_pkginfo_h handle,
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
 	ptr = info->manifest_info->privileges->privilege;
 	for (; ptr; ptr = ptr->next) {
-		ret = privilege_func(ptr->text, user_data);
-		if (ret < 0)
-			break;
+		if (ptr->text){
+			ret = privilege_func(ptr->text, user_data);
+			if (ret < 0)
+				break;
+		}
 	}
 	return PMINFO_R_OK;
 }

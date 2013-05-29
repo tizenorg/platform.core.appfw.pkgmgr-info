@@ -63,7 +63,8 @@ char *prev = NULL;
 						"storeclient_id text," \
 						"mainapp_id text," \
 						"package_url text," \
-						"root_path text)"
+						"root_path text," \
+						"csc_path text)"
 
 #define QUERY_CREATE_TABLE_PACKAGE_LOCALIZED_INFO "create table if not exists package_localized_info " \
 						"(package text not null, " \
@@ -1502,10 +1503,12 @@ static int __insert_manifest_info_in_db(manifest_x *mfx)
 	}
 	snprintf(query, MAX_QUERY_LEN,
 		 "insert into package_info(package, package_type, package_version, install_location, package_size, " \
-		"package_removable, package_preload, package_readonly, package_update, package_appsetting, package_nodisplay, author_name, author_email, author_href, installed_time, installed_storage, storeclient_id, mainapp_id, package_url, root_path) " \
-		"values('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
+		"package_removable, package_preload, package_readonly, package_update, package_appsetting, package_nodisplay, " \
+		"author_name, author_email, author_href, installed_time, installed_storage, storeclient_id, mainapp_id, package_url, root_path, csc_path) " \
+		"values('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
 		 mfx->package, type, mfx->version, mfx->installlocation, mfx->package_size, mfx->removable, mfx->preload,
-		 mfx->readonly, mfx->update, mfx->appsetting, mfx->nodisplay_setting, auth_name, auth_email, auth_href, mfx->installed_time, mfx->installed_storage, mfx->storeclient_id, mfx->mainapp_id, mfx->package_url, path);
+		 mfx->readonly, mfx->update, mfx->appsetting, mfx->nodisplay_setting,
+		 auth_name, auth_email, auth_href, mfx->installed_time, mfx->installed_storage, mfx->storeclient_id, mfx->mainapp_id, mfx->package_url, path, mfx->csc_path);
 	ret = __exec_query(query);
 	if (ret == -1) {
 		DBG("Package Info DB Insert Failed\n");
