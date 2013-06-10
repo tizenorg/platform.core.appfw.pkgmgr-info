@@ -2694,9 +2694,7 @@ API int pkgmgrinfo_pkginfo_get_installed_storage(pkgmgrinfo_pkginfo_h handle, pk
 
 	/*check whether application is in external memory or not */
 	fp = fopen(app_mmc_path, "r");
-	if (fp == NULL) {
-		_LOGE(" app path in external memory not accesible\n");
-	} else {
+	if (fp != NULL) {
 		fclose(fp);
 		fp = NULL;
 		*storage = PMINFO_EXTERNAL_STORAGE;
@@ -2706,7 +2704,6 @@ API int pkgmgrinfo_pkginfo_get_installed_storage(pkgmgrinfo_pkginfo_h handle, pk
 	/*check whether application is in internal or not */
 	fp = fopen(app_dir_path, "r");
 	if (fp == NULL) {
-		_LOGE(" app path in internal memory not accesible\n");
 		*storage = -1;
 		return PMINFO_R_ERROR;
 	} else {
