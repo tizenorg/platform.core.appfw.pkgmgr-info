@@ -107,6 +107,7 @@ char *prev = NULL;
 						"app_landscapeimg text, " \
 						"app_guestmodevisibility text DEFAULT 'true', " \
 						"app_permissiontype text DEFAULT 'normal', " \
+						"component_type text, " \
 						"package text not null, " \
 						"FOREIGN KEY(package) " \
 						"REFERENCES package_info(package) " \
@@ -799,11 +800,11 @@ static int __insert_uiapplication_info(manifest_x *mfx)
 		snprintf(query, MAX_QUERY_LEN,
 			 "insert into package_app_info(app_id, app_component, app_exec, app_nodisplay, app_type, app_onboot, " \
 			"app_multiple, app_autorestart, app_taskmanage, app_enabled, app_hwacceleration, app_mainapp , app_recentimage, " \
-			"app_launchcondition, app_indicatordisplay, app_portraitimg, app_landscapeimg, app_guestmodevisibility, app_permissiontype, package) " \
-			"values('%s', '%s', '%s', '%s', '%s', '%s','%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
+			"app_launchcondition, app_indicatordisplay, app_portraitimg, app_landscapeimg, app_guestmodevisibility, app_permissiontype, component_type, package) " \
+			"values('%s', '%s', '%s', '%s', '%s', '%s','%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
 			 up->appid, "uiapp", up->exec, up->nodisplay, up->type, "\0", up->multiple,
 			 "\0", up->taskmanage, up->enabled, up->hwacceleration,up->mainapp, up->recentimage,
-			 up->launchcondition, up->indicatordisplay, up->portraitimg, up->landscapeimg, up->guestmode_visibility, up->permission_type, mfx->package);
+			 up->launchcondition, up->indicatordisplay, up->portraitimg, up->landscapeimg, up->guestmode_visibility, up->permission_type, up->component_type, mfx->package);
 		ret = __exec_query(query);
 		if (ret == -1) {
 			DBG("Package UiApp Info DB Insert Failed\n");

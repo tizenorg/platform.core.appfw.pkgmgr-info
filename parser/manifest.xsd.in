@@ -145,6 +145,7 @@
       <xs:attribute name="guestmode-visibility" type="xs:string"/>
 	  <xs:attribute name="launchcondition" type="xs:boolean"/>
 	  <xs:attribute name="permission-type" type="xs:string"/>
+	  <xs:attribute name="component-type" type="xs:string"/>
     </xs:complexType>
   </xs:element>
   <xs:element name="ime-application">

@@ -657,6 +657,11 @@ static int __uiapp_list_cb(void *data, int ncols, char **coltxt, char **colname)
 				info->manifest_info->uiapplication->permission_type = strdup(coltxt[i]);
 			else
 				info->manifest_info->uiapplication->permission_type = NULL;
+		} else if (strcmp(colname[i], "component_type") == 0 ) {
+			if (coltxt[i])
+				info->manifest_info->uiapplication->component_type = strdup(coltxt[i]);
+			else
+				info->manifest_info->uiapplication->component_type = NULL;
 		} else
 			continue;
 	}
@@ -1297,6 +1302,11 @@ static int __mini_appinfo_cb(void *data, int ncols, char **coltxt, char **colnam
 				info->uiapp_info->permission_type = strdup(coltxt[i]);
 			else
 				info->uiapp_info->permission_type = NULL;
+		} else if (strcmp(colname[i], "component_type") == 0 ) {
+			if (coltxt[i])
+				info->uiapp_info->component_type = strdup(coltxt[i]);
+			else
+				info->uiapp_info->component_type = NULL;
 		} else
 			continue;
 	}
@@ -1471,6 +1481,11 @@ static int __appinfo_cb(void *data, int ncols, char **coltxt, char **colname)
 					info->uiapp_info->permission_type = strdup(coltxt[i]);
 				else
 					info->uiapp_info->permission_type = NULL;
+			} else if (strcmp(colname[i], "component_type") == 0 ) {
+				if (coltxt[i])
+					info->uiapp_info->component_type = strdup(coltxt[i]);
+				else
+					info->uiapp_info->component_type = NULL;
 			} else
 				continue;
 		}
@@ -4795,6 +4810,17 @@ API int pkgmgrinfo_appinfo_get_permission_type(pkgmgrinfo_appinfo_h  handle, pkg
 		*permission = PMINFO_PERMISSION_PRIVILEGE;
 	else
 		*permission = PMINFO_PERMISSION_NORMAL;
+
+	return PMINFO_R_OK;
+}
+
+API int pkgmgrinfo_appinfo_get_component_type(pkgmgrinfo_appinfo_h  handle, char **component_type)
+{
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
+	retvm_if(component_type == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
+	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
+
+	*component_type = (char *)info->uiapp_info->component_type;
 
 	return PMINFO_R_OK;
 }

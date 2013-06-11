@@ -1365,6 +1365,10 @@ static void __ps_free_uiapplication(uiapplication_x *uiapplication)
 		free((void *)uiapplication->permission_type);
 		uiapplication->permission_type = NULL;
 	}
+	if (uiapplication->component_type) {
+		free((void *)uiapplication->component_type);
+		uiapplication->component_type = NULL;
+	}
 
 	free((void*)uiapplication);
 	uiapplication = NULL;
@@ -2548,6 +2552,13 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 			uiapplication->permission_type = strdup("normal");
 	} else {
 		uiapplication->permission_type = strdup("normal");
+	}
+	if (xmlTextReaderGetAttribute(reader, XMLCHAR("component-type"))) {
+		uiapplication->component_type = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("component-type")));
+		if (uiapplication->component_type == NULL)
+			uiapplication->component_type = strdup("uiapp");
+	} else {
+		uiapplication->component_type = strdup("uiapp");
 	}
 
 	depth = xmlTextReaderDepth(reader);
