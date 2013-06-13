@@ -2665,6 +2665,60 @@ int pkgmgrinfo_appinfo_get_mime(pkgmgrinfo_appcontrol_h  handle,
 										int *mime_count, char ***mime);
 
 /**
+ * @fn int pkgmgrinfo_appinfo_get_subapp(pkgmgrinfo_appcontrol_h  handle,
+										int *subapp_count, char ***subapp)
+ * @brief	This API gets the list of subapp of the application
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in] handle		pointer to the appcontrol handle.
+ * @param[out] subapp_count		pointer to hold number of subapp
+ * @param[out] subapp		pointer to hold list of subapp
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		pkgmgrinfo_appinfo_get_appinfo()
+ * @post		pkgmgrinfo_appinfo_destroy_appinfo()
+ * @see		pkgmgrinfo_appinfo_get_uri()
+ * @see		pkgmgrinfo_appinfo_get_operation()
+ * @code
+int appcontrol_func(pkgmgrinfo_appcontrol_h handle, void *user_data)
+{
+	int sc = 0;
+	int i = 0;
+	char **subapp = NULL;
+	pkgmgrinfo_appinfo_get_subapp(handle, &sc, &subapp);
+	for (i = 0; i < sc; i++) {
+		if (strcmp(subapp[i], (char *)user_data) == 0)
+			return -1;
+		else
+			return 0;
+	}
+}
+
+static int check_subapp(const char *appid, char *subapp)
+{
+	int ret = 0;
+	pkgmgrinfo_appinfo_h handle = NULL;
+	ret = pkgmgrinfo_appinfo_get_appinfo(appid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_appinfo_foreach_appcontrol(handle, appcontrol_func, (void *)subapp);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_appinfo_destroy_appinfo(handle);
+		return -1;
+	}
+	pkgmgrinfo_appinfo_destroy_appinfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_appinfo_get_subapp(pkgmgrinfo_appcontrol_h  handle,
+						int *subapp_count, char ***subapp);
+
+/**
  * @fn int pkgmgrinfo_appinfo_get_notification_icon(pkgmgrinfo_appinfo_h handle, char **icon)
  * @brief	This API gets the notification icon of the application
  *
@@ -3480,6 +3534,46 @@ static int get_app_mainapp(const char *appid)
  * @endcode
  */
 int pkgmgrinfo_appinfo_is_mainapp(pkgmgrinfo_appinfo_h  handle, bool *mainapp);
+
+
+/**
+ * @fn int pkgmgrinfo_appinfo_is_preload(pkgmgrinfo_appinfo_h handle, bool *preload)
+ * @brief	This API gets the value for given application is preload or not from handle
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in]	handle	pointer to application info handle
+ * @param[out] preload		pointer to hold preload is or not
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		pkgmgrinfo_appinfo_get_appinfo()
+ * @post		pkgmgrinfo_appinfo_destroy_appinfo()
+ * @see		pkgmgrinfo_appinfo_get_appid()
+ * @see		pkgmgrinfo_appinfo_is_multiple()
+ * @code
+static int get_app_preload(const char *appid)
+{
+	int ret = 0;
+	bool preload = 0;
+	pkgmgrinfo_appinfo_h handle = NULL;
+	ret = pkgmgrinfo_appinfo_get_appinfo(appid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_appinfo_is_preload(handle, &preload);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_appinfo_destroy_appinfo(handle);
+		return -1;
+	}
+	printf("preload: %d\n", preload);
+	pkgmgrinfo_appinfo_destroy_appinfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_appinfo_is_preload(pkgmgrinfo_appinfo_h handle, bool *preload);
 
 /**
  * @fn int pkgmgrinfo_appinfo_destroy_appinfo(pkgmgrinfo_appinfo_h handle)

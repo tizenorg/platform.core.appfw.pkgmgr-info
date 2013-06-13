@@ -1369,6 +1369,10 @@ static void __ps_free_uiapplication(uiapplication_x *uiapplication)
 		free((void *)uiapplication->component_type);
 		uiapplication->component_type = NULL;
 	}
+	if (uiapplication->preload) {
+		free((void *)uiapplication->preload);
+		uiapplication->preload = NULL;
+	}
 
 	free((void*)uiapplication);
 	uiapplication = NULL;
@@ -4194,8 +4198,9 @@ API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *con
 	DBG("parsing manifest for upgradation: %s\n", manifest);
 	manifest_x *mfx = NULL;
 	int ret = -1;
-	bool preload;
-	pkgmgrinfo_pkginfo_h handle;
+	bool preload = 0;
+	char *csc_path = NULL;
+	pkgmgrinfo_pkginfo_h handle = NULL;
 
 	xmlInitParser();
 	mfx = pkgmgr_parser_process_manifest_xml(manifest);
@@ -4216,9 +4221,19 @@ API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *con
 	if (ret != PMINFO_R_OK)
 		DBG("pkgmgrinfo_pkginfo_is_preload failed\n");
 
-	if (preload){
+	if (preload) {
 		free((void *)mfx->preload);
 		mfx->preload = strdup("true");
+	}
+
+	ret = pkgmgrinfo_pkginfo_get_csc_path(handle, &csc_path);
+	if (ret != PMINFO_R_OK)
+		DBG("pkgmgrinfo_pkginfo_get_csc_path failed\n");
+
+	if (csc_path != NULL) {
+		if (mfx->csc_path)
+			free((void *)mfx->csc_path);
+		mfx->csc_path = strdup(csc_path);
 	}
 
 	ret = pkgmgr_parser_update_manifest_info_in_db(mfx);

@@ -175,9 +175,11 @@ typedef struct _pkgmgrinfo_appcontrol_x {
 	int operation_count;
 	int uri_count;
 	int mime_count;
+	int subapp_count;
 	char **operation;
 	char **uri;
 	char **mime;
+	char **subapp;
 } pkgmgrinfo_appcontrol_x;
 
 typedef int (*sqlite_query_callback)(void *data, int ncols, char **coltxt, char **colname);
@@ -662,6 +664,11 @@ static int __uiapp_list_cb(void *data, int ncols, char **coltxt, char **colname)
 				info->manifest_info->uiapplication->component_type = strdup(coltxt[i]);
 			else
 				info->manifest_info->uiapplication->component_type = NULL;
+		} else if (strcmp(colname[i], "app_preload") == 0 ) {
+			if (coltxt[i])
+				info->manifest_info->uiapplication->preload = strdup(coltxt[i]);
+			else
+				info->manifest_info->uiapplication->preload = NULL;
 		} else
 			continue;
 	}
@@ -1307,6 +1314,11 @@ static int __mini_appinfo_cb(void *data, int ncols, char **coltxt, char **colnam
 				info->uiapp_info->component_type = strdup(coltxt[i]);
 			else
 				info->uiapp_info->component_type = NULL;
+		} else if (strcmp(colname[i], "app_preload") == 0 ) {
+			if (coltxt[i])
+				info->uiapp_info->preload = strdup(coltxt[i]);
+			else
+				info->uiapp_info->preload = NULL;
 		} else
 			continue;
 	}
@@ -1486,6 +1498,11 @@ static int __appinfo_cb(void *data, int ncols, char **coltxt, char **colname)
 					info->uiapp_info->component_type = strdup(coltxt[i]);
 				else
 					info->uiapp_info->component_type = NULL;
+			} else if (strcmp(colname[i], "app_preload") == 0 ) {
+				if (coltxt[i])
+					info->uiapp_info->preload = strdup(coltxt[i]);
+				else
+					info->uiapp_info->preload = NULL;
 			} else
 				continue;
 		}
@@ -1862,7 +1879,6 @@ static char* __get_app_locale_by_fallback(sqlite3 *db, const char *appid, const 
 	check_result = __check_app_locale_from_app_localized_info_by_fallback(db, appid, locale);
 	if(check_result == 1) {
 		   locale_new = __get_app_locale_from_app_localized_info_by_fallback(db, appid, locale);
-		   _LOGD("%s found (%s) language-locale in DB by fallback!\n", appid, locale_new);
 		   free(locale);
 		   if (locale_new == NULL)
 			   locale_new =  strdup(DEFAULT_LOCALE);
@@ -1871,7 +1887,6 @@ static char* __get_app_locale_by_fallback(sqlite3 *db, const char *appid, const 
 
 	/* default locale */
 	free(locale);
-	_LOGD("%s DEFAULT_LOCALE)\n", appid);
 	return	strdup(DEFAULT_LOCALE);
 }
 
@@ -4696,6 +4711,18 @@ API int pkgmgrinfo_appinfo_get_mime(pkgmgrinfo_appcontrol_h  handle,
 	return PMINFO_R_OK;
 }
 
+API int pkgmgrinfo_appinfo_get_subapp(pkgmgrinfo_appcontrol_h  handle,
+					int *subapp_count, char ***subapp)
+{
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
+	retvm_if(subapp == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
+	retvm_if(subapp_count == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
+	pkgmgrinfo_appcontrol_x *data = (pkgmgrinfo_appcontrol_x *)handle;
+	*subapp_count = data->subapp_count;
+	*subapp = data->subapp;
+	return PMINFO_R_OK;
+}
+
 API int pkgmgrinfo_appinfo_get_setting_icon(pkgmgrinfo_appinfo_h  handle, char **icon)
 {
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL\n");
@@ -4901,16 +4928,19 @@ API int pkgmgrinfo_appinfo_foreach_appcontrol(pkgmgrinfo_appinfo_h handle,
 	int oc = 0;
 	int mc = 0;
 	int uc = 0;
+	int sc = 0;
 	char *pkgid = NULL;
 	char *manifest = NULL;
 	char **operation = NULL;
 	char **uri = NULL;
 	char **mime = NULL;
+	char **subapp = NULL;
 	appcontrol_x *appcontrol = NULL;
 	manifest_x *mfx = NULL;
 	operation_x *op = NULL;
 	uri_x *ui = NULL;
 	mime_x *mi = NULL;
+	subapp_x *sa = NULL;
 	pkgmgrinfo_app_component component;
 	pkgmgrinfo_appcontrol_x *ptr = NULL;
 	ret = pkgmgrinfo_appinfo_get_pkgid(handle, &pkgid);
@@ -4977,6 +5007,11 @@ API int pkgmgrinfo_appinfo_foreach_appcontrol(pkgmgrinfo_appinfo_h handle,
 			mc = mc + 1;
 		mi = appcontrol->mime;
 
+		sa = appcontrol->subapp;
+		for (; sa; sa = sa->next)
+			sc = sc + 1;
+		sa = appcontrol->subapp;
+
 		operation = (char **)calloc(oc, sizeof(char *));
 		for (i = 0; i < oc; i++) {
 			operation[i] = strndup(op->name, PKG_STRING_LEN_MAX - 1);
@@ -4994,13 +5029,23 @@ API int pkgmgrinfo_appinfo_foreach_appcontrol(pkgmgrinfo_appinfo_h handle,
 			mime[i] = strndup(mi->name, PKG_STRING_LEN_MAX - 1);
 			mi = mi->next;
 		}
+
+		subapp = (char **)calloc(sc, sizeof(char *));
+		for (i = 0; i < sc; i++) {
+			subapp[i] = strndup(sa->name, PKG_STRING_LEN_MAX - 1);
+			sa = sa->next;
+		}
+
 		/*populate appcontrol handle*/
 		ptr->operation_count = oc;
 		ptr->uri_count = uc;
 		ptr->mime_count = mc;
+		ptr->subapp_count = sc;
 		ptr->operation = operation;
 		ptr->uri = uri;
 		ptr->mime = mime;
+		ptr->subapp = subapp;
+
 		ret = appcontrol_func((void *)ptr, user_data);
 		for (i = 0; i < oc; i++) {
 			if (operation[i]) {
@@ -5032,11 +5077,22 @@ API int pkgmgrinfo_appinfo_foreach_appcontrol(pkgmgrinfo_appinfo_h handle,
 			free(mime);
 			mime = NULL;
 		}
+		for (i = 0; i < sc; i++) {
+			if (subapp[i]) {
+				free(subapp[i]);
+				subapp[i] = NULL;
+			}
+		}
+		if (subapp) {
+			free(subapp);
+			subapp = NULL;
+		}
 		if (ret < 0)
 			break;
 		uc = 0;
 		mc = 0;
 		oc = 0;
+		sc = 0;
 	}
 	pkgmgr_parser_free_manifest_xml(mfx);
 	if (ptr) {
@@ -5230,6 +5286,24 @@ API int pkgmgrinfo_appinfo_is_mainapp(pkgmgrinfo_appinfo_h  handle, bool *mainap
 			*mainapp = 0;
 		else
 			*mainapp = 0;
+	}
+	return PMINFO_R_OK;
+}
+
+API int pkgmgrinfo_appinfo_is_preload(pkgmgrinfo_appinfo_h handle, bool *preload)
+{
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL\n");
+	retvm_if(preload == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
+	char *val = NULL;
+	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
+	val = (char *)info->uiapp_info->preload;
+	if (val) {
+		if (strcasecmp(val, "true") == 0)
+			*preload = 1;
+		else if (strcasecmp(val, "false") == 0)
+			*preload = 0;
+		else
+			*preload = 0;
 	}
 	return PMINFO_R_OK;
 }

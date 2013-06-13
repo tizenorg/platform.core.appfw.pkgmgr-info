@@ -375,6 +375,7 @@ typedef struct uiapplication_x {
 	const char *app_component;
 	const char *permission_type;
 	const char *component_type;
+	const char *preload;
 	struct label_x *label;
 	struct icon_x *icon;
 	struct image_x *image;
