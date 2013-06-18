@@ -669,6 +669,16 @@ static int __uiapp_list_cb(void *data, int ncols, char **coltxt, char **colname)
 				info->manifest_info->uiapplication->preload = strdup(coltxt[i]);
 			else
 				info->manifest_info->uiapplication->preload = NULL;
+		} else if (strcmp(colname[i], "app_submode") == 0 ) {
+			if (coltxt[i])
+				info->manifest_info->uiapplication->submode = strdup(coltxt[i]);
+			else
+				info->manifest_info->uiapplication->submode = NULL;
+		} else if (strcmp(colname[i], "app_submode_mainid") == 0 ) {
+			if (coltxt[i])
+				info->manifest_info->uiapplication->submode_mainid = strdup(coltxt[i]);
+			else
+				info->manifest_info->uiapplication->submode_mainid = NULL;
 		} else
 			continue;
 	}
@@ -1319,6 +1329,16 @@ static int __mini_appinfo_cb(void *data, int ncols, char **coltxt, char **colnam
 				info->uiapp_info->preload = strdup(coltxt[i]);
 			else
 				info->uiapp_info->preload = NULL;
+		} else if (strcmp(colname[i], "app_submode") == 0 ) {
+			if (coltxt[i])
+				info->uiapp_info->submode = strdup(coltxt[i]);
+			else
+				info->uiapp_info->submode = NULL;
+		} else if (strcmp(colname[i], "app_submode_mainid") == 0 ) {
+			if (coltxt[i])
+				info->uiapp_info->submode_mainid = strdup(coltxt[i]);
+			else
+				info->uiapp_info->submode_mainid = NULL;
 		} else
 			continue;
 	}
@@ -1503,6 +1523,16 @@ static int __appinfo_cb(void *data, int ncols, char **coltxt, char **colname)
 					info->uiapp_info->preload = strdup(coltxt[i]);
 				else
 					info->uiapp_info->preload = NULL;
+			} else if (strcmp(colname[i], "app_submode") == 0 ) {
+				if (coltxt[i])
+					info->uiapp_info->submode = strdup(coltxt[i]);
+				else
+					info->uiapp_info->submode = NULL;
+			} else if (strcmp(colname[i], "app_submode_mainid") == 0 ) {
+				if (coltxt[i])
+					info->uiapp_info->submode_mainid = strdup(coltxt[i]);
+				else
+					info->uiapp_info->submode_mainid = NULL;
 			} else
 				continue;
 		}
@@ -4852,6 +4882,50 @@ API int pkgmgrinfo_appinfo_get_component_type(pkgmgrinfo_appinfo_h  handle, char
 	return PMINFO_R_OK;
 }
 
+API int pkgmgrinfo_appinfo_get_hwacceleration(pkgmgrinfo_appinfo_h  handle, pkgmgrinfo_app_hwacceleration *hwacceleration)
+{
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
+	retvm_if(hwacceleration == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
+	char *val = NULL;
+	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
+	val = (char *)info->uiapp_info->hwacceleration;
+	if (val) {
+		if (strcasecmp(val, "not-use-GL") == 0)
+			*hwacceleration = PMINFO_HWACCELERATION_NOT_USE_GL;
+		else if (strcasecmp(val, "use-GL") == 0)
+			*hwacceleration = PMINFO_HWACCELERATION_USE_GL;
+		else
+			*hwacceleration = PMINFO_HWACCELERATION_USE_SYSTEM_SETTING;
+	}
+	return PMINFO_R_OK;
+}
+
+API int pkgmgrinfo_appinfo_get_effectimage(pkgmgrinfo_appinfo_h  handle, char **portrait_img, char **landscape_img)
+{
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
+	retvm_if(portrait_img == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
+	retvm_if(landscape_img == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
+	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
+
+	if (info->app_component == PMINFO_UI_APP){
+		*portrait_img = (char *)info->uiapp_info->portraitimg;
+		*landscape_img = (char *)info->uiapp_info->landscapeimg;
+	}
+
+	return PMINFO_R_OK;
+}
+
+API int pkgmgrinfo_appinfo_get_submode_mainid(pkgmgrinfo_appinfo_h  handle, char **submode_mainid)
+{
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
+	retvm_if(submode_mainid == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
+	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
+
+	*submode_mainid = (char *)info->uiapp_info->submode_mainid;
+
+	return PMINFO_R_OK;
+}
+
 API int pkgmgrinfo_appinfo_foreach_permission(pkgmgrinfo_appinfo_h handle,
 			pkgmgrinfo_app_permission_list_cb permission_func, void *user_data)
 {
@@ -4976,15 +5050,15 @@ API int pkgmgrinfo_appinfo_foreach_appcontrol(pkgmgrinfo_appinfo_h handle,
 	switch (component) {
 	case PMINFO_UI_APP:
 		if (mfx->uiapplication) {
-			if (mfx->uiapplication->appcontrol) {
-				appcontrol = mfx->uiapplication->appcontrol;
+			if (mfx->uiapplication->appsvc) {
+				appcontrol = mfx->uiapplication->appsvc;
 			}
 		}
 		break;
 	case PMINFO_SVC_APP:
 		if (mfx->serviceapplication) {
-			if (mfx->serviceapplication->appcontrol) {
-				appcontrol = mfx->serviceapplication->appcontrol;
+			if (mfx->serviceapplication->appsvc) {
+				appcontrol = mfx->serviceapplication->appsvc;
 			}
 		}
 		break;
@@ -5157,22 +5231,6 @@ API int pkgmgrinfo_appinfo_is_indicator_display_allowed(pkgmgrinfo_appinfo_h han
 	return PMINFO_R_OK;
 }
 
-
-API int pkgmgrinfo_appinfo_get_effectimage(pkgmgrinfo_appinfo_h  handle, char **portrait_img, char **landscape_img)
-{
-	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
-	retvm_if(portrait_img == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
-	retvm_if(landscape_img == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
-	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
-
-	if (info->app_component == PMINFO_UI_APP){
-		*portrait_img = (char *)info->uiapp_info->portraitimg;
-		*landscape_img = (char *)info->uiapp_info->landscapeimg;
-	}
-
-	return PMINFO_R_OK;
-}
-
 API int pkgmgrinfo_appinfo_is_taskmanage(pkgmgrinfo_appinfo_h  handle, bool *taskmanage)
 {
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
@@ -5216,24 +5274,6 @@ API int pkgmgrinfo_appinfo_is_enabled(pkgmgrinfo_appinfo_h  handle, bool *enable
 	}
 	return PMINFO_R_OK;
 
-}
-
-API int pkgmgrinfo_appinfo_get_hwacceleration(pkgmgrinfo_appinfo_h  handle, pkgmgrinfo_app_hwacceleration *hwacceleration)
-{
-	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
-	retvm_if(hwacceleration == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
-	char *val = NULL;
-	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
-	val = (char *)info->uiapp_info->hwacceleration;
-	if (val) {
-		if (strcasecmp(val, "not-use-GL") == 0)
-			*hwacceleration = PMINFO_HWACCELERATION_NOT_USE_GL;
-		else if (strcasecmp(val, "use-GL") == 0)
-			*hwacceleration = PMINFO_HWACCELERATION_USE_GL;
-		else
-			*hwacceleration = PMINFO_HWACCELERATION_USE_SYSTEM_SETTING;
-	}
-	return PMINFO_R_OK;
 }
 
 API int pkgmgrinfo_appinfo_is_onboot(pkgmgrinfo_appinfo_h  handle, bool *onboot)
@@ -5304,6 +5344,24 @@ API int pkgmgrinfo_appinfo_is_preload(pkgmgrinfo_appinfo_h handle, bool *preload
 			*preload = 0;
 		else
 			*preload = 0;
+	}
+	return PMINFO_R_OK;
+}
+
+API int pkgmgrinfo_appinfo_is_submode(pkgmgrinfo_appinfo_h handle, bool *submode)
+{
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL\n");
+	retvm_if(submode == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
+	char *val = NULL;
+	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
+	val = (char *)info->uiapp_info->submode;
+	if (val) {
+		if (strcasecmp(val, "true") == 0)
+			*submode = 1;
+		else if (strcasecmp(val, "false") == 0)
+			*submode = 0;
+		else
+			*submode = 0;
 	}
 	return PMINFO_R_OK;
 }

@@ -1373,6 +1373,14 @@ static void __ps_free_uiapplication(uiapplication_x *uiapplication)
 		free((void *)uiapplication->preload);
 		uiapplication->preload = NULL;
 	}
+	if (uiapplication->submode) {
+		free((void *)uiapplication->submode);
+		uiapplication->submode = NULL;
+	}
+	if (uiapplication->submode_mainid) {
+		free((void *)uiapplication->submode_mainid);
+		uiapplication->submode_mainid = NULL;
+	}
 
 	free((void*)uiapplication);
 	uiapplication = NULL;
@@ -2564,6 +2572,15 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 	} else {
 		uiapplication->component_type = strdup("uiapp");
 	}
+	if (xmlTextReaderGetAttribute(reader, XMLCHAR("submode"))) {
+		uiapplication->submode = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("submode")));
+		if (uiapplication->submode == NULL)
+			uiapplication->submode = strdup("false");
+	} else {
+		uiapplication->submode = strdup("false");
+	}
+	if (xmlTextReaderGetAttribute(reader, XMLCHAR("submode-mainid")))
+		uiapplication->submode_mainid = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("submode-mainid")));
 
 	depth = xmlTextReaderDepth(reader);
 	while ((ret = __next_child_element(reader, depth))) {
@@ -3329,6 +3346,7 @@ typedef enum {
 	AIL_INSTALL = 0,
 	AIL_UPDATE,
 	AIL_REMOVE,
+	AIL_CLEAN,
 	AIL_MAX
 } AIL_TYPE;
 
@@ -3354,6 +3372,9 @@ static int __ail_change_info(int op, const char *appid)
 			break;
 		case 2:
 			aop  = "ail_desktop_remove";
+			break;
+		case 3:
+			aop  = "ail_desktop_clean";
 			break;
 		default:
 			goto END;
@@ -3400,6 +3421,9 @@ static int __ps_make_nativeapp_desktop(manifest_x * mfx, const char *manifest, b
 		free(buf);
 		return -1;
 	}
+
+	if (is_update)
+		__ail_change_info(AIL_CLEAN, mfx->package);
 
 	for(; mfx->uiapplication; mfx->uiapplication=mfx->uiapplication->next) {
 
@@ -3724,10 +3748,7 @@ static int __ps_make_nativeapp_desktop(manifest_x * mfx, const char *manifest, b
 	        fsync(fd);
 	        fclose(file);
 
-		if (!is_update)
-			__ail_change_info(AIL_INSTALL, mfx->uiapplication->appid);
-		else
-			__ail_change_info(AIL_UPDATE, mfx->uiapplication->appid);
+		__ail_change_info(AIL_INSTALL, mfx->uiapplication->appid);
 	}
 
 	free(buf);
@@ -3872,6 +3893,22 @@ static int __check_preload_updated(manifest_x * mfx, const char *manifest)
 	}
 
 	return 0;
+}
+
+
+API int pkgmgr_parser_create_desktop_file(manifest_x *mfx)
+{
+        int ret = 0;
+	if (mfx == NULL) {
+		DBG("Manifest pointer is NULL\n");
+		return -1;
+	}
+        ret = __ps_make_nativeapp_desktop(mfx, NULL, 0);
+        if (ret == -1)
+                DBG("Creating desktop file failed\n");
+        else
+                DBG("Creating desktop file Success\n");
+        return ret;
 }
 
 API void pkgmgr_parser_free_manifest_xml(manifest_x *mfx)
@@ -4172,22 +4209,6 @@ API int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char
 	return PMINFO_R_OK;
 }
 
-API int pkgmgr_parser_create_desktop_file(manifest_x *mfx)
-{
-        int ret = 0;
-	if (mfx == NULL) {
-		DBG("Manifest pointer is NULL\n");
-		return -1;
-	}
-        ret = __ps_make_nativeapp_desktop(mfx, NULL, 0);
-        if (ret == -1)
-                DBG("Creating desktop file failed\n");
-        else
-                DBG("Creating desktop file Success\n");
-        return ret;
-}
-
-
 API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *const tagv[])
 {
 	char *temp[] = {"shortcut-list", "livebox", "account", "notifications", "privileges", "ime", "font", NULL};
@@ -4198,7 +4219,7 @@ API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *con
 	DBG("parsing manifest for upgradation: %s\n", manifest);
 	manifest_x *mfx = NULL;
 	int ret = -1;
-	bool preload = 0;
+	bool preload = false;
 	char *csc_path = NULL;
 	pkgmgrinfo_pkginfo_h handle = NULL;
 
@@ -4319,6 +4340,21 @@ API int pkgmgr_parser_run_parser_for_upgrade(xmlDocPtr docPtr, const char *tag, 
 API int pkgmgr_parser_run_parser_for_uninstallation(xmlDocPtr docPtr, const char *tag, const char *pkgid)
 {
 	return __ps_run_parser(docPtr, tag, ACTION_UNINSTALL, pkgid);
+}
+
+API int pkgmgr_parser_run_post_for_installation(const char *pkgid, char *const tagv[])
+{
+	return PMINFO_R_OK;
+}
+
+API int pkgmgr_parser_run_post_for_upgrade(const char *pkgid, char *const tagv[])
+{
+	return PMINFO_R_OK;
+}
+
+API int pkgmgr_parser_run_post_for_uninstallation(const char *pkgid)
+{
+	return PMINFO_R_OK;
 }
 
 #define SCHEMA_FILE "/usr/etc/package-manager/preload/manifest.xsd"
