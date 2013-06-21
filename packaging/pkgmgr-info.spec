@@ -1,6 +1,6 @@
 Name:       pkgmgr-info
 Summary:    Packager Manager infomation api for package
-Version:    0.0.123
+Version:    0.0.124
 Release:    1
 Group:      Application Framework/Package Management
 License:    Apache-2.0
@@ -60,6 +60,7 @@ chsmack -t /opt/usr/apps/tmp
 touch /opt/usr/apps/tmp/pkgmgr_tmp.txt
 
 chsmack -a 'pkgmgr::db' /opt/usr/apps/tmp/pkgmgr_tmp.txt
+chsmack -a '_' /usr/etc/package-manager
 
 %postun
 
