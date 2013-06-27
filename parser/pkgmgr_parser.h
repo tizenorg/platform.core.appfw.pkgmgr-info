@@ -592,6 +592,32 @@ static int parse_manifest_file_for_uninstallation(const char *manifest)
 int pkgmgr_parser_parse_manifest_for_uninstallation(const char *manifest, char *const tagv[]);
 
 /**
+ * @fn int pkgmgr_parser_parse_manifest_for_preload()
+ * @brief	This API update  preload information to DB.
+ *
+ * @par		This API is for package-manager installer backends.
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		None
+ * @post		None
+ * @code
+static int parser_parse_manifest_for_preload()
+{
+	int ret = 0;
+	ret = pkgmgr_parser_parse_manifest_for_preload();
+	if (ret)
+		return -1;
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgr_parser_parse_manifest_for_preload();
+
+/**
  * @fn int pkgmgr_parser_check_manifest_validation(const char *manifest)
  * @brief	This API validates the manifest file against the manifest schema.
  *
@@ -788,88 +814,6 @@ static int parse_docptr_for_uninstallation(xmlDocPtr docPtr)
  */
 int pkgmgr_parser_run_parser_for_uninstallation(xmlDocPtr docPtr, const char *tag, const char *pkgid);
 
-/**
- * @fn int pkgmgr_parser_run_post_for_installation(const char *pkgid, char *const tagv[])
- * @brief	This API is called by backend installer for post action. It is used during package installation
- *
- * @par		This API is for package-manager installer backends.
- * @par Sync (or) Async : Synchronous API
- *
- * @param[in]	pkgid		the package id
- * @param[in]	tagv		array of tags or NULL
- * @return	0 if success, error code(<0) if fail
- * @retval	PMINFO_R_OK	success
- * @retval	PMINFO_R_EINVAL	invalid argument
- * @retval	PMINFO_R_ERROR	internal error
- * @pre		None
- * @post		None
- * @code
-static int parse_post_for_installation(const char *pkgid)
-{
-	int ret = 0;
-	ret = pkgmgr_parser_run_post_for_installation(pkgid, NULL);
-	if (ret)
-		return -1;
-	return 0;
-}
- * @endcode
- */
-int pkgmgr_parser_run_post_for_installation(const char *pkgid, char *const tagv[]);
-
-/**
- * @fn int pkgmgr_parser_run_post_for_upgrade(const char *pkgid, char *const tagv[])
- * @brief	This API is called by backend installer for post action. It is used during package upgrade
-
- * @par		This API is for package-manager installer backends.
- * @par Sync (or) Async : Synchronous API
- *
- * @param[in]	pkgid		the package id
- * @param[in]	tagv		array of tags or NULL
- * @return	0 if success, error code(<0) if fail
- * @retval	PMINFO_R_OK	success
- * @retval	PMINFO_R_EINVAL	invalid argument
- * @retval	PMINFO_R_ERROR	internal error
- * @pre		None
- * @post		None
- * @code
-static int parse_post_for_upgrade(const char *pkgid)
-{
-	int ret = 0;
-	ret = pkgmgr_parser_run_post_for_upgrade(pkgid, NULL);
-	if (ret)
-		return -1;
-	return 0;
-}
- * @endcode
- */
-int pkgmgr_parser_run_post_for_upgrade(const char *pkgid, char *const tagv[]);
-
-/**
- * @fn int pkgmgr_parser_run_post_for_uninstallation(const char *pkgid)
- * @brief	This API is called by backend installer for run post action. It is used during package uninstallation
- *
- * @par		This API is for package-manager installer backends.
- * @par Sync (or) Async : Synchronous API
- *
- * @param[in]	pkgid		the package id
- * @return	0 if success, error code(<0) if fail
- * @retval	PMINFO_R_OK	success
- * @retval	PMINFO_R_EINVAL	invalid argument
- * @retval	PMINFO_R_ERROR	internal error
- * @pre		None
- * @post		None
- * @code
-static int parse_post_for_uninstallation(const char *pkgid)
-{
-	int ret = 0;
-	ret = pkgmgr_parser_run_post_for_uninstallation(pkgid);
-	if (ret)
-		return -1;
-	return 0;
-}
- * @endcode
- */
-int pkgmgr_parser_run_post_for_uninstallation(const char *pkgid);
 
 
 /**

@@ -1504,6 +1504,45 @@ static int get_pkg_preload(const char *pkgid)
 int pkgmgrinfo_pkginfo_is_preload(pkgmgrinfo_pkginfo_h handle, bool *preload);
 
 /**
+ * @fn int pkgmgrinfo_pkginfo_is_system(pkgmgrinfo_pkginfo_h handle, bool *system)
+ * @brief	This API gets the value for given handle is system or not
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in]	handle	pointer to package info handle
+ * @param[out] system		pointer to hold  system is or not
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		pkgmgrinfo_pkginfo_get_pkginfo()
+ * @post		pkgmgrinfo_pkginfo_destroy_pkginfo()
+ * @see		pkgmgrinfo_pkginfo_get_pkgid()
+ * @see		pkgmgrinfo_pkginfo_is_readonly()
+ * @code
+static int get_pkg_system(const char *pkgid)
+{
+	int ret = 0;
+	bool system = false;
+	pkgmgrinfo_pkginfo_h handle = NULL;
+	ret = pkgmgrinfo_pkginfo_get_pkginfo(pkgid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_pkginfo_is_system(handle, &system);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_pkginfo_destroy_pkginfo(handle);
+		return -1;
+	}
+	printf("pkg system: %d\n", system);
+	pkgmgrinfo_pkginfo_destroy_pkginfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_pkginfo_is_system(pkgmgrinfo_pkginfo_h handle, bool *system);
+
+/**
  * @fn int pkgmgrinfo_pkginfo_is_readonly(pkgmgrinfo_pkginfo_h handle, bool *readonly)
  * @brief	This API gets the package 'readonly' value from the package ID
  *

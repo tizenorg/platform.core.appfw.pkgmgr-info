@@ -2,3 +2,4 @@
 # parserlib:directory_path
 
 parserlib:/usr/etc/package-manager/parserlib/
+mdparser:/usr/etc/package-manager/parserlib/metadata/

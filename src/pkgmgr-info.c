@@ -1072,6 +1072,11 @@ static int __pkginfo_cb(void *data, int ncols, char **coltxt, char **colname)
 				info->manifest_info->installed_time = strdup(coltxt[i]);
 			else
 				info->manifest_info->installed_time = NULL;
+		} else if (strcmp(colname[i], "installed_storage") == 0 ){
+			if (coltxt[i])
+				info->manifest_info->installed_storage = strdup(coltxt[i]);
+			else
+				info->manifest_info->installed_storage = NULL;
 		} else if (strcmp(colname[i], "mainapp_id") == 0 ){
 			if (coltxt[i])
 				info->manifest_info->mainapp_id = strdup(coltxt[i]);
@@ -2734,52 +2739,16 @@ API int pkgmgrinfo_pkginfo_get_installed_storage(pkgmgrinfo_pkginfo_h handle, pk
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
 	retvm_if(storage == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 
-	char *pkgid = NULL;
-	pkgmgrinfo_pkginfo_get_pkgid(handle, &pkgid);
-	if (pkgid == NULL){
-		 _LOGE("invalid func parameters\n");
+	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
+
+	 if (strcmp(info->manifest_info->installed_storage,"installed_internal") == 0)
+	 	*storage = PMINFO_INTERNAL_STORAGE;
+	 else if (strcmp(info->manifest_info->installed_storage,"installed_external") == 0)
+		 *storage = PMINFO_EXTERNAL_STORAGE;
+	 else
 		 return PMINFO_R_ERROR;
-	}
 
-	FILE *fp = NULL;
-	char app_mmc_path[FILENAME_MAX] = { 0, };
-	char app_dir_path[FILENAME_MAX] = { 0, };
-	char app_mmc_internal_path[FILENAME_MAX] = { 0, };
-	snprintf(app_dir_path, FILENAME_MAX,
-	"%s%s", PKG_INSTALLATION_PATH, pkgid);
-	snprintf(app_mmc_path, FILENAME_MAX,
-	"%s%s", PKG_SD_PATH, pkgid);
-	snprintf(app_mmc_internal_path, FILENAME_MAX,
-	"%s%s/.mmc", PKG_INSTALLATION_PATH, pkgid);
-
-	/*check whether application is in external memory or not */
-	fp = fopen(app_mmc_path, "r");
-	if (fp != NULL) {
-		fclose(fp);
-		fp = NULL;
-		*storage = PMINFO_EXTERNAL_STORAGE;
-		return PMINFO_R_OK;
-	}
-
-	/*check whether application is in internal or not */
-	fp = fopen(app_dir_path, "r");
-	if (fp == NULL) {
-		*storage = -1;
-		return PMINFO_R_ERROR;
-	} else {
-		fclose(fp);
-		/*check whether the application is installed in SD card
-			but SD card is not present*/
-		fp = fopen(app_mmc_internal_path, "r");
-		if (fp == NULL) {
-			*storage = PMINFO_INTERNAL_STORAGE;
-			return PMINFO_R_OK;
-		} else {
-			fclose(fp);
-			*storage = PMINFO_EXTERNAL_STORAGE;
-			return PMINFO_R_OK;
-		}
-	}
+	return PMINFO_R_OK;
 }
 
 API int pkgmgrinfo_pkginfo_get_installed_time(pkgmgrinfo_pkginfo_h handle, int *installed_time)
@@ -3168,6 +3137,8 @@ API int pkgmgrinfo_pkginfo_is_accessible(pkgmgrinfo_pkginfo_h handle, bool *acce
 {
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
 	retvm_if(accessible == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
+
+#if 0 //smack issue occured, check later
 	char *pkgid = NULL;
 	pkgmgrinfo_pkginfo_get_pkgid(handle, &pkgid);
 	if (pkgid == NULL){
@@ -3220,6 +3191,9 @@ API int pkgmgrinfo_pkginfo_is_accessible(pkgmgrinfo_pkginfo_h handle, bool *acce
 	}
 
 	_LOGD("pkgmgr_get_pkg_external_validation() end\n");
+#endif
+
+	*accessible = 1;
 	return PMINFO_R_OK;
 }
 
@@ -3277,6 +3251,25 @@ API int pkgmgrinfo_pkginfo_is_preload(pkgmgrinfo_pkginfo_h handle, bool *preload
 		else
 			*preload = 0;
 	}
+	return PMINFO_R_OK;
+}
+
+API int pkgmgrinfo_pkginfo_is_system(pkgmgrinfo_pkginfo_h handle, bool *system)
+{
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
+	retvm_if(system == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
+
+	char *preload = NULL;
+	char *removable = NULL;
+	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
+	preload = (char *)info->manifest_info->preload;
+	removable = (char *)info->manifest_info->removable;
+
+	if ((strcasecmp(preload, "true") == 0) && (strcasecmp(removable, "false") == 0))
+		*system = 1;
+	else
+		*system = 0;
+
 	return PMINFO_R_OK;
 }
 
@@ -4985,9 +4978,11 @@ API int pkgmgrinfo_appinfo_foreach_metadata(pkgmgrinfo_appinfo_h handle,
 	else
 		return PMINFO_R_EINVAL;
 	for (; ptr; ptr = ptr->next) {
-		ret = metadata_func(ptr->key, ptr->value, user_data);
-		if (ret < 0)
-			break;
+		if (ptr->key) {
+			ret = metadata_func(ptr->key, ptr->value, user_data);
+			if (ret < 0)
+				break;
+		}
 	}
 	return PMINFO_R_OK;
 }

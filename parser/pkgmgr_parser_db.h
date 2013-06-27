@@ -125,6 +125,7 @@ static int delete_manifest_data(manifest_x *mfx)
  */
 int pkgmgr_parser_delete_manifest_info_from_db(manifest_x *mfx);
 
+int pkgmgr_parser_update_preload_info_in_db();
 int pkgmgr_parser_check_and_create_db();
 int pkgmgr_parser_initialize_db();
 /** @} */

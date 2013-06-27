@@ -32,6 +32,7 @@
 #include <libxml/xmlreader.h>
 #include <libxml/xmlschemas.h>
 #include <vconf.h>
+#include <glib.h>
 
 #include "pkgmgr_parser.h"
 #include "pkgmgr_parser_internal.h"
@@ -43,6 +44,9 @@
 #define ASCII(s) (const char *)s
 #define XMLCHAR(s) (const xmlChar *)s
 
+#define MDPARSER_LIST "/usr/etc/package-manager/parserlib/metadata/mdparser_list.txt"
+#define MDPARSER_NAME	"mdparser:"
+
 /* operation_type */
 typedef enum {
 	ACTION_INSTALL = 0,
@@ -50,6 +54,11 @@ typedef enum {
 	ACTION_UNINSTALL,
 	ACTION_MAX
 } ACTION_TYPE;
+
+typedef struct {
+	const char *key;
+	const char *value;
+} __metadata_t;
 
 const char *package;
 
@@ -219,6 +228,66 @@ static int __validate_appid(const char *pkgid, const char *appid, char **newappi
 	return 0;
 }
 
+static char * __get_tag_by_key(char *md_key)
+{
+	char *md_tag = NULL;
+
+	if (md_key == NULL) {
+		DBG("md_key is NULL\n");
+		return NULL;
+	}
+
+	md_tag = strrchr(md_key, 47) + 1;
+
+
+	return strdup(md_tag);
+}
+
+static char *__get_mdparser_plugin(const char *type)
+{
+	FILE *fp = NULL;
+	char buffer[1024] = { 0 };
+	char temp_path[1024] = { 0 };
+	char *path = NULL;
+
+	if (type == NULL) {
+		DBGE("invalid argument\n");
+		return NULL;
+	}
+
+	fp = fopen(PKG_PARSER_CONF_PATH, "r");
+	if (fp == NULL) {
+		DBGE("no matching mdparser\n");
+		return NULL;
+	}
+
+	while (fgets(buffer, sizeof(buffer), fp) != NULL) {
+		if (buffer[0] == '#')
+			continue;
+
+		__str_trim(buffer);
+
+		if ((path = strstr(buffer, MDPARSER_NAME)) != NULL) {
+			path = path + strlen(MDPARSER_NAME);
+
+			break;
+		}
+
+		memset(buffer, 0x00, 1024);
+	}
+
+	if (fp != NULL)
+		fclose(fp);
+
+	if (path == NULL) {
+		DBGE("no matching backendlib\n");
+		return NULL;
+	}
+
+	snprintf(temp_path, sizeof(temp_path) - 1, "%slib%s.so", path, type);
+
+	return strdup(temp_path);
+}
 
 static char *__get_parser_plugin(const char *type)
 {
@@ -264,8 +333,63 @@ static char *__get_parser_plugin(const char *type)
 	}
 
 	snprintf(temp_path, sizeof(temp_path) - 1, "%slib%s.so", path, type);
+	DBG("[%s]\n", temp_path);
 
 	return strdup(temp_path);
+}
+
+static int __ps_run_mdparser(GList *md_list, const char *tag,
+				ACTION_TYPE action, const char *pkgid, const char *appid)
+{
+	char *lib_path = NULL;
+	void *lib_handle = NULL;
+	int (*mdparser_plugin) (const char *, const char *, GList *);
+	int ret = -1;
+	char *ac = NULL;
+
+	switch (action) {
+	case ACTION_INSTALL:
+		ac = "PKGMGR_MDPARSER_PLUGIN_INSTALL";
+		break;
+	case ACTION_UPGRADE:
+		ac = "PKGMGR_MDPARSER_PLUGIN_UPGRADE";
+		break;
+	case ACTION_UNINSTALL:
+		ac = "PKGMGR_MDPARSER_PLUGIN_UNINSTALL";
+		break;
+	default:
+		goto END;
+	}
+
+	lib_path = __get_mdparser_plugin(tag);
+	if (!lib_path) {
+		DBGE("__get_mdparser_plugin fail\n");
+		goto END;
+	}
+
+	if ((lib_handle = dlopen(lib_path, RTLD_LAZY)) == NULL) {
+		DBGE("dlopen is failed lib_path[%s]\n", lib_path);
+		goto END;
+	}
+
+	if ((mdparser_plugin =
+		dlsym(lib_handle, ac)) == NULL || dlerror() != NULL) {
+		DBGE("can not find symbol \n");
+		goto END;
+	}
+
+	ret = mdparser_plugin(pkgid, appid, md_list);
+	if (ret < 0)
+		DBGE("[appid = %s, libpath = %s] plugin fail\n", appid, lib_path);
+	else
+		DBGE("[appid = %s, libpath = %s] plugin success\n", appid, lib_path);
+
+END:
+	if (lib_path)
+		free(lib_path);
+	if (lib_handle)
+		dlclose(lib_handle);
+	return ret;
 }
 
 static int __ps_run_parser(xmlDocPtr docPtr, const char *tag,
@@ -340,6 +464,109 @@ static char *__pkgid_to_manifest(const char *pkgid)
 	}
 
 	return manifest;
+}
+
+static void __mdparser_clear_dir_list(GList* dir_list)
+{
+	GList *list = NULL;
+	__metadata_t* detail = NULL;
+
+	if (dir_list) {
+		list = g_list_first(dir_list);
+		while (list) {
+			detail = (__metadata_t *)list->data;
+			if (detail) {
+				if (detail->key)
+					free(detail->key);
+				if (detail->value)
+					free(detail->value);
+				free(detail);
+			}
+			list = g_list_next(list);
+		}
+		g_list_free(dir_list);
+	}
+}
+
+static int __run_mdparser_prestep (manifest_x *mfx, char *md_key, ACTION_TYPE action)
+{
+	int ret = -1;
+	int tag_exist = 0;
+	char buffer[1024] = { 0, };
+	uiapplication_x *up = mfx->uiapplication;
+	metadata_x *md = NULL;
+	char *md_tag = NULL;
+
+	GList *md_list = NULL;
+	__metadata_t *md_detail = NULL;
+
+	md_tag = __get_tag_by_key(md_key);
+	if (md_tag == NULL) {
+		DBG("md_tag is NULL\n");
+		return -1;
+	}
+	DBG("md_tag = %s\n", md_tag);
+
+	while(up != NULL)
+	{
+		md = up->metadata;
+		while (md != NULL)
+		{
+			//get glist of meatdata key and value combination
+			memset(buffer, 0x00, 1024);
+			snprintf(buffer, 1024, "%s/", md_key);
+			if ((md->key && md->value) && (strncmp(md->key, md_key, strlen(md_key)) == 0) && (strncmp(buffer, md->key, strlen(buffer)) == 0)) {
+				md_detail = (__metadata_t*) calloc(1, sizeof(__metadata_t));
+				if (md_detail == NULL) {
+					DBG("Memory allocation failed\n");
+					goto END;
+				}
+
+				md_detail->key = (char*) calloc(1, sizeof(char)*(strlen(md->key)+2));
+				if (md_detail->key == NULL) {
+					DBG("Memory allocation failed\n");
+					free(md_detail);
+					goto END;
+				}
+				snprintf(md_detail->key, (strlen(md->key)+1), "%s", md->key);
+
+				md_detail->value = (char*) calloc(1, sizeof(char)*(strlen(md->value)+2));
+				if (md_detail->value == NULL) {
+					DBG("Memory allocation failed\n");
+					free(md_detail->key);
+					free(md_detail);
+					goto END;
+				}
+				snprintf(md_detail->value, (strlen(md->value)+1), "%s", md->value);
+
+				md_list = g_list_append(md_list, (gpointer)md_detail);
+				tag_exist = 1;
+			}
+			md = md->next;
+		}
+
+		//send glist to parser when tags for metadata plugin parser exist.
+		if (tag_exist) {
+			ret = __ps_run_mdparser(md_list, md_tag, action, mfx->package, up->appid);
+			if (ret < 0)
+				DBG("mdparser failed[%d]\n", ret);
+			else
+				DBG("mdparser success, done[%d]\n", ret);
+		}
+		__mdparser_clear_dir_list(md_list);
+		md_list = NULL;
+		tag_exist = 0;
+		up = up->next;
+	}
+
+	return 0;
+END:
+	__mdparser_clear_dir_list(md_list);
+
+	if (md_tag)
+		free(md_tag);
+
+	return ret;
 }
 
 static int __run_parser_prestep(xmlTextReaderPtr reader, ACTION_TYPE action, const char *pkgid)
@@ -1600,6 +1827,32 @@ static void __ps_free_ime(ime_x *ime)
 	ime = NULL;
 }
 
+int __ps_process_mdparser(manifest_x *mfx, ACTION_TYPE action)
+{
+	int ret = -1;
+	FILE *fp = NULL;
+	char md_key[PKG_STRING_LEN_MAX] = { 0 };
+
+	fp = fopen(MDPARSER_LIST, "r");
+	if (fp == NULL) {
+		DBG("no preload list\n");
+		return -1;
+	}
+
+	while (fgets(md_key, sizeof(md_key), fp) != NULL) {
+		__str_trim(md_key);
+		DBG("md_key = %s\n", md_key);
+
+		ret = __run_mdparser_prestep(mfx, md_key, action);
+
+		memset(md_key, 0x00, sizeof(md_key));
+	}
+
+	if (fp != NULL)
+		fclose(fp);
+
+	return 0;
+}
 
 static int __ps_process_allowed(xmlTextReaderPtr reader, allowed_x *allowed)
 {
@@ -4196,6 +4449,10 @@ API int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char
 	else
 		DBG("DB Insert Success\n");
 
+	ret = __ps_process_mdparser(mfx, ACTION_INSTALL);
+	if (ret == -1)
+		DBG("Creating metadata parser failed\n");
+
 	ret = __ps_make_nativeapp_desktop(mfx, NULL, 0);
 	if (ret == -1)
 		DBG("Creating desktop file failed\n");
@@ -4263,6 +4520,10 @@ API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *con
 	else
 		DBG("DB Update Success\n");
 
+	ret = __ps_process_mdparser(mfx, ACTION_UPGRADE);
+	if (ret == -1)
+		DBG("Upgrade metadata parser failed\n");
+
 	ret = __ps_make_nativeapp_desktop(mfx, manifest, 1);
 	if (ret == -1)
 		DBG("Creating desktop file failed\n");
@@ -4297,6 +4558,10 @@ API int pkgmgr_parser_parse_manifest_for_uninstallation(const char *manifest, ch
 	__add_preload_info(mfx, manifest);
 	DBG("Added preload infomation\n");
 
+	ret = __ps_process_mdparser(mfx, ACTION_UNINSTALL);
+	if (ret == -1)
+		DBG("Removing metadata parser failed\n");
+
 	ret = pkgmgr_parser_delete_manifest_info_from_db(mfx);
 	if (ret == -1)
 		DBG("DB Delete failed\n");
@@ -4322,6 +4587,11 @@ API int pkgmgr_parser_parse_manifest_for_uninstallation(const char *manifest, ch
 	return PMINFO_R_OK;
 }
 
+API int pkgmgr_parser_parse_manifest_for_preload()
+{
+	return pkgmgr_parser_update_preload_info_in_db();
+}
+
 API char *pkgmgr_parser_get_manifest_file(const char *pkgid)
 {
 	return __pkgid_to_manifest(pkgid);
@@ -4340,21 +4610,6 @@ API int pkgmgr_parser_run_parser_for_upgrade(xmlDocPtr docPtr, const char *tag, 
 API int pkgmgr_parser_run_parser_for_uninstallation(xmlDocPtr docPtr, const char *tag, const char *pkgid)
 {
 	return __ps_run_parser(docPtr, tag, ACTION_UNINSTALL, pkgid);
-}
-
-API int pkgmgr_parser_run_post_for_installation(const char *pkgid, char *const tagv[])
-{
-	return PMINFO_R_OK;
-}
-
-API int pkgmgr_parser_run_post_for_upgrade(const char *pkgid, char *const tagv[])
-{
-	return PMINFO_R_OK;
-}
-
-API int pkgmgr_parser_run_post_for_uninstallation(const char *pkgid)
-{
-	return PMINFO_R_OK;
 }
 
 #define SCHEMA_FILE "/usr/etc/package-manager/preload/manifest.xsd"

@@ -1839,6 +1839,19 @@ static int __delete_manifest_info_from_db(manifest_x *mfx)
 	return 0;
 }
 
+static int __update_preload_condition_in_db()
+{
+	int ret = -1;
+	char query[MAX_QUERY_LEN] = {'\0'};
+
+	snprintf(query, MAX_QUERY_LEN, "update package_info set package_preload='true'");
+
+	ret = __exec_query(query);
+	if (ret == -1)
+		DBG("Package preload_condition update failed\n");
+
+	return ret;
+}
 
 int pkgmgr_parser_initialize_db()
 {
@@ -1946,6 +1959,12 @@ int pkgmgr_parser_check_and_create_db()
 	return 0;
 }
 
+int pkgmgr_parser_close_db()
+{
+	sqlite3_close(pkgmgr_parser_db);
+	sqlite3_close(pkgmgr_cert_db);
+}
+
 API int pkgmgr_parser_insert_manifest_info_in_db(manifest_x *mfx)
 {
 	if (mfx == NULL) {
@@ -1985,8 +2004,7 @@ API int pkgmgr_parser_insert_manifest_info_in_db(manifest_x *mfx)
 	}
 	DBG("Transaction Commit and End\n");
 err:
-	sqlite3_close(pkgmgr_parser_db);
-	sqlite3_close(pkgmgr_cert_db);
+	pkgmgr_parser_close_db();
 	return ret;
 }
 
@@ -2038,8 +2056,7 @@ API int pkgmgr_parser_update_manifest_info_in_db(manifest_x *mfx)
 	}
 	DBG("Transaction Commit and End\n");
 err:
-	sqlite3_close(pkgmgr_parser_db);
-	sqlite3_close(pkgmgr_cert_db);
+	pkgmgr_parser_close_db();
 	return ret;
 }
 
@@ -2078,9 +2095,44 @@ API int pkgmgr_parser_delete_manifest_info_from_db(manifest_x *mfx)
 		goto err;
 	}
 	DBG("Transaction Commit and End\n");
-	sqlite3_close(pkgmgr_parser_db);
 err:
-	sqlite3_close(pkgmgr_parser_db);
-	sqlite3_close(pkgmgr_cert_db);
+	pkgmgr_parser_close_db();
 	return ret;
 }
+
+API int pkgmgr_parser_update_preload_info_in_db()
+{
+	int ret = 0;
+	ret = pkgmgr_parser_check_and_create_db();
+	if (ret == -1) {
+		DBG("Failed to open DB\n");
+		return ret;
+	}
+	/*Begin transaction*/
+	ret = sqlite3_exec(pkgmgr_parser_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
+	if (ret != SQLITE_OK) {
+		DBG("Failed to begin transaction\n");
+		ret = -1;
+		goto err;
+	}
+	DBG("Transaction Begin\n");
+	ret = __update_preload_condition_in_db();
+	if (ret == -1) {
+		DBG("__update_preload_condition_in_db failed. Rollback now\n");
+		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
+		goto err;
+	}
+	/*Commit transaction*/
+	ret = sqlite3_exec(pkgmgr_parser_db, "COMMIT", NULL, NULL, NULL);
+	if (ret != SQLITE_OK) {
+		DBG("Failed to commit transaction, Rollback now\n");
+		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
+		ret = -1;
+		goto err;
+	}
+	DBG("Transaction Commit and End\n");
+err:
+	pkgmgr_parser_close_db();
+	return ret;
+}
+
