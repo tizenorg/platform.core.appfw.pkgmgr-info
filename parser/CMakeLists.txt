@@ -43,7 +43,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
 ## pkgmgr_parser object (by sewook.park)
 # This library is for installer backend
-add_library(pkgmgr_parser SHARED pkgmgr_parser.c pkgmgr_parser_db.c)
+add_library(pkgmgr_parser SHARED pkgmgr_parser.c pkgmgr_parser_db.c pkgmgr_parser_privilege.c)
 #add_library(pkgmgr_parser SHARED pkgmgr_parser.c)
 set_target_properties(pkgmgr_parser PROPERTIES SOVERSION ${VERSION_MAJOR})
 set_target_properties(pkgmgr_parser PROPERTIES VERSION ${VERSION})

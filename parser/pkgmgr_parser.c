@@ -33,6 +33,7 @@
 #include <libxml/xmlschemas.h>
 #include <vconf.h>
 #include <glib.h>
+#include <sys/stat.h>
 
 #include "pkgmgr_parser.h"
 #include "pkgmgr_parser_internal.h"
@@ -44,8 +45,42 @@
 #define ASCII(s) (const char *)s
 #define XMLCHAR(s) (const xmlChar *)s
 
+#define PRELOAD_PACKAGE_LIST "/usr/etc/package-manager/preload/preload_list.txt"
+#define SCHEMA_FILE "/usr/etc/package-manager/preload/manifest.xsd"
+
 #define MDPARSER_LIST "/usr/etc/package-manager/parserlib/metadata/mdparser_list.txt"
 #define MDPARSER_NAME	"mdparser:"
+
+#define SMACK_LIST "/usr/etc/package-manager/pkgmgr_smack_list.txt"
+
+#define BUFMAX 1024*128
+
+#define BUFF_SIZE			256
+#define APP_OWNER_ID		5000
+#define APP_GROUP_ID		5000
+
+#define LIBAPPSVC_PATH "/usr/lib/libappsvc.so.0"
+#define LIBAIL_PATH "/usr/lib/libail.so.0"
+#define DESKTOP_RW_PATH "/opt/share/applications/"
+#define DESKTOP_RO_PATH "/usr/share/applications/"
+#define MANIFEST_RO_PREFIX "/usr/share/packages/"
+
+/* operation_type */
+typedef enum {
+	AIL_INSTALL = 0,
+	AIL_UPDATE,
+	AIL_REMOVE,
+	AIL_CLEAN,
+	AIL_MAX
+} AIL_TYPE;
+
+enum rpm_path_type {
+	RPM_PATH_PRIVATE,
+	RPM_PATH_GROUP_RW,
+	RPM_PATH_PUBLIC_RO,
+	RPM_PATH_SETTINGS_RW,
+	RPM_PATH_ANY_LABEL
+};
 
 /* operation_type */
 typedef enum {
@@ -141,6 +176,73 @@ static int __run_parser_prestep(xmlTextReaderPtr reader, ACTION_TYPE action, con
 static void __processNode(xmlTextReaderPtr reader, ACTION_TYPE action, char *const tagv[], const char *pkgid);
 static void __streamFile(const char *filename, ACTION_TYPE action, char *const tagv[], const char *pkgid);
 static int __validate_appid(const char *pkgid, const char *appid, char **newappid);
+
+static int __is_dir(char *dirname)
+{
+	struct stat stFileInfo;
+	stat(dirname, &stFileInfo);
+	if (S_ISDIR(stFileInfo.st_mode)) {
+		return 1;
+	}
+	return 0;
+}
+
+static void __apply_shared_privileges(char *pkgname, int flag)
+{
+	char dirpath[BUFF_SIZE] = {'\0'};
+	/*execute privilege APIs. The APIs should not fail*/
+	pkgmgr_parser_privilege_register_package(pkgname);
+
+#if 0
+	/*home dir. Dont setup path but change smack access to "_" */
+	snprintf(dirpath, BUFF_SIZE, "/usr/apps/%s", pkgname);
+	if (__is_dir(dirpath))
+		pkgmgr_parser_privilege_change_smack_label(dirpath, "_", 0);/*0 is SMACK_LABEL_ACCESS*/
+	memset(dirpath, '\0', BUFF_SIZE);
+	snprintf(dirpath, BUFF_SIZE, "/opt/usr/apps/%s", pkgname);
+	if (__is_dir(dirpath))
+		pkgmgr_parser_privilege_change_smack_label(dirpath, "_", 0);/*0 is SMACK_LABEL_ACCESS*/
+	memset(dirpath, '\0', BUFF_SIZE);
+
+	/*/shared dir. Dont setup path but change smack access to "_" */
+	snprintf(dirpath, BUFF_SIZE, "/usr/apps/%s/shared", pkgname);
+	if (__is_dir(dirpath))
+		pkgmgr_parser_privilege_change_smack_label(dirpath, "_", 0);/*0 is SMACK_LABEL_ACCESS*/
+	memset(dirpath, '\0', BUFF_SIZE);
+	snprintf(dirpath, BUFF_SIZE, "/opt/usr/apps/%s/shared", pkgname);
+	if (__is_dir(dirpath))
+		pkgmgr_parser_privilege_change_smack_label(dirpath, "_", 0);/*0 is SMACK_LABEL_ACCESS*/
+	memset(dirpath, '\0', BUFF_SIZE);
+
+	/*/shared/res dir. setup path */
+	if (flag == 0)
+		snprintf(dirpath, BUFF_SIZE, "/usr/apps/%s/shared/res", pkgname);
+	else
+		snprintf(dirpath, BUFF_SIZE, "/opt/usr/apps/%s/shared/res", pkgname);
+	if (__is_dir(dirpath))
+		pkgmgr_parser_privilege_setup_path(pkgname, dirpath, RPM_PATH_PUBLIC_RO, NULL);
+	memset(dirpath, '\0', BUFF_SIZE);
+
+	/*/shared/data dir. setup path and change group to 'app'*/
+	if (flag == 0)
+		snprintf(dirpath, BUFF_SIZE, "/usr/apps/%s/shared/data", pkgname);
+	else
+		snprintf(dirpath, BUFF_SIZE, "/opt/usr/apps/%s/shared/data", pkgname);
+	if (__is_dir(dirpath)) {
+		chown(dirpath, APP_OWNER_ID, APP_GROUP_ID);
+		pkgmgr_parser_privilege_setup_path(pkgname, dirpath, RPM_PATH_PUBLIC_RO, NULL);
+	} else {
+		memset(dirpath, '\0', BUFF_SIZE);
+		if (flag == 0)
+			snprintf(dirpath, BUFF_SIZE, "/opt/usr/apps/%s/shared/data", pkgname);
+		else
+			snprintf(dirpath, BUFF_SIZE, "/usr/apps/%s/shared/data", pkgname);
+		if (__is_dir(dirpath))
+			chown(dirpath, APP_OWNER_ID, APP_GROUP_ID);
+			pkgmgr_parser_privilege_setup_path(pkgname, dirpath, RPM_PATH_PUBLIC_RO, NULL);
+	}
+#endif
+}
 
 static void __str_trim(char *input)
 {
@@ -1825,6 +1927,47 @@ static void __ps_free_ime(ime_x *ime)
 	}
 	free((void*)ime);
 	ime = NULL;
+}
+
+static void __ps_apply_shared_privileges(manifest_x * mfx, const char *manifest)
+{
+	int home_dir = 0;
+
+	if(strstr(manifest, MANIFEST_RO_PREFIX))
+		home_dir = 0;
+	else
+		home_dir = 1;
+
+	if ((strcmp(mfx->type,"tpk")!=0) || (strcmp(mfx->type,"wgt")!=0)){
+		DBG("rpm pkg is detected, apply smack\n");
+		__apply_shared_privileges(mfx->package, home_dir);
+	}
+}
+
+static void  __ps_process_smack()
+{
+	FILE *fp = NULL;
+	char pkgid[PKG_STRING_LEN_MAX] = { 0 };
+
+	fp = fopen(SMACK_LIST, "r");
+	if (fp == NULL) {
+		DBG("no preload list\n");
+		return -1;
+	}
+
+	while (fgets(pkgid, sizeof(pkgid), fp) != NULL) {
+		__str_trim(pkgid);
+		DBG("pkgid = %s\n", pkgid);
+
+		__apply_shared_privileges(pkgid,0);
+
+		memset(pkgid, 0x00, sizeof(pkgid));
+	}
+
+	if (fp != NULL)
+		fclose(fp);
+
+	return 0;
 }
 
 int __ps_process_mdparser(manifest_x *mfx, ACTION_TYPE action)
@@ -3570,10 +3713,6 @@ static int __process_manifest(xmlTextReaderPtr reader, manifest_x * mfx)
 	return ret;
 }
 
-#define DESKTOP_RW_PATH "/opt/share/applications/"
-#define DESKTOP_RO_PATH "/usr/share/applications/"
-#define MANIFEST_RO_PREFIX "/usr/share/packages/"
-
 static char* __convert_to_system_locale(const char *mlocale)
 {
 	if (mlocale == NULL)
@@ -3591,17 +3730,6 @@ static char* __convert_to_system_locale(const char *mlocale)
 	locale[4] = toupper(mlocale[4]);
 	return locale;
 }
-
-#define LIBAIL_PATH "/usr/lib/libail.so.0"
-
-/* operation_type */
-typedef enum {
-	AIL_INSTALL = 0,
-	AIL_UPDATE,
-	AIL_REMOVE,
-	AIL_CLEAN,
-	AIL_MAX
-} AIL_TYPE;
 
 static int __ail_change_info(int op, const char *appid)
 {
@@ -3652,7 +3780,6 @@ END:
 
 /* desktop shoud be generated automatically based on manifest */
 /* Currently removable, taskmanage, etc fields are not considerd. it will be decided soon.*/
-#define BUFMAX 1024*128
 static int __ps_make_nativeapp_desktop(manifest_x * mfx, const char *manifest, bool is_update)
 {
         FILE* file = NULL;
@@ -4029,8 +4156,6 @@ static int __ps_remove_nativeapp_desktop(manifest_x *mfx)
         return 0;
 }
 
-#define LIBAPPSVC_PATH "/usr/lib/libappsvc.so.0"
-
 static int __ps_remove_appsvc_db(manifest_x *mfx)
 {
 	void *lib_handle = NULL;
@@ -4062,7 +4187,6 @@ END:
 	return ret;
 }
 
-#define PRELOAD_PACKAGE_LIST "/usr/etc/package-manager/preload/preload_list.txt"
 static int __add_preload_info(manifest_x * mfx, const char *manifest)
 {
 	FILE *fp = NULL;
@@ -4436,7 +4560,7 @@ API int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char
 	DBG("Parsing Finished\n");
 	if (mfx == NULL)
 		return PMINFO_R_ERROR;
-	
+
 	__streamFile(manifest, ACTION_INSTALL, temp, mfx->package);
 	__add_preload_info(mfx, manifest);
 	DBG("Added preload infomation\n");
@@ -4458,6 +4582,8 @@ API int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char
 		DBG("Creating desktop file failed\n");
 	else
 		DBG("Creating desktop file Success\n");
+
+	__ps_apply_shared_privileges(mfx, manifest);
 
 	pkgmgr_parser_free_manifest_xml(mfx);
 	DBG("Free Done\n");
@@ -4530,6 +4656,8 @@ API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *con
 	else
 		DBG("Creating desktop file Success\n");
 
+	__ps_apply_shared_privileges(mfx, manifest);
+
 	pkgmgrinfo_pkginfo_destroy_pkginfo(handle);
 	pkgmgr_parser_free_manifest_xml(mfx);
 	DBG("Free Done\n");
@@ -4589,6 +4717,8 @@ API int pkgmgr_parser_parse_manifest_for_uninstallation(const char *manifest, ch
 
 API int pkgmgr_parser_parse_manifest_for_preload()
 {
+	__ps_process_smack();
+
 	return pkgmgr_parser_update_preload_info_in_db();
 }
 
@@ -4612,7 +4742,6 @@ API int pkgmgr_parser_run_parser_for_uninstallation(xmlDocPtr docPtr, const char
 	return __ps_run_parser(docPtr, tag, ACTION_UNINSTALL, pkgid);
 }
 
-#define SCHEMA_FILE "/usr/etc/package-manager/preload/manifest.xsd"
 #if 1
 API int pkgmgr_parser_check_manifest_validation(const char *manifest)
 {
