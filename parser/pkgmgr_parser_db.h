@@ -128,19 +128,6 @@ int pkgmgr_parser_delete_manifest_info_from_db(manifest_x *mfx);
 int pkgmgr_parser_update_preload_info_in_db();
 int pkgmgr_parser_check_and_create_db();
 int pkgmgr_parser_initialize_db();
-
-/* libprivilege-control specific operations prototype*/
-int pkgmgr_parser_privilege_register_package(const char *pkgid);
-int pkgmgr_parser_privilege_unregister_package(const char *pkgid);
-int pkgmgr_parser_privilege_revoke_permissions(const char *pkgid);
-int pkgmgr_parser_privilege_enable_permissions(const char *pkgid, int apptype,
-					const char **perms, int persistent);
-int pkgmgr_parser_privilege_setup_path(const char *pkgid, const char *dirpath,
-					int apppathtype, const char *groupid);
-int pkgmgr_parser_privilege_add_friend(const char *pkgid1, const char *pkgid2);
-int pkgmgr_parser_privilege_change_smack_label(const char *path, const char *label,
-					int label_type);
-
 /** @} */
 #ifdef __cplusplus
 }

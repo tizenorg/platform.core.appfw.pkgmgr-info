@@ -85,7 +85,6 @@ chsmack -a '_' /usr/etc/package-manager
 %{_prefix}/etc/package-manager/preload/xml.xsd
 %{_prefix}/etc/package-manager/parser_path.conf
 %{_prefix}/etc/package-manager/parserlib/metadata/mdparser_list.txt
-%{_prefix}/etc/package-manager/pkgmgr_smack_list.txt
 
 %files parser-devel
 %defattr(-,root,root,-)
