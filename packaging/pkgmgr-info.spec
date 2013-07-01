@@ -5,6 +5,7 @@ Release:    1
 Group:      Application Framework/Package Management
 License:    Apache-2.0
 Source0:    %{name}-%{version}.tar.gz
+Source1001: 	pkgmgr-info.manifest
 BuildRequires:	cmake
 BuildRequires:	pkgconfig(dlog)
 BuildRequires:	pkgconfig(vconf)
@@ -38,6 +39,7 @@ Dev package for libpkgmgr-parser
 
 %prep
 %setup -q
+cp %{SOURCE1001} .
 
 %build
 %cmake .
@@ -57,20 +59,21 @@ touch %{buildroot}/opt/usr/apps/tmp/pkgmgr_tmp.txt
 %postun  -n pkgmgr-info-parser -p /sbin/ldconfig
 
 %files
-%manifest pkgmgr-info.manifest
+%manifest %{name}.manifest
 %defattr(-,root,root,-)
 %{_libdir}/libpkgmgr-info.so.*
 %dir %attr(771,app,app) /opt/usr/apps/tmp
 /opt/usr/apps/tmp/pkgmgr_tmp.txt
 
 %files devel
+%manifest %{name}.manifest
 %defattr(-,root,root,-)
 %{_includedir}/pkgmgr-info.h
 %{_libdir}/pkgconfig/pkgmgr-info.pc
 %{_libdir}/libpkgmgr-info.so
 
 %files parser
-%manifest pkgmgr-parser.manifest
+%manifest %{name}.manifest
 %defattr(-,root,root,-)
 %{_libdir}/libpkgmgr_parser.so.*
 %{_sysconfdir}/package-manager/preload/preload_list.txt
@@ -79,6 +82,7 @@ touch %{buildroot}/opt/usr/apps/tmp/pkgmgr_tmp.txt
 %{_sysconfdir}/package-manager/parser_path.conf
 
 %files parser-devel
+%manifest %{name}.manifest
 %defattr(-,root,root,-)
 %{_includedir}/pkgmgr/pkgmgr_parser.h
 %{_includedir}/pkgmgr/pkgmgr_parser_db.h
