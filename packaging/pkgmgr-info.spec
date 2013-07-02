@@ -57,12 +57,12 @@ make %{?jobs:-j%jobs}
 mkdir -p /opt/usr/apps/tmp
 chown 5100:5100 /opt/usr/apps/tmp
 chmod 771 /opt/usr/apps/tmp
-chsmack -a '*' /opt/usr/apps/tmp
-chsmack -t /opt/usr/apps/tmp
+#chsmack -a '*' /opt/usr/apps/tmp
+#chsmack -t /opt/usr/apps/tmp
 
 touch /opt/usr/apps/tmp/pkgmgr_tmp.txt
 
-chsmack -a 'pkgmgr::db' /opt/usr/apps/tmp/pkgmgr_tmp.txt
+#chsmack -a 'pkgmgr::db' /opt/usr/apps/tmp/pkgmgr_tmp.txt
 
 %postun -p /sbin/ldconfig
 
