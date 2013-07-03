@@ -3729,7 +3729,7 @@ END:
 }
 
 #define MANIFEST_RO_PREFIX "/usr/share/packages/"
-#define PRELOAD_PACKAGE_LIST "/usr/etc/package-manager/preload/preload_list.txt"
+#define PRELOAD_PACKAGE_LIST "/etc/package-manager/preload/preload_list.txt"
 static int __add_preload_info(manifest_x * mfx, const char *manifest)
 {
 	FILE *fp = NULL;

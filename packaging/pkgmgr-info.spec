@@ -17,14 +17,12 @@ Packager Manager infomation api for packaging
 
 %package devel
 Summary:    Packager Manager infomation api (devel)
-Group:		Development/Libraries
 Requires:   %{name} = %{version}-%{release}
 %description devel
 Packager Manager infomation api (devel)
 
 %package parser
 Summary:    Library for manifest parser
-Group:      Application Framework/Package Management
 Requires:   %{name} = %{version}-%{release}
 
 %description parser
@@ -32,7 +30,6 @@ Library for manifest parser
 
 %package parser-devel
 Summary:    Dev package for libpkgmgr-parser
-Group:      Development/Libraries
 Requires:   %{name} = %{version}-%{release}
 
 %description parser-devel
@@ -48,29 +45,23 @@ make %{?jobs:-j%jobs}
 
 %install
 %make_install
+mkdir -p %{buildroot}/opt/usr/apps/tmp
+touch %{buildroot}/opt/usr/apps/tmp/pkgmgr_tmp.txt
 
-%post
-/sbin/ldconfig
-
-mkdir -p /opt/usr/apps/tmp
-chown 5100:5100 /opt/usr/apps/tmp
-chmod 771 /opt/usr/apps/tmp
-chsmack -a '*' /opt/usr/apps/tmp
-chsmack -t /opt/usr/apps/tmp
-
-touch /opt/usr/apps/tmp/pkgmgr_tmp.txt
-
-chsmack -a 'pkgmgr::db' /opt/usr/apps/tmp/pkgmgr_tmp.txt
+%post -p /sbin/ldconfig
 
 %postun -p /sbin/ldconfig
 
 %post -n pkgmgr-info-parser -p /sbin/ldconfig
 
 %postun  -n pkgmgr-info-parser -p /sbin/ldconfig
+
 %files
 %manifest pkgmgr-info.manifest
 %defattr(-,root,root,-)
 %{_libdir}/libpkgmgr-info.so.*
+%dir %attr(771,app,app) /opt/usr/apps/tmp
+/opt/usr/apps/tmp/pkgmgr_tmp.txt
 
 %files devel
 %defattr(-,root,root,-)
@@ -82,10 +73,10 @@ chsmack -a 'pkgmgr::db' /opt/usr/apps/tmp/pkgmgr_tmp.txt
 %manifest pkgmgr-parser.manifest
 %defattr(-,root,root,-)
 %{_libdir}/libpkgmgr_parser.so.*
-%{_prefix}/etc/package-manager/preload/preload_list.txt
-%{_prefix}/etc/package-manager/preload/manifest.xsd
-%{_prefix}/etc/package-manager/preload/xml.xsd
-%{_prefix}/etc/package-manager/parser_path.conf
+%{_sysconfdir}/package-manager/preload/preload_list.txt
+%{_sysconfdir}/package-manager/preload/manifest.xsd
+%{_sysconfdir}/package-manager/preload/xml.xsd
+%{_sysconfdir}/package-manager/parser_path.conf
 
 %files parser-devel
 %defattr(-,root,root,-)

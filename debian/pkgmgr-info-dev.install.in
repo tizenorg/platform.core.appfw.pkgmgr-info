@@ -1,2 +1,0 @@
-@PREFIX@/include/pkgmgr-info.h
-@PREFIX@/lib/pkgconfig/*.pc
