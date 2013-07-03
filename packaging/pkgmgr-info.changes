@@ -1,3 +1,6 @@
+* Wed Jul 03 2013 Anas Nashif <anas.nashif@intel.com> accepted/tizen/20130520.100925@8038963
+- Clean up %post and install in /etc
+
 * Wed May 29 2013 Baptiste DURAND <baptiste.durand@eurogiciel.fr> accepted/tizen/20130520.100925@bdc01e7
 - Fix spec file according to RPMLINT Rules
 - Fix x64 arch compatibility
