@@ -77,10 +77,10 @@ touch /opt/usr/apps/tmp/pkgmgr_tmp.txt
 %manifest pkgmgr-parser.manifest
 %defattr(-,root,root,-)
 %{_libdir}/libpkgmgr_parser.so.*
-%{_prefix}/etc/package-manager/preload/preload_list.txt
-%{_prefix}/etc/package-manager/preload/manifest.xsd
-%{_prefix}/etc/package-manager/preload/xml.xsd
-%{_prefix}/etc/package-manager/parser_path.conf
+%{_sysconfdir}/package-manager/preload/preload_list.txt
+%{_sysconfdir}/package-manager/preload/manifest.xsd
+%{_sysconfdir}/package-manager/preload/xml.xsd
+%{_sysconfdir}/package-manager/parser_path.conf
 
 %files parser-devel
 %defattr(-,root,root,-)
