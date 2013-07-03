@@ -1440,6 +1440,10 @@ static void __ps_free_uiapplication(uiapplication_x *uiapplication)
 		free((void *)uiapplication->hwacceleration);
 		uiapplication->hwacceleration = NULL;
 	}
+	if (uiapplication->screenreader) {
+		free((void *)uiapplication->screenreader);
+		uiapplication->screenreader = NULL;
+	}
 	if (uiapplication->mainapp) {
 		free((void *)uiapplication->mainapp);
 		uiapplication->mainapp = NULL;
@@ -2771,6 +2775,13 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 			uiapplication->hwacceleration = strdup("use-system-setting");
 	} else {
 		uiapplication->hwacceleration = strdup("use-system-setting");
+	}
+	if (xmlTextReaderGetAttribute(reader, XMLCHAR("screen-reader"))) {
+		uiapplication->screenreader = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("screen-reader")));
+		if (uiapplication->screenreader == NULL)
+			uiapplication->screenreader = strdup("use-system-setting");
+	} else {
+		uiapplication->screenreader = strdup("use-system-setting");
 	}
 	if (xmlTextReaderGetAttribute(reader, XMLCHAR("recentimage")))
 		uiapplication->recentimage = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("recentimage")));

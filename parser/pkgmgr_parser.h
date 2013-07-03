@@ -364,6 +364,7 @@ typedef struct uiapplication_x {
 	const char *categories;
 	const char *extraid;
 	const char *hwacceleration;
+	const char *screenreader;
 	const char *mainapp;
 	const char *package;
 	const char *recentimage;

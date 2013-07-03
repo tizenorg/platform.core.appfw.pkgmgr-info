@@ -143,6 +143,12 @@ typedef enum {
 }pkgmgrinfo_app_hwacceleration;
 
 typedef enum {
+	PMINFO_SCREENREADER_OFF = 0,		/**< Don't use screen reader*/
+	PMINFO_SCREENREADER_ON = 1,		/**< Use screen reader*/
+	PMINFO_SCREENREADER_USE_SYSTEM_SETTING = 2		/**< Follow system setting for screen reader */
+}pkgmgrinfo_app_screenreader;
+
+typedef enum {
 	PMINFO_RECENTIMAGE_USE_ICON = 0,		/**<Use icon for recent image*/
 	PMINFO_RECENTIMAGE_USE_CAPTURE = 1,		/**< Use capture for recent image*/
 	PMINFO_RECENTIMAGE_USE_NOTHING = 2		/**< Don't use recent image */
@@ -409,6 +415,8 @@ typedef enum {
 #define	PMINFO_APPINFO_PROP_APP_CATEGORY	"PMINFO_APPINFO_PROP_APP_CATEGORY"
  /** String property for filtering based on app info*/
 #define	PMINFO_APPINFO_PROP_APP_HWACCELERATION	"PMINFO_APPINFO_PROP_APP_HWACCELERATION"
+  /** String property for filtering based on app info*/
+#define	PMINFO_APPINFO_PROP_APP_SCREENREADER	"PMINFO_APPINFO_PROP_APP_SCREENREADER"
 
  /** Boolean property for filtering based on app info*/
 #define	PMINFO_APPINFO_PROP_APP_NODISPLAY		"PMINFO_APPINFO_PROP_APP_NODISPLAY"
@@ -3029,6 +3037,45 @@ static int get_app_hwacceleration(const char *appid)
  * @endcode
  */
 int pkgmgrinfo_appinfo_get_hwacceleration(pkgmgrinfo_appinfo_h  handle, pkgmgrinfo_app_hwacceleration *hwacceleration);
+
+/**
+ * @fn int pkgmgrinfo_appinfo_get_screenreader(pkgmgrinfo_appinfo_h  handle, pkgmgrinfo_app_screenreader *screenreader)
+ * @brief	This API gets the application 'screenreader' value from the app ID
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in]	handle	pointer to application info handle
+ * @param[out] screenreader		pointer to hold package accessibility value
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		pkgmgrinfo_appinfo_get_appinfo()
+ * @post	pkgmgrinfo_appinfo_destroy_appinfo()
+ * @see		pkgmgrinfo_appinfo_get_appid()
+ * @see		pkgmgrinfo_appinfo_is_multiple()
+ * @code
+static int get_app_screenreader(const char *appid)
+{
+	int ret = 0;
+	pkgmgrinfo_app_screenreader screenreader = PMINFO_USE_SYSTEM_SETTING;
+	pkgmgrinfo_appinfo_h handle = NULL;
+	ret = pkgmgrinfo_appinfo_get_appinfo(appid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_appinfo_get_screenreader(handle, &screenreader);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_appinfo_destroy_appinfo(handle);
+		return -1;
+	}
+	printf("app screenreader: %d\n", screenreader);
+	pkgmgrinfo_appinfo_destroy_appinfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_appinfo_get_screenreader(pkgmgrinfo_appinfo_h  handle, pkgmgrinfo_app_screenreader *screenreader);
 
 /**
  * @fn int pkgmgrinfo_appinfo_get_effectimage(pkgmgrinfo_appinfo_h  handle, char **portrait_img, char **landscape_img)

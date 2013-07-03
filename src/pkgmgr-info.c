@@ -368,6 +368,9 @@ static void __get_filter_condition(gpointer data, char **condition)
 	case E_PMINFO_APPINFO_PROP_APP_HWACCELERATION:
 		snprintf(buf, MAX_QUERY_LEN, "package_app_info.app_hwacceleration='%s'", node->value);
 		break;
+	case E_PMINFO_APPINFO_PROP_APP_SCREENREADER:
+		snprintf(buf, MAX_QUERY_LEN, "package_app_info.app_screenreader='%s'", node->value);
+		break;
 	case E_PMINFO_APPINFO_PROP_APP_LAUNCHCONDITION:
 		snprintf(buf, MAX_QUERY_LEN, "package_app_info.app_launchcondition IN %s", node->value);
 		break;
@@ -595,6 +598,11 @@ static int __uiapp_list_cb(void *data, int ncols, char **coltxt, char **colname)
 				info->manifest_info->uiapplication->hwacceleration = strdup(coltxt[i]);
 			else
 				info->manifest_info->uiapplication->hwacceleration = NULL;
+		} else if (strcmp(colname[i], "app_screenreader") == 0 ){
+			if (coltxt[i])
+				info->manifest_info->uiapplication->screenreader = strdup(coltxt[i]);
+			else
+				info->manifest_info->uiapplication->screenreader = NULL;
 		} else if (strcmp(colname[i], "app_indicatordisplay") == 0 ){
 			if (coltxt[i])
 				info->manifest_info->uiapplication->indicatordisplay = strdup(coltxt[i]);
@@ -816,6 +824,11 @@ static int __allapp_list_cb(void *data, int ncols, char **coltxt, char **colname
 								info->manifest_info->uiapplication->hwacceleration = strdup(coltxt[i]);
 							else
 								info->manifest_info->uiapplication->hwacceleration = NULL;
+						} else if (strcmp(colname[i], "app_screenreader") == 0 ){
+							if (coltxt[i])
+								info->manifest_info->uiapplication->screenreader = strdup(coltxt[i]);
+							else
+								info->manifest_info->uiapplication->screenreader = NULL;
 						} else if (strcmp(colname[i], "app_indicatordisplay") == 0 ){
 							if (coltxt[i])
 								info->manifest_info->uiapplication->indicatordisplay = strdup(coltxt[i]);
@@ -1274,6 +1287,11 @@ static int __mini_appinfo_cb(void *data, int ncols, char **coltxt, char **colnam
 				info->uiapp_info->hwacceleration = strdup(coltxt[i]);
 			else
 				info->uiapp_info->hwacceleration = NULL;
+		} else if (strcmp(colname[i], "app_screenreader") == 0 ) {
+			if (coltxt[i])
+				info->uiapp_info->screenreader = strdup(coltxt[i]);
+			else
+				info->uiapp_info->screenreader = NULL;
 		} else if (strcmp(colname[i], "app_enabled") == 0 ) {
 			if (coltxt[i])
 				info->uiapp_info->enabled= strdup(coltxt[i]);
@@ -1434,6 +1452,11 @@ static int __appinfo_cb(void *data, int ncols, char **coltxt, char **colname)
 					info->uiapp_info->hwacceleration = strdup(coltxt[i]);
 				else
 					info->uiapp_info->hwacceleration = NULL;
+			} else if (strcmp(colname[i], "app_screenreader") == 0 ) {
+				if (coltxt[i])
+					info->uiapp_info->screenreader = strdup(coltxt[i]);
+				else
+					info->uiapp_info->screenreader = NULL;
 			} else if (strcmp(colname[i], "app_enabled") == 0 ) {
 				if (coltxt[i])
 					info->uiapp_info->enabled= strdup(coltxt[i]);
@@ -4889,6 +4912,24 @@ API int pkgmgrinfo_appinfo_get_hwacceleration(pkgmgrinfo_appinfo_h  handle, pkgm
 			*hwacceleration = PMINFO_HWACCELERATION_USE_GL;
 		else
 			*hwacceleration = PMINFO_HWACCELERATION_USE_SYSTEM_SETTING;
+	}
+	return PMINFO_R_OK;
+}
+
+API int pkgmgrinfo_appinfo_get_screenreader(pkgmgrinfo_appinfo_h  handle, pkgmgrinfo_app_screenreader *screenreader)
+{
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
+	retvm_if(screenreader == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
+	char *val = NULL;
+	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
+	val = (char *)info->uiapp_info->screenreader;
+	if (val) {
+		if (strcasecmp(val, "screenreader-off") == 0)
+			*screenreader = PMINFO_SCREENREADER_OFF;
+		else if (strcasecmp(val, "screenreader-on") == 0)
+			*screenreader = PMINFO_SCREENREADER_ON;
+		else
+			*screenreader = PMINFO_SCREENREADER_USE_SYSTEM_SETTING;
 	}
 	return PMINFO_R_OK;
 }

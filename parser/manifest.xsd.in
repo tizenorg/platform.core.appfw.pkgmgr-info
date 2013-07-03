@@ -67,6 +67,13 @@
         <xs:enumeration value="use-system-setting"/>
        </xs:restriction>
     </xs:simpleType>
+	<xs:simpleType name="ScreenReaderType">
+	  <xs:restriction base="xs:string">
+		<xs:enumeration value="screenreader-off"/>
+		<xs:enumeration value="screenreader-on"/>
+		<xs:enumeration value="use-system-setting"/>
+	   </xs:restriction>
+	</xs:simpleType>
 	<xs:simpleType name="RecentImage">
 	  <xs:restriction base="xs:string">
 		<xs:enumeration value="icon"/>
@@ -137,6 +144,7 @@
       <xs:attribute name="categories" type="xs:NCName"/>
       <xs:attribute name="extraid"/>
       <xs:attribute name="hw-acceleration" type="packages:HwAccelerationType"/>
+	  <xs:attribute name="screen-reader" type="packages:ScreenReaderType"/>
 	  <xs:attribute name="recentimage" type="packages:RecentImage"/>
 	  <xs:attribute name="mainapp" type="xs:boolean"/>
       <xs:attribute name="indicatordisplay" type="xs:boolean"/>
