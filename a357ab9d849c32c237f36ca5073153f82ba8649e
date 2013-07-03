@@ -1,0 +1,10 @@
+Code-Review+1: Patrick McCarty <patrick.mccarty@linux.intel.com>
+Code-Review+2: Anas Nashif <anas.nashif@intel.com>
+Verified+1: Anas Nashif <anas.nashif@intel.com>
+Code-Review+1: william douglas <william.douglas@intel.com>
+Code-Review+1: Michael Demeter <michael.demeter@intel.com>
+Submitted-by: Anas Nashif <anas.nashif@intel.com>
+Submitted-at: Wed, 03 Jul 2013 13:09:04 -0700
+Reviewed-on: https://review.tizen.org/gerrit/5478
+Project: platform/core/appfw/pkgmgr-info
+Branch: refs/heads/tizen
