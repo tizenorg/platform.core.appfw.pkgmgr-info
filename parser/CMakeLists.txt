@@ -6,6 +6,7 @@ cmake_minimum_required(VERSION 2.6)
 #set(CMAKE_SKIP_BUILD_RPATH true)
 set(CMAKE_ALLOW_LOOSE_LOOP_CONSTRUCTS true)
 
+INCLUDE(TizenCommon)
 
 ### Versioning
 if(DEFINED ${VERSION})
@@ -72,6 +73,6 @@ INSTALL(FILES
 		${CMAKE_CURRENT_BINARY_DIR}/pkgmgr-parser.pc
 		DESTINATION ${LIB_INSTALL_DIR}/pkgconfig)
 
-INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/preload_list.txt DESTINATION ${PREFIX}/etc/package-manager/preload/)
-INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/manifest.xsd DESTINATION ${PREFIX}/etc/package-manager/preload/)
-INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/xml.xsd DESTINATION ${PREFIX}/etc/package-manager/preload/)
+    INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/preload_list.txt DESTINATION ${SYSCONFDIR}/package-manager/preload/)
+    INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/manifest.xsd DESTINATION ${SYSCONFDIR}/package-manager/preload/)
+    INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/xml.xsd DESTINATION ${SYSCONFDIR}/package-manager/preload/)
