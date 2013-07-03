@@ -1,3 +1,6 @@
+* Wed Jul 03 2013 Victor Hakoun <victor.hakoun@eurogiciel.fr> submit/tizen/20130529.155447@6040b39
+- Fix dlopen issue during installation of widget that require privilege
+
 * Wed May 29 2013 Baptiste DURAND <baptiste.durand@eurogiciel.fr> accepted/tizen/20130520.100925@bdc01e7
 - Fix spec file according to RPMLINT Rules
 - Fix x64 arch compatibility
