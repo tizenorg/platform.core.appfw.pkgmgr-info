@@ -1,0 +1,8 @@
+Change-Id: I67a3477d8c40150fe0a16ac900cba8f396c8e5c8
+Code-Review+2: Ryan Ware <ware@linux.intel.com>
+Verified+1: Ryan Ware <ware@linux.intel.com>
+Submitted-by: Ryan Ware <ware@linux.intel.com>
+Submitted-at: Mon, 08 Jul 2013 10:28:57 -0700
+Reviewed-on: https://review.tizen.org/gerrit/4476
+Project: platform/core/appfw/pkgmgr-info
+Branch: refs/heads/tizen
