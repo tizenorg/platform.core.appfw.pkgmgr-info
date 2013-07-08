@@ -3729,7 +3729,7 @@ END:
 }
 
 #define MANIFEST_RO_PREFIX "/usr/share/packages/"
-#define PRELOAD_PACKAGE_LIST "/etc/package-manager/preload/preload_list.txt"
+#define PRELOAD_PACKAGE_LIST SYSCONFDIR "/package-manager/preload/preload_list.txt"
 static int __add_preload_info(manifest_x * mfx, const char *manifest)
 {
 	FILE *fp = NULL;
@@ -4231,7 +4231,7 @@ API int pkgmgr_parser_run_parser_for_uninstallation(xmlDocPtr docPtr, const char
 	return __ps_run_parser(docPtr, tag, ACTION_UNINSTALL, pkgid);
 }
 
-#define SCHEMA_FILE "/usr/etc/package-manager/preload/manifest.xsd"
+#define SCHEMA_FILE SYSCONFDIR "/package-manager/preload/manifest.xsd"
 #if 1
 API int pkgmgr_parser_check_manifest_validation(const char *manifest)
 {

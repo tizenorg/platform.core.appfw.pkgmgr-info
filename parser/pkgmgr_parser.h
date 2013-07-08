@@ -49,7 +49,7 @@ extern "C" {
 #define DEFAULT_LOCALE		"No Locale"
 
 #define PKG_PARSERLIB	"parserlib:"
-#define PKG_PARSER_CONF_PATH	"/usr/etc/package-manager/parser_path.conf"
+#define PKG_PARSER_CONF_PATH	SYSCONFDIR "/package-manager/parser_path.conf"
 
 #define PKG_STRING_LEN_MAX 1024
 

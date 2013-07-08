@@ -9,4 +9,4 @@ Name: pkgmgr-info
 Description: Simple string key/val dictionary library
 Version: @VERSION@
 Libs: -L${libdir} -lpkgmgr-info
-Cflags: -I${includedir}
+Cflags: -I${includedir} -DSYSCONFDIR=\"@SYSCONFDIR@\"

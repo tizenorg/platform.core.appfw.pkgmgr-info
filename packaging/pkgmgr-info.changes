@@ -1,3 +1,6 @@
+* Mon Jul 08 2013 Baptiste DURAND <baptiste.durand@eurogiciel.fr> accepted/tizen/20130703.235718@ba6f4aa
+- Fix Runtimes Issue : Remove hardcoded path
+
 * Wed Jul 03 2013 Anas Nashif <anas.nashif@intel.com> accepted/tizen/20130520.100925@8038963
 - Clean up %post and install in /etc
 
