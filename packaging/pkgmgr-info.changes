@@ -1,3 +1,6 @@
+* Thu Jul 11 2013 Patrick McCarty <patrick.mccarty@linux.intel.com> 872e32b
+- Remove the manifest template files
+
 * Mon Jul 08 2013 Baptiste DURAND <baptiste.durand@eurogiciel.fr> accepted/tizen/20130703.235718@ba6f4aa
 - Fix Runtimes Issue : Remove hardcoded path
 
