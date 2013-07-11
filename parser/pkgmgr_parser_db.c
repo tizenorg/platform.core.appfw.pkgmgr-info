@@ -1960,7 +1960,7 @@ int pkgmgr_parser_check_and_create_db()
 	return 0;
 }
 
-int pkgmgr_parser_close_db()
+void pkgmgr_parser_close_db()
 {
 	sqlite3_close(pkgmgr_parser_db);
 	sqlite3_close(pkgmgr_cert_db);

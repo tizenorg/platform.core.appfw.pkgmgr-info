@@ -47,6 +47,8 @@
 #define MDPARSER_LIST "/usr/etc/package-manager/parserlib/metadata/mdparser_list.txt"
 #define MDPARSER_NAME	"mdparser:"
 
+#define PKG_TAG_LEN_MAX 128
+
 /* operation_type */
 typedef enum {
 	ACTION_INSTALL = 0,
@@ -54,6 +56,12 @@ typedef enum {
 	ACTION_UNINSTALL,
 	ACTION_MAX
 } ACTION_TYPE;
+
+/* plugin process_type */
+typedef enum {
+	PLUGIN_PRE_PROCESS = 0,
+	PLUGIN_POST_PROCESS
+} PLUGIN_PROCESS_TYPE;
 
 typedef struct {
 	const char *key;
@@ -314,10 +322,7 @@ static char *__get_parser_plugin(const char *type)
 		__str_trim(buffer);
 
 		if ((path = strstr(buffer, PKG_PARSERLIB)) != NULL) {
-			DBG("[%s]\n", path);
 			path = path + strlen(PKG_PARSERLIB);
-			DBG("[%s]\n", path);
-
 			break;
 		}
 
@@ -374,15 +379,15 @@ static int __ps_run_mdparser(GList *md_list, const char *tag,
 
 	if ((mdparser_plugin =
 		dlsym(lib_handle, ac)) == NULL || dlerror() != NULL) {
-		DBGE("can not find symbol \n");
+		DBGE("can not find symbol[%s] \n",ac);
 		goto END;
 	}
 
 	ret = mdparser_plugin(pkgid, appid, md_list);
 	if (ret < 0)
-		DBGE("[appid = %s, libpath = %s] plugin fail\n", appid, lib_path);
+		DBG("[appid = %s, libpath = %s plugin fail\n", appid, lib_path);
 	else
-		DBGE("[appid = %s, libpath = %s] plugin success\n", appid, lib_path);
+		DBG("[appid = %s, libpath = %s plugin success\n", appid, lib_path);
 
 END:
 	if (lib_path)
@@ -426,11 +431,15 @@ static int __ps_run_parser(xmlDocPtr docPtr, const char *tag,
 	}
 	if ((plugin_install =
 		dlsym(lib_handle, ac)) == NULL || dlerror() != NULL) {
-		DBGE("can not find symbol \n");
+		DBGE("can not find symbol[%s] \n", ac);
 		goto END;
 	}
 
 	ret = plugin_install(docPtr, pkgid);
+	if (ret < 0)
+		DBG("[pkgid = %s, libpath = %s plugin fail\n", pkgid, lib_path);
+	else
+		DBG("[pkgid = %s, libpath = %s plugin success\n", pkgid, lib_path);
 
 END:
 	if (lib_path)
@@ -755,12 +764,152 @@ __processNode(xmlTextReaderPtr reader, ACTION_TYPE action, char *const tagv[], c
 	}
 }
 
+static void __plugin_send_tag(const char *tag, ACTION_TYPE action, PLUGIN_PROCESS_TYPE process, const char *pkgid)
+{
+	char *lib_path = NULL;
+	void *lib_handle = NULL;
+	int (*plugin_install) (const char *);
+	int ret = -1;
+	char *ac = NULL;
+
+	if (process == PLUGIN_PRE_PROCESS) {
+		switch (action) {
+		case ACTION_INSTALL:
+			ac = "PKGMGR_PARSER_PLUGIN_PRE_INSTALL";
+			break;
+		case ACTION_UPGRADE:
+			ac = "PKGMGR_PARSER_PLUGIN_PRE_UPGRADE";
+			break;
+		case ACTION_UNINSTALL:
+			ac = "PKGMGR_PARSER_PLUGIN_PRE_UNINSTALL";
+			break;
+		default:
+			goto END;
+		}
+	} else if (process == PLUGIN_POST_PROCESS) {
+		switch (action) {
+		case ACTION_INSTALL:
+			ac = "PKGMGR_PARSER_PLUGIN_POST_INSTALL";
+			break;
+		case ACTION_UPGRADE:
+			ac = "PKGMGR_PARSER_PLUGIN_POST_UPGRADE";
+			break;
+		case ACTION_UNINSTALL:
+			ac = "PKGMGR_PARSER_PLUGIN_POST_UNINSTALL";
+			break;
+		default:
+			goto END;
+		}
+	} else
+		goto END;
+
+	lib_path = __get_parser_plugin(tag);
+	if (!lib_path) {
+		goto END;
+	}
+
+	if ((lib_handle = dlopen(lib_path, RTLD_LAZY)) == NULL) {
+		DBGE("dlopen is failed lib_path[%s]\n", lib_path);
+		goto END;
+	}
+	if ((plugin_install =
+		dlsym(lib_handle, ac)) == NULL || dlerror() != NULL) {
+		DBGE("can not find symbol[%s] \n", ac);
+		goto END;
+	}
+
+	ret = plugin_install(pkgid);
+	if (ret < 0)
+		DBG("[PLUGIN_PROCESS_TYPE[%d] pkgid=%s, tag=%s plugin fail\n", process, pkgid, tag);
+	else
+		DBG("[PLUGIN_PROCESS_TYPE[%d] pkgid=%s, tag=%s plugin success\n", process, pkgid, tag);
+
+END:
+	if (lib_path)
+		free(lib_path);
+	if (lib_handle)
+		dlclose(lib_handle);
+}
+
+static void
+__plugin_process_tag(char *const tag_list[], ACTION_TYPE action, PLUGIN_PROCESS_TYPE process, const char *pkgid)
+{
+	char *tag = NULL;
+	int i = 0;
+
+	for (tag = tag_list[0]; tag; tag = tag_list[++i])
+		__plugin_send_tag(tag, action, process, pkgid);
+
+}
+
+static void
+__plugin_save_tag(xmlTextReaderPtr reader, char *const tagv[], char *tag_list[])
+{
+	char *tag = NULL;
+	int i = 0;
+	static int pre_cnt=0;
+
+	switch (xmlTextReaderNodeType(reader)) {
+	case XML_READER_TYPE_ELEMENT:
+		{
+			const xmlChar *elementName = xmlTextReaderLocalName(reader);
+			if (elementName == NULL) {
+				break;
+			}
+			i = 0;
+			for (tag = tag_list[0]; tag; tag = tag_list[++i])
+				if (strcmp(ASCII(elementName), tag) == 0) {
+					return;
+				}
+			i = 0;
+			for (tag = tagv[0]; tag; tag = tagv[++i])
+				if (strcmp(tag, ASCII(elementName)) == 0) {
+					tag_list[pre_cnt++] = tag;
+					break;
+				}
+			break;
+		}
+	default:
+//		DBG("Ignoring Node of Type: %d", xmlTextReaderNodeType(reader));
+		break;
+	}
+}
+
+static void
+__plugin_find_tag(const char *filename, char *const tagv[], char *tag_list[])
+{
+	xmlTextReaderPtr reader;
+	xmlDocPtr docPtr;
+	int ret;
+
+	docPtr = xmlReadFile(filename, NULL, 0);
+	reader = xmlReaderWalker(docPtr);
+	if (reader != NULL) {
+		ret = xmlTextReaderRead(reader);
+		while (ret == 1) {
+			__plugin_save_tag(reader, tagv, tag_list);
+			ret = xmlTextReaderRead(reader);
+		}
+		xmlFreeTextReader(reader);
+
+		if (ret != 0) {
+			DBG("xmlReaderWalker fail");
+		}
+	} else {
+		DBG("xmlReaderWalker fail");
+	}
+}
+
 static void
 __streamFile(const char *filename, ACTION_TYPE action, char *const tagv[], const char *pkgid)
 {
 	xmlTextReaderPtr reader;
 	xmlDocPtr docPtr;
 	int ret;
+	char *tag_list[PKG_TAG_LEN_MAX] = {'\0'};
+
+	__plugin_find_tag(filename, tagv, tag_list);
+	__plugin_process_tag(tag_list, action, PLUGIN_PRE_PROCESS, pkgid);
 
 	docPtr = xmlReadFile(filename, NULL, 0);
 	reader = xmlReaderWalker(docPtr);
@@ -778,6 +927,8 @@ __streamFile(const char *filename, ACTION_TYPE action, char *const tagv[], const
 	} else {
 		DBGE("Unable to open %s", filename);
 	}
+
+	__plugin_process_tag(tag_list, action, PLUGIN_POST_PROCESS, pkgid);
 }
 
 static int __next_child_element(xmlTextReaderPtr reader, int depth)
@@ -2571,8 +2722,15 @@ static int __ps_process_author(xmlTextReaderPtr reader, author_x *author)
 		author->lang = strdup(DEFAULT_LOCALE);
 	}
 	xmlTextReaderRead(reader);
-	if (xmlTextReaderValue(reader))
+	if (xmlTextReaderValue(reader)) {
+		const char *text  = ASCII(xmlTextReaderValue(reader));
+		if (*text == '\n') {
+			author->text = NULL;
+			free((void *)text);
+			return 0;
+		}
 		author->text = ASCII(xmlTextReaderValue(reader));
+	}
 	return 0;
 }
 
@@ -2586,8 +2744,15 @@ static int __ps_process_description(xmlTextReaderPtr reader, description_x *desc
 		description->lang = strdup(DEFAULT_LOCALE);
 	}
 	xmlTextReaderRead(reader);
-	if (xmlTextReaderValue(reader))
+	if (xmlTextReaderValue(reader)) {
+		const char *text  = ASCII(xmlTextReaderValue(reader));
+		if (*text == '\n') {
+			description->text = NULL;
+			free((void *)text);
+			return 0;
+		}
 		description->text = ASCII(xmlTextReaderValue(reader));
+	}
 	return 0;
 }
 
