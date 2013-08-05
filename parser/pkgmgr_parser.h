@@ -456,6 +456,7 @@ typedef struct manifest_x {
 	const char *readonly;		/**< package readonly flag*/
 	const char *update;			/**< package update flag*/
 	const char *appsetting;		/**< package app setting flag*/
+	const char *system;		/**< package system flag*/
 	const char *type;		/**< package type*/
 	const char *package_size;		/**< package size for external installation*/
 	const char *installed_time;		/**< installed time after finishing of installation*/

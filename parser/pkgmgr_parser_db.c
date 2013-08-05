@@ -37,11 +37,7 @@
 #define MAX_QUERY_LEN		4096
 sqlite3 *pkgmgr_parser_db;
 sqlite3 *pkgmgr_cert_db;
-GList *pkglocale = NULL;
-GList *applocale = NULL;
-GList *appicon = NULL;
-GList *appimage = NULL;
-char *prev = NULL;
+
 
 #define QUERY_CREATE_TABLE_PACKAGE_INFO "create table if not exists package_info " \
 						"(package text primary key not null, " \
@@ -55,6 +51,7 @@ char *prev = NULL;
 						"package_update text DEFAULT 'false', " \
 						"package_appsetting text DEFAULT 'false', " \
 						"package_nodisplay text DEFAULT 'false', " \
+						"package_system text DEFAULT 'false', " \
 						"author_name text, " \
 						"author_email text, " \
 						"author_href text," \
@@ -256,8 +253,6 @@ static int __exec_query(char *query);
 static void __extract_data(gpointer data, label_x *lbl, license_x *lcn, icon_x *icn, description_x *dcn, author_x *ath,
 		char **label, char **license, char **icon, char **description, char **author);
 static gint __comparefunc(gconstpointer a, gconstpointer b, gpointer userdata);
-static void __trimfunc1(gpointer data, gpointer userdata);
-static void __trimfunc2(gpointer data, gpointer userdata);
 static GList *__create_locale_list(GList *locale, label_x *lbl, license_x *lcn, icon_x *icn, description_x *dcn, author_x *ath);
 static void __preserve_guestmode_visibility_value(manifest_x *mfx);
 static int __guestmode_visibility_cb(void *data, int ncols, char **coltxt, char **colname);
@@ -455,52 +450,31 @@ static void __printfunc(gpointer data, gpointer userdata)
 	DBG("%s  ", (char*)data);
 }
 
-static void __trimfunc1(gpointer data, gpointer userdata)
+static void __trimfunc(GList* trim_list)
 {
-	if (prev) {
-		if (strcmp((char *)data, prev) == 0) {
-			pkglocale = g_list_remove(pkglocale, data);
-		} else
-			prev = (char *)data;
-	}
-	else
-		prev = (char *)data;
-}
+	char *trim_data = NULL;
+	char *prev = NULL;
 
-static void __trimfunc2(gpointer data, gpointer userdata)
-{
-	if (prev) {
-		if (strcmp((char *)data, prev) == 0) {
-			applocale = g_list_remove(applocale, data);
-		} else
-			prev = (char *)data;
-	}
-	else
-		prev = (char *)data;
-}
+	GList *list = NULL;
+	list = g_list_first(trim_list);
 
-static void __trimfunc3(gpointer data, gpointer userdata)
-{
-	if (prev) {
-		if (strcmp((char *)data, prev) == 0) {
-			appicon = g_list_remove(appicon, data);
-		} else
-			prev = (char *)data;
+	while (list) {
+		trim_data = (char *)list->data;
+		if (trim_data) {
+			if (prev) {
+				if (strcmp(trim_data, prev) == 0) {
+					trim_list = g_list_remove(trim_list, trim_data);
+					list = g_list_first(trim_list);
+					prev = NULL;
+					continue;
+				} else
+					prev = trim_data;
+			}
+			else
+				prev = trim_data;
+		}
+		list = g_list_next(list);
 	}
-	else
-		prev = (char *)data;
-}
-
-static void __trimfunc4(gpointer data, gpointer userdata)
-{
-	if (prev) {
-		if (strcmp((char *)data, prev) == 0) {
-			appimage = g_list_remove(appimage, data);
-		} else
-			prev = (char *)data;
-	}
-	else
-		prev = (char *)data;
 }
 
 static gint __comparefunc(gconstpointer a, gconstpointer b, gpointer userdata)
@@ -660,6 +634,12 @@ static void __insert_uiapplication_locale_info(gpointer data, gpointer userdata)
 			"('%q', '%q', '%q', '%q', '%q', '%q', '%q')", up->package, (char*)data,
 			label, icon, NULL, NULL, NULL);
 		ret = __exec_query_no_msg(query);
+
+		if (icon != NULL) {
+			sqlite3_snprintf(MAX_QUERY_LEN, query, "update package_localized_info set package_icon='%s' "\
+				"where package='%s' and package_locale='%s'", icon, up->package, (char*)data);
+			ret = __exec_query_no_msg(query);
+		}
 	}
 }
 
@@ -1478,6 +1458,12 @@ static int __insert_manifest_info_in_db(manifest_x *mfx)
 	const char *auth_name = NULL;
 	const char *auth_email = NULL;
 	const char *auth_href = NULL;
+
+	GList *pkglocale = NULL;
+	GList *applocale = NULL;
+	GList *appicon = NULL;
+	GList *appimage = NULL;
+
 	if (ath) {
 		if (ath->text)
 			auth_name = ath->text;
@@ -1505,11 +1491,11 @@ static int __insert_manifest_info_in_db(manifest_x *mfx)
 	}
 	snprintf(query, MAX_QUERY_LEN,
 		 "insert into package_info(package, package_type, package_version, install_location, package_size, " \
-		"package_removable, package_preload, package_readonly, package_update, package_appsetting, package_nodisplay, " \
+		"package_removable, package_preload, package_readonly, package_update, package_appsetting, package_nodisplay, package_system," \
 		"author_name, author_email, author_href, installed_time, installed_storage, storeclient_id, mainapp_id, package_url, root_path, csc_path) " \
-		"values('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
+		"values('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
 		 mfx->package, type, mfx->version, mfx->installlocation, mfx->package_size, mfx->removable, mfx->preload,
-		 mfx->readonly, mfx->update, mfx->appsetting, mfx->nodisplay_setting,
+		 mfx->readonly, mfx->update, mfx->appsetting, mfx->nodisplay_setting, mfx->system,
 		 auth_name, auth_email, auth_href, mfx->installed_time, mfx->installed_storage, mfx->storeclient_id, mfx->mainapp_id, mfx->package_url, path, mfx->csc_path);
 	ret = __exec_query(query);
 	if (ret == -1) {
@@ -1557,11 +1543,12 @@ static int __insert_manifest_info_in_db(manifest_x *mfx)
 	if (ret == -1)
 		return -1;
 
-	/*Insert the package locale and app locale info */
+	/*Insert the package locale*/
 	pkglocale = __create_locale_list(pkglocale, lbl, lcn, icn, dcn, ath);
-	g_list_foreach(pkglocale, __trimfunc1, NULL);
-	prev = NULL;
+	/*remove duplicated data in pkglocale*/
+	__trimfunc(pkglocale);
 
+	/*Insert the app locale info */
 	while(up != NULL)
 	{
 		applocale = __create_locale_list(applocale, up->label, NULL, up->icon, NULL, NULL);
@@ -1572,8 +1559,8 @@ static int __insert_manifest_info_in_db(manifest_x *mfx)
 		applocale = __create_locale_list(applocale, sp->label, NULL, sp->icon, NULL, NULL);
 		sp = sp->next;
 	}
-	g_list_foreach(applocale, __trimfunc2, NULL);
-	prev = NULL;
+	/*remove duplicated data in applocale*/
+	__trimfunc(applocale);
 
 	/*Insert the app icon info */
 	while(up_icn != NULL)
@@ -1581,8 +1568,8 @@ static int __insert_manifest_info_in_db(manifest_x *mfx)
 		appicon = __create_icon_list(appicon, up_icn->icon);
 		up_icn = up_icn->next;
 	}
-	g_list_foreach(appicon, __trimfunc3, NULL);
-	prev = NULL;
+	/*remove duplicated data in appicon*/
+	__trimfunc(appicon);
 
 	/*Insert the image info */
 	while(up_image != NULL)
@@ -1590,8 +1577,8 @@ static int __insert_manifest_info_in_db(manifest_x *mfx)
 		appimage = __create_image_list(appimage, up_image->image);
 		up_image = up_image->next;
 	}
-	g_list_foreach(appimage, __trimfunc4, NULL);
-	prev = NULL;
+	/*remove duplicated data in appimage*/
+	__trimfunc(appimage);
 
 	/*g_list_foreach(pkglocale, __printfunc, NULL);*/
 	/*DBG("\n");*/

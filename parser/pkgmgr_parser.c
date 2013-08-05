@@ -47,6 +47,9 @@
 #define MDPARSER_LIST "/usr/etc/package-manager/parserlib/metadata/mdparser_list.txt"
 #define MDPARSER_NAME	"mdparser:"
 
+#define CATEGORY_PARSER_LIST "/usr/etc/package-manager/parserlib/category/category_parser_list.txt"
+#define CATEGORY_PARSER_NAME	"categoryparser:"
+
 #define PKG_TAG_LEN_MAX 128
 
 /* operation_type */
@@ -67,6 +70,10 @@ typedef struct {
 	const char *key;
 	const char *value;
 } __metadata_t;
+
+typedef struct {
+	const char *name;
+} __category_t;
 
 const char *package;
 
@@ -288,7 +295,53 @@ static char *__get_mdparser_plugin(const char *type)
 		fclose(fp);
 
 	if (path == NULL) {
-		DBGE("no matching backendlib\n");
+		DBGE("no matching [%s] [%s]\n", MDPARSER_NAME,type);
+		return NULL;
+	}
+
+	snprintf(temp_path, sizeof(temp_path) - 1, "%slib%s.so", path, type);
+
+	return strdup(temp_path);
+}
+
+static char *__get_category_parser_plugin(const char *type)
+{
+	FILE *fp = NULL;
+	char buffer[1024] = { 0 };
+	char temp_path[1024] = { 0 };
+	char *path = NULL;
+
+	if (type == NULL) {
+		DBGE("invalid argument\n");
+		return NULL;
+	}
+
+	fp = fopen(PKG_PARSER_CONF_PATH, "r");
+	if (fp == NULL) {
+		DBGE("no matching mdparser\n");
+		return NULL;
+	}
+
+	while (fgets(buffer, sizeof(buffer), fp) != NULL) {
+		if (buffer[0] == '#')
+			continue;
+
+		__str_trim(buffer);
+
+		if ((path = strstr(buffer, CATEGORY_PARSER_NAME)) != NULL) {
+			path = path + strlen(CATEGORY_PARSER_NAME);
+
+			break;
+		}
+
+		memset(buffer, 0x00, 1024);
+	}
+
+	if (fp != NULL)
+		fclose(fp);
+
+	if (path == NULL) {
+		DBGE("no matching [%s] [%s]\n", CATEGORY_PARSER_NAME,type);
 		return NULL;
 	}
 
@@ -338,7 +391,6 @@ static char *__get_parser_plugin(const char *type)
 	}
 
 	snprintf(temp_path, sizeof(temp_path) - 1, "%slib%s.so", path, type);
-	DBG("[%s]\n", temp_path);
 
 	return strdup(temp_path);
 }
@@ -368,7 +420,7 @@ static int __ps_run_mdparser(GList *md_list, const char *tag,
 
 	lib_path = __get_mdparser_plugin(tag);
 	if (!lib_path) {
-		DBGE("__get_mdparser_plugin fail\n");
+		DBGE("get %s parser fail\n", tag);
 		goto END;
 	}
 
@@ -384,6 +436,60 @@ static int __ps_run_mdparser(GList *md_list, const char *tag,
 	}
 
 	ret = mdparser_plugin(pkgid, appid, md_list);
+	if (ret < 0)
+		DBG("[appid = %s, libpath = %s plugin fail\n", appid, lib_path);
+	else
+		DBG("[appid = %s, libpath = %s plugin success\n", appid, lib_path);
+
+END:
+	if (lib_path)
+		free(lib_path);
+	if (lib_handle)
+		dlclose(lib_handle);
+	return ret;
+}
+
+static int __ps_run_category_parser(GList *category_list, const char *tag,
+				ACTION_TYPE action, const char *pkgid, const char *appid)
+{
+	char *lib_path = NULL;
+	void *lib_handle = NULL;
+	int (*category_parser_plugin) (const char *, const char *, GList *);
+	int ret = -1;
+	char *ac = NULL;
+
+	switch (action) {
+	case ACTION_INSTALL:
+		ac = "PKGMGR_CATEGORY_PARSER_PLUGIN_INSTALL";
+		break;
+	case ACTION_UPGRADE:
+		ac = "PKGMGR_CATEGORY_PARSER_PLUGIN_UPGRADE";
+		break;
+	case ACTION_UNINSTALL:
+		ac = "PKGMGR_CATEGORY_PARSER_PLUGIN_UNINSTALL";
+		break;
+	default:
+		goto END;
+	}
+
+	lib_path = __get_category_parser_plugin(tag);
+	if (!lib_path) {
+		DBGE("get %s parser fail\n", tag);
+		goto END;
+	}
+
+	if ((lib_handle = dlopen(lib_path, RTLD_LAZY)) == NULL) {
+		DBGE("dlopen is failed lib_path[%s]\n", lib_path);
+		goto END;
+	}
+
+	if ((category_parser_plugin =
+		dlsym(lib_handle, ac)) == NULL || dlerror() != NULL) {
+		DBGE("can not find symbol[%s] \n",ac);
+		goto END;
+	}
+
+	ret = category_parser_plugin(pkgid, appid, category_list);
 	if (ret < 0)
 		DBG("[appid = %s, libpath = %s plugin fail\n", appid, lib_path);
 	else
@@ -497,6 +603,27 @@ static void __mdparser_clear_dir_list(GList* dir_list)
 	}
 }
 
+static void __category_parser_clear_dir_list(GList* dir_list)
+{
+	GList *list = NULL;
+	__category_t* detail = NULL;
+
+	if (dir_list) {
+		list = g_list_first(dir_list);
+		while (list) {
+			detail = (__category_t *)list->data;
+			if (detail) {
+				if (detail->name)
+					free(detail->name);
+
+				free(detail);
+			}
+			list = g_list_next(list);
+		}
+		g_list_free(dir_list);
+	}
+}
+
 static int __run_mdparser_prestep (manifest_x *mfx, char *md_key, ACTION_TYPE action)
 {
 	int ret = -1;
@@ -514,7 +641,6 @@ static int __run_mdparser_prestep (manifest_x *mfx, char *md_key, ACTION_TYPE ac
 		DBG("md_tag is NULL\n");
 		return -1;
 	}
-	DBG("md_tag = %s\n", md_tag);
 
 	while(up != NULL)
 	{
@@ -558,9 +684,9 @@ static int __run_mdparser_prestep (manifest_x *mfx, char *md_key, ACTION_TYPE ac
 		if (tag_exist) {
 			ret = __ps_run_mdparser(md_list, md_tag, action, mfx->package, up->appid);
 			if (ret < 0)
-				DBG("mdparser failed[%d]\n", ret);
+				DBG("mdparser failed[%d] for tag[%s]\n", ret, md_tag);
 			else
-				DBG("mdparser success, done[%d]\n", ret);
+				DBG("mdparser success for tag[%s]\n", md_tag);
 		}
 		__mdparser_clear_dir_list(md_list);
 		md_list = NULL;
@@ -574,6 +700,77 @@ END:
 
 	if (md_tag)
 		free(md_tag);
+
+	return ret;
+}
+
+static int __run_category_parser_prestep (manifest_x *mfx, char *category_key, ACTION_TYPE action)
+{
+	int ret = -1;
+	int tag_exist = 0;
+	char buffer[1024] = { 0, };
+	uiapplication_x *up = mfx->uiapplication;
+	category_x *category = NULL;
+	char *category_tag = NULL;
+
+	GList *category_list = NULL;
+	__category_t *category_detail = NULL;
+
+	category_tag = __get_tag_by_key(category_key);
+	if (category_tag == NULL) {
+		DBG("md_tag is NULL\n");
+		return -1;
+	}
+
+	while(up != NULL)
+	{
+		category = up->category;
+		while (category != NULL)
+		{
+			//get glist of meatdata key and value combination
+			memset(buffer, 0x00, 1024);
+			snprintf(buffer, 1024, "%s/", category_key);
+			if ((category->name) && (strncmp(category->name, category_key, strlen(category_key)) == 0)) {
+				category_detail = (__category_t*) calloc(1, sizeof(__category_t));
+				if (category_detail == NULL) {
+					DBG("Memory allocation failed\n");
+					goto END;
+				}
+
+				category_detail->name = (char*) calloc(1, sizeof(char)*(strlen(category->name)+2));
+				if (category_detail->name == NULL) {
+					DBG("Memory allocation failed\n");
+					free(category_detail);
+					goto END;
+				}
+				snprintf(category_detail->name, (strlen(category->name)+1), "%s", category->name);
+
+				category_list = g_list_append(category_list, (gpointer)category_detail);
+				tag_exist = 1;
+			}
+			category = category->next;
+		}
+
+		//send glist to parser when tags for metadata plugin parser exist.
+		if (tag_exist) {
+			ret = __ps_run_category_parser(category_list, category_tag, action, mfx->package, up->appid);
+			if (ret < 0)
+				DBG("category_parser failed[%d] for tag[%s]\n", ret, category_tag);
+			else
+				DBG("category_parser success for tag[%s]\n", category_tag);
+		}
+		__category_parser_clear_dir_list(category_list);
+		category_list = NULL;
+		tag_exist = 0;
+		up = up->next;
+	}
+
+	return 0;
+END:
+	__category_parser_clear_dir_list(category_list);
+
+	if (category_tag)
+		free(category_tag);
 
 	return ret;
 }
@@ -809,12 +1006,12 @@ static void __plugin_send_tag(const char *tag, ACTION_TYPE action, PLUGIN_PROCES
 	}
 
 	if ((lib_handle = dlopen(lib_path, RTLD_LAZY)) == NULL) {
-		DBGE("dlopen is failed lib_path[%s]\n", lib_path);
+		DBGE("dlopen is failed lib_path[%s] for tag[%s]\n", lib_path, tag);
 		goto END;
 	}
 	if ((plugin_install =
 		dlsym(lib_handle, ac)) == NULL || dlerror() != NULL) {
-		DBGE("can not find symbol[%s] \n", ac);
+		DBGE("can not find symbol[%s] for tag[%s] \n", ac, tag);
 		goto END;
 	}
 
@@ -1996,11 +2193,34 @@ int __ps_process_mdparser(manifest_x *mfx, ACTION_TYPE action)
 
 	while (fgets(md_key, sizeof(md_key), fp) != NULL) {
 		__str_trim(md_key);
-		DBG("md_key = %s\n", md_key);
-
 		ret = __run_mdparser_prestep(mfx, md_key, action);
 
 		memset(md_key, 0x00, sizeof(md_key));
+	}
+
+	if (fp != NULL)
+		fclose(fp);
+
+	return 0;
+}
+
+int __ps_process_category_parser(manifest_x *mfx, ACTION_TYPE action)
+{
+	int ret = -1;
+	FILE *fp = NULL;
+	char category_key[PKG_STRING_LEN_MAX] = { 0 };
+
+	fp = fopen(CATEGORY_PARSER_LIST, "r");
+	if (fp == NULL) {
+		DBG("no category parser list\n");
+		return -1;
+	}
+
+	while (fgets(category_key, sizeof(category_key), fp) != NULL) {
+		__str_trim(category_key);
+		ret = __run_category_parser_prestep(mfx, category_key, action);
+
+		memset(category_key, 0x00, sizeof(category_key));
 	}
 
 	if (fp != NULL)
@@ -3727,6 +3947,7 @@ static int __process_manifest(xmlTextReaderPtr reader, manifest_x * mfx)
 			mfx->removable = strdup("True");
 			mfx->readonly = strdup("False");
 			mfx->update = strdup("False");
+			mfx->system = strdup("False");
 			char buf[PKG_STRING_LEN_MAX] = {'\0'};
 			char *val = NULL;
 			time_t current_time;
@@ -4255,6 +4476,9 @@ static int __add_preload_info(manifest_x * mfx, const char *manifest)
 		free((void *)mfx->removable);
 		mfx->removable = strdup("False");
 
+		free((void *)mfx->system);
+		mfx->system = strdup("True");
+
 		return 0;
 	}
 
@@ -4375,6 +4599,10 @@ API void pkgmgr_parser_free_manifest_xml(manifest_x *mfx)
 	if (mfx->update) {
 		free((void *)mfx->update);
 		mfx->update = NULL;
+	}
+	if (mfx->system) {
+		free((void *)mfx->system);
+		mfx->system = NULL;
 	}
 	if (mfx->type) {
 		free((void *)mfx->type);
@@ -4629,6 +4857,10 @@ API int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char
 	if (ret == -1)
 		DBG("Creating metadata parser failed\n");
 
+	ret = __ps_process_category_parser(mfx, ACTION_INSTALL);
+	if (ret == -1)
+		DBG("Creating category parser failed\n");
+
 	ret = __ps_make_nativeapp_desktop(mfx, NULL, 0);
 	if (ret == -1)
 		DBG("Creating desktop file failed\n");
@@ -4653,6 +4885,7 @@ API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *con
 	manifest_x *mfx = NULL;
 	int ret = -1;
 	bool preload = false;
+	bool system = false;
 	char *csc_path = NULL;
 	pkgmgrinfo_pkginfo_h handle = NULL;
 
@@ -4680,6 +4913,15 @@ API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *con
 		mfx->preload = strdup("true");
 	}
 
+	ret = pkgmgrinfo_pkginfo_is_system(handle, &system);
+	if (ret != PMINFO_R_OK)
+		DBG("pkgmgrinfo_pkginfo_is_system failed\n");
+
+	if (system) {
+		free((void *)mfx->system);
+		mfx->system = strdup("true");
+	}
+
 	ret = pkgmgrinfo_pkginfo_get_csc_path(handle, &csc_path);
 	if (ret != PMINFO_R_OK)
 		DBG("pkgmgrinfo_pkginfo_get_csc_path failed\n");
@@ -4699,6 +4941,10 @@ API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *con
 	ret = __ps_process_mdparser(mfx, ACTION_UPGRADE);
 	if (ret == -1)
 		DBG("Upgrade metadata parser failed\n");
+
+	ret = __ps_process_category_parser(mfx, ACTION_UPGRADE);
+	if (ret == -1)
+		DBG("Creating category parser failed\n");
 
 	ret = __ps_make_nativeapp_desktop(mfx, manifest, 1);
 	if (ret == -1)
@@ -4737,6 +4983,10 @@ API int pkgmgr_parser_parse_manifest_for_uninstallation(const char *manifest, ch
 	ret = __ps_process_mdparser(mfx, ACTION_UNINSTALL);
 	if (ret == -1)
 		DBG("Removing metadata parser failed\n");
+
+	ret = __ps_process_category_parser(mfx, ACTION_UNINSTALL);
+	if (ret == -1)
+		DBG("Creating category parser failed\n");
 
 	ret = pkgmgr_parser_delete_manifest_info_from_db(mfx);
 	if (ret == -1)

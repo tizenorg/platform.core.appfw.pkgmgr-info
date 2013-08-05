@@ -3,3 +3,4 @@
 
 parserlib:/usr/etc/package-manager/parserlib/
 mdparser:/usr/etc/package-manager/parserlib/metadata/
+categoryparser:/usr/etc/package-manager/parserlib/category/

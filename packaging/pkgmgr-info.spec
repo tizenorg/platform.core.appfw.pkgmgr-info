@@ -1,6 +1,6 @@
 Name:       pkgmgr-info
 Summary:    Packager Manager infomation api for package
-Version:    0.0.129
+Version:    0.0.134
 Release:    1
 Group:      Application Framework/Package Management
 License:    Apache-2.0
@@ -85,6 +85,7 @@ chsmack -a '_' /usr/etc/package-manager
 %{_prefix}/etc/package-manager/preload/xml.xsd
 %{_prefix}/etc/package-manager/parser_path.conf
 %{_prefix}/etc/package-manager/parserlib/metadata/mdparser_list.txt
+%{_prefix}/etc/package-manager/parserlib/category/category_parser_list.txt
 
 %files parser-devel
 %defattr(-,root,root,-)

@@ -1075,6 +1075,11 @@ static int __pkginfo_cb(void *data, int ncols, char **coltxt, char **colname)
 				info->manifest_info->update= strdup(coltxt[i]);
 			else
 				info->manifest_info->update = NULL;
+		} else if (strcmp(colname[i], "package_system") == 0 ){
+			if (coltxt[i])
+				info->manifest_info->system= strdup(coltxt[i]);
+			else
+				info->manifest_info->system = NULL;
 		} else if (strcmp(colname[i], "package_appsetting") == 0 ){
 			if (coltxt[i])
 				info->manifest_info->appsetting = strdup(coltxt[i]);
@@ -3330,16 +3335,17 @@ API int pkgmgrinfo_pkginfo_is_system(pkgmgrinfo_pkginfo_h handle, bool *system)
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
 	retvm_if(system == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 
-	char *preload = NULL;
-	char *removable = NULL;
+	char *val = NULL;
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
-	preload = (char *)info->manifest_info->preload;
-	removable = (char *)info->manifest_info->removable;
-
-	if ((strcasecmp(preload, "true") == 0) && (strcasecmp(removable, "false") == 0))
-		*system = 1;
-	else
-		*system = 0;
+	val = (char *)info->manifest_info->system;
+	if (val) {
+		if (strcasecmp(val, "true") == 0)
+			*system = 1;
+		else if (strcasecmp(val, "false") == 0)
+			*system = 0;
+		else
+			*system = 0;
+	}
 
 	return PMINFO_R_OK;
 }
@@ -5049,9 +5055,11 @@ API int pkgmgrinfo_appinfo_foreach_permission(pkgmgrinfo_appinfo_h handle,
 	else
 		return PMINFO_R_EINVAL;
 	for (; ptr; ptr = ptr->next) {
-		ret = permission_func(ptr->value, user_data);
-		if (ret < 0)
-			break;
+		if (ptr->value) {
+			ret = permission_func(ptr->value, user_data);
+			if (ret < 0)
+				break;
+		}
 	}
 	return PMINFO_R_OK;
 }
@@ -5071,9 +5079,11 @@ API int pkgmgrinfo_appinfo_foreach_category(pkgmgrinfo_appinfo_h handle,
 	else
 		return PMINFO_R_EINVAL;
 	for (; ptr; ptr = ptr->next) {
-		ret = category_func(ptr->name, user_data);
-		if (ret < 0)
-			break;
+		if (ptr->name) {
+			ret = category_func(ptr->name, user_data);
+			if (ret < 0)
+				break;
+		}
 	}
 	return PMINFO_R_OK;
 }
