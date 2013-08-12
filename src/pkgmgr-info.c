@@ -3847,7 +3847,7 @@ API int pkgmgrinfo_appinfo_get_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_app_
 
 	/*get system locale*/
 	syslocale = vconf_get_str(VCONFKEY_LANGSET);
-	tryvm_if(syslocale == NULL, ret = PMINFO_R_EINVAL, "current locale is NULL");
+	retvm_if(syslocale == NULL, PMINFO_R_EINVAL, "current locale is NULL");
 
 	/*get locale on db*/
 	locale = __convert_system_locale_to_manifest_locale(syslocale);
@@ -3875,7 +3875,7 @@ API int pkgmgrinfo_appinfo_get_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_app_
 
 	/*open db */
 	ret = db_util_open_with_options(MANIFEST_DB, &appinfo_db, SQLITE_OPEN_READONLY, NULL);
-	retvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "connect db [%s] failed!", MANIFEST_DB);
+	tryvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "connect db [%s] failed!", MANIFEST_DB);
 
 	appinfo->package = strdup(info->manifest_info->package);
 	snprintf(query, MAX_QUERY_LEN, "select DISTINCT * " \

@@ -1105,8 +1105,8 @@ __streamFile(const char *filename, ACTION_TYPE action, char *const tagv[], const
 	int ret;
 	char *tag_list[PKG_TAG_LEN_MAX] = {'\0'};
 
-	__plugin_find_tag(filename, tagv, tag_list);
-	__plugin_process_tag(tag_list, action, PLUGIN_PRE_PROCESS, pkgid);
+//	__plugin_find_tag(filename, tagv, tag_list);
+	__plugin_process_tag(tagv, action, PLUGIN_PRE_PROCESS, pkgid);
 
 	docPtr = xmlReadFile(filename, NULL, 0);
 	reader = xmlReaderWalker(docPtr);
@@ -1125,7 +1125,7 @@ __streamFile(const char *filename, ACTION_TYPE action, char *const tagv[], const
 		DBGE("Unable to open %s", filename);
 	}
 
-	__plugin_process_tag(tag_list, action, PLUGIN_POST_PROCESS, pkgid);
+	__plugin_process_tag(tagv, action, PLUGIN_POST_PROCESS, pkgid);
 }
 
 static int __next_child_element(xmlTextReaderPtr reader, int depth)
