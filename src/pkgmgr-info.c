@@ -43,6 +43,11 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
+#ifdef LOG_TAG
+#undef LOG_TAG
+#endif
+#define LOG_TAG "PKGMGR_INFO"
+
 #define ASC_CHAR(s) (const char *)s
 #define XML_CHAR(s) (const xmlChar *)s
 
@@ -1100,6 +1105,11 @@ static int __pkginfo_cb(void *data, int ncols, char **coltxt, char **colname)
 				info->manifest_info->mainapp_id = strdup(coltxt[i]);
 			else
 				info->manifest_info->mainapp_id = NULL;
+		} else if (strcmp(colname[i], "storeclient_id") == 0 ){
+			if (coltxt[i])
+				info->manifest_info->storeclient_id = strdup(coltxt[i]);
+			else
+				info->manifest_info->storeclient_id = NULL;
 		} else if (strcmp(colname[i], "root_path") == 0 ){
 			if (coltxt[i])
 				info->manifest_info->root_path = strdup(coltxt[i]);
@@ -2747,7 +2757,7 @@ API int pkgmgrinfo_pkginfo_get_description(pkgmgrinfo_pkginfo_h handle, char **d
 		if (ptr->lang) {
 			if (strcmp(ptr->lang, locale) == 0) {
 				*description = (char *)ptr->text;
-				if (strcasecmp(*description, "(null)") == 0) {
+				if (strcasecmp(*description, "(NULL)") == 0) {
 					locale = DEFAULT_LOCALE;
 					continue;
 				} else
@@ -2778,7 +2788,7 @@ API int pkgmgrinfo_pkginfo_get_author_name(pkgmgrinfo_pkginfo_h handle, char **a
 		if (ptr->lang) {
 			if (strcmp(ptr->lang, locale) == 0) {
 				*author_name = (char *)ptr->text;
-				if (strcasecmp(*author_name, "(null)") == 0) {
+				if (strcasecmp(*author_name, "(NULL)") == 0) {
 					locale = DEFAULT_LOCALE;
 					continue;
 				} else

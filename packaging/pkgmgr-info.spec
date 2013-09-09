@@ -1,6 +1,6 @@
 Name:       pkgmgr-info
 Summary:    Packager Manager infomation api for package
-Version:    0.0.135
+Version:    0.0.138
 Release:    1
 Group:      Application Framework/Package Management
 License:    Apache-2.0
@@ -43,6 +43,13 @@ Dev package for libpkgmgr-parser
 %setup -q
 
 %build
+
+%if 0%{?tizen_build_binary_release_type_eng}
+export CFLAGS="$CFLAGS -DTIZEN_ENGINEER_MODE"
+export CXXFLAGS="$CXXFLAGS ?DTIZEN_ENGINEER_MODE"
+export FFLAGS="$FFLAGS -DTIZEN_ENGINEER_MODE"
+%endif
+
 %cmake .
 make %{?jobs:-j%jobs}
 
@@ -84,8 +91,9 @@ chsmack -a '_' /usr/etc/package-manager
 %{_prefix}/etc/package-manager/preload/manifest.xsd
 %{_prefix}/etc/package-manager/preload/xml.xsd
 %{_prefix}/etc/package-manager/parser_path.conf
-%{_prefix}/etc/package-manager/parserlib/metadata/mdparser_list.txt
+%{_prefix}/etc/package-manager/parserlib/metadata/metadata_parser_list.txt
 %{_prefix}/etc/package-manager/parserlib/category/category_parser_list.txt
+%{_prefix}/etc/package-manager/parserlib/tag_parser_list.txt
 
 %files parser-devel
 %defattr(-,root,root,-)

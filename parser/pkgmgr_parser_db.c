@@ -32,9 +32,19 @@
 #include "pkgmgr_parser_internal.h"
 #include "pkgmgr_parser_db.h"
 
+#include "pkgmgr-info-debug.h"
+
+#ifdef LOG_TAG
+#undef LOG_TAG
+#endif
+#define LOG_TAG "PKGMGR_PARSER"
+
 #define PKGMGR_PARSER_DB_FILE "/opt/dbspace/.pkgmgr_parser.db"
 #define PKGMGR_CERT_DB_FILE "/opt/dbspace/.pkgmgr_cert.db"
 #define MAX_QUERY_LEN		4096
+
+#define PKGMGR_PARSER_EMPTY_STR		""
+
 sqlite3 *pkgmgr_parser_db;
 sqlite3 *pkgmgr_cert_db;
 
@@ -247,6 +257,7 @@ static void __insert_uiapplication_locale_info(gpointer data, gpointer userdata)
 static void __insert_pkglocale_info(gpointer data, gpointer userdata);
 static int __insert_manifest_info_in_db(manifest_x *mfx);
 static int __delete_manifest_info_from_db(manifest_x *mfx);
+static int __delete_subpkg_info_from_db(char *appid);
 static int __delete_appinfo_from_db(char *db_table, const char *appid);
 static int __initialize_db(sqlite3 *db_handle, const char *db_query);
 static int __exec_query(char *query);
@@ -258,6 +269,24 @@ static void __preserve_guestmode_visibility_value(manifest_x *mfx);
 static int __guestmode_visibility_cb(void *data, int ncols, char **coltxt, char **colname);
 static int __pkgmgr_parser_create_db(sqlite3 **db_handle, const char *db_path);
 
+static int __delete_subpkg_list_cb(void *data, int ncols, char **coltxt, char **colname)
+{
+	if (coltxt[0])
+		__delete_subpkg_info_from_db(coltxt[0]);
+
+	return 0;
+}
+
+static char *__get_str(const char *str)
+{
+	if (str == NULL)
+	{
+		return PKGMGR_PARSER_EMPTY_STR;
+	}
+
+	return str;
+}
+
 static int __pkgmgr_parser_create_db(sqlite3 **db_handle, const char *db_path)
 {
 	int ret = -1;
@@ -267,21 +296,21 @@ static int __pkgmgr_parser_create_db(sqlite3 **db_handle, const char *db_path)
 		    db_util_open(db_path, &handle,
 				 DB_UTIL_REGISTER_HOOK_METHOD);
 		if (ret != SQLITE_OK) {
-			DBG("connect db [%s] failed!\n",
+			_LOGD("connect db [%s] failed!\n",
 			       db_path);
 			return -1;
 		}
 		*db_handle = handle;
 		return 0;
 	}
-	DBG("%s DB does not exists. Create one!!\n", db_path);
+	_LOGD("%s DB does not exists. Create one!!\n", db_path);
 
 	ret =
 	    db_util_open(db_path, &handle,
 			 DB_UTIL_REGISTER_HOOK_METHOD);
 
 	if (ret != SQLITE_OK) {
-		DBG("connect db [%s] failed!\n", db_path);
+		_LOGD("connect db [%s] failed!\n", db_path);
 		return -1;
 	}
 	*db_handle = handle;
@@ -307,7 +336,7 @@ static int __guestmode_visibility_cb(void *data, int ncols, char **coltxt, char 
 		}
 	}
 	if (appid == NULL) {
-		DBG("app id is NULL\n");
+		_LOGD("app id is NULL\n");
 		return -1;
 	}
 	/*update guest mode visibility*/
@@ -338,7 +367,7 @@ static void __preserve_guestmode_visibility_value(manifest_x *mfx)
 	if (SQLITE_OK !=
 	    sqlite3_exec(pkgmgr_parser_db, query,
 			 __guestmode_visibility_cb, (void *)mfx, &error_message)) {
-		DBG("Don't execute query = %s error message = %s\n",
+		_LOGD("Don't execute query = %s error message = %s\n",
 		       query, error_message);
 		sqlite3_free(error_message);
 	}
@@ -351,7 +380,7 @@ static int __initialize_db(sqlite3 *db_handle, const char *db_query)
 	if (SQLITE_OK !=
 	    sqlite3_exec(db_handle, db_query,
 			 NULL, NULL, &error_message)) {
-		DBG("Don't execute query = %s error message = %s\n",
+		_LOGD("Don't execute query = %s error message = %s\n",
 		       db_query, error_message);
 		sqlite3_free(error_message);
 		return -1;
@@ -365,7 +394,7 @@ static int __exec_query(char *query)
 	char *error_message = NULL;
 	if (SQLITE_OK !=
 	    sqlite3_exec(pkgmgr_parser_db, query, NULL, NULL, &error_message)) {
-		DBG("Don't execute query = %s error message = %s\n", query,
+		_LOGD("Don't execute query = %s error message = %s\n", query,
 		       error_message);
 		sqlite3_free(error_message);
 		return -1;
@@ -447,7 +476,7 @@ static GList *__create_image_list(GList *locale, image_x *image)
 
 static void __printfunc(gpointer data, gpointer userdata)
 {
-	DBG("%s  ", (char*)data);
+	_LOGD("%s  ", (char*)data);
 }
 
 static void __trimfunc(GList* trim_list)
@@ -596,13 +625,21 @@ static void __insert_pkglocale_info(gpointer data, gpointer userdata)
 	__extract_data(data, lbl, lcn, icn, dcn, ath, &label, &license, &icon, &description, &author);
 	if (!label && !description && !icon && !license && !author)
 		return;
+
 	sqlite3_snprintf(MAX_QUERY_LEN, query, "insert into package_localized_info(package, package_locale, " \
 		"package_label, package_icon, package_description, package_license, package_author) values " \
-		"('%q', '%q', '%q', '%q', '%q', '%q', '%q')", mfx->package, (char*)data,
-		label, icon, description, license, author);
+		"('%q', '%q', '%q', '%q', '%s', '%s', '%s')",
+		mfx->package,
+		(char*)data,
+		label,
+		icon,
+		__get_str(description),
+		__get_str(license),
+		__get_str(author));
+
 	ret = __exec_query(query);
 	if (ret == -1)
-		DBG("Package Localized Info DB Insert failed\n");
+		_LOGD("Package Localized Info DB Insert failed\n");
 }
 
 static void __insert_uiapplication_locale_info(gpointer data, gpointer userdata)
@@ -625,14 +662,21 @@ static void __insert_uiapplication_locale_info(gpointer data, gpointer userdata)
 		label, icon);
 	ret = __exec_query(query);
 	if (ret == -1)
-		DBG("Package UiApp Localized Info DB Insert failed\n");
+		_LOGD("Package UiApp Localized Info DB Insert failed\n");
 
 	/*insert ui app locale info to pkg locale to get mainapp data */
 	if (strcasecmp(up->mainapp, "true")==0) {
 		sqlite3_snprintf(MAX_QUERY_LEN, query, "insert into package_localized_info(package, package_locale, " \
 			"package_label, package_icon, package_description, package_license, package_author) values " \
-			"('%q', '%q', '%q', '%q', '%q', '%q', '%q')", up->package, (char*)data,
-			label, icon, NULL, NULL, NULL);
+			"('%q', '%q', '%q', '%q', '%q', '%q', '%q')",
+			up->package,
+			(char*)data,
+			label,
+			icon,
+			PKGMGR_PARSER_EMPTY_STR,
+			PKGMGR_PARSER_EMPTY_STR,
+			PKGMGR_PARSER_EMPTY_STR);
+
 		ret = __exec_query_no_msg(query);
 
 		if (icon != NULL) {
@@ -663,7 +707,7 @@ static void __insert_uiapplication_icon_section_info(gpointer data, gpointer use
 
 	ret = __exec_query(query);
 	if (ret == -1)
-		DBG("Package UiApp Localized Info DB Insert failed\n");
+		_LOGD("Package UiApp Localized Info DB Insert failed\n");
 
 }
 
@@ -686,7 +730,7 @@ static void __insert_uiapplication_image_info(gpointer data, gpointer userdata)
 
 	ret = __exec_query(query);
 	if (ret == -1)
-		DBG("Package UiApp image Info DB Insert failed\n");
+		_LOGD("Package UiApp image Info DB Insert failed\n");
 
 }
 
@@ -711,7 +755,7 @@ static void __insert_serviceapplication_locale_info(gpointer data, gpointer user
 		label, icon);
 	ret = __exec_query(query);
 	if (ret == -1)
-		DBG("Package ServiceApp Localized Info DB Insert failed\n");
+		_LOGD("Package ServiceApp Localized Info DB Insert failed\n");
 }
 
 static int __insert_ui_mainapp_info(manifest_x *mfx)
@@ -726,7 +770,7 @@ static int __insert_ui_mainapp_info(manifest_x *mfx)
 
 		ret = __exec_query(query);
 		if (ret == -1) {
-			DBG("Package UiApp Info DB Insert Failed\n");
+			_LOGD("Package UiApp Info DB Insert Failed\n");
 			return -1;
 		}
 		if (strcasecmp(up->mainapp, "True")==0)
@@ -740,13 +784,13 @@ static int __insert_ui_mainapp_info(manifest_x *mfx)
 		if (mfx->uiapplication && mfx->uiapplication->appid) {
 			snprintf(query, MAX_QUERY_LEN, "update package_app_info set app_mainapp='true' where app_id='%s'", mfx->uiapplication->appid);
 		} else {
-			DBG("Not valid appid\n");
+			_LOGD("Not valid appid\n");
 			return -1;
 		}
 
 		ret = __exec_query(query);
 		if (ret == -1) {
-			DBG("Package UiApp Info DB Insert Failed\n");
+			_LOGD("Package UiApp Info DB Insert Failed\n");
 			return -1;
 		}
 
@@ -760,7 +804,7 @@ static int __insert_ui_mainapp_info(manifest_x *mfx)
 		"update package_info set mainapp_id='%s' where package='%s'", mfx->mainapp_id, mfx->package);
 	ret = __exec_query(query);
 	if (ret == -1) {
-		DBG("Package Info DB update Failed\n");
+		_LOGD("Package Info DB update Failed\n");
 		return -1;
 	}
 
@@ -782,13 +826,35 @@ static int __insert_uiapplication_info(manifest_x *mfx)
 			"app_launchcondition, app_indicatordisplay, app_portraitimg, app_landscapeimg, app_guestmodevisibility, app_permissiontype, "\
 			"app_preload, app_submode, app_submode_mainid, component_type, package) " \
 			"values('%s', '%s', '%s', '%s', '%s', '%s','%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
-			 up->appid, "uiapp", up->exec, up->nodisplay, up->type, "\0", up->multiple,
-			 "\0", up->taskmanage, up->enabled, up->hwacceleration, up->screenreader, up->mainapp, up->recentimage,
-			 up->launchcondition, up->indicatordisplay, up->portraitimg, up->landscapeimg, up->guestmode_visibility, up->permission_type,
-			 mfx->preload, up->submode, up->submode_mainid, up->component_type, mfx->package);
+			 up->appid,
+			 "uiapp",
+			 up->exec,
+			 up->nodisplay,
+			 up->type,
+			 PKGMGR_PARSER_EMPTY_STR,
+			 up->multiple,
+			 PKGMGR_PARSER_EMPTY_STR,
+			 up->taskmanage,
+			 up->enabled,
+			 up->hwacceleration,
+			 up->screenreader,
+			 up->mainapp,
+			 __get_str(up->recentimage),
+			 up->launchcondition,
+			 up->indicatordisplay,
+			 __get_str(up->portraitimg),
+			 __get_str(up->landscapeimg),
+			 up->guestmode_visibility,
+			 up->permission_type,
+			 mfx->preload,
+			 up->submode,
+			 __get_str(up->submode_mainid),
+			 up->component_type,
+			 mfx->package);
+
 		ret = __exec_query(query);
 		if (ret == -1) {
-			DBG("Package UiApp Info DB Insert Failed\n");
+			_LOGD("Package UiApp Info DB Insert Failed\n");
 			return -1;
 		}
 		up = up->next;
@@ -814,7 +880,7 @@ static int __insert_uiapplication_appcategory_info(manifest_x *mfx)
 				 up->appid, ct->name);
 			ret = __exec_query(query);
 			if (ret == -1) {
-				DBG("Package UiApp Category Info DB Insert Failed\n");
+				_LOGD("Package UiApp Category Info DB Insert Failed\n");
 				return -1;
 			}
 			ct = ct->next;
@@ -843,7 +909,7 @@ static int __insert_uiapplication_appmetadata_info(manifest_x *mfx)
 					 up->appid, md->key, md->value);
 				ret = __exec_query(query);
 				if (ret == -1) {
-					DBG("Package UiApp Metadata Info DB Insert Failed\n");
+					_LOGD("Package UiApp Metadata Info DB Insert Failed\n");
 					return -1;
 				}
 			}
@@ -872,7 +938,7 @@ static int __insert_uiapplication_apppermission_info(manifest_x *mfx)
 				 up->appid, pm->type, pm->value);
 			ret = __exec_query(query);
 			if (ret == -1) {
-				DBG("Package UiApp permission Info DB Insert Failed\n");
+				_LOGD("Package UiApp permission Info DB Insert Failed\n");
 				return -1;
 			}
 			pm = pm->next;
@@ -930,7 +996,7 @@ static int __insert_uiapplication_appcontrol_info(manifest_x *mfx)
 
 							ret = __exec_query(query);
 							if (ret == -1) {
-								DBG("Package UiApp AppSvc DB Insert Failed\n");
+								_LOGD("Package UiApp AppSvc DB Insert Failed\n");
 								return -1;
 							}
 							memset(query, '\0', MAX_QUERY_LEN);
@@ -1000,11 +1066,15 @@ static int __insert_uiapplication_appsvc_info(manifest_x *mfx)
 							snprintf(query, MAX_QUERY_LEN,
 								 "insert into package_app_app_svc(app_id, operation, uri_scheme, mime_type, subapp_name) " \
 								"values('%s', '%s', '%s', '%s', '%s')",\
-								 up->appid, operation, uri, mime, subapp);
+								 up->appid,
+								 operation,
+								 __get_str(uri),
+								 __get_str(mime),
+								 __get_str(subapp));
 
 							ret = __exec_query(query);
 							if (ret == -1) {
-								DBG("Package UiApp AppSvc DB Insert Failed\n");
+								_LOGD("Package UiApp AppSvc DB Insert Failed\n");
 								return -1;
 							}
 							memset(query, '\0', MAX_QUERY_LEN);
@@ -1052,7 +1122,7 @@ static int __insert_uiapplication_share_request_info(manifest_x *mfx)
 					 up->appid, rq->text);
 				ret = __exec_query(query);
 				if (ret == -1) {
-					DBG("Package UiApp Share Request DB Insert Failed\n");
+					_LOGD("Package UiApp Share Request DB Insert Failed\n");
 					return -1;
 				}
 				memset(query, '\0', MAX_QUERY_LEN);
@@ -1090,7 +1160,7 @@ static int __insert_uiapplication_share_allowed_info(manifest_x *mfx)
 						 up->appid, df->path, al->text);
 					ret = __exec_query(query);
 					if (ret == -1) {
-						DBG("Package UiApp Share Allowed DB Insert Failed\n");
+						_LOGD("Package UiApp Share Allowed DB Insert Failed\n");
 						return -1;
 					}
 					memset(query, '\0', MAX_QUERY_LEN);
@@ -1120,7 +1190,7 @@ static int __insert_serviceapplication_info(manifest_x *mfx)
 			 sp->autorestart, sp->enabled, sp->permission_type, mfx->package);
 		ret = __exec_query(query);
 		if (ret == -1) {
-			DBG("Package ServiceApp Info DB Insert Failed\n");
+			_LOGD("Package ServiceApp Info DB Insert Failed\n");
 			return -1;
 		}
 		sp = sp->next;
@@ -1146,7 +1216,7 @@ static int __insert_serviceapplication_appcategory_info(manifest_x *mfx)
 				 sp->appid, ct->name);
 			ret = __exec_query(query);
 			if (ret == -1) {
-				DBG("Package ServiceApp Category Info DB Insert Failed\n");
+				_LOGD("Package ServiceApp Category Info DB Insert Failed\n");
 				return -1;
 			}
 			ct = ct->next;
@@ -1175,7 +1245,7 @@ static int __insert_serviceapplication_appmetadata_info(manifest_x *mfx)
 					 sp->appid, md->key, md->value);
 				ret = __exec_query(query);
 				if (ret == -1) {
-					DBG("Package ServiceApp Metadata Info DB Insert Failed\n");
+					_LOGD("Package ServiceApp Metadata Info DB Insert Failed\n");
 					return -1;
 				}
 			}
@@ -1204,7 +1274,7 @@ static int __insert_serviceapplication_apppermission_info(manifest_x *mfx)
 				 sp->appid, pm->type, pm->value);
 			ret = __exec_query(query);
 			if (ret == -1) {
-				DBG("Package ServiceApp permission Info DB Insert Failed\n");
+				_LOGD("Package ServiceApp permission Info DB Insert Failed\n");
 				return -1;
 			}
 			pm = pm->next;
@@ -1260,7 +1330,7 @@ static int __insert_serviceapplication_appcontrol_info(manifest_x *mfx)
 								 sp->appid, operation, uri, mime, subapp);
 							ret = __exec_query(query);
 							if (ret == -1) {
-								DBG("Package UiApp AppSvc DB Insert Failed\n");
+								_LOGD("Package UiApp AppSvc DB Insert Failed\n");
 								return -1;
 							}
 							memset(query, '\0', MAX_QUERY_LEN);
@@ -1329,10 +1399,14 @@ static int __insert_serviceapplication_appsvc_info(manifest_x *mfx)
 								snprintf(query, MAX_QUERY_LEN,
 									 "insert into package_app_app_svc(app_id, operation, uri_scheme, mime_type, subapp_name) " \
 									"values('%s', '%s', '%s', '%s', '%s')",\
-									 sp->appid, operation, uri, mime, subapp);
+									 sp->appid,
+									 operation,
+									__get_str(uri),
+									__get_str(mime),
+									__get_str(subapp));
 								ret = __exec_query(query);
 								if (ret == -1) {
-									DBG("Package UiApp AppSvc DB Insert Failed\n");
+									_LOGD("Package UiApp AppSvc DB Insert Failed\n");
 									return -1;
 								}
 								memset(query, '\0', MAX_QUERY_LEN);
@@ -1382,7 +1456,7 @@ static int __insert_serviceapplication_share_request_info(manifest_x *mfx)
 					 sp->appid, rq->text);
 				ret = __exec_query(query);
 				if (ret == -1) {
-					DBG("Package ServiceApp Share Request DB Insert Failed\n");
+					_LOGD("Package ServiceApp Share Request DB Insert Failed\n");
 					return -1;
 				}
 				memset(query, '\0', MAX_QUERY_LEN);
@@ -1422,7 +1496,7 @@ static int __insert_serviceapplication_share_allowed_info(manifest_x *mfx)
 						 sp->appid, df->path, al->text);
 					ret = __exec_query(query);
 					if (ret == -1) {
-						DBG("Package App Share Allowed DB Insert Failed\n");
+						_LOGD("Package App Share Allowed DB Insert Failed\n");
 						return -1;
 					}
 					memset(query, '\0', MAX_QUERY_LEN);
@@ -1494,21 +1568,56 @@ static int __insert_manifest_info_in_db(manifest_x *mfx)
 		"package_removable, package_preload, package_readonly, package_update, package_appsetting, package_nodisplay, package_system," \
 		"author_name, author_email, author_href, installed_time, installed_storage, storeclient_id, mainapp_id, package_url, root_path, csc_path) " \
 		"values('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
-		 mfx->package, type, mfx->version, mfx->installlocation, mfx->package_size, mfx->removable, mfx->preload,
-		 mfx->readonly, mfx->update, mfx->appsetting, mfx->nodisplay_setting, mfx->system,
-		 auth_name, auth_email, auth_href, mfx->installed_time, mfx->installed_storage, mfx->storeclient_id, mfx->mainapp_id, mfx->package_url, path, mfx->csc_path);
-	ret = __exec_query(query);
-	if (ret == -1) {
-		DBG("Package Info DB Insert Failed\n");
-		if (type) {
-			free(type);
-			type = NULL;
+		 mfx->package,
+		 type,
+		 mfx->version,
+		 __get_str(mfx->installlocation),
+		 __get_str(mfx->package_size),
+		 mfx->removable,
+		 mfx->preload,
+		 mfx->readonly,
+		 mfx->update,
+		 mfx->appsetting,
+		 mfx->nodisplay_setting,
+		 mfx->system,
+		 __get_str(auth_name),
+		 __get_str(auth_email),
+		 __get_str(auth_href),
+		 mfx->installed_time,
+		 mfx->installed_storage,
+		 __get_str(mfx->storeclient_id),
+		 mfx->mainapp_id,
+		 __get_str(mfx->package_url),
+		 path,
+		 __get_str(mfx->csc_path));
+
+	/*If package dont have main_package tag, this package is main package.*/
+	if (mfx->main_package == NULL) {
+		ret = __exec_query(query);
+		if (ret == -1) {
+			_LOGD("Package Info DB Insert Failed\n");
+			if (type) {
+				free(type);
+				type = NULL;
+			}
+			if (path) {
+				free(path);
+				path = NULL;
+			}
+			return -1;
 		}
-		if (path) {
-			free(path);
-			path = NULL;
+	} else {
+		/*If package has main_package tag, this package is sub package(ug, efl).
+		skip __exec_query for package_info and change pkgid with main_package*/
+		memset(root, '\0', MAX_QUERY_LEN);
+		snprintf(root, MAX_QUERY_LEN - 1, "/usr/apps/%s", mfx->main_package);
+		if (access(root, F_OK) == 0) {
+			free((void *)mfx->package);
+			mfx->package = strdup(mfx->main_package);
+		} else {
+			_LOGE("main package[%s] is not installed\n", root);
+			return -1;
 		}
-		return -1;
 	}
 	if (type) {
 		free(type);
@@ -1531,7 +1640,7 @@ static int __insert_manifest_info_in_db(manifest_x *mfx)
 				 mfx->package, pv->text);
 			ret = __exec_query(query);
 			if (ret == -1) {
-				DBG("Package Privilege Info DB Insert Failed\n");
+				_LOGD("Package Privilege Info DB Insert Failed\n");
 				return -1;
 			}
 			pv = pv->next;
@@ -1581,11 +1690,13 @@ static int __insert_manifest_info_in_db(manifest_x *mfx)
 	__trimfunc(appimage);
 
 	/*g_list_foreach(pkglocale, __printfunc, NULL);*/
-	/*DBG("\n");*/
+	/*_LOGD("\n");*/
 	/*g_list_foreach(applocale, __printfunc, NULL);*/
 
-	/*package locale info*/
-	g_list_foreach(pkglocale, __insert_pkglocale_info, (gpointer)mfx);
+	/*package locale info, it is only for main package.*/
+	if (mfx->main_package == NULL)
+		g_list_foreach(pkglocale, __insert_pkglocale_info, (gpointer)mfx);
+
 	/*native app locale info*/
 	up = mfx->uiapplication;
 	while(up != NULL)
@@ -1704,9 +1815,69 @@ static int __delete_appinfo_from_db(char *db_table, const char *appid)
 		 "delete from %s where app_id='%s'", db_table, appid);
 	ret = __exec_query(query);
 	if (ret == -1) {
-		DBG("DB Deletion from table (%s) Failed\n", db_table);
+		_LOGD("DB Deletion from table (%s) Failed\n", db_table);
 		return -1;
 	}
+	return 0;
+}
+
+static int __delete_subpkg_info_from_db(char *appid)
+{
+	int ret = -1;
+
+	ret = __delete_appinfo_from_db("package_app_info", appid);
+	if (ret < 0)
+		return ret;
+	ret = __delete_appinfo_from_db("package_app_localized_info", appid);
+	if (ret < 0)
+		return ret;
+	ret = __delete_appinfo_from_db("package_app_icon_section_info", appid);
+	if (ret < 0)
+		return ret;
+	ret = __delete_appinfo_from_db("package_app_image_info", appid);
+	if (ret < 0)
+		return ret;
+	ret = __delete_appinfo_from_db("package_app_app_svc", appid);
+	if (ret < 0)
+		return ret;
+	ret = __delete_appinfo_from_db("package_app_app_control", appid);
+	if (ret < 0)
+		return ret;
+	ret = __delete_appinfo_from_db("package_app_app_category", appid);
+	if (ret < 0)
+		return ret;
+	ret = __delete_appinfo_from_db("package_app_app_metadata", appid);
+	if (ret < 0)
+		return ret;
+	ret = __delete_appinfo_from_db("package_app_app_permission", appid);
+	if (ret < 0)
+		return ret;
+	ret = __delete_appinfo_from_db("package_app_share_allowed", appid);
+	if (ret < 0)
+		return ret;
+	ret = __delete_appinfo_from_db("package_app_share_request", appid);
+	if (ret < 0)
+		return ret;
+
+	return 0;
+}
+
+static int __delete_subpkg_from_db(manifest_x *mfx)
+{
+	char query[MAX_QUERY_LEN] = { '\0' };
+	int ret = -1;
+	char *error_message = NULL;
+
+	snprintf(query, MAX_QUERY_LEN, "select app_id from package_app_info where package='%s'", mfx->package);
+	if (SQLITE_OK !=
+	    sqlite3_exec(pkgmgr_parser_db, query, __delete_subpkg_list_cb, NULL, &error_message)) {
+		_LOGE("Don't execute query = %s error message = %s\n", query,
+		       error_message);
+		sqlite3_free(error_message);
+		return -1;
+	}
+	sqlite3_free(error_message);
+
 	return 0;
 }
 
@@ -1719,7 +1890,7 @@ static int __delete_manifest_info_from_db(manifest_x *mfx)
 	/*Delete from cert table*/
 	ret = pkgmgrinfo_delete_certinfo(mfx->package);
 	if (ret) {
-		DBG("Cert Info  DB Delete Failed\n");
+		_LOGD("Cert Info  DB Delete Failed\n");
 		return -1;
 	}
 
@@ -1728,7 +1899,7 @@ static int __delete_manifest_info_from_db(manifest_x *mfx)
 		 "delete from package_info where package='%s'", mfx->package);
 	ret = __exec_query(query);
 	if (ret == -1) {
-		DBG("Package Info DB Delete Failed\n");
+		_LOGD("Package Info DB Delete Failed\n");
 		return -1;
 	}
 	memset(query, '\0', MAX_QUERY_LEN);
@@ -1738,7 +1909,7 @@ static int __delete_manifest_info_from_db(manifest_x *mfx)
 		 "delete from package_localized_info where package='%s'", mfx->package);
 	ret = __exec_query(query);
 	if (ret == -1) {
-		DBG("Package Localized Info DB Delete Failed\n");
+		_LOGD("Package Localized Info DB Delete Failed\n");
 		return -1;
 	}
 
@@ -1747,7 +1918,7 @@ static int __delete_manifest_info_from_db(manifest_x *mfx)
 		 "delete from package_privilege_info where package='%s'", mfx->package);
 	ret = __exec_query(query);
 	if (ret == -1) {
-		DBG("Package Privilege Info DB Delete Failed\n");
+		_LOGD("Package Privilege Info DB Delete Failed\n");
 		return -1;
 	}
 
@@ -1824,6 +1995,10 @@ static int __delete_manifest_info_from_db(manifest_x *mfx)
 			return ret;
 		sp = sp->next;
 	}
+
+	/* if main package has sub pkg, delete sub pkg data*/
+	__delete_subpkg_from_db(mfx);
+
 	return 0;
 }
 
@@ -1836,7 +2011,7 @@ static int __update_preload_condition_in_db()
 
 	ret = __exec_query(query);
 	if (ret == -1)
-		DBG("Package preload_condition update failed\n");
+		_LOGD("Package preload_condition update failed\n");
 
 	return ret;
 }
@@ -1847,83 +2022,83 @@ int pkgmgr_parser_initialize_db()
 	/*Manifest DB*/
 	ret = __initialize_db(pkgmgr_parser_db, QUERY_CREATE_TABLE_PACKAGE_INFO);
 	if (ret == -1) {
-		DBG("package info DB initialization failed\n");
+		_LOGD("package info DB initialization failed\n");
 		return ret;
 	}
 	ret = __initialize_db(pkgmgr_parser_db, QUERY_CREATE_TABLE_PACKAGE_LOCALIZED_INFO);
 	if (ret == -1) {
-		DBG("package localized info DB initialization failed\n");
+		_LOGD("package localized info DB initialization failed\n");
 		return ret;
 	}
 	ret = __initialize_db(pkgmgr_parser_db, QUERY_CREATE_TABLE_PACKAGE_PRIVILEGE_INFO);
 	if (ret == -1) {
-		DBG("package app app privilege DB initialization failed\n");
+		_LOGD("package app app privilege DB initialization failed\n");
 		return ret;
 	}
 	ret = __initialize_db(pkgmgr_parser_db, QUERY_CREATE_TABLE_PACKAGE_APP_INFO);
 	if (ret == -1) {
-		DBG("package app info DB initialization failed\n");
+		_LOGD("package app info DB initialization failed\n");
 		return ret;
 	}
 	ret = __initialize_db(pkgmgr_parser_db, QUERY_CREATE_TABLE_PACKAGE_APP_LOCALIZED_INFO);
 	if (ret == -1) {
-		DBG("package app localized info DB initialization failed\n");
+		_LOGD("package app localized info DB initialization failed\n");
 		return ret;
 	}
 	ret = __initialize_db(pkgmgr_parser_db, QUERY_CREATE_TABLE_PACKAGE_APP_ICON_SECTION_INFO);
 	if (ret == -1) {
-		DBG("package app icon localized info DB initialization failed\n");
+		_LOGD("package app icon localized info DB initialization failed\n");
 		return ret;
 	}
 	ret = __initialize_db(pkgmgr_parser_db, QUERY_CREATE_TABLE_PACKAGE_APP_IMAGE_INFO);
 	if (ret == -1) {
-		DBG("package app image info DB initialization failed\n");
+		_LOGD("package app image info DB initialization failed\n");
 		return ret;
 	}
 	ret = __initialize_db(pkgmgr_parser_db, QUERY_CREATE_TABLE_PACKAGE_APP_APP_CONTROL);
 	if (ret == -1) {
-		DBG("package app app control DB initialization failed\n");
+		_LOGD("package app app control DB initialization failed\n");
 		return ret;
 	}
 	ret = __initialize_db(pkgmgr_parser_db, QUERY_CREATE_TABLE_PACKAGE_APP_APP_CATEGORY);
 	if (ret == -1) {
-		DBG("package app app category DB initialization failed\n");
+		_LOGD("package app app category DB initialization failed\n");
 		return ret;
 	}
 	ret = __initialize_db(pkgmgr_parser_db, QUERY_CREATE_TABLE_PACKAGE_APP_APP_METADATA);
 	if (ret == -1) {
-		DBG("package app app category DB initialization failed\n");
+		_LOGD("package app app category DB initialization failed\n");
 		return ret;
 	}
 	ret = __initialize_db(pkgmgr_parser_db, QUERY_CREATE_TABLE_PACKAGE_APP_APP_PERMISSION);
 	if (ret == -1) {
-		DBG("package app app permission DB initialization failed\n");
+		_LOGD("package app app permission DB initialization failed\n");
 		return ret;
 	}
 	ret = __initialize_db(pkgmgr_parser_db, QUERY_CREATE_TABLE_PACKAGE_APP_APP_SVC);
 	if (ret == -1) {
-		DBG("package app app svc DB initialization failed\n");
+		_LOGD("package app app svc DB initialization failed\n");
 		return ret;
 	}
 	ret = __initialize_db(pkgmgr_parser_db, QUERY_CREATE_TABLE_PACKAGE_APP_SHARE_ALLOWED);
 	if (ret == -1) {
-		DBG("package app share allowed DB initialization failed\n");
+		_LOGD("package app share allowed DB initialization failed\n");
 		return ret;
 	}
 	ret = __initialize_db(pkgmgr_parser_db, QUERY_CREATE_TABLE_PACKAGE_APP_SHARE_REQUEST);
 	if (ret == -1) {
-		DBG("package app share request DB initialization failed\n");
+		_LOGD("package app share request DB initialization failed\n");
 		return ret;
 	}
 	/*Cert DB*/
 	ret = __initialize_db(pkgmgr_cert_db, QUERY_CREATE_TABLE_PACKAGE_CERT_INFO);
 	if (ret == -1) {
-		DBG("package cert info DB initialization failed\n");
+		_LOGD("package cert info DB initialization failed\n");
 		return ret;
 	}
 	ret = __initialize_db(pkgmgr_cert_db, QUERY_CREATE_TABLE_PACKAGE_CERT_INDEX_INFO);
 	if (ret == -1) {
-		DBG("package cert index info DB initialization failed\n");
+		_LOGD("package cert index info DB initialization failed\n");
 		return ret;
 	}
 	return 0;
@@ -1935,13 +2110,13 @@ int pkgmgr_parser_check_and_create_db()
 	/*Manifest DB*/
 	ret = __pkgmgr_parser_create_db(&pkgmgr_parser_db, PKGMGR_PARSER_DB_FILE);
 	if (ret) {
-		DBG("Manifest DB creation Failed\n");
+		_LOGD("Manifest DB creation Failed\n");
 		return -1;
 	}
 	/*Cert DB*/
 	ret = __pkgmgr_parser_create_db(&pkgmgr_cert_db, PKGMGR_CERT_DB_FILE);
 	if (ret) {
-		DBG("Cert DB creation Failed\n");
+		_LOGD("Cert DB creation Failed\n");
 		return -1;
 	}
 	return 0;
@@ -1956,13 +2131,13 @@ void pkgmgr_parser_close_db()
 API int pkgmgr_parser_insert_manifest_info_in_db(manifest_x *mfx)
 {
 	if (mfx == NULL) {
-		DBG("manifest pointer is NULL\n");
+		_LOGD("manifest pointer is NULL\n");
 		return -1;
 	}
 	int ret = 0;
 	ret = pkgmgr_parser_check_and_create_db();
 	if (ret == -1) {
-		DBG("Failed to open DB\n");
+		_LOGD("Failed to open DB\n");
 		return ret;
 	}
 	ret = pkgmgr_parser_initialize_db();
@@ -1971,26 +2146,26 @@ API int pkgmgr_parser_insert_manifest_info_in_db(manifest_x *mfx)
 	/*Begin transaction*/
 	ret = sqlite3_exec(pkgmgr_parser_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
 	if (ret != SQLITE_OK) {
-		DBG("Failed to begin transaction\n");
+		_LOGD("Failed to begin transaction\n");
 		ret = -1;
 		goto err;
 	}
-	DBG("Transaction Begin\n");
+	_LOGD("Transaction Begin\n");
 	ret = __insert_manifest_info_in_db(mfx);
 	if (ret == -1) {
-		DBG("Insert into DB failed. Rollback now\n");
+		_LOGD("Insert into DB failed. Rollback now\n");
 		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
 		goto err;
 	}
 	/*Commit transaction*/
 	ret = sqlite3_exec(pkgmgr_parser_db, "COMMIT", NULL, NULL, NULL);
 	if (ret != SQLITE_OK) {
-		DBG("Failed to commit transaction. Rollback now\n");
+		_LOGD("Failed to commit transaction. Rollback now\n");
 		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
 		ret = -1;
 		goto err;
 	}
-	DBG("Transaction Commit and End\n");
+	_LOGD("Transaction Commit and End\n");
 err:
 	pkgmgr_parser_close_db();
 	return ret;
@@ -1999,13 +2174,13 @@ err:
 API int pkgmgr_parser_update_manifest_info_in_db(manifest_x *mfx)
 {
 	if (mfx == NULL) {
-		DBG("manifest pointer is NULL\n");
+		_LOGD("manifest pointer is NULL\n");
 		return -1;
 	}
 	int ret = 0;
 	ret = pkgmgr_parser_check_and_create_db();
 	if (ret == -1) {
-		DBG("Failed to open DB\n");
+		_LOGD("Failed to open DB\n");
 		return ret;
 	}
 	ret = pkgmgr_parser_initialize_db();
@@ -2016,20 +2191,20 @@ API int pkgmgr_parser_update_manifest_info_in_db(manifest_x *mfx)
 	/*Begin transaction*/
 	ret = sqlite3_exec(pkgmgr_parser_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
 	if (ret != SQLITE_OK) {
-		DBG("Failed to begin transaction\n");
+		_LOGD("Failed to begin transaction\n");
 		ret = -1;
 		goto err;
 	}
-	DBG("Transaction Begin\n");
+	_LOGD("Transaction Begin\n");
 	ret = __delete_manifest_info_from_db(mfx);
 	if (ret == -1) {
-		DBG("Delete from DB failed. Rollback now\n");
+		_LOGD("Delete from DB failed. Rollback now\n");
 		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
 		goto err;
 	}
 	ret = __insert_manifest_info_in_db(mfx);
 	if (ret == -1) {
-		DBG("Insert into DB failed. Rollback now\n");
+		_LOGD("Insert into DB failed. Rollback now\n");
 		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
 		goto err;
 	}
@@ -2037,12 +2212,12 @@ API int pkgmgr_parser_update_manifest_info_in_db(manifest_x *mfx)
 	/*Commit transaction*/
 	ret = sqlite3_exec(pkgmgr_parser_db, "COMMIT", NULL, NULL, NULL);
 	if (ret != SQLITE_OK) {
-		DBG("Failed to commit transaction. Rollback now\n");
+		_LOGD("Failed to commit transaction. Rollback now\n");
 		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
 		ret = -1;
 		goto err;
 	}
-	DBG("Transaction Commit and End\n");
+	_LOGD("Transaction Commit and End\n");
 err:
 	pkgmgr_parser_close_db();
 	return ret;
@@ -2051,38 +2226,38 @@ err:
 API int pkgmgr_parser_delete_manifest_info_from_db(manifest_x *mfx)
 {
 	if (mfx == NULL) {
-		DBG("manifest pointer is NULL\n");
+		_LOGD("manifest pointer is NULL\n");
 		return -1;
 	}
 	int ret = 0;
 	ret = pkgmgr_parser_check_and_create_db();
 	if (ret == -1) {
-		DBG("Failed to open DB\n");
+		_LOGD("Failed to open DB\n");
 		return ret;
 	}
 	/*Begin transaction*/
 	ret = sqlite3_exec(pkgmgr_parser_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
 	if (ret != SQLITE_OK) {
-		DBG("Failed to begin transaction\n");
+		_LOGD("Failed to begin transaction\n");
 		ret = -1;
 		goto err;
 	}
-	DBG("Transaction Begin\n");
+	_LOGD("Transaction Begin\n");
 	ret = __delete_manifest_info_from_db(mfx);
 	if (ret == -1) {
-		DBG("Delete from DB failed. Rollback now\n");
+		_LOGD("Delete from DB failed. Rollback now\n");
 		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
 		goto err;
 	}
 	/*Commit transaction*/
 	ret = sqlite3_exec(pkgmgr_parser_db, "COMMIT", NULL, NULL, NULL);
 	if (ret != SQLITE_OK) {
-		DBG("Failed to commit transaction, Rollback now\n");
+		_LOGD("Failed to commit transaction, Rollback now\n");
 		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
 		ret = -1;
 		goto err;
 	}
-	DBG("Transaction Commit and End\n");
+	_LOGD("Transaction Commit and End\n");
 err:
 	pkgmgr_parser_close_db();
 	return ret;
@@ -2093,32 +2268,32 @@ API int pkgmgr_parser_update_preload_info_in_db()
 	int ret = 0;
 	ret = pkgmgr_parser_check_and_create_db();
 	if (ret == -1) {
-		DBG("Failed to open DB\n");
+		_LOGD("Failed to open DB\n");
 		return ret;
 	}
 	/*Begin transaction*/
 	ret = sqlite3_exec(pkgmgr_parser_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
 	if (ret != SQLITE_OK) {
-		DBG("Failed to begin transaction\n");
+		_LOGD("Failed to begin transaction\n");
 		ret = -1;
 		goto err;
 	}
-	DBG("Transaction Begin\n");
+	_LOGD("Transaction Begin\n");
 	ret = __update_preload_condition_in_db();
 	if (ret == -1) {
-		DBG("__update_preload_condition_in_db failed. Rollback now\n");
+		_LOGD("__update_preload_condition_in_db failed. Rollback now\n");
 		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
 		goto err;
 	}
 	/*Commit transaction*/
 	ret = sqlite3_exec(pkgmgr_parser_db, "COMMIT", NULL, NULL, NULL);
 	if (ret != SQLITE_OK) {
-		DBG("Failed to commit transaction, Rollback now\n");
+		_LOGD("Failed to commit transaction, Rollback now\n");
 		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
 		ret = -1;
 		goto err;
 	}
-	DBG("Transaction Commit and End\n");
+	_LOGD("Transaction Commit and End\n");
 err:
 	pkgmgr_parser_close_db();
 	return ret;

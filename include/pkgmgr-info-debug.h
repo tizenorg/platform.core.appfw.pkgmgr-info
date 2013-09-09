@@ -24,8 +24,6 @@
 
 #include <dlog.h>
 
-#undef LOG_TAG
-#define LOG_TAG		"PKGMGR_INFO"
 #define _LOGE(fmt, arg...) LOGE(fmt, ##arg)
 #define _LOGD(fmt, arg...) LOGD(fmt, ##arg)
 

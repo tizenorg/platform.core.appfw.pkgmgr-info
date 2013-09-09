@@ -467,6 +467,7 @@ typedef struct manifest_x {
 	const char *root_path;		/**< package root path*/
 	const char *csc_path;		/**< package csc path*/
 	const char *nodisplay_setting;		/**< package no display setting menu*/
+	const char *main_package;		/**< main package id for sub-package(ug)*/
 	struct icon_x *icon;		/**< package icon*/
 	struct label_x *label;		/**< package label*/
 	struct author_x *author;		/**< package author*/
