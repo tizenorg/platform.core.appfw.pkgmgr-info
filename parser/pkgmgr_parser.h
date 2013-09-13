@@ -53,6 +53,8 @@ extern "C" {
 
 #define PKG_STRING_LEN_MAX 1024
 
+#define PKGMGR_PARSER_EMPTY_STR		""
+
 /**
  * @brief List definitions.
  * All lists are doubly-linked, the last element is stored to list pointer,

@@ -2757,7 +2757,7 @@ API int pkgmgrinfo_pkginfo_get_description(pkgmgrinfo_pkginfo_h handle, char **d
 		if (ptr->lang) {
 			if (strcmp(ptr->lang, locale) == 0) {
 				*description = (char *)ptr->text;
-				if (strcasecmp(*description, "(NULL)") == 0) {
+				if (strcasecmp(*description, PKGMGR_PARSER_EMPTY_STR) == 0) {
 					locale = DEFAULT_LOCALE;
 					continue;
 				} else
@@ -2788,7 +2788,7 @@ API int pkgmgrinfo_pkginfo_get_author_name(pkgmgrinfo_pkginfo_h handle, char **a
 		if (ptr->lang) {
 			if (strcmp(ptr->lang, locale) == 0) {
 				*author_name = (char *)ptr->text;
-				if (strcasecmp(*author_name, "(NULL)") == 0) {
+				if (strcasecmp(*author_name, PKGMGR_PARSER_EMPTY_STR) == 0) {
 					locale = DEFAULT_LOCALE;
 					continue;
 				} else

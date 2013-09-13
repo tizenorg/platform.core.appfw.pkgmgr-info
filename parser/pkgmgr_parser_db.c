@@ -43,8 +43,6 @@
 #define PKGMGR_CERT_DB_FILE "/opt/dbspace/.pkgmgr_cert.db"
 #define MAX_QUERY_LEN		4096
 
-#define PKGMGR_PARSER_EMPTY_STR		""
-
 sqlite3 *pkgmgr_parser_db;
 sqlite3 *pkgmgr_cert_db;
 
