@@ -55,8 +55,6 @@ TARGET_LINK_LIBRARIES(pkgmgr-info pkgmgr_parser ${libpkgs_LDFLAGS})
 
 CONFIGURE_FILE(${CMAKE_SOURCE_DIR}/pkgmgr-info.pc.in ${CMAKE_BINARY_DIR}/pkgmgr-info.pc @ONLY)
 configure_file(parser_path.conf.in parser_path.conf @ONLY)
-configure_file(pkgmgr-info.manifest.in pkgmgr-info.manifest @ONLY)
-configure_file(pkgmgr-parser.manifest.in pkgmgr-parser.manifest @ONLY)
 configure_file(mdparser_list.txt.in mdparser_list.txt @ONLY)
 configure_file(category_parser_list.txt.in category_parser_list.txt @ONLY)
 

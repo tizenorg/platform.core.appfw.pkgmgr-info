@@ -1,3 +1,17 @@
+* Mon Sep 16 2013 Anas Nashif <anas.nashif@intel.com> 2.2_release@383db6e
+- XML reader check linefeed on manifest parser
+- implement app screen reader
+- rollback rpm smack
+- implement smack to rpm pkg
+- implement new api for preload-system
+- change smack lable
+- implement app format tag
+- implement csc path, is_update status
+- fix app activation icon is not appeared
+- delete opt desktop file during preload updated
+- fix permission crash error
+- Adding Mime types parsing
+
 * Thu Jul 11 2013 Patrick McCarty <patrick.mccarty@linux.intel.com> 872e32b
 - Remove the manifest template files
 
