@@ -175,9 +175,11 @@ typedef struct _pkgmgrinfo_appcontrol_x {
 	int operation_count;
 	int uri_count;
 	int mime_count;
+	int subapp_count;
 	char **operation;
 	char **uri;
 	char **mime;
+	char **subapp;
 } pkgmgrinfo_appcontrol_x;
 
 typedef int (*sqlite_query_callback)(void *data, int ncols, char **coltxt, char **colname);
@@ -366,8 +368,11 @@ static void __get_filter_condition(gpointer data, char **condition)
 	case E_PMINFO_APPINFO_PROP_APP_HWACCELERATION:
 		snprintf(buf, MAX_QUERY_LEN, "package_app_info.app_hwacceleration='%s'", node->value);
 		break;
+	case E_PMINFO_APPINFO_PROP_APP_SCREENREADER:
+		snprintf(buf, MAX_QUERY_LEN, "package_app_info.app_screenreader='%s'", node->value);
+		break;
 	case E_PMINFO_APPINFO_PROP_APP_LAUNCHCONDITION:
-		snprintf(buf, MAX_QUERY_LEN, "package_app_info.app_launchcondition='%s'", node->value);
+		snprintf(buf, MAX_QUERY_LEN, "package_app_info.app_launchcondition IN %s", node->value);
 		break;
 	default:
 		_LOGE("Invalid Property Type\n");
@@ -593,6 +598,11 @@ static int __uiapp_list_cb(void *data, int ncols, char **coltxt, char **colname)
 				info->manifest_info->uiapplication->hwacceleration = strdup(coltxt[i]);
 			else
 				info->manifest_info->uiapplication->hwacceleration = NULL;
+		} else if (strcmp(colname[i], "app_screenreader") == 0 ){
+			if (coltxt[i])
+				info->manifest_info->uiapplication->screenreader = strdup(coltxt[i]);
+			else
+				info->manifest_info->uiapplication->screenreader = NULL;
 		} else if (strcmp(colname[i], "app_indicatordisplay") == 0 ){
 			if (coltxt[i])
 				info->manifest_info->uiapplication->indicatordisplay = strdup(coltxt[i]);
@@ -623,6 +633,11 @@ static int __uiapp_list_cb(void *data, int ncols, char **coltxt, char **colname)
 				info->manifest_info->uiapplication->icon->text = strdup(coltxt[i]);
 			else
 				info->manifest_info->uiapplication->icon->text = NULL;
+		} else if (strcmp(colname[i], "app_enabled") == 0 ) {
+			if (coltxt[i])
+				info->manifest_info->uiapplication->enabled= strdup(coltxt[i]);
+			else
+				info->manifest_info->uiapplication->enabled = NULL;
 		} else if (strcmp(colname[i], "app_label") == 0 ) {
 			if (coltxt[i])
 				info->manifest_info->uiapplication->label->text = strdup(coltxt[i]);
@@ -652,6 +667,26 @@ static int __uiapp_list_cb(void *data, int ncols, char **coltxt, char **colname)
 				info->manifest_info->uiapplication->permission_type = strdup(coltxt[i]);
 			else
 				info->manifest_info->uiapplication->permission_type = NULL;
+		} else if (strcmp(colname[i], "component_type") == 0 ) {
+			if (coltxt[i])
+				info->manifest_info->uiapplication->component_type = strdup(coltxt[i]);
+			else
+				info->manifest_info->uiapplication->component_type = NULL;
+		} else if (strcmp(colname[i], "app_preload") == 0 ) {
+			if (coltxt[i])
+				info->manifest_info->uiapplication->preload = strdup(coltxt[i]);
+			else
+				info->manifest_info->uiapplication->preload = NULL;
+		} else if (strcmp(colname[i], "app_submode") == 0 ) {
+			if (coltxt[i])
+				info->manifest_info->uiapplication->submode = strdup(coltxt[i]);
+			else
+				info->manifest_info->uiapplication->submode = NULL;
+		} else if (strcmp(colname[i], "app_submode_mainid") == 0 ) {
+			if (coltxt[i])
+				info->manifest_info->uiapplication->submode_mainid = strdup(coltxt[i]);
+			else
+				info->manifest_info->uiapplication->submode_mainid = NULL;
 		} else
 			continue;
 	}
@@ -789,6 +824,11 @@ static int __allapp_list_cb(void *data, int ncols, char **coltxt, char **colname
 								info->manifest_info->uiapplication->hwacceleration = strdup(coltxt[i]);
 							else
 								info->manifest_info->uiapplication->hwacceleration = NULL;
+						} else if (strcmp(colname[i], "app_screenreader") == 0 ){
+							if (coltxt[i])
+								info->manifest_info->uiapplication->screenreader = strdup(coltxt[i]);
+							else
+								info->manifest_info->uiapplication->screenreader = NULL;
 						} else if (strcmp(colname[i], "app_indicatordisplay") == 0 ){
 							if (coltxt[i])
 								info->manifest_info->uiapplication->indicatordisplay = strdup(coltxt[i]);
@@ -1035,6 +1075,11 @@ static int __pkginfo_cb(void *data, int ncols, char **coltxt, char **colname)
 				info->manifest_info->update= strdup(coltxt[i]);
 			else
 				info->manifest_info->update = NULL;
+		} else if (strcmp(colname[i], "package_system") == 0 ){
+			if (coltxt[i])
+				info->manifest_info->system= strdup(coltxt[i]);
+			else
+				info->manifest_info->system = NULL;
 		} else if (strcmp(colname[i], "package_appsetting") == 0 ){
 			if (coltxt[i])
 				info->manifest_info->appsetting = strdup(coltxt[i]);
@@ -1045,6 +1090,11 @@ static int __pkginfo_cb(void *data, int ncols, char **coltxt, char **colname)
 				info->manifest_info->installed_time = strdup(coltxt[i]);
 			else
 				info->manifest_info->installed_time = NULL;
+		} else if (strcmp(colname[i], "installed_storage") == 0 ){
+			if (coltxt[i])
+				info->manifest_info->installed_storage = strdup(coltxt[i]);
+			else
+				info->manifest_info->installed_storage = NULL;
 		} else if (strcmp(colname[i], "mainapp_id") == 0 ){
 			if (coltxt[i])
 				info->manifest_info->mainapp_id = strdup(coltxt[i]);
@@ -1055,6 +1105,11 @@ static int __pkginfo_cb(void *data, int ncols, char **coltxt, char **colname)
 				info->manifest_info->root_path = strdup(coltxt[i]);
 			else
 				info->manifest_info->root_path = NULL;
+		} else if (strcmp(colname[i], "csc_path") == 0 ){
+			if (coltxt[i])
+				info->manifest_info->csc_path = strdup(coltxt[i]);
+			else
+				info->manifest_info->csc_path = NULL;
 		} else if (strcmp(colname[i], "privilege") == 0 ){
 			if (coltxt[i])
 				info->manifest_info->privileges->privilege->text = strdup(coltxt[i]);
@@ -1184,109 +1239,182 @@ static int __certinfo_cb(void *data, int ncols, char **coltxt, char **colname)
 
 static int __mini_appinfo_cb(void *data, int ncols, char **coltxt, char **colname)
 {
-	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)data;
+	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)data;
 	int i = 0;
+	int j = 0;
 	uiapplication_x *uiapp = NULL;
-	uiapp = calloc(1, sizeof(uiapplication_x));
-	if (uiapp == NULL) {
-		_LOGE("Out of Memory!!!\n");
-		return -1;
-	}
-
-	LISTADD(info->uiapp_info, uiapp);
-
+	serviceapplication_x *svcapp = NULL;
 	for(i = 0; i < ncols; i++)
 	{
-		if (strcmp(colname[i], "app_id") == 0) {
-			/*appid being foreign key, is column in every table
-			Hence appid gets strduped every time leading to memory leak.
-			If appid is already set, just continue.*/
-			if (info->uiapp_info->appid)
-				continue;
-			if (coltxt[i])
-				info->uiapp_info->appid = strdup(coltxt[i]);
-			else
-				info->uiapp_info->appid = NULL;
-		} else if (strcmp(colname[i], "app_exec") == 0) {
-			if (coltxt[i])
-				info->uiapp_info->exec = strdup(coltxt[i]);
-			else
-				info->uiapp_info->exec = NULL;
-		} else if (strcmp(colname[i], "app_nodisplay") == 0) {
-			if (coltxt[i])
-				info->uiapp_info->nodisplay = strdup(coltxt[i]);
-			else
-				info->uiapp_info->nodisplay = NULL;
-		} else if (strcmp(colname[i], "app_type") == 0 ) {
-			if (coltxt[i])
-				info->uiapp_info->type = strdup(coltxt[i]);
-			else
-				info->uiapp_info->type = NULL;
-		} else if (strcmp(colname[i], "app_multiple") == 0 ) {
-			if (coltxt[i])
-				info->uiapp_info->multiple = strdup(coltxt[i]);
-			else
-				info->uiapp_info->multiple = NULL;
-		} else if (strcmp(colname[i], "app_taskmanage") == 0 ) {
-			if (coltxt[i])
-				info->uiapp_info->taskmanage = strdup(coltxt[i]);
-			else
-				info->uiapp_info->taskmanage = NULL;
-		} else if (strcmp(colname[i], "app_hwacceleration") == 0 ) {
-			if (coltxt[i])
-				info->uiapp_info->hwacceleration = strdup(coltxt[i]);
-			else
-				info->uiapp_info->hwacceleration = NULL;
-		} else if (strcmp(colname[i], "app_enabled") == 0 ) {
-			if (coltxt[i])
-				info->uiapp_info->enabled= strdup(coltxt[i]);
-			else
-				info->uiapp_info->enabled = NULL;
-		} else if (strcmp(colname[i], "app_indicatordisplay") == 0){
-			if (coltxt[i])
-				info->uiapp_info->indicatordisplay = strdup(coltxt[i]);
-			else
-				info->uiapp_info->indicatordisplay = NULL;
-		} else if (strcmp(colname[i], "app_portraitimg") == 0){
-			if (coltxt[i])
-				info->uiapp_info->portraitimg = strdup(coltxt[i]);
-			else
-				info->uiapp_info->portraitimg = NULL;
-		} else if (strcmp(colname[i], "app_landscapeimg") == 0){
-			if (coltxt[i])
-				info->uiapp_info->landscapeimg = strdup(coltxt[i]);
-			else
-				info->uiapp_info->landscapeimg = NULL;
-		} else if (strcmp(colname[i], "app_guestmodevisibility") == 0){
-			if (coltxt[i])
-				info->uiapp_info->guestmode_visibility = strdup(coltxt[i]);
-			else
-				info->uiapp_info->guestmode_visibility = NULL;
-		} else if (strcmp(colname[i], "app_recentimage") == 0 ) {
-			if (coltxt[i])
-				info->uiapp_info->recentimage = strdup(coltxt[i]);
-			else
-				info->uiapp_info->recentimage = NULL;
-		} else if (strcmp(colname[i], "app_mainapp") == 0 ) {
-			if (coltxt[i])
-				info->uiapp_info->mainapp = strdup(coltxt[i]);
-			else
-				info->uiapp_info->mainapp = NULL;
-		} else if (strcmp(colname[i], "package") == 0 ) {
-			if (coltxt[i])
-				info->uiapp_info->package = strdup(coltxt[i]);
-			else
-				info->uiapp_info->package = NULL;
-		} else if (strcmp(colname[i], "app_component") == 0) {
-			if (coltxt[i])
-				info->uiapp_info->app_component = strdup(coltxt[i]);
-			else
-				info->uiapp_info->app_component = NULL;
-		} else if (strcmp(colname[i], "app_permissiontype") == 0 ) {
-			if (coltxt[i])
-				info->uiapp_info->permission_type = strdup(coltxt[i]);
-			else
-				info->uiapp_info->permission_type = NULL;
+		if (strcmp(colname[i], "app_component") == 0) {
+			if (coltxt[i]) {
+				if (strcmp(coltxt[i], "uiapp") == 0) {
+					uiapp = calloc(1, sizeof(uiapplication_x));
+					if (uiapp == NULL) {
+						_LOGE("Out of Memory!!!\n");
+						return -1;
+					}
+					LISTADD(info->manifest_info->uiapplication, uiapp);
+					for(j = 0; j < ncols; j++)
+					{
+						if (strcmp(colname[j], "app_id") == 0) {
+							if (coltxt[j])
+								info->manifest_info->uiapplication->appid = strdup(coltxt[j]);
+						} else if (strcmp(colname[j], "app_exec") == 0) {
+							if (coltxt[j])
+								info->manifest_info->uiapplication->exec = strdup(coltxt[j]);
+							else
+								info->manifest_info->uiapplication->exec = NULL;
+						} else if (strcmp(colname[j], "app_nodisplay") == 0) {
+							if (coltxt[j])
+								info->manifest_info->uiapplication->nodisplay = strdup(coltxt[j]);
+							else
+								info->manifest_info->uiapplication->nodisplay = NULL;
+						} else if (strcmp(colname[j], "app_type") == 0 ) {
+							if (coltxt[j])
+								info->manifest_info->uiapplication->type = strdup(coltxt[j]);
+							else
+								info->manifest_info->uiapplication->type = NULL;
+						} else if (strcmp(colname[j], "app_multiple") == 0 ) {
+							if (coltxt[j])
+								info->manifest_info->uiapplication->multiple = strdup(coltxt[j]);
+							else
+								info->manifest_info->uiapplication->multiple = NULL;
+						} else if (strcmp(colname[j], "app_taskmanage") == 0 ) {
+							if (coltxt[j])
+								info->manifest_info->uiapplication->taskmanage = strdup(coltxt[j]);
+							else
+								info->manifest_info->uiapplication->taskmanage = NULL;
+						} else if (strcmp(colname[j], "app_hwacceleration") == 0 ) {
+							if (coltxt[j])
+								info->manifest_info->uiapplication->hwacceleration = strdup(coltxt[j]);
+							else
+								info->manifest_info->uiapplication->hwacceleration = NULL;
+						} else if (strcmp(colname[j], "app_screenreader") == 0 ) {
+							if (coltxt[j])
+								info->manifest_info->uiapplication->screenreader = strdup(coltxt[j]);
+							else
+								info->manifest_info->uiapplication->screenreader = NULL;
+						} else if (strcmp(colname[j], "app_enabled") == 0 ) {
+							if (coltxt[j])
+								info->manifest_info->uiapplication->enabled= strdup(coltxt[j]);
+							else
+								info->manifest_info->uiapplication->enabled = NULL;
+						} else if (strcmp(colname[j], "app_indicatordisplay") == 0){
+							if (coltxt[j])
+								info->manifest_info->uiapplication->indicatordisplay = strdup(coltxt[j]);
+							else
+								info->manifest_info->uiapplication->indicatordisplay = NULL;
+						} else if (strcmp(colname[j], "app_portraitimg") == 0){
+							if (coltxt[j])
+								info->manifest_info->uiapplication->portraitimg = strdup(coltxt[j]);
+							else
+								info->manifest_info->uiapplication->portraitimg = NULL;
+						} else if (strcmp(colname[j], "app_landscapeimg") == 0){
+							if (coltxt[j])
+								info->manifest_info->uiapplication->landscapeimg = strdup(coltxt[j]);
+							else
+								info->manifest_info->uiapplication->landscapeimg = NULL;
+						} else if (strcmp(colname[j], "app_guestmodevisibility") == 0){
+							if (coltxt[j])
+								info->manifest_info->uiapplication->guestmode_visibility = strdup(coltxt[j]);
+							else
+								info->manifest_info->uiapplication->guestmode_visibility = NULL;
+						} else if (strcmp(colname[j], "app_recentimage") == 0 ) {
+							if (coltxt[j])
+								info->manifest_info->uiapplication->recentimage = strdup(coltxt[j]);
+							else
+								info->manifest_info->uiapplication->recentimage = NULL;
+						} else if (strcmp(colname[j], "app_mainapp") == 0 ) {
+							if (coltxt[j])
+								info->manifest_info->uiapplication->mainapp = strdup(coltxt[j]);
+							else
+								info->manifest_info->uiapplication->mainapp = NULL;
+						} else if (strcmp(colname[j], "package") == 0 ) {
+							if (coltxt[j])
+								info->manifest_info->uiapplication->package = strdup(coltxt[j]);
+							else
+								info->manifest_info->uiapplication->package = NULL;
+						} else if (strcmp(colname[j], "app_component") == 0) {
+							if (coltxt[j])
+								info->manifest_info->uiapplication->app_component = strdup(coltxt[j]);
+							else
+								info->manifest_info->uiapplication->app_component = NULL;
+						} else if (strcmp(colname[j], "app_permissiontype") == 0 ) {
+							if (coltxt[j])
+								info->manifest_info->uiapplication->permission_type = strdup(coltxt[j]);
+							else
+								info->manifest_info->uiapplication->permission_type = NULL;
+						} else if (strcmp(colname[j], "component_type") == 0 ) {
+							if (coltxt[j])
+								info->manifest_info->uiapplication->component_type = strdup(coltxt[j]);
+							else
+								info->manifest_info->uiapplication->component_type = NULL;
+						} else if (strcmp(colname[j], "app_preload") == 0 ) {
+							if (coltxt[j])
+								info->manifest_info->uiapplication->preload = strdup(coltxt[j]);
+							else
+								info->manifest_info->uiapplication->preload = NULL;
+						} else if (strcmp(colname[j], "app_submode") == 0 ) {
+							if (coltxt[j])
+								info->manifest_info->uiapplication->submode = strdup(coltxt[j]);
+							else
+								info->manifest_info->uiapplication->submode = NULL;
+						} else if (strcmp(colname[j], "app_submode_mainid") == 0 ) {
+							if (coltxt[j])
+								info->manifest_info->uiapplication->submode_mainid = strdup(coltxt[j]);
+							else
+								info->manifest_info->uiapplication->submode_mainid = NULL;
+						} else
+							continue;
+					}
+				} else {
+					svcapp = calloc(1, sizeof(serviceapplication_x));
+					if (svcapp == NULL) {
+						_LOGE("Out of Memory!!!\n");
+						return -1;
+					}
+					LISTADD(info->manifest_info->serviceapplication, svcapp);
+					for(j = 0; j < ncols; j++)
+					{
+						if (strcmp(colname[j], "app_id") == 0) {
+							if (coltxt[j])
+								info->manifest_info->serviceapplication->appid = strdup(coltxt[j]);
+						} else if (strcmp(colname[j], "app_exec") == 0) {
+							if (coltxt[j])
+								info->manifest_info->serviceapplication->exec = strdup(coltxt[j]);
+							else
+								info->manifest_info->serviceapplication->exec = NULL;
+						} else if (strcmp(colname[j], "app_type") == 0 ){
+							if (coltxt[j])
+								info->manifest_info->serviceapplication->type = strdup(coltxt[j]);
+							else
+								info->manifest_info->serviceapplication->type = NULL;
+						} else if (strcmp(colname[j], "app_onboot") == 0 ){
+							if (coltxt[j])
+								info->manifest_info->serviceapplication->onboot = strdup(coltxt[j]);
+							else
+								info->manifest_info->serviceapplication->onboot = NULL;
+						} else if (strcmp(colname[j], "app_autorestart") == 0 ){
+							if (coltxt[j])
+								info->manifest_info->serviceapplication->autorestart = strdup(coltxt[j]);
+							else
+								info->manifest_info->serviceapplication->autorestart = NULL;
+						} else if (strcmp(colname[j], "package") == 0 ){
+							if (coltxt[j])
+								info->manifest_info->serviceapplication->package = strdup(coltxt[j]);
+							else
+								info->manifest_info->serviceapplication->package = NULL;
+						} else if (strcmp(colname[j], "app_permissiontype") == 0 ) {
+							if (coltxt[j])
+								info->manifest_info->serviceapplication->permission_type = strdup(coltxt[j]);
+							else
+								info->manifest_info->serviceapplication->permission_type = NULL;
+						} else
+							continue;
+					}
+				}
+			}
 		} else
 			continue;
 	}
@@ -1377,6 +1505,11 @@ static int __appinfo_cb(void *data, int ncols, char **coltxt, char **colname)
 					info->uiapp_info->hwacceleration = strdup(coltxt[i]);
 				else
 					info->uiapp_info->hwacceleration = NULL;
+			} else if (strcmp(colname[i], "app_screenreader") == 0 ) {
+				if (coltxt[i])
+					info->uiapp_info->screenreader = strdup(coltxt[i]);
+				else
+					info->uiapp_info->screenreader = NULL;
 			} else if (strcmp(colname[i], "app_enabled") == 0 ) {
 				if (coltxt[i])
 					info->uiapp_info->enabled= strdup(coltxt[i]);
@@ -1461,6 +1594,26 @@ static int __appinfo_cb(void *data, int ncols, char **coltxt, char **colname)
 					info->uiapp_info->permission_type = strdup(coltxt[i]);
 				else
 					info->uiapp_info->permission_type = NULL;
+			} else if (strcmp(colname[i], "component_type") == 0 ) {
+				if (coltxt[i])
+					info->uiapp_info->component_type = strdup(coltxt[i]);
+				else
+					info->uiapp_info->component_type = NULL;
+			} else if (strcmp(colname[i], "app_preload") == 0 ) {
+				if (coltxt[i])
+					info->uiapp_info->preload = strdup(coltxt[i]);
+				else
+					info->uiapp_info->preload = NULL;
+			} else if (strcmp(colname[i], "app_submode") == 0 ) {
+				if (coltxt[i])
+					info->uiapp_info->submode = strdup(coltxt[i]);
+				else
+					info->uiapp_info->submode = NULL;
+			} else if (strcmp(colname[i], "app_submode_mainid") == 0 ) {
+				if (coltxt[i])
+					info->uiapp_info->submode_mainid = strdup(coltxt[i]);
+				else
+					info->uiapp_info->submode_mainid = NULL;
 			} else
 				continue;
 		}
@@ -1837,7 +1990,6 @@ static char* __get_app_locale_by_fallback(sqlite3 *db, const char *appid, const 
 	check_result = __check_app_locale_from_app_localized_info_by_fallback(db, appid, locale);
 	if(check_result == 1) {
 		   locale_new = __get_app_locale_from_app_localized_info_by_fallback(db, appid, locale);
-		   _LOGD("%s found (%s) language-locale in DB by fallback!\n", appid, locale_new);
 		   free(locale);
 		   if (locale_new == NULL)
 			   locale_new =  strdup(DEFAULT_LOCALE);
@@ -1846,7 +1998,6 @@ static char* __get_app_locale_by_fallback(sqlite3 *db, const char *appid, const 
 
 	/* default locale */
 	free(locale);
-	_LOGD("%s DEFAULT_LOCALE)\n", appid);
 	return	strdup(DEFAULT_LOCALE);
 }
 
@@ -2664,55 +2815,16 @@ API int pkgmgrinfo_pkginfo_get_installed_storage(pkgmgrinfo_pkginfo_h handle, pk
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
 	retvm_if(storage == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 
-	char *pkgid = NULL;
-	pkgmgrinfo_pkginfo_get_pkgid(handle, &pkgid);
-	if (pkgid == NULL){
-		 _LOGE("invalid func parameters\n");
+	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
+
+	 if (strcmp(info->manifest_info->installed_storage,"installed_internal") == 0)
+	 	*storage = PMINFO_INTERNAL_STORAGE;
+	 else if (strcmp(info->manifest_info->installed_storage,"installed_external") == 0)
+		 *storage = PMINFO_EXTERNAL_STORAGE;
+	 else
 		 return PMINFO_R_ERROR;
-	}
 
-	FILE *fp = NULL;
-	char app_mmc_path[FILENAME_MAX] = { 0, };
-	char app_dir_path[FILENAME_MAX] = { 0, };
-	char app_mmc_internal_path[FILENAME_MAX] = { 0, };
-	snprintf(app_dir_path, FILENAME_MAX,
-	"%s%s", PKG_INSTALLATION_PATH, pkgid);
-	snprintf(app_mmc_path, FILENAME_MAX,
-	"%s%s", PKG_SD_PATH, pkgid);
-	snprintf(app_mmc_internal_path, FILENAME_MAX,
-	"%s%s/.mmc", PKG_INSTALLATION_PATH, pkgid);
-
-	/*check whether application is in external memory or not */
-	fp = fopen(app_mmc_path, "r");
-	if (fp == NULL) {
-		_LOGE(" app path in external memory not accesible\n");
-	} else {
-		fclose(fp);
-		fp = NULL;
-		*storage = PMINFO_EXTERNAL_STORAGE;
-		return PMINFO_R_OK;
-	}
-
-	/*check whether application is in internal or not */
-	fp = fopen(app_dir_path, "r");
-	if (fp == NULL) {
-		_LOGE(" app path in internal memory not accesible\n");
-		*storage = -1;
-		return PMINFO_R_ERROR;
-	} else {
-		fclose(fp);
-		/*check whether the application is installed in SD card
-			but SD card is not present*/
-		fp = fopen(app_mmc_internal_path, "r");
-		if (fp == NULL) {
-			*storage = PMINFO_INTERNAL_STORAGE;
-			return PMINFO_R_OK;
-		} else {
-			fclose(fp);
-			*storage = PMINFO_EXTERNAL_STORAGE;
-			return PMINFO_R_OK;
-		}
-	}
+	return PMINFO_R_OK;
 }
 
 API int pkgmgrinfo_pkginfo_get_installed_time(pkgmgrinfo_pkginfo_h handle, int *installed_time)
@@ -2875,6 +2987,19 @@ API int pkgmgrinfo_pkginfo_get_root_path(pkgmgrinfo_pkginfo_h handle, char **pat
 	return PMINFO_R_OK;
 }
 
+API int pkgmgrinfo_pkginfo_get_csc_path(pkgmgrinfo_pkginfo_h handle, char **path)
+{
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
+	retvm_if(path == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
+
+	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
+	if (info->manifest_info->csc_path)
+		*path = (char *)info->manifest_info->csc_path;
+	else
+		*path = (char *)info->manifest_info->csc_path;
+
+	return PMINFO_R_OK;
+}
 
 API int pkgmgrinfo_pkginfo_compare_pkg_cert_info(const char *lhs_package_id, const char *rhs_package_id, pkgmgrinfo_cert_compare_result_type_e *compare_result)
 {
@@ -3088,6 +3213,8 @@ API int pkgmgrinfo_pkginfo_is_accessible(pkgmgrinfo_pkginfo_h handle, bool *acce
 {
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
 	retvm_if(accessible == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
+
+#if 0 //smack issue occured, check later
 	char *pkgid = NULL;
 	pkgmgrinfo_pkginfo_get_pkgid(handle, &pkgid);
 	if (pkgid == NULL){
@@ -3140,6 +3267,9 @@ API int pkgmgrinfo_pkginfo_is_accessible(pkgmgrinfo_pkginfo_h handle, bool *acce
 	}
 
 	_LOGD("pkgmgr_get_pkg_external_validation() end\n");
+#endif
+
+	*accessible = 1;
 	return PMINFO_R_OK;
 }
 
@@ -3197,6 +3327,26 @@ API int pkgmgrinfo_pkginfo_is_preload(pkgmgrinfo_pkginfo_h handle, bool *preload
 		else
 			*preload = 0;
 	}
+	return PMINFO_R_OK;
+}
+
+API int pkgmgrinfo_pkginfo_is_system(pkgmgrinfo_pkginfo_h handle, bool *system)
+{
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
+	retvm_if(system == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
+
+	char *val = NULL;
+	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
+	val = (char *)info->manifest_info->system;
+	if (val) {
+		if (strcasecmp(val, "true") == 0)
+			*system = 1;
+		else if (strcasecmp(val, "false") == 0)
+			*system = 0;
+		else
+			*system = 0;
+	}
+
 	return PMINFO_R_OK;
 }
 
@@ -3664,9 +3814,11 @@ API int pkgmgrinfo_pkginfo_foreach_privilege(pkgmgrinfo_pkginfo_h handle,
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
 	ptr = info->manifest_info->privileges->privilege;
 	for (; ptr; ptr = ptr->next) {
-		ret = privilege_func(ptr->text, user_data);
-		if (ret < 0)
-			break;
+		if (ptr->text){
+			ret = privilege_func(ptr->text, user_data);
+			if (ret < 0)
+				break;
+		}
 	}
 	return PMINFO_R_OK;
 }
@@ -4016,43 +4168,47 @@ API int pkgmgrinfo_appinfo_get_install_list(pkgmgrinfo_app_list_cb app_func, voi
 
 	int ret = PMINFO_R_OK;
 	char query[MAX_QUERY_LEN] = {'\0'};
-	pkgmgr_appinfo_x *info = NULL;
 	pkgmgr_appinfo_x *appinfo = NULL;
 	uiapplication_x *ptr1 = NULL;
+	serviceapplication_x *ptr2 = NULL;
 	sqlite3 *appinfo_db = NULL;
 
 	/*open db*/
 	ret = db_util_open_with_options(MANIFEST_DB, &appinfo_db, SQLITE_OPEN_READONLY, NULL);
 	retvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "connect db [%s] failed!", MANIFEST_DB);
 
-	/*calloc appinfo*/
-	info = (pkgmgr_appinfo_x *)calloc(1, sizeof(pkgmgr_appinfo_x));
+	/*calloc pkginfo*/
+	pkgmgr_pkginfo_x *info = NULL;
+	info = (pkgmgr_pkginfo_x *)calloc(1, sizeof(pkgmgr_pkginfo_x));
 	tryvm_if(info == NULL, ret = PMINFO_R_ERROR, "Out of Memory!!!");
 
-	/*calloc uiapplication_x*/
-	info->uiapp_info= (uiapplication_x *)calloc(1, sizeof(uiapplication_x));
-	tryvm_if(info->uiapp_info == NULL, ret = PMINFO_R_ERROR, "Out of Memory!!!");
+	/*calloc manifest_info*/
+	info->manifest_info = (manifest_x *)calloc(1, sizeof(manifest_x));
+	tryvm_if(info->manifest_info == NULL, ret = PMINFO_R_ERROR, "Out of Memory!!!");
 
 	/*calloc appinfo*/
 	appinfo = (pkgmgr_appinfo_x *)calloc(1, sizeof(pkgmgr_appinfo_x));
 	tryvm_if(appinfo == NULL, ret = PMINFO_R_ERROR, "Out of Memory!!!");
 
-	/*query package_app_info*/
 	snprintf(query, MAX_QUERY_LEN, "select * from package_app_info");
 	ret = __exec_db_query(appinfo_db, query, __mini_appinfo_cb, (void *)info);
 	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App Info DB Information retrieval failed");
 
-	LISTHEAD(info->uiapp_info, ptr1);
+	if (info->manifest_info->uiapplication) {
+		LISTHEAD(info->manifest_info->uiapplication, ptr1);
+		info->manifest_info->uiapplication = ptr1;
+	}
+	if (info->manifest_info->serviceapplication) {
+		LISTHEAD(info->manifest_info->serviceapplication, ptr2);
+		info->manifest_info->serviceapplication = ptr2;
+	}
 
-	/*call back*/
-	for(ptr1 = ptr1->next ; ptr1 ; ptr1 = ptr1->next)
+	/*UI Apps*/
+	for(ptr1 = info->manifest_info->uiapplication; ptr1; ptr1 = ptr1->next)
 	{
-		appinfo->uiapp_info= ptr1;
+		appinfo->app_component = PMINFO_UI_APP;
 		appinfo->package = strdup(ptr1->package);
-		if (strcmp(ptr1->app_component, "uiapp") == 0)
-			appinfo->app_component = PMINFO_UI_APP;
-		else
-			appinfo->app_component = PMINFO_SVC_APP;
+		appinfo->uiapp_info = ptr1;
 
 		ret = app_func((void *)appinfo, user_data);
 		if (ret < 0)
@@ -4060,6 +4216,20 @@ API int pkgmgrinfo_appinfo_get_install_list(pkgmgrinfo_app_list_cb app_func, voi
 		free((void *)appinfo->package);
 		appinfo->package = NULL;
 	}
+	/*Service Apps*/
+	for(ptr2 = info->manifest_info->serviceapplication; ptr2; ptr2 = ptr2->next)
+	{
+		appinfo->app_component = PMINFO_SVC_APP;
+		appinfo->package = strdup(ptr2->package);
+		appinfo->svcapp_info = ptr2;
+
+		ret = app_func((void *)appinfo, user_data);
+		if (ret < 0)
+			break;
+		free((void *)appinfo->package);
+		appinfo->package = NULL;
+	}
+	ret = PMINFO_R_OK;
 
 catch:
 	sqlite3_close(appinfo_db);
@@ -4068,7 +4238,7 @@ catch:
 		free(appinfo);
 		appinfo = NULL;
 	}
-	__cleanup_appinfo(info);
+	__cleanup_pkginfo(info);
 	return ret;
 }
 
@@ -4662,6 +4832,18 @@ API int pkgmgrinfo_appinfo_get_mime(pkgmgrinfo_appcontrol_h  handle,
 	return PMINFO_R_OK;
 }
 
+API int pkgmgrinfo_appinfo_get_subapp(pkgmgrinfo_appcontrol_h  handle,
+					int *subapp_count, char ***subapp)
+{
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
+	retvm_if(subapp == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
+	retvm_if(subapp_count == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
+	pkgmgrinfo_appcontrol_x *data = (pkgmgrinfo_appcontrol_x *)handle;
+	*subapp_count = data->subapp_count;
+	*subapp = data->subapp;
+	return PMINFO_R_OK;
+}
+
 API int pkgmgrinfo_appinfo_get_setting_icon(pkgmgrinfo_appinfo_h  handle, char **icon)
 {
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL\n");
@@ -4772,10 +4954,8 @@ API int pkgmgrinfo_appinfo_get_permission_type(pkgmgrinfo_appinfo_h  handle, pkg
 		val = info->uiapp_info->permission_type;
 	else if (info->app_component == PMINFO_SVC_APP)
 		val = info->svcapp_info->permission_type;
-	else {
-		_LOGE("app_component is not supported\n");
-		return PMINFO_R_EINVAL;
-	}
+	else
+		return PMINFO_R_ERROR;
 
 	if (strcmp(val, "signature") == 0)
 		*permission = PMINFO_PERMISSION_SIGNATURE;
@@ -4783,6 +4963,79 @@ API int pkgmgrinfo_appinfo_get_permission_type(pkgmgrinfo_appinfo_h  handle, pkg
 		*permission = PMINFO_PERMISSION_PRIVILEGE;
 	else
 		*permission = PMINFO_PERMISSION_NORMAL;
+
+	return PMINFO_R_OK;
+}
+
+API int pkgmgrinfo_appinfo_get_component_type(pkgmgrinfo_appinfo_h  handle, char **component_type)
+{
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
+	retvm_if(component_type == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
+	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
+
+	*component_type = (char *)info->uiapp_info->component_type;
+
+	return PMINFO_R_OK;
+}
+
+API int pkgmgrinfo_appinfo_get_hwacceleration(pkgmgrinfo_appinfo_h  handle, pkgmgrinfo_app_hwacceleration *hwacceleration)
+{
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
+	retvm_if(hwacceleration == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
+	char *val = NULL;
+	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
+	val = (char *)info->uiapp_info->hwacceleration;
+	if (val) {
+		if (strcasecmp(val, "not-use-GL") == 0)
+			*hwacceleration = PMINFO_HWACCELERATION_NOT_USE_GL;
+		else if (strcasecmp(val, "use-GL") == 0)
+			*hwacceleration = PMINFO_HWACCELERATION_USE_GL;
+		else
+			*hwacceleration = PMINFO_HWACCELERATION_USE_SYSTEM_SETTING;
+	}
+	return PMINFO_R_OK;
+}
+
+API int pkgmgrinfo_appinfo_get_screenreader(pkgmgrinfo_appinfo_h  handle, pkgmgrinfo_app_screenreader *screenreader)
+{
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
+	retvm_if(screenreader == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
+	char *val = NULL;
+	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
+	val = (char *)info->uiapp_info->screenreader;
+	if (val) {
+		if (strcasecmp(val, "screenreader-off") == 0)
+			*screenreader = PMINFO_SCREENREADER_OFF;
+		else if (strcasecmp(val, "screenreader-on") == 0)
+			*screenreader = PMINFO_SCREENREADER_ON;
+		else
+			*screenreader = PMINFO_SCREENREADER_USE_SYSTEM_SETTING;
+	}
+	return PMINFO_R_OK;
+}
+
+API int pkgmgrinfo_appinfo_get_effectimage(pkgmgrinfo_appinfo_h  handle, char **portrait_img, char **landscape_img)
+{
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
+	retvm_if(portrait_img == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
+	retvm_if(landscape_img == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
+	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
+
+	if (info->app_component == PMINFO_UI_APP){
+		*portrait_img = (char *)info->uiapp_info->portraitimg;
+		*landscape_img = (char *)info->uiapp_info->landscapeimg;
+	}
+
+	return PMINFO_R_OK;
+}
+
+API int pkgmgrinfo_appinfo_get_submode_mainid(pkgmgrinfo_appinfo_h  handle, char **submode_mainid)
+{
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
+	retvm_if(submode_mainid == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
+	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
+
+	*submode_mainid = (char *)info->uiapp_info->submode_mainid;
 
 	return PMINFO_R_OK;
 }
@@ -4802,9 +5055,11 @@ API int pkgmgrinfo_appinfo_foreach_permission(pkgmgrinfo_appinfo_h handle,
 	else
 		return PMINFO_R_EINVAL;
 	for (; ptr; ptr = ptr->next) {
-		ret = permission_func(ptr->value, user_data);
-		if (ret < 0)
-			break;
+		if (ptr->value) {
+			ret = permission_func(ptr->value, user_data);
+			if (ret < 0)
+				break;
+		}
 	}
 	return PMINFO_R_OK;
 }
@@ -4824,9 +5079,11 @@ API int pkgmgrinfo_appinfo_foreach_category(pkgmgrinfo_appinfo_h handle,
 	else
 		return PMINFO_R_EINVAL;
 	for (; ptr; ptr = ptr->next) {
-		ret = category_func(ptr->name, user_data);
-		if (ret < 0)
-			break;
+		if (ptr->name) {
+			ret = category_func(ptr->name, user_data);
+			if (ret < 0)
+				break;
+		}
 	}
 	return PMINFO_R_OK;
 }
@@ -4846,9 +5103,11 @@ API int pkgmgrinfo_appinfo_foreach_metadata(pkgmgrinfo_appinfo_h handle,
 	else
 		return PMINFO_R_EINVAL;
 	for (; ptr; ptr = ptr->next) {
-		ret = metadata_func(ptr->key, ptr->value, user_data);
-		if (ret < 0)
-			break;
+		if (ptr->key) {
+			ret = metadata_func(ptr->key, ptr->value, user_data);
+			if (ret < 0)
+				break;
+		}
 	}
 	return PMINFO_R_OK;
 }
@@ -4863,16 +5122,19 @@ API int pkgmgrinfo_appinfo_foreach_appcontrol(pkgmgrinfo_appinfo_h handle,
 	int oc = 0;
 	int mc = 0;
 	int uc = 0;
+	int sc = 0;
 	char *pkgid = NULL;
 	char *manifest = NULL;
 	char **operation = NULL;
 	char **uri = NULL;
 	char **mime = NULL;
+	char **subapp = NULL;
 	appcontrol_x *appcontrol = NULL;
 	manifest_x *mfx = NULL;
 	operation_x *op = NULL;
 	uri_x *ui = NULL;
 	mime_x *mi = NULL;
+	subapp_x *sa = NULL;
 	pkgmgrinfo_app_component component;
 	pkgmgrinfo_appcontrol_x *ptr = NULL;
 	ret = pkgmgrinfo_appinfo_get_pkgid(handle, &pkgid);
@@ -4908,15 +5170,15 @@ API int pkgmgrinfo_appinfo_foreach_appcontrol(pkgmgrinfo_appinfo_h handle,
 	switch (component) {
 	case PMINFO_UI_APP:
 		if (mfx->uiapplication) {
-			if (mfx->uiapplication->appcontrol) {
-				appcontrol = mfx->uiapplication->appcontrol;
+			if (mfx->uiapplication->appsvc) {
+				appcontrol = mfx->uiapplication->appsvc;
 			}
 		}
 		break;
 	case PMINFO_SVC_APP:
 		if (mfx->serviceapplication) {
-			if (mfx->serviceapplication->appcontrol) {
-				appcontrol = mfx->serviceapplication->appcontrol;
+			if (mfx->serviceapplication->appsvc) {
+				appcontrol = mfx->serviceapplication->appsvc;
 			}
 		}
 		break;
@@ -4939,6 +5201,11 @@ API int pkgmgrinfo_appinfo_foreach_appcontrol(pkgmgrinfo_appinfo_h handle,
 			mc = mc + 1;
 		mi = appcontrol->mime;
 
+		sa = appcontrol->subapp;
+		for (; sa; sa = sa->next)
+			sc = sc + 1;
+		sa = appcontrol->subapp;
+
 		operation = (char **)calloc(oc, sizeof(char *));
 		for (i = 0; i < oc; i++) {
 			operation[i] = strndup(op->name, PKG_STRING_LEN_MAX - 1);
@@ -4956,13 +5223,23 @@ API int pkgmgrinfo_appinfo_foreach_appcontrol(pkgmgrinfo_appinfo_h handle,
 			mime[i] = strndup(mi->name, PKG_STRING_LEN_MAX - 1);
 			mi = mi->next;
 		}
+
+		subapp = (char **)calloc(sc, sizeof(char *));
+		for (i = 0; i < sc; i++) {
+			subapp[i] = strndup(sa->name, PKG_STRING_LEN_MAX - 1);
+			sa = sa->next;
+		}
+
 		/*populate appcontrol handle*/
 		ptr->operation_count = oc;
 		ptr->uri_count = uc;
 		ptr->mime_count = mc;
+		ptr->subapp_count = sc;
 		ptr->operation = operation;
 		ptr->uri = uri;
 		ptr->mime = mime;
+		ptr->subapp = subapp;
+
 		ret = appcontrol_func((void *)ptr, user_data);
 		for (i = 0; i < oc; i++) {
 			if (operation[i]) {
@@ -4994,11 +5271,22 @@ API int pkgmgrinfo_appinfo_foreach_appcontrol(pkgmgrinfo_appinfo_h handle,
 			free(mime);
 			mime = NULL;
 		}
+		for (i = 0; i < sc; i++) {
+			if (subapp[i]) {
+				free(subapp[i]);
+				subapp[i] = NULL;
+			}
+		}
+		if (subapp) {
+			free(subapp);
+			subapp = NULL;
+		}
 		if (ret < 0)
 			break;
 		uc = 0;
 		mc = 0;
 		oc = 0;
+		sc = 0;
 	}
 	pkgmgr_parser_free_manifest_xml(mfx);
 	if (ptr) {
@@ -5063,22 +5351,6 @@ API int pkgmgrinfo_appinfo_is_indicator_display_allowed(pkgmgrinfo_appinfo_h han
 	return PMINFO_R_OK;
 }
 
-
-API int pkgmgrinfo_appinfo_get_effectimage(pkgmgrinfo_appinfo_h  handle, char **portrait_img, char **landscape_img)
-{
-	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
-	retvm_if(portrait_img == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
-	retvm_if(landscape_img == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
-	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
-
-	if (info->app_component == PMINFO_UI_APP){
-		*portrait_img = (char *)info->uiapp_info->portraitimg;
-		*landscape_img = (char *)info->uiapp_info->landscapeimg;
-	}
-
-	return PMINFO_R_OK;
-}
-
 API int pkgmgrinfo_appinfo_is_taskmanage(pkgmgrinfo_appinfo_h  handle, bool *taskmanage)
 {
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
@@ -5122,24 +5394,6 @@ API int pkgmgrinfo_appinfo_is_enabled(pkgmgrinfo_appinfo_h  handle, bool *enable
 	}
 	return PMINFO_R_OK;
 
-}
-
-API int pkgmgrinfo_appinfo_get_hwacceleration(pkgmgrinfo_appinfo_h  handle, pkgmgrinfo_app_hwacceleration *hwacceleration)
-{
-	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
-	retvm_if(hwacceleration == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
-	char *val = NULL;
-	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
-	val = (char *)info->uiapp_info->hwacceleration;
-	if (val) {
-		if (strcasecmp(val, "not-use-GL") == 0)
-			*hwacceleration = PMINFO_HWACCELERATION_NOT_USE_GL;
-		else if (strcasecmp(val, "use-GL") == 0)
-			*hwacceleration = PMINFO_HWACCELERATION_USE_GL;
-		else
-			*hwacceleration = PMINFO_HWACCELERATION_USE_SYSTEM_SETTING;
-	}
-	return PMINFO_R_OK;
 }
 
 API int pkgmgrinfo_appinfo_is_onboot(pkgmgrinfo_appinfo_h  handle, bool *onboot)
@@ -5192,6 +5446,42 @@ API int pkgmgrinfo_appinfo_is_mainapp(pkgmgrinfo_appinfo_h  handle, bool *mainap
 			*mainapp = 0;
 		else
 			*mainapp = 0;
+	}
+	return PMINFO_R_OK;
+}
+
+API int pkgmgrinfo_appinfo_is_preload(pkgmgrinfo_appinfo_h handle, bool *preload)
+{
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL\n");
+	retvm_if(preload == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
+	char *val = NULL;
+	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
+	val = (char *)info->uiapp_info->preload;
+	if (val) {
+		if (strcasecmp(val, "true") == 0)
+			*preload = 1;
+		else if (strcasecmp(val, "false") == 0)
+			*preload = 0;
+		else
+			*preload = 0;
+	}
+	return PMINFO_R_OK;
+}
+
+API int pkgmgrinfo_appinfo_is_submode(pkgmgrinfo_appinfo_h handle, bool *submode)
+{
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL\n");
+	retvm_if(submode == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
+	char *val = NULL;
+	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
+	val = (char *)info->uiapp_info->submode;
+	if (val) {
+		if (strcasecmp(val, "true") == 0)
+			*submode = 1;
+		else if (strcasecmp(val, "false") == 0)
+			*submode = 0;
+		else
+			*submode = 0;
 	}
 	return PMINFO_R_OK;
 }

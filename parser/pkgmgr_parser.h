@@ -364,6 +364,7 @@ typedef struct uiapplication_x {
 	const char *categories;
 	const char *extraid;
 	const char *hwacceleration;
+	const char *screenreader;
 	const char *mainapp;
 	const char *package;
 	const char *recentimage;
@@ -374,6 +375,10 @@ typedef struct uiapplication_x {
 	const char *guestmode_visibility;
 	const char *app_component;
 	const char *permission_type;
+	const char *component_type;
+	const char *preload;
+	const char *submode;
+	const char *submode_mainid;
 	struct label_x *label;
 	struct icon_x *icon;
 	struct image_x *image;
@@ -451,6 +456,7 @@ typedef struct manifest_x {
 	const char *readonly;		/**< package readonly flag*/
 	const char *update;			/**< package update flag*/
 	const char *appsetting;		/**< package app setting flag*/
+	const char *system;		/**< package system flag*/
 	const char *type;		/**< package type*/
 	const char *package_size;		/**< package size for external installation*/
 	const char *installed_time;		/**< installed time after finishing of installation*/
@@ -459,6 +465,7 @@ typedef struct manifest_x {
 	const char *mainapp_id;		/**< app id of main application*/
 	const char *package_url;		/**< app id of main application*/
 	const char *root_path;		/**< package root path*/
+	const char *csc_path;		/**< package csc path*/
 	const char *nodisplay_setting;		/**< package no display setting menu*/
 	struct icon_x *icon;		/**< package icon*/
 	struct label_x *label;		/**< package label*/
@@ -585,6 +592,32 @@ static int parse_manifest_file_for_uninstallation(const char *manifest)
  * @endcode
  */
 int pkgmgr_parser_parse_manifest_for_uninstallation(const char *manifest, char *const tagv[]);
+
+/**
+ * @fn int pkgmgr_parser_parse_manifest_for_preload()
+ * @brief	This API update  preload information to DB.
+ *
+ * @par		This API is for package-manager installer backends.
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		None
+ * @post		None
+ * @code
+static int parser_parse_manifest_for_preload()
+{
+	int ret = 0;
+	ret = pkgmgr_parser_parse_manifest_for_preload();
+	if (ret)
+		return -1;
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgr_parser_parse_manifest_for_preload();
 
 /**
  * @fn int pkgmgr_parser_check_manifest_validation(const char *manifest)
@@ -782,6 +815,8 @@ static int parse_docptr_for_uninstallation(xmlDocPtr docPtr)
  * @endcode
  */
 int pkgmgr_parser_run_parser_for_uninstallation(xmlDocPtr docPtr, const char *tag, const char *pkgid);
+
+
 
 /**
  * @fn int pkgmgr_parser_create_desktop_file(manifest_x *mfx)

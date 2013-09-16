@@ -1,6 +1,6 @@
 Name:       pkgmgr-info
 Summary:    Packager Manager infomation api for package
-Version:    0.0.110
+Version:    0.0.134
 Release:    1
 Group:      Application Framework/Package Management
 License:    Apache-2.0
@@ -11,7 +11,7 @@ BuildRequires:	pkgconfig(dlog)
 BuildRequires:	pkgconfig(vconf)
 BuildRequires:	pkgconfig(sqlite3)
 BuildRequires:	pkgconfig(db-util)
-BuildRequires:pkgconfig(libxml-2.0)
+BuildRequires:  pkgconfig(libxml-2.0)
 
 %description
 Packager Manager infomation api for packaging
@@ -80,6 +80,8 @@ touch %{buildroot}/opt/usr/apps/tmp/pkgmgr_tmp.txt
 %{_sysconfdir}/package-manager/preload/manifest.xsd
 %{_sysconfdir}/package-manager/preload/xml.xsd
 %{_sysconfdir}/package-manager/parser_path.conf
+%{_sysconfdir}/package-manager/parserlib/metadata/mdparser_list.txt
+%{_sysconfdir}/package-manager/parserlib/category/category_parser_list.txt
 
 %files parser-devel
 %manifest %{name}.manifest

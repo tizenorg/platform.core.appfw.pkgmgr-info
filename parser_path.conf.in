@@ -2,3 +2,5 @@
 # parserlib:directory_path
 
 parserlib:@SYSCONFDIR@/package-manager/parserlib/
+mdparser:@SYSCONFDIR@/package-manager/parserlib/metadata/
+categoryparser:@SYSCONFDIR@/package-manager/parserlib/category/
