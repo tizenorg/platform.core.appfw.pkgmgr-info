@@ -27,30 +27,6 @@
 #ifndef __PKGMGR_PARSER_INTERNAL_H__
 #define __PKGMGR_PARSER_INTERNAL_H__
 
-
-/* debug output */
-#if defined(NDEBUG)
-#define DBG(fmt, args...)
-#define __SET_DBG_OUTPUT(fp)
-#elif defined(PRINT)
-#include <stdio.h>
-FILE *___log = NULL;
-#define DBG(fmt, args...) \
-	{if (!___log) ___log = stderr; \
-	 fprintf(___log, "[DBG:PMS]%s:%d:%s(): " fmt "\n",\
-	 basename(__FILE__), __LINE__, __func__, ##args); fflush(___log); }
-#define __SET_DBG_OUTPUT(fp) \
-	(___log = fp)
-#else
-#include <dlog.h>
-#undef LOG_TAG
-#define LOG_TAG "PKGMGR_PARSER"
-
-#define DBGE(fmt, arg...) LOGE(fmt,##arg)
-#define DBG(fmt, arg...) LOGD(fmt,##arg)
-#endif
-
-
 #ifndef API
 #define API __attribute__ ((visibility("default")))
 #endif
