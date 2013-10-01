@@ -53,6 +53,8 @@ extern "C" {
 
 #define PKG_STRING_LEN_MAX 1024
 
+#define PKGMGR_PARSER_EMPTY_STR		""
+
 /**
  * @brief List definitions.
  * All lists are doubly-linked, the last element is stored to list pointer,
@@ -467,6 +469,7 @@ typedef struct manifest_x {
 	const char *root_path;		/**< package root path*/
 	const char *csc_path;		/**< package csc path*/
 	const char *nodisplay_setting;		/**< package no display setting menu*/
+	const char *main_package;		/**< main package id for sub-package(ug)*/
 	struct icon_x *icon;		/**< package icon*/
 	struct label_x *label;		/**< package label*/
 	struct author_x *author;		/**< package author*/

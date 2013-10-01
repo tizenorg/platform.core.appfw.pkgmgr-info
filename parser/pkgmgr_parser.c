@@ -38,17 +38,27 @@
 #include "pkgmgr_parser_internal.h"
 #include "pkgmgr_parser_db.h"
 #include "pkgmgr-info.h"
+#include "pkgmgr_parser_signature.h"
+#include "pkgmgr-info-debug.h"
+
+#ifdef LOG_TAG
+#undef LOG_TAG
+#endif
+#define LOG_TAG "PKGMGR_PARSER"
 
 #define MANIFEST_RW_DIRECTORY "/opt/share/packages"
 #define MANIFEST_RO_DIRECTORY "/usr/share/packages"
 #define ASCII(s) (const char *)s
 #define XMLCHAR(s) (const xmlChar *)s
 
-#define MDPARSER_LIST "/usr/etc/package-manager/parserlib/metadata/mdparser_list.txt"
-#define MDPARSER_NAME	"mdparser:"
+#define METADATA_PARSER_LIST "/usr/etc/package-manager/parserlib/metadata/metadata_parser_list.txt"
+#define METADATA_PARSER_NAME	"metadataparser:"
 
 #define CATEGORY_PARSER_LIST "/usr/etc/package-manager/parserlib/category/category_parser_list.txt"
 #define CATEGORY_PARSER_NAME	"categoryparser:"
+
+#define TAG_PARSER_LIST "/usr/etc/package-manager/parserlib/tag_parser_list.txt"
+#define TAG_PARSER_NAME	"parserlib:"
 
 #define PKG_TAG_LEN_MAX 128
 
@@ -57,6 +67,7 @@ typedef enum {
 	ACTION_INSTALL = 0,
 	ACTION_UPGRADE,
 	ACTION_UNINSTALL,
+	ACTION_FOTA,
 	ACTION_MAX
 } ACTION_TYPE;
 
@@ -157,6 +168,25 @@ static void __processNode(xmlTextReaderPtr reader, ACTION_TYPE action, char *con
 static void __streamFile(const char *filename, ACTION_TYPE action, char *const tagv[], const char *pkgid);
 static int __validate_appid(const char *pkgid, const char *appid, char **newappid);
 
+void *__open_lib_handle(char *tag)
+{
+	char *lib_path = NULL;
+	void *lib_handle = NULL;
+
+	lib_path = __get_parser_plugin(tag);
+	retvm_if(!lib_path, NULL, "lib_path get fail");
+
+	lib_handle = dlopen(lib_path, RTLD_LAZY);
+	retvm_if(lib_handle == NULL, NULL, "dlopen is failed lib_path[%s]", lib_path);
+
+	return lib_handle;
+}
+
+void __close_lib_handle(void *lib_handle)
+{
+	dlclose(lib_handle);
+}
+
 static void __str_trim(char *input)
 {
 	char *trim_str = input;
@@ -179,7 +209,7 @@ static void __str_trim(char *input)
 static int __validate_appid(const char *pkgid, const char *appid, char **newappid)
 {
 	if (!pkgid || !appid || !newappid) {
-		DBG("Arg supplied is NULL\n");
+		_LOGD("Arg supplied is NULL\n");
 		return -1;
 	}
 	int pkglen = strlen(pkgid);
@@ -191,17 +221,17 @@ static int __validate_appid(const char *pkgid, const char *appid, char **newappi
 		len = pkglen + applen + 1;
 		newapp = calloc(1,len);
 		if (newapp == NULL) {
-			DBG("Malloc failed\n");
+			_LOGD("Malloc failed\n");
 			return -1;
 		}
 		strncpy(newapp, pkgid, pkglen);
 		strncat(newapp, appid, applen);
-		DBG("new appid is %s\n", newapp);
+		_LOGD("new appid is %s\n", newapp);
 		*newappid = newapp;
 		return 0;
 	}
 	if (applen < pkglen) {
-		DBG("app id is not proper\n");
+		_LOGD("app id is not proper\n");
 		*newappid = NULL;
 #ifdef _VALIDATE_APPID_
 		return -1;
@@ -210,7 +240,7 @@ static int __validate_appid(const char *pkgid, const char *appid, char **newappi
 #endif
 	}
 	if (!strcmp(appid, pkgid)) {
-		DBG("appid is proper\n");
+		_LOGD("appid is proper\n");
 		*newappid = NULL;
 		return 0;
 	}
@@ -218,12 +248,12 @@ static int __validate_appid(const char *pkgid, const char *appid, char **newappi
 		ptr = strstr(appid, pkgid);
 		ptr = ptr + pkglen;
 		if (strncmp(ptr, ".", 1) == 0) {
-			DBG("appid is proper\n");
+			_LOGD("appid is proper\n");
 			*newappid = NULL;
 			return 0;
 		}
 		else {
-			DBG("appid is not proper\n");
+			_LOGD("appid is not proper\n");
 			*newappid = NULL;
 #ifdef _VALIDATE_APPID_
 			return -1;
@@ -232,7 +262,7 @@ static int __validate_appid(const char *pkgid, const char *appid, char **newappi
 #endif
 		}
 	} else {
-		DBG("appid is not proper\n");
+		_LOGD("appid is not proper\n");
 		*newappid = NULL;
 #ifdef _VALIDATE_APPID_
 		return -1;
@@ -248,7 +278,7 @@ static char * __get_tag_by_key(char *md_key)
 	char *md_tag = NULL;
 
 	if (md_key == NULL) {
-		DBG("md_key is NULL\n");
+		_LOGD("md_key is NULL\n");
 		return NULL;
 	}
 
@@ -258,7 +288,7 @@ static char * __get_tag_by_key(char *md_key)
 	return strdup(md_tag);
 }
 
-static char *__get_mdparser_plugin(const char *type)
+static char *__get_metadata_parser_plugin(const char *type)
 {
 	FILE *fp = NULL;
 	char buffer[1024] = { 0 };
@@ -266,13 +296,13 @@ static char *__get_mdparser_plugin(const char *type)
 	char *path = NULL;
 
 	if (type == NULL) {
-		DBGE("invalid argument\n");
+		_LOGE("invalid argument\n");
 		return NULL;
 	}
 
 	fp = fopen(PKG_PARSER_CONF_PATH, "r");
 	if (fp == NULL) {
-		DBGE("no matching mdparser\n");
+		_LOGE("no matching metadata parser\n");
 		return NULL;
 	}
 
@@ -282,8 +312,8 @@ static char *__get_mdparser_plugin(const char *type)
 
 		__str_trim(buffer);
 
-		if ((path = strstr(buffer, MDPARSER_NAME)) != NULL) {
-			path = path + strlen(MDPARSER_NAME);
+		if ((path = strstr(buffer, METADATA_PARSER_NAME)) != NULL) {
+			path = path + strlen(METADATA_PARSER_NAME);
 
 			break;
 		}
@@ -295,7 +325,7 @@ static char *__get_mdparser_plugin(const char *type)
 		fclose(fp);
 
 	if (path == NULL) {
-		DBGE("no matching [%s] [%s]\n", MDPARSER_NAME,type);
+		_LOGE("no matching [%s] [%s]\n", METADATA_PARSER_NAME,type);
 		return NULL;
 	}
 
@@ -312,13 +342,13 @@ static char *__get_category_parser_plugin(const char *type)
 	char *path = NULL;
 
 	if (type == NULL) {
-		DBGE("invalid argument\n");
+		_LOGE("invalid argument\n");
 		return NULL;
 	}
 
 	fp = fopen(PKG_PARSER_CONF_PATH, "r");
 	if (fp == NULL) {
-		DBGE("no matching mdparser\n");
+		_LOGE("no matching metadata parser\n");
 		return NULL;
 	}
 
@@ -341,7 +371,7 @@ static char *__get_category_parser_plugin(const char *type)
 		fclose(fp);
 
 	if (path == NULL) {
-		DBGE("no matching [%s] [%s]\n", CATEGORY_PARSER_NAME,type);
+		_LOGE("no matching [%s] [%s]\n", CATEGORY_PARSER_NAME,type);
 		return NULL;
 	}
 
@@ -358,13 +388,13 @@ static char *__get_parser_plugin(const char *type)
 	char *path = NULL;
 
 	if (type == NULL) {
-		DBGE("invalid argument\n");
+		_LOGE("invalid argument\n");
 		return NULL;
 	}
 
 	fp = fopen(PKG_PARSER_CONF_PATH, "r");
 	if (fp == NULL) {
-		DBGE("no matching backendlib\n");
+		_LOGE("no matching backendlib\n");
 		return NULL;
 	}
 
@@ -386,7 +416,7 @@ static char *__get_parser_plugin(const char *type)
 		fclose(fp);
 
 	if (path == NULL) {
-		DBGE("no matching backendlib\n");
+		_LOGE("no matching backendlib\n");
 		return NULL;
 	}
 
@@ -395,12 +425,46 @@ static char *__get_parser_plugin(const char *type)
 	return strdup(temp_path);
 }
 
-static int __ps_run_mdparser(GList *md_list, const char *tag,
+static int __ps_run_tag_parser(void *lib_handle, xmlDocPtr docPtr, const char *tag,
+			   ACTION_TYPE action, const char *pkgid)
+{
+	int (*plugin_install) (xmlDocPtr, const char *);
+	int ret = -1;
+	char *ac = NULL;
+
+	switch (action) {
+	case ACTION_INSTALL:
+		ac = "PKGMGR_PARSER_PLUGIN_INSTALL";
+		break;
+	case ACTION_UPGRADE:
+		ac = "PKGMGR_PARSER_PLUGIN_UPGRADE";
+		break;
+	case ACTION_UNINSTALL:
+		ac = "PKGMGR_PARSER_PLUGIN_UNINSTALL";
+		break;
+	default:
+		goto END;
+	}
+
+	if ((plugin_install =
+		dlsym(lib_handle, ac)) == NULL || dlerror() != NULL) {
+		_LOGE("can not find symbol[%s] \n", ac);
+		goto END;
+	}
+
+	ret = plugin_install(docPtr, pkgid);
+	_LOGD("tag parser[%s, %s] ACTION_TYPE[%d] result[%d]\n", pkgid, tag, action, ret);
+
+END:
+	return ret;
+}
+
+static int __ps_run_metadata_parser(GList *md_list, const char *tag,
 				ACTION_TYPE action, const char *pkgid, const char *appid)
 {
 	char *lib_path = NULL;
 	void *lib_handle = NULL;
-	int (*mdparser_plugin) (const char *, const char *, GList *);
+	int (*metadata_parser_plugin) (const char *, const char *, GList *);
 	int ret = -1;
 	char *ac = NULL;
 
@@ -418,28 +482,28 @@ static int __ps_run_mdparser(GList *md_list, const char *tag,
 		goto END;
 	}
 
-	lib_path = __get_mdparser_plugin(tag);
+	lib_path = __get_metadata_parser_plugin(tag);
 	if (!lib_path) {
-		DBGE("get %s parser fail\n", tag);
+		_LOGE("get %s parser fail\n", tag);
 		goto END;
 	}
 
 	if ((lib_handle = dlopen(lib_path, RTLD_LAZY)) == NULL) {
-		DBGE("dlopen is failed lib_path[%s]\n", lib_path);
+		_LOGE("dlopen is failed lib_path[%s]\n", lib_path);
 		goto END;
 	}
 
-	if ((mdparser_plugin =
+	if ((metadata_parser_plugin =
 		dlsym(lib_handle, ac)) == NULL || dlerror() != NULL) {
-		DBGE("can not find symbol[%s] \n",ac);
+		_LOGE("can not find symbol[%s] \n",ac);
 		goto END;
 	}
 
-	ret = mdparser_plugin(pkgid, appid, md_list);
+	ret = metadata_parser_plugin(pkgid, appid, md_list);
 	if (ret < 0)
-		DBG("[appid = %s, libpath = %s plugin fail\n", appid, lib_path);
+		_LOGD("[appid = %s, libpath = %s plugin fail\n", appid, lib_path);
 	else
-		DBG("[appid = %s, libpath = %s plugin success\n", appid, lib_path);
+		_LOGD("[appid = %s, libpath = %s plugin success\n", appid, lib_path);
 
 END:
 	if (lib_path)
@@ -474,26 +538,26 @@ static int __ps_run_category_parser(GList *category_list, const char *tag,
 
 	lib_path = __get_category_parser_plugin(tag);
 	if (!lib_path) {
-		DBGE("get %s parser fail\n", tag);
+		_LOGE("get %s parser fail\n", tag);
 		goto END;
 	}
 
 	if ((lib_handle = dlopen(lib_path, RTLD_LAZY)) == NULL) {
-		DBGE("dlopen is failed lib_path[%s]\n", lib_path);
+		_LOGE("dlopen is failed lib_path[%s]\n", lib_path);
 		goto END;
 	}
 
 	if ((category_parser_plugin =
 		dlsym(lib_handle, ac)) == NULL || dlerror() != NULL) {
-		DBGE("can not find symbol[%s] \n",ac);
+		_LOGE("can not find symbol[%s] \n",ac);
 		goto END;
 	}
 
 	ret = category_parser_plugin(pkgid, appid, category_list);
 	if (ret < 0)
-		DBG("[appid = %s, libpath = %s plugin fail\n", appid, lib_path);
+		_LOGD("[appid = %s, libpath = %s plugin fail\n", appid, lib_path);
 	else
-		DBG("[appid = %s, libpath = %s plugin success\n", appid, lib_path);
+		_LOGD("[appid = %s, libpath = %s plugin success\n", appid, lib_path);
 
 END:
 	if (lib_path)
@@ -532,20 +596,20 @@ static int __ps_run_parser(xmlDocPtr docPtr, const char *tag,
 	}
 
 	if ((lib_handle = dlopen(lib_path, RTLD_LAZY)) == NULL) {
-		DBGE("dlopen is failed lib_path[%s]\n", lib_path);
+		_LOGE("dlopen is failed lib_path[%s]\n", lib_path);
 		goto END;
 	}
 	if ((plugin_install =
 		dlsym(lib_handle, ac)) == NULL || dlerror() != NULL) {
-		DBGE("can not find symbol[%s] \n", ac);
+		_LOGE("can not find symbol[%s] \n", ac);
 		goto END;
 	}
 
 	ret = plugin_install(docPtr, pkgid);
 	if (ret < 0)
-		DBG("[pkgid = %s, libpath = %s plugin fail\n", pkgid, lib_path);
+		_LOGD("[pkgid = %s, libpath = %s plugin fail\n", pkgid, lib_path);
 	else
-		DBG("[pkgid = %s, libpath = %s plugin success\n", pkgid, lib_path);
+		_LOGD("[pkgid = %s, libpath = %s plugin success\n", pkgid, lib_path);
 
 END:
 	if (lib_path)
@@ -561,14 +625,14 @@ static char *__pkgid_to_manifest(const char *pkgid)
 	int size;
 
 	if (pkgid == NULL) {
-		DBGE("pkgid is NULL");
+		_LOGE("pkgid is NULL");
 		return NULL;
 	}
 
 	size = strlen(MANIFEST_RW_DIRECTORY) + strlen(pkgid) + 10;
 	manifest = malloc(size);
 	if (manifest == NULL) {
-		DBGE("No memory");
+		_LOGE("No memory");
 		return NULL;
 	}
 	memset(manifest, '\0', size);
@@ -581,7 +645,7 @@ static char *__pkgid_to_manifest(const char *pkgid)
 	return manifest;
 }
 
-static void __mdparser_clear_dir_list(GList* dir_list)
+static void __metadata_parser_clear_dir_list(GList* dir_list)
 {
 	GList *list = NULL;
 	__metadata_t* detail = NULL;
@@ -624,7 +688,88 @@ static void __category_parser_clear_dir_list(GList* dir_list)
 	}
 }
 
-static int __run_mdparser_prestep (manifest_x *mfx, char *md_key, ACTION_TYPE action)
+static int __run_tag_parser_prestep(void *lib_handle, xmlTextReaderPtr reader, ACTION_TYPE action, const char *pkgid)
+{
+	int ret = -1;
+	const xmlChar *name;
+
+	if (xmlTextReaderDepth(reader) != 1) {
+		_LOGE("Node depth is not 1");
+		goto END;
+	}
+
+	if (xmlTextReaderNodeType(reader) != 1) {
+		_LOGE("Node type is not 1");
+		goto END;
+	}
+
+	const xmlChar *value;
+	name = xmlTextReaderConstName(reader);
+	if (name == NULL) {
+		_LOGE("TEST TEST TES\n");
+		name = BAD_CAST "--";
+	}
+
+	value = xmlTextReaderConstValue(reader);
+	if (value != NULL) {
+		if (xmlStrlen(value) > 40) {
+			_LOGD(" %.40s...", value);
+		} else {
+			_LOGD(" %s", value);
+		}
+	}
+
+	name = xmlTextReaderConstName(reader);
+	if (name == NULL) {
+		_LOGE("TEST TEST TES\n");
+		name = BAD_CAST "--";
+	}
+
+	xmlDocPtr docPtr = xmlTextReaderCurrentDoc(reader);
+	xmlDocPtr copyDocPtr = xmlCopyDoc(docPtr, 1);
+	if (copyDocPtr == NULL)
+		return -1;
+	xmlNode *rootElement = xmlDocGetRootElement(copyDocPtr);
+	if (rootElement == NULL)
+		return -1;
+	xmlNode *cur_node = xmlFirstElementChild(rootElement);
+	if (cur_node == NULL)
+		return -1;
+	xmlNode *temp = xmlTextReaderExpand(reader);
+	if (temp == NULL)
+		return -1;
+	xmlNode *next_node = NULL;
+	while(cur_node != NULL) {
+		if ( (strcmp(ASCII(temp->name), ASCII(cur_node->name)) == 0) &&
+			(temp->line == cur_node->line) ) {
+			break;
+		}
+		else {
+			next_node = xmlNextElementSibling(cur_node);
+			xmlUnlinkNode(cur_node);
+			xmlFreeNode(cur_node);
+			cur_node = next_node;
+		}
+	}
+	if (cur_node == NULL)
+		return -1;
+	next_node = xmlNextElementSibling(cur_node);
+	if (next_node) {
+		cur_node->next = NULL;
+		next_node->prev = NULL;
+		xmlFreeNodeList(next_node);
+		xmlSetTreeDoc(cur_node, copyDocPtr);
+	} else {
+		xmlSetTreeDoc(cur_node, copyDocPtr);
+	}
+
+	ret = __ps_run_tag_parser(lib_handle, copyDocPtr, ASCII(name), action, pkgid);
+ END:
+
+	return ret;
+}
+
+static int __run_metadata_parser_prestep (manifest_x *mfx, char *md_key, ACTION_TYPE action)
 {
 	int ret = -1;
 	int tag_exist = 0;
@@ -638,7 +783,7 @@ static int __run_mdparser_prestep (manifest_x *mfx, char *md_key, ACTION_TYPE ac
 
 	md_tag = __get_tag_by_key(md_key);
 	if (md_tag == NULL) {
-		DBG("md_tag is NULL\n");
+		_LOGD("md_tag is NULL\n");
 		return -1;
 	}
 
@@ -647,19 +792,19 @@ static int __run_mdparser_prestep (manifest_x *mfx, char *md_key, ACTION_TYPE ac
 		md = up->metadata;
 		while (md != NULL)
 		{
-			//get glist of meatdata key and value combination
+			//get glist of metadata key and value combination
 			memset(buffer, 0x00, 1024);
 			snprintf(buffer, 1024, "%s/", md_key);
 			if ((md->key && md->value) && (strncmp(md->key, md_key, strlen(md_key)) == 0) && (strncmp(buffer, md->key, strlen(buffer)) == 0)) {
 				md_detail = (__metadata_t*) calloc(1, sizeof(__metadata_t));
 				if (md_detail == NULL) {
-					DBG("Memory allocation failed\n");
+					_LOGD("Memory allocation failed\n");
 					goto END;
 				}
 
 				md_detail->key = (char*) calloc(1, sizeof(char)*(strlen(md->key)+2));
 				if (md_detail->key == NULL) {
-					DBG("Memory allocation failed\n");
+					_LOGD("Memory allocation failed\n");
 					free(md_detail);
 					goto END;
 				}
@@ -667,7 +812,7 @@ static int __run_mdparser_prestep (manifest_x *mfx, char *md_key, ACTION_TYPE ac
 
 				md_detail->value = (char*) calloc(1, sizeof(char)*(strlen(md->value)+2));
 				if (md_detail->value == NULL) {
-					DBG("Memory allocation failed\n");
+					_LOGD("Memory allocation failed\n");
 					free(md_detail->key);
 					free(md_detail);
 					goto END;
@@ -682,13 +827,13 @@ static int __run_mdparser_prestep (manifest_x *mfx, char *md_key, ACTION_TYPE ac
 
 		//send glist to parser when tags for metadata plugin parser exist.
 		if (tag_exist) {
-			ret = __ps_run_mdparser(md_list, md_tag, action, mfx->package, up->appid);
+			ret = __ps_run_metadata_parser(md_list, md_tag, action, mfx->package, up->appid);
 			if (ret < 0)
-				DBG("mdparser failed[%d] for tag[%s]\n", ret, md_tag);
+				_LOGD("metadata_parser failed[%d] for tag[%s]\n", ret, md_tag);
 			else
-				DBG("mdparser success for tag[%s]\n", md_tag);
+				_LOGD("metadata_parser success for tag[%s]\n", md_tag);
 		}
-		__mdparser_clear_dir_list(md_list);
+		__metadata_parser_clear_dir_list(md_list);
 		md_list = NULL;
 		tag_exist = 0;
 		up = up->next;
@@ -696,7 +841,7 @@ static int __run_mdparser_prestep (manifest_x *mfx, char *md_key, ACTION_TYPE ac
 
 	return 0;
 END:
-	__mdparser_clear_dir_list(md_list);
+	__metadata_parser_clear_dir_list(md_list);
 
 	if (md_tag)
 		free(md_tag);
@@ -718,7 +863,7 @@ static int __run_category_parser_prestep (manifest_x *mfx, char *category_key, A
 
 	category_tag = __get_tag_by_key(category_key);
 	if (category_tag == NULL) {
-		DBG("md_tag is NULL\n");
+		_LOGD("md_tag is NULL\n");
 		return -1;
 	}
 
@@ -727,19 +872,19 @@ static int __run_category_parser_prestep (manifest_x *mfx, char *category_key, A
 		category = up->category;
 		while (category != NULL)
 		{
-			//get glist of meatdata key and value combination
+			//get glist of category key and value combination
 			memset(buffer, 0x00, 1024);
 			snprintf(buffer, 1024, "%s/", category_key);
 			if ((category->name) && (strncmp(category->name, category_key, strlen(category_key)) == 0)) {
 				category_detail = (__category_t*) calloc(1, sizeof(__category_t));
 				if (category_detail == NULL) {
-					DBG("Memory allocation failed\n");
+					_LOGD("Memory allocation failed\n");
 					goto END;
 				}
 
 				category_detail->name = (char*) calloc(1, sizeof(char)*(strlen(category->name)+2));
 				if (category_detail->name == NULL) {
-					DBG("Memory allocation failed\n");
+					_LOGD("Memory allocation failed\n");
 					free(category_detail);
 					goto END;
 				}
@@ -755,9 +900,9 @@ static int __run_category_parser_prestep (manifest_x *mfx, char *category_key, A
 		if (tag_exist) {
 			ret = __ps_run_category_parser(category_list, category_tag, action, mfx->package, up->appid);
 			if (ret < 0)
-				DBG("category_parser failed[%d] for tag[%s]\n", ret, category_tag);
+				_LOGD("category_parser failed[%d] for tag[%s]\n", ret, category_tag);
 			else
-				DBG("category_parser success for tag[%s]\n", category_tag);
+				_LOGD("category_parser success for tag[%s]\n", category_tag);
 		}
 		__category_parser_clear_dir_list(category_list);
 		category_list = NULL;
@@ -780,50 +925,48 @@ static int __run_parser_prestep(xmlTextReaderPtr reader, ACTION_TYPE action, con
 	int ret = -1;
 	const xmlChar *name;
 
-	DBG("__run_parser_prestep");
+//	_LOGD("__run_parser_prestep");
 
 	if (xmlTextReaderDepth(reader) != 1) {
-		DBGE("Node depth is not 1");
+		_LOGE("Node depth is not 1");
 		goto END;
 	}
 
 	if (xmlTextReaderNodeType(reader) != 1) {
-		DBGE("Node type is not 1");
+		_LOGE("Node type is not 1");
 		goto END;
 	}
 
 	const xmlChar *value;
 	name = xmlTextReaderConstName(reader);
 	if (name == NULL) {
-		DBGE("TEST TEST TES\n");
+		_LOGE("TEST TEST TES\n");
 		name = BAD_CAST "--";
 	}
 
 	value = xmlTextReaderConstValue(reader);
-	DBG("%d %d %s %d %d",
+	_LOGD("%d %d %s %d %d",
 	    xmlTextReaderDepth(reader),
 	    xmlTextReaderNodeType(reader),
 	    name,
 	    xmlTextReaderIsEmptyElement(reader), xmlTextReaderHasValue(reader));
 
-	if (value == NULL) {
-		DBG("ConstValue NULL");
-	} else {
+	if (value != NULL) {
 		if (xmlStrlen(value) > 40) {
-			DBG(" %.40s...", value);
+			_LOGD(" %.40s...", value);
 		} else {
-			DBG(" %s", value);
+			_LOGD(" %s", value);
 		}
 	}
 
 	name = xmlTextReaderConstName(reader);
 	if (name == NULL) {
-		DBGE("TEST TEST TES\n");
+		_LOGE("TEST TEST TES\n");
 		name = BAD_CAST "--";
 	}
 
 	xmlDocPtr docPtr = xmlTextReaderCurrentDoc(reader);
-	DBG("docPtr->URL %s\n", (char *)docPtr->URL);
+	_LOGD("docPtr->URL %s\n", (char *)docPtr->URL);
 	xmlDocPtr copyDocPtr = xmlCopyDoc(docPtr, 1);
 	if (copyDocPtr == NULL)
 		return -1;
@@ -864,7 +1007,7 @@ static int __run_parser_prestep(xmlTextReaderPtr reader, ACTION_TYPE action, con
 #ifdef __DEBUG__
 
 //#else
-	DBG("node type: %d, name: %s children->name: %s last->name: %s\n"
+	_LOGD("node type: %d, name: %s children->name: %s last->name: %s\n"
 	    "parent->name: %s next->name: %s prev->name: %s\n",
 	    cur_node->type, cur_node->name,
 	    cur_node->children ? cur_node->children->name : "NULL",
@@ -894,7 +1037,7 @@ __processNode(xmlTextReaderPtr reader, ACTION_TYPE action, char *const tagv[], c
 	switch (xmlTextReaderNodeType(reader)) {
 	case XML_READER_TYPE_END_ELEMENT:
 		{
-			//            DBG("XML_READER_TYPE_END_ELEMENT");
+			//            _LOGD("XML_READER_TYPE_END_ELEMENT");
 			break;
 		}
 
@@ -906,29 +1049,29 @@ __processNode(xmlTextReaderPtr reader, ACTION_TYPE action, char *const tagv[], c
 			const xmlChar *elementName =
 			    xmlTextReaderLocalName(reader);
 			if (elementName == NULL) {
-//				DBG("elementName %s\n", (char *)elementName);
+//				_LOGD("elementName %s\n", (char *)elementName);
 				break;
 			}
 
 			const xmlChar *nameSpace =
 			    xmlTextReaderConstNamespaceUri(reader);
 			if (nameSpace) {
-//				DBG("nameSpace %s\n", (char *)nameSpace);
+//				_LOGD("nameSpace %s\n", (char *)nameSpace);
 			}
 /*
-			DBG("XML_READER_TYPE_ELEMENT %s, %s\n",
+			_LOGD("XML_READER_TYPE_ELEMENT %s, %s\n",
 			    elementName ? elementName : "NULL",
 			    nameSpace ? nameSpace : "NULL");
 */
 			if (tagv == NULL) {
-				DBG("__run_parser_prestep pkgid[%s]\n", pkgid);
+				_LOGD("__run_parser_prestep pkgid[%s]\n", pkgid);
 				__run_parser_prestep(reader, action, pkgid);
 			}
 			else {
 				i = 0;
 				for (tag = tagv[0]; tag; tag = tagv[++i])
 					if (strcmp(tag, ASCII(elementName)) == 0) {
-						DBG("__run_parser_prestep tag[%s] pkgid[%s]\n", tag, pkgid);
+						_LOGD("__run_parser_prestep tag[%s] pkgid[%s]\n", tag, pkgid);
 						__run_parser_prestep(reader,
 								     action, pkgid);
 						break;
@@ -942,23 +1085,99 @@ __processNode(xmlTextReaderPtr reader, ACTION_TYPE action, char *const tagv[], c
 		{
 			const xmlChar *value = xmlTextReaderConstValue(reader);
 			if (value) {
-//				DBG("value %s\n", value);
+//				_LOGD("value %s\n", value);
 			}
 
 			const xmlChar *lang = xmlTextReaderConstXmlLang(reader);
 			if (lang) {
-//				DBG("lang\n", lang);
+//				_LOGD("lang\n", lang);
 			}
 
-/*			DBG("XML_READER_TYPE_TEXT %s, %s\n",
+/*			_LOGD("XML_READER_TYPE_TEXT %s, %s\n",
 			    value ? value : "NULL", lang ? lang : "NULL");
 */
 			break;
 		}
 	default:
-//		DBG("Ignoring Node of Type: %d", xmlTextReaderNodeType(reader));
+//		_LOGD("Ignoring Node of Type: %d", xmlTextReaderNodeType(reader));
 		break;
 	}
+}
+
+static void
+__processTag(void *lib_handle, xmlTextReaderPtr reader, ACTION_TYPE action, char *tag, const char *pkgid)
+{
+	switch (xmlTextReaderNodeType(reader)) {
+	case XML_READER_TYPE_END_ELEMENT:
+		{
+			break;
+		}
+	case XML_READER_TYPE_ELEMENT:
+		{
+			// Elements without closing tag don't receive
+			const xmlChar *elementName =
+			    xmlTextReaderLocalName(reader);
+			if (elementName == NULL) {
+				break;
+			}
+
+			if (strcmp(tag, ASCII(elementName)) == 0) {
+				_LOGD("find : tag[%s] ACTION_TYPE[%d] pkg[%s]\n", tag, action, pkgid);
+				__run_tag_parser_prestep(lib_handle, reader, action, pkgid);
+				break;
+			}
+			break;
+		}
+
+	default:
+		break;
+	}
+}
+
+static int __parser_send_tag(void *lib_handle, ACTION_TYPE action, PLUGIN_PROCESS_TYPE process, const char *pkgid)
+{
+	int (*plugin_install) (const char *);
+	int ret = -1;
+	char *ac = NULL;
+
+	if (process == PLUGIN_PRE_PROCESS) {
+		switch (action) {
+		case ACTION_INSTALL:
+			ac = "PKGMGR_PARSER_PLUGIN_PRE_INSTALL";
+			break;
+		case ACTION_UPGRADE:
+			ac = "PKGMGR_PARSER_PLUGIN_PRE_UPGRADE";
+			break;
+		case ACTION_UNINSTALL:
+			ac = "PKGMGR_PARSER_PLUGIN_PRE_UNINSTALL";
+			break;
+		default:
+			return -1;
+		}
+	} else if (process == PLUGIN_POST_PROCESS) {
+		switch (action) {
+		case ACTION_INSTALL:
+			ac = "PKGMGR_PARSER_PLUGIN_POST_INSTALL";
+			break;
+		case ACTION_UPGRADE:
+			ac = "PKGMGR_PARSER_PLUGIN_POST_UPGRADE";
+			break;
+		case ACTION_UNINSTALL:
+			ac = "PKGMGR_PARSER_PLUGIN_POST_UNINSTALL";
+			break;
+		default:
+			return -1;
+		}
+	} else
+		return -1;
+
+	if ((plugin_install =
+		dlsym(lib_handle, ac)) == NULL || dlerror() != NULL) {
+		return -1;
+	}
+
+	ret = plugin_install(pkgid);
+	return ret;
 }
 
 static void __plugin_send_tag(const char *tag, ACTION_TYPE action, PLUGIN_PROCESS_TYPE process, const char *pkgid)
@@ -1006,20 +1225,20 @@ static void __plugin_send_tag(const char *tag, ACTION_TYPE action, PLUGIN_PROCES
 	}
 
 	if ((lib_handle = dlopen(lib_path, RTLD_LAZY)) == NULL) {
-		DBGE("dlopen is failed lib_path[%s] for tag[%s]\n", lib_path, tag);
+		_LOGE("dlopen is failed lib_path[%s] for tag[%s]\n", lib_path, tag);
 		goto END;
 	}
 	if ((plugin_install =
 		dlsym(lib_handle, ac)) == NULL || dlerror() != NULL) {
-		DBGE("can not find symbol[%s] for tag[%s] \n", ac, tag);
+//		_LOGE("can not find symbol[%s] for tag[%s] \n", ac, tag);
 		goto END;
 	}
 
 	ret = plugin_install(pkgid);
 	if (ret < 0)
-		DBG("[PLUGIN_PROCESS_TYPE[%d] pkgid=%s, tag=%s plugin fail\n", process, pkgid, tag);
+		_LOGD("[PLUGIN_PROCESS_TYPE[%d] pkgid=%s, tag=%s plugin fail\n", process, pkgid, tag);
 	else
-		DBG("[PLUGIN_PROCESS_TYPE[%d] pkgid=%s, tag=%s plugin success\n", process, pkgid, tag);
+		_LOGD("[PLUGIN_PROCESS_TYPE[%d] pkgid=%s, tag=%s plugin success\n", process, pkgid, tag);
 
 END:
 	if (lib_path)
@@ -1067,33 +1286,8 @@ __plugin_save_tag(xmlTextReaderPtr reader, char *const tagv[], char *tag_list[])
 			break;
 		}
 	default:
-//		DBG("Ignoring Node of Type: %d", xmlTextReaderNodeType(reader));
+//		_LOGD("Ignoring Node of Type: %d", xmlTextReaderNodeType(reader));
 		break;
-	}
-}
-
-static void
-__plugin_find_tag(const char *filename, char *const tagv[], char *tag_list[])
-{
-	xmlTextReaderPtr reader;
-	xmlDocPtr docPtr;
-	int ret;
-
-	docPtr = xmlReadFile(filename, NULL, 0);
-	reader = xmlReaderWalker(docPtr);
-	if (reader != NULL) {
-		ret = xmlTextReaderRead(reader);
-		while (ret == 1) {
-			__plugin_save_tag(reader, tagv, tag_list);
-			ret = xmlTextReaderRead(reader);
-		}
-		xmlFreeTextReader(reader);
-
-		if (ret != 0) {
-			DBG("xmlReaderWalker fail");
-		}
-	} else {
-		DBG("xmlReaderWalker fail");
 	}
 }
 
@@ -1103,10 +1297,7 @@ __streamFile(const char *filename, ACTION_TYPE action, char *const tagv[], const
 	xmlTextReaderPtr reader;
 	xmlDocPtr docPtr;
 	int ret;
-	char *tag_list[PKG_TAG_LEN_MAX] = {'\0'};
-
-	__plugin_find_tag(filename, tagv, tag_list);
-	__plugin_process_tag(tag_list, action, PLUGIN_PRE_PROCESS, pkgid);
+	__plugin_process_tag(tagv, action, PLUGIN_PRE_PROCESS, pkgid);
 
 	docPtr = xmlReadFile(filename, NULL, 0);
 	reader = xmlReaderWalker(docPtr);
@@ -1119,13 +1310,13 @@ __streamFile(const char *filename, ACTION_TYPE action, char *const tagv[], const
 		xmlFreeTextReader(reader);
 
 		if (ret != 0) {
-			DBGE("%s : failed to parse", filename);
+			_LOGD("%s : failed to parse", filename);
 		}
 	} else {
-		DBGE("Unable to open %s", filename);
+		_LOGD("Unable to open %s", filename);
 	}
 
-	__plugin_process_tag(tag_list, action, PLUGIN_POST_PROCESS, pkgid);
+	__plugin_process_tag(tagv, action, PLUGIN_POST_PROCESS, pkgid);
 }
 
 static int __next_child_element(xmlTextReaderPtr reader, int depth)
@@ -1156,6 +1347,43 @@ static int __next_child_element(xmlTextReaderPtr reader, int depth)
 		ret = xmlTextReaderRead(reader);
 		cur = xmlTextReaderDepth(reader);
 	}
+	return ret;
+}
+
+static bool __check_action_fota(char *const tagv[])
+{
+	int i = 0;
+	char delims[] = "=";
+	char *ret_result = NULL;
+	char *tag = NULL;
+	int ret = false;
+
+	if (tagv == NULL)
+		return ret;
+
+	for (tag = strdup(tagv[0]); tag != NULL; ) {
+		ret_result = strtok(tag, delims);
+
+		/*check tag :  fota is true */
+		if (strcmp(ret_result, "fota") == 0) {
+			ret_result = strtok(NULL, delims);
+			if (strcmp(ret_result, "true") == 0) {
+				ret = true;
+			}
+		} else
+			_LOGD("tag process [%s]is not defined\n", ret_result);
+
+		free(tag);
+
+		/*check next value*/
+		if (tagv[++i] != NULL)
+			tag = strdup(tagv[i]);
+		else {
+			_LOGD("tag process success...%d\n" , ret);
+			return ret;
+		}
+	}
+
 	return ret;
 }
 
@@ -2179,21 +2407,74 @@ static void __ps_free_ime(ime_x *ime)
 	ime = NULL;
 }
 
-int __ps_process_mdparser(manifest_x *mfx, ACTION_TYPE action)
+int __ps_process_tag_parser(manifest_x *mfx, const char *filename, ACTION_TYPE action)
+{
+	xmlTextReaderPtr reader;
+	xmlDocPtr docPtr;
+	int ret = -1;
+	FILE *fp = NULL;
+	void *lib_handle = NULL;
+	char tag[PKG_STRING_LEN_MAX] = { 0 };
+
+	fp = fopen(TAG_PARSER_LIST, "r");
+	retvm_if(fp == NULL, PMINFO_R_ERROR, "no preload list");
+
+	while (fgets(tag, sizeof(tag), fp) != NULL) {
+		__str_trim(tag);
+
+		lib_handle = __open_lib_handle(tag);
+		if (lib_handle == NULL)
+			continue;
+
+		ret = __parser_send_tag(lib_handle, action, PLUGIN_PRE_PROCESS, mfx->package);
+		_LOGD("PLUGIN_PRE_PROCESS[%s, %s] ACTION_TYPE[%d] result[%d]\n", mfx->package, tag, action, ret);
+
+		docPtr = xmlReadFile(filename, NULL, 0);
+		reader = xmlReaderWalker(docPtr);
+		if (reader != NULL) {
+			ret = xmlTextReaderRead(reader);
+			while (ret == 1) {
+				__processTag(lib_handle, reader, action, tag, mfx->package);
+				ret = xmlTextReaderRead(reader);
+			}
+			xmlFreeTextReader(reader);
+
+			if (ret != 0) {
+				_LOGD("%s : failed to parse", filename);
+			}
+		} else {
+			_LOGD("Unable to open %s", filename);
+		}
+
+		ret = __parser_send_tag(lib_handle, action, PLUGIN_POST_PROCESS, mfx->package);
+		_LOGD("PLUGIN_POST_PROCESS[%s, %s] ACTION_TYPE[%d] result[%d]\n", mfx->package, tag, action, ret);
+
+		__close_lib_handle(lib_handle);
+
+		memset(tag, 0x00, sizeof(tag));
+	}
+
+	if (fp != NULL)
+		fclose(fp);
+
+	return 0;
+}
+
+int __ps_process_metadata_parser(manifest_x *mfx, ACTION_TYPE action)
 {
 	int ret = -1;
 	FILE *fp = NULL;
 	char md_key[PKG_STRING_LEN_MAX] = { 0 };
 
-	fp = fopen(MDPARSER_LIST, "r");
+	fp = fopen(METADATA_PARSER_LIST, "r");
 	if (fp == NULL) {
-		DBG("no preload list\n");
+		_LOGD("no preload list\n");
 		return -1;
 	}
 
 	while (fgets(md_key, sizeof(md_key), fp) != NULL) {
 		__str_trim(md_key);
-		ret = __run_mdparser_prestep(mfx, md_key, action);
+		ret = __run_metadata_parser_prestep(mfx, md_key, action);
 
 		memset(md_key, 0x00, sizeof(md_key));
 	}
@@ -2212,7 +2493,7 @@ int __ps_process_category_parser(manifest_x *mfx, ACTION_TYPE action)
 
 	fp = fopen(CATEGORY_PARSER_LIST, "r");
 	if (fp == NULL) {
-		DBG("no category parser list\n");
+		_LOGD("no category parser list\n");
 		return -1;
 	}
 
@@ -2383,14 +2664,14 @@ static int __ps_process_define(xmlTextReaderPtr reader, define_x *define)
 	while ((ret = __next_child_element(reader, depth))) {
 		node = xmlTextReaderConstName(reader);
 		if (!node) {
-			DBG("xmlTextReaderConstName value is NULL\n");
+			_LOGD("xmlTextReaderConstName value is NULL\n");
 			return -1;
 		}
 
 		if (!strcmp(ASCII(node), "allowed")) {
 			allowed_x *allowed= malloc(sizeof(allowed_x));
 			if (allowed == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(allowed, '\0', sizeof(allowed_x));
@@ -2399,7 +2680,7 @@ static int __ps_process_define(xmlTextReaderPtr reader, define_x *define)
 		} else if (!strcmp(ASCII(node), "request")) {
 			request_x *request = malloc(sizeof(request_x));
 			if (request == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(request, '\0', sizeof(request_x));
@@ -2408,7 +2689,7 @@ static int __ps_process_define(xmlTextReaderPtr reader, define_x *define)
 		} else
 			return -1;
 		if (ret < 0) {
-			DBG("Processing define failed\n");
+			_LOGD("Processing define failed\n");
 			return ret;
 		}
 	}
@@ -2437,54 +2718,54 @@ static int __ps_process_appcontrol(xmlTextReaderPtr reader, appcontrol_x *appcon
 	while ((ret = __next_child_element(reader, depth))) {
 		node = xmlTextReaderConstName(reader);
 		if (!node) {
-			DBG("xmlTextReaderConstName value is NULL\n");
+			_LOGD("xmlTextReaderConstName value is NULL\n");
 			return -1;
 		}
 
 		if (!strcmp(ASCII(node), "operation")) {
 			operation_x *operation = malloc(sizeof(operation_x));
 			if (operation == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(operation, '\0', sizeof(operation_x));
 			LISTADD(appcontrol->operation, operation);
 			ret = __ps_process_operation(reader, operation);
-			DBG("operation processing\n");
+			_LOGD("operation processing\n");
 		} else if (!strcmp(ASCII(node), "uri")) {
 			uri_x *uri= malloc(sizeof(uri_x));
 			if (uri == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(uri, '\0', sizeof(uri_x));
 			LISTADD(appcontrol->uri, uri);
 			ret = __ps_process_uri(reader, uri);
-			DBG("uri processing\n");
+			_LOGD("uri processing\n");
 		} else if (!strcmp(ASCII(node), "mime")) {
 			mime_x *mime = malloc(sizeof(mime_x));
 			if (mime == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(mime, '\0', sizeof(mime_x));
 			LISTADD(appcontrol->mime, mime);
 			ret = __ps_process_mime(reader, mime);
-			DBG("mime processing\n");
+			_LOGD("mime processing\n");
 		} else if (!strcmp(ASCII(node), "subapp")) {
 			subapp_x *subapp = malloc(sizeof(subapp_x));
 			if (subapp == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(subapp, '\0', sizeof(subapp_x));
 			LISTADD(appcontrol->subapp, subapp);
 			ret = __ps_process_subapp(reader, subapp);
-			DBG("subapp processing\n");
+			_LOGD("subapp processing\n");
 		} else
 			return -1;
 		if (ret < 0) {
-			DBG("Processing appcontrol failed\n");
+			_LOGD("Processing appcontrol failed\n");
 			return ret;
 		}
 	}
@@ -2526,54 +2807,54 @@ static int __ps_process_appsvc(xmlTextReaderPtr reader, appsvc_x *appsvc)
 	while ((ret = __next_child_element(reader, depth))) {
 		node = xmlTextReaderConstName(reader);
 		if (!node) {
-			DBG("xmlTextReaderConstName value is NULL\n");
+			_LOGD("xmlTextReaderConstName value is NULL\n");
 			return -1;
 		}
 
 		if (!strcmp(ASCII(node), "operation")) {
 			operation_x *operation = malloc(sizeof(operation_x));
 			if (operation == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(operation, '\0', sizeof(operation_x));
 			LISTADD(appsvc->operation, operation);
 			ret = __ps_process_operation(reader, operation);
-			DBG("operation processing\n");
+			_LOGD("operation processing\n");
 		} else if (!strcmp(ASCII(node), "uri")) {
 			uri_x *uri= malloc(sizeof(uri_x));
 			if (uri == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(uri, '\0', sizeof(uri_x));
 			LISTADD(appsvc->uri, uri);
 			ret = __ps_process_uri(reader, uri);
-			DBG("uri processing\n");
+			_LOGD("uri processing\n");
 		} else if (!strcmp(ASCII(node), "mime")) {
 			mime_x *mime = malloc(sizeof(mime_x));
 			if (mime == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(mime, '\0', sizeof(mime_x));
 			LISTADD(appsvc->mime, mime);
 			ret = __ps_process_mime(reader, mime);
-			DBG("mime processing\n");
+			_LOGD("mime processing\n");
 		} else if (!strcmp(ASCII(node), "subapp")) {
 			subapp_x *subapp = malloc(sizeof(subapp_x));
 			if (subapp == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(subapp, '\0', sizeof(subapp_x));
 			LISTADD(appsvc->subapp, subapp);
 			ret = __ps_process_subapp(reader, subapp);
-			DBG("subapp processing\n");
+			_LOGD("subapp processing\n");
 		} else
 			return -1;
 		if (ret < 0) {
-			DBG("Processing appsvc failed\n");
+			_LOGD("Processing appsvc failed\n");
 			return ret;
 		}
 	}
@@ -2613,14 +2894,14 @@ static int __ps_process_privileges(xmlTextReaderPtr reader, privileges_x *privil
 	while ((ret = __next_child_element(reader, depth))) {
 		node = xmlTextReaderConstName(reader);
 		if (!node) {
-			DBG("xmlTextReaderConstName value is NULL\n");
+			_LOGD("xmlTextReaderConstName value is NULL\n");
 			return -1;
 		}
 
 		if (strcmp(ASCII(node), "privilege") == 0) {
 			privilege_x *privilege = malloc(sizeof(privilege_x));
 			if (privilege == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(privilege, '\0', sizeof(privilege_x));
@@ -2629,7 +2910,7 @@ static int __ps_process_privileges(xmlTextReaderPtr reader, privileges_x *privil
 		} else
 			return -1;
 		if (ret < 0) {
-			DBG("Processing privileges failed\n");
+			_LOGD("Processing privileges failed\n");
 			return ret;
 		}
 	}
@@ -2651,14 +2932,14 @@ static int __ps_process_launchconditions(xmlTextReaderPtr reader, launchconditio
 	while ((ret = __next_child_element(reader, depth))) {
 		node = xmlTextReaderConstName(reader);
 		if (!node) {
-			DBG("xmlTextReaderConstName value is NULL\n");
+			_LOGD("xmlTextReaderConstName value is NULL\n");
 			return -1;
 		}
 
 		if (strcmp(ASCII(node), "condition") == 0) {
 			condition_x *condition = malloc(sizeof(condition_x));
 			if (condition == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(condition, '\0', sizeof(condition_x));
@@ -2667,7 +2948,7 @@ static int __ps_process_launchconditions(xmlTextReaderPtr reader, launchconditio
 		} else
 			return -1;
 		if (ret < 0) {
-			DBG("Processing launchconditions failed\n");
+			_LOGD("Processing launchconditions failed\n");
 			return ret;
 		}
 	}
@@ -2694,14 +2975,14 @@ static int __ps_process_datashare(xmlTextReaderPtr reader, datashare_x *datashar
 	while ((ret = __next_child_element(reader, depth))) {
 		node = xmlTextReaderConstName(reader);
 		if (!node) {
-			DBG("xmlTextReaderConstName value is NULL\n");
+			_LOGD("xmlTextReaderConstName value is NULL\n");
 			return -1;
 		}
 
 		if (!strcmp(ASCII(node), "define")) {
 			define_x *define= malloc(sizeof(define_x));
 			if (define == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(define, '\0', sizeof(define_x));
@@ -2710,7 +2991,7 @@ static int __ps_process_datashare(xmlTextReaderPtr reader, datashare_x *datashar
 		} else if (!strcmp(ASCII(node), "request")) {
 			request_x *request= malloc(sizeof(request_x));
 			if (request == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(request, '\0', sizeof(request_x));
@@ -2719,7 +3000,7 @@ static int __ps_process_datashare(xmlTextReaderPtr reader, datashare_x *datashar
 		} else
 			return -1;
 		if (ret < 0) {
-			DBG("Processing data-share failed\n");
+			_LOGD("Processing data-share failed\n");
 			return ret;
 		}
 	}
@@ -2748,6 +3029,8 @@ __get_icon_with_path(const char* icon)
 		if (!package)
 			return NULL;
 
+/* "db/setting/theme" is not exist */
+#if 0
 		theme = vconf_get_str("db/setting/theme");
 		if (!theme) {
 			theme = strdup("default");
@@ -2755,11 +3038,14 @@ __get_icon_with_path(const char* icon)
 				return NULL;
 			}
 		}
+#else
+		theme = strdup("default");
+#endif
 
 		len = (0x01 << 7) + strlen(icon) + strlen(package) + strlen(theme);
 		icon_with_path = malloc(len);
 		if(icon_with_path == NULL) {
-			DBG("(icon_with_path == NULL) return\n");
+			_LOGD("(icon_with_path == NULL) return\n");
 			free(theme);
 			return NULL;
 		}
@@ -2771,19 +3057,19 @@ __get_icon_with_path(const char* icon)
 			if (access(icon_with_path, R_OK) == 0) break;
 			snprintf(icon_with_path, len, "/usr/share/icons/%s/small/%s", theme, icon);
 			if (access(icon_with_path, R_OK) == 0) break;
-			DBG("cannot find icon %s", icon_with_path);
+			_LOGD("cannot find icon %s", icon_with_path);
 			snprintf(icon_with_path, len,"/opt/share/icons/default/small/%s", icon);
 			if (access(icon_with_path, R_OK) == 0) break;
 			snprintf(icon_with_path, len, "/usr/share/icons/default/small/%s", icon);
 			if (access(icon_with_path, R_OK) == 0) break;
 
 			/* icon path is going to be moved intto the app directory */
-			DBGE("icon file must be moved to %s", icon_with_path);
+			_LOGE("icon file must be moved to %s", icon_with_path);
 			snprintf(icon_with_path, len, "/opt/apps/%s/res/icons/%s/small/%s", package, theme, icon);
 			if (access(icon_with_path, R_OK) == 0) break;
 			snprintf(icon_with_path, len, "/usr/apps/%s/res/icons/%s/small/%s", package, theme, icon);
 			if (access(icon_with_path, R_OK) == 0) break;
-			DBG("cannot find icon %s", icon_with_path);
+			_LOGD("cannot find icon %s", icon_with_path);
 			snprintf(icon_with_path, len, "/opt/apps/%s/res/icons/default/small/%s", package, icon);
 			if (access(icon_with_path, R_OK) == 0) break;
 			snprintf(icon_with_path, len, "/usr/apps/%s/res/icons/default/small/%s", package, icon);
@@ -2794,7 +3080,7 @@ __get_icon_with_path(const char* icon)
 
 		free(theme);
 
-		DBG("Icon path : %s ---> %s", icon, icon_with_path);
+		_LOGD("Icon path : %s ---> %s", icon, icon_with_path);
 
 		return icon_with_path;
 	} else {
@@ -2842,7 +3128,7 @@ static void __ps_process_tag(manifest_x * mfx, char *const tagv[])
 			}
 		/*check tag :  not matched*/
 		} else
-			DBG("tag process [%s]is not defined\n", ret_result);
+			_LOGD("tag process [%s]is not defined\n", ret_result);
 
 		free(tag);
 
@@ -2850,7 +3136,7 @@ static void __ps_process_tag(manifest_x * mfx, char *const tagv[])
 		if (tagv[++i] != NULL)
 			tag = strdup(tagv[i]);
 		else {
-			DBG("tag process success...\n");
+			_LOGD("tag process success...\n");
 			return;
 		}
 	}
@@ -2920,9 +3206,9 @@ static int __ps_process_label(xmlTextReaderPtr reader, label_x *label)
 	if (xmlTextReaderValue(reader))
 		label->text = ASCII(xmlTextReaderValue(reader));
 
-/*	DBG("lable name %s\n", label->name);
-	DBG("lable lang %s\n", label->lang);
-	DBG("lable text %s\n", label->text);
+/*	_LOGD("lable name %s\n", label->name);
+	_LOGD("lable lang %s\n", label->lang);
+	_LOGD("lable text %s\n", label->text);
 */
 	return 0;
 
@@ -3005,14 +3291,14 @@ static int __ps_process_capability(xmlTextReaderPtr reader, capability_x *capabi
 	while ((ret = __next_child_element(reader, depth))) {
 		node = xmlTextReaderConstName(reader);
 		if (!node) {
-			DBG("xmlTextReaderConstName value is NULL\n");
+			_LOGD("xmlTextReaderConstName value is NULL\n");
 			return -1;
 		}
 
 		if (!strcmp(ASCII(node), "resolution")) {
 			resolution_x *resolution = malloc(sizeof(resolution_x));
 			if (resolution == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(resolution, '\0', sizeof(resolution_x));
@@ -3021,7 +3307,7 @@ static int __ps_process_capability(xmlTextReaderPtr reader, capability_x *capabi
 		} else
 			return -1;
 		if (ret < 0) {
-			DBG("Processing capability failed\n");
+			_LOGD("Processing capability failed\n");
 			return ret;
 		}
 	}
@@ -3048,14 +3334,14 @@ static int __ps_process_datacontrol(xmlTextReaderPtr reader, datacontrol_x *data
 	while ((ret = __next_child_element(reader, depth))) {
 		node = xmlTextReaderConstName(reader);
 		if (!node) {
-			DBG("xmlTextReaderConstName value is NULL\n");
+			_LOGD("xmlTextReaderConstName value is NULL\n");
 			return -1;
 		}
 
 		if (!strcmp(ASCII(node), "capability")) {
 			capability_x *capability = malloc(sizeof(capability_x));
 			if (capability == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(capability, '\0', sizeof(capability_x));
@@ -3064,7 +3350,7 @@ static int __ps_process_datacontrol(xmlTextReaderPtr reader, datacontrol_x *data
 		} else
 			return -1;
 		if (ret < 0) {
-			DBG("Processing datacontrol failed\n");
+			_LOGD("Processing datacontrol failed\n");
 			return ret;
 		}
 	}
@@ -3098,17 +3384,17 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 	if (xmlTextReaderGetAttribute(reader, XMLCHAR("appid"))) {
 		uiapplication->appid = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("appid")));
 		if (uiapplication->appid == NULL) {
-			DBG("appid cant be NULL\n");
+			_LOGD("appid cant be NULL\n");
 			return -1;
 		}
 	} else {
-		DBG("appid is mandatory\n");
+		_LOGD("appid is mandatory\n");
 		return -1;
 	}
 	/*check appid*/
 	ret = __validate_appid(package, uiapplication->appid, &newappid);
 	if (ret == -1) {
-		DBG("appid is not proper\n");
+		_LOGD("appid is not proper\n");
 		return -1;
 	} else {
 		if (newappid) {
@@ -3235,13 +3521,13 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 	while ((ret = __next_child_element(reader, depth))) {
 		node = xmlTextReaderConstName(reader);
 		if (!node) {
-			DBG("xmlTextReaderConstName value is NULL\n");
+			_LOGD("xmlTextReaderConstName value is NULL\n");
 			return -1;
 		}
 		if (!strcmp(ASCII(node), "label")) {
 			label_x *label = malloc(sizeof(label_x));
 			if (label == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(label, '\0', sizeof(label_x));
@@ -3250,7 +3536,7 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 		} else if (!strcmp(ASCII(node), "icon")) {
 			icon_x *icon = malloc(sizeof(icon_x));
 			if (icon == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(icon, '\0', sizeof(icon_x));
@@ -3259,7 +3545,7 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 		} else if (!strcmp(ASCII(node), "image")) {
 			image_x *image = malloc(sizeof(image_x));
 			if (image == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(image, '\0', sizeof(image_x));
@@ -3268,7 +3554,7 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 		} else if (!strcmp(ASCII(node), "category")) {
 			category_x *category = malloc(sizeof(category_x));
 			if (category == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(category, '\0', sizeof(category_x));
@@ -3277,7 +3563,7 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 		} else if (!strcmp(ASCII(node), "metadata")) {
 			metadata_x *metadata = malloc(sizeof(metadata_x));
 			if (metadata == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(metadata, '\0', sizeof(metadata_x));
@@ -3286,7 +3572,7 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 		} else if (!strcmp(ASCII(node), "permission")) {
 			permission_x *permission = malloc(sizeof(permission_x));
 			if (permission == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(permission, '\0', sizeof(permission_x));
@@ -3295,7 +3581,7 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 		} else if (!strcmp(ASCII(node), "app-control")) {
 			appcontrol_x *appcontrol = malloc(sizeof(appcontrol_x));
 			if (appcontrol == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(appcontrol, '\0', sizeof(appcontrol_x));
@@ -3304,7 +3590,7 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 		} else if (!strcmp(ASCII(node), "application-service")) {
 			appsvc_x *appsvc = malloc(sizeof(appsvc_x));
 			if (appsvc == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(appsvc, '\0', sizeof(appsvc_x));
@@ -3313,7 +3599,7 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 		} else if (!strcmp(ASCII(node), "data-share")) {
 			datashare_x *datashare = malloc(sizeof(datashare_x));
 			if (datashare == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(datashare, '\0', sizeof(datashare_x));
@@ -3322,7 +3608,7 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 		} else if (!strcmp(ASCII(node), "launch-conditions")) {
 			launchconditions_x *launchconditions = malloc(sizeof(launchconditions_x));
 			if (launchconditions == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(launchconditions, '\0', sizeof(launchconditions_x));
@@ -3331,7 +3617,7 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 		} else if (!strcmp(ASCII(node), "notification")) {
 			notification_x *notification = malloc(sizeof(notification_x));
 			if (notification == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(notification, '\0', sizeof(notification_x));
@@ -3340,7 +3626,7 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 		} else
 			return -1;
 		if (ret < 0) {
-			DBG("Processing uiapplication failed\n");
+			_LOGD("Processing uiapplication failed\n");
 			return ret;
 		}
 	}
@@ -3414,17 +3700,17 @@ static int __ps_process_serviceapplication(xmlTextReaderPtr reader, serviceappli
 	if (xmlTextReaderGetAttribute(reader, XMLCHAR("appid"))) {
 		serviceapplication->appid = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("appid")));
 		if (serviceapplication->appid == NULL) {
-			DBG("appid cant be NULL\n");
+			_LOGD("appid cant be NULL\n");
 			return -1;
 		}
 	} else {
-		DBG("appid is mandatory\n");
+		_LOGD("appid is mandatory\n");
 		return -1;
 	}
 	/*check appid*/
 	ret = __validate_appid(package, serviceapplication->appid, &newappid);
 	if (ret == -1) {
-		DBG("appid is not proper\n");
+		_LOGD("appid is not proper\n");
 		return -1;
 	} else {
 		if (newappid) {
@@ -3463,14 +3749,14 @@ static int __ps_process_serviceapplication(xmlTextReaderPtr reader, serviceappli
 	while ((ret = __next_child_element(reader, depth))) {
 		node = xmlTextReaderConstName(reader);
 		if (!node) {
-			DBG("xmlTextReaderConstName value is NULL\n");
+			_LOGD("xmlTextReaderConstName value is NULL\n");
 			return -1;
 		}
 
 		if (!strcmp(ASCII(node), "label")) {
 			label_x *label = malloc(sizeof(label_x));
 			if (label == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(label, '\0', sizeof(label_x));
@@ -3479,7 +3765,7 @@ static int __ps_process_serviceapplication(xmlTextReaderPtr reader, serviceappli
 		} else if (!strcmp(ASCII(node), "icon")) {
 			icon_x *icon = malloc(sizeof(icon_x));
 			if (icon == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(icon, '\0', sizeof(icon_x));
@@ -3488,7 +3774,7 @@ static int __ps_process_serviceapplication(xmlTextReaderPtr reader, serviceappli
 		} else if (!strcmp(ASCII(node), "category")) {
 			category_x *category = malloc(sizeof(category_x));
 			if (category == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(category, '\0', sizeof(category_x));
@@ -3497,7 +3783,7 @@ static int __ps_process_serviceapplication(xmlTextReaderPtr reader, serviceappli
 		} else if (!strcmp(ASCII(node), "metadata")) {
 			metadata_x *metadata = malloc(sizeof(metadata_x));
 			if (metadata == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(metadata, '\0', sizeof(metadata_x));
@@ -3506,7 +3792,7 @@ static int __ps_process_serviceapplication(xmlTextReaderPtr reader, serviceappli
 		} else if (!strcmp(ASCII(node), "permission")) {
 			permission_x *permission = malloc(sizeof(permission_x));
 			if (permission == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(permission, '\0', sizeof(permission_x));
@@ -3515,7 +3801,7 @@ static int __ps_process_serviceapplication(xmlTextReaderPtr reader, serviceappli
 		} else if (!strcmp(ASCII(node), "app-control")) {
 			appcontrol_x *appcontrol = malloc(sizeof(appcontrol_x));
 			if (appcontrol == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(appcontrol, '\0', sizeof(appcontrol_x));
@@ -3524,7 +3810,7 @@ static int __ps_process_serviceapplication(xmlTextReaderPtr reader, serviceappli
 		} else if (!strcmp(ASCII(node), "application-service")) {
 			appsvc_x *appsvc = malloc(sizeof(appsvc_x));
 			if (appsvc == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(appsvc, '\0', sizeof(appsvc_x));
@@ -3533,7 +3819,7 @@ static int __ps_process_serviceapplication(xmlTextReaderPtr reader, serviceappli
 		} else if (!strcmp(ASCII(node), "data-share")) {
 			datashare_x *datashare = malloc(sizeof(datashare_x));
 			if (datashare == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(datashare, '\0', sizeof(datashare_x));
@@ -3542,7 +3828,7 @@ static int __ps_process_serviceapplication(xmlTextReaderPtr reader, serviceappli
 		} else if (!strcmp(ASCII(node), "launch-conditions")) {
 			launchconditions_x *launchconditions = malloc(sizeof(launchconditions_x));
 			if (launchconditions == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(launchconditions, '\0', sizeof(launchconditions_x));
@@ -3551,7 +3837,7 @@ static int __ps_process_serviceapplication(xmlTextReaderPtr reader, serviceappli
 		} else if (!strcmp(ASCII(node), "notification")) {
 			notification_x *notification = malloc(sizeof(notification_x));
 			if (notification == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(notification, '\0', sizeof(notification_x));
@@ -3560,7 +3846,7 @@ static int __ps_process_serviceapplication(xmlTextReaderPtr reader, serviceappli
 		} else if (!strcmp(ASCII(node), "data-control")) {
 			datacontrol_x *datacontrol = malloc(sizeof(datacontrol_x));
 			if (datacontrol == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(datacontrol, '\0', sizeof(datacontrol_x));
@@ -3569,7 +3855,7 @@ static int __ps_process_serviceapplication(xmlTextReaderPtr reader, serviceappli
 		} else
 			return -1;
 		if (ret < 0) {
-			DBG("Processing serviceapplication failed\n");
+			_LOGD("Processing serviceapplication failed\n");
 			return ret;
 		}
 	}
@@ -3654,7 +3940,7 @@ static int __ps_process_ime(xmlTextReaderPtr reader, ime_x *ime)
 
 static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx)
 {
-	DBG("__start_process\n");
+	_LOGD("__start_process\n");
 	const xmlChar *node;
 	int ret = -1;
 	int depth = -1;
@@ -3677,14 +3963,14 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx)
 	while ((ret = __next_child_element(reader, depth))) {
 		node = xmlTextReaderConstName(reader);
 		if (!node) {
-			DBG("xmlTextReaderConstName value is NULL\n");
+			_LOGD("xmlTextReaderConstName value is NULL\n");
 			return -1;
 		}
 
 		if (!strcmp(ASCII(node), "label")) {
 			label_x *label = malloc(sizeof(label_x));
 			if (label == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(label, '\0', sizeof(label_x));
@@ -3693,7 +3979,7 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx)
 		} else if (!strcmp(ASCII(node), "author")) {
 			author_x *author = malloc(sizeof(author_x));
 			if (author == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(author, '\0', sizeof(author_x));
@@ -3702,7 +3988,7 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx)
 		} else if (!strcmp(ASCII(node), "description")) {
 			description_x *description = malloc(sizeof(description_x));
 			if (description == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(description, '\0', sizeof(description_x));
@@ -3711,7 +3997,7 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx)
 		} else if (!strcmp(ASCII(node), "license")) {
 			license_x *license = malloc(sizeof(license_x));
 			if (license == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(license, '\0', sizeof(license_x));
@@ -3720,7 +4006,7 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx)
 		} else if (!strcmp(ASCII(node), "privileges")) {
 			privileges_x *privileges = malloc(sizeof(privileges_x));
 			if (privileges == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(privileges, '\0', sizeof(privileges_x));
@@ -3729,7 +4015,7 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx)
 		} else if (!strcmp(ASCII(node), "ui-application")) {
 			uiapplication_x *uiapplication = malloc(sizeof(uiapplication_x));
 			if (uiapplication == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(uiapplication, '\0', sizeof(uiapplication_x));
@@ -3738,7 +4024,7 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx)
 		} else if (!strcmp(ASCII(node), "service-application")) {
 			serviceapplication_x *serviceapplication = malloc(sizeof(serviceapplication_x));
 			if (serviceapplication == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(serviceapplication, '\0', sizeof(serviceapplication_x));
@@ -3747,7 +4033,7 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx)
 		} else if (!strcmp(ASCII(node), "daemon")) {
 			daemon_x *daemon = malloc(sizeof(daemon_x));
 			if (daemon == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(daemon, '\0', sizeof(daemon_x));
@@ -3756,7 +4042,7 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx)
 		} else if (!strcmp(ASCII(node), "theme")) {
 			theme_x *theme = malloc(sizeof(theme_x));
 			if (theme == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(theme, '\0', sizeof(theme_x));
@@ -3765,7 +4051,7 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx)
 		} else if (!strcmp(ASCII(node), "font")) {
 			font_x *font = malloc(sizeof(font_x));
 			if (font == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(font, '\0', sizeof(font_x));
@@ -3774,7 +4060,7 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx)
 		} else if (!strcmp(ASCII(node), "ime")) {
 			ime_x *ime = malloc(sizeof(ime_x));
 			if (ime == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(ime, '\0', sizeof(ime_x));
@@ -3783,7 +4069,7 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx)
 		} else if (!strcmp(ASCII(node), "icon")) {
 			icon_x *icon = malloc(sizeof(icon_x));
 			if (icon == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(icon, '\0', sizeof(icon_x));
@@ -3792,7 +4078,7 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx)
 		} else if (!strcmp(ASCII(node), "device-profile")) {
 			deviceprofile_x *deviceprofile = malloc(sizeof(deviceprofile_x));
 			if (deviceprofile == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(deviceprofile, '\0', sizeof(deviceprofile_x));
@@ -3801,7 +4087,7 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx)
 		} else if (!strcmp(ASCII(node), "compatibility")) {
 			compatibility_x *compatibility = malloc(sizeof(compatibility_x));
 			if (compatibility == NULL) {
-				DBG("Malloc Failed\n");
+				_LOGD("Malloc Failed\n");
 				return -1;
 			}
 			memset(compatibility, '\0', sizeof(compatibility_x));
@@ -3821,7 +4107,7 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx)
 			return -1;
 
 		if (ret < 0) {
-			DBG("Processing manifest failed\n");
+			_LOGD("Processing manifest failed\n");
 			return ret;
 		}
 	}
@@ -3892,7 +4178,7 @@ static int __process_manifest(xmlTextReaderPtr reader, manifest_x * mfx)
 	if ((ret = __next_child_element(reader, -1))) {
 		node = xmlTextReaderConstName(reader);
 		if (!node) {
-			DBG("xmlTextReaderConstName value is NULL\n");
+			_LOGD("xmlTextReaderConstName value is NULL\n");
 			return -1;
 		}
 
@@ -3902,11 +4188,11 @@ static int __process_manifest(xmlTextReaderPtr reader, manifest_x * mfx)
 			if (xmlTextReaderGetAttribute(reader, XMLCHAR("package"))) {
 				mfx->package= ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("package")));
 				if (mfx->package == NULL) {
-					DBG("package cant be NULL\n");
+					_LOGD("package cant be NULL\n");
 					return -1;
 				}
 			} else {
-				DBG("package field is mandatory\n");
+				_LOGD("package field is mandatory\n");
 				return -1;
 			}
 			package = mfx->package;
@@ -3923,6 +4209,8 @@ static int __process_manifest(xmlTextReaderPtr reader, manifest_x * mfx)
 				mfx->root_path = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("root_path")));
 			if (xmlTextReaderGetAttribute(reader, XMLCHAR("csc_path")))
 				mfx->csc_path = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("csc_path")));
+			if (xmlTextReaderGetAttribute(reader, XMLCHAR("main_package")))
+				mfx->main_package = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("main_package")));
 			if (xmlTextReaderGetAttribute(reader, XMLCHAR("appsetting"))) {
 				mfx->appsetting = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("appsetting")));
 				if (mfx->appsetting == NULL)
@@ -3960,7 +4248,7 @@ static int __process_manifest(xmlTextReaderPtr reader, manifest_x * mfx)
 
 			ret = __start_process(reader, mfx);
 		} else {
-			DBG("No Manifest element found\n");
+			_LOGD("No Manifest element found\n");
 			return -1;
 		}
 	}
@@ -3978,7 +4266,7 @@ static char* __convert_to_system_locale(const char *mlocale)
 	char *locale = NULL;
 	locale = (char *)calloc(1, 6);
 	if (!locale) {
-		DBGE("Malloc Failed\n");
+		_LOGE("Malloc Failed\n");
 		return NULL;
 	}
 
@@ -3989,7 +4277,7 @@ static char* __convert_to_system_locale(const char *mlocale)
 	return locale;
 }
 
-#define LIBAIL_PATH LIB_PATH "/libail.so.0"
+#define LIBAIL_PATH "/usr/lib/libail.so.0"
 
 /* operation_type */
 typedef enum {
@@ -3997,6 +4285,7 @@ typedef enum {
 	AIL_UPDATE,
 	AIL_REMOVE,
 	AIL_CLEAN,
+	AIL_FOTA,
 	AIL_MAX
 } AIL_TYPE;
 
@@ -4008,7 +4297,7 @@ static int __ail_change_info(int op, const char *appid)
 	int ret = 0;
 
 	if ((lib_handle = dlopen(LIBAIL_PATH, RTLD_LAZY)) == NULL) {
-		DBGE("dlopen is failed LIBAIL_PATH[%s]\n", LIBAIL_PATH);
+		_LOGE("dlopen is failed LIBAIL_PATH[%s]\n", LIBAIL_PATH);
 		goto END;
 	}
 
@@ -4026,6 +4315,9 @@ static int __ail_change_info(int op, const char *appid)
 		case 3:
 			aop  = "ail_desktop_clean";
 			break;
+		case 4:
+			aop  = "ail_desktop_fota";
+			break;
 		default:
 			goto END;
 			break;
@@ -4033,7 +4325,7 @@ static int __ail_change_info(int op, const char *appid)
 
 	if ((ail_desktop_operation =
 	     dlsym(lib_handle, aop)) == NULL || dlerror() != NULL) {
-		DBGE("can not find symbol \n");
+		_LOGE("can not find symbol \n");
 		goto END;
 	}
 
@@ -4050,7 +4342,7 @@ END:
 /* desktop shoud be generated automatically based on manifest */
 /* Currently removable, taskmanage, etc fields are not considerd. it will be decided soon.*/
 #define BUFMAX 1024*128
-static int __ps_make_nativeapp_desktop(manifest_x * mfx, const char *manifest, bool is_update)
+static int __ps_make_nativeapp_desktop(manifest_x * mfx, const char *manifest, ACTION_TYPE action)
 {
         FILE* file = NULL;
         int fd = 0;
@@ -4061,18 +4353,18 @@ static int __ps_make_nativeapp_desktop(manifest_x * mfx, const char *manifest, b
 
 	buf = (char *)calloc(1, BUFMAX);
 	if (!buf) {
-		DBGE("Malloc Failed\n");
+		_LOGE("Malloc Failed\n");
 		return -1;
 	}
 
 	buftemp = (char *)calloc(1, BUFMAX);
 	if (!buftemp) {
-		DBGE("Malloc Failed\n");
+		_LOGE("Malloc Failed\n");
 		free(buf);
 		return -1;
 	}
 
-	if (is_update)
+	if (action == ACTION_UPGRADE)
 		__ail_change_info(AIL_CLEAN, mfx->package);
 
 	for(; mfx->uiapplication; mfx->uiapplication=mfx->uiapplication->next) {
@@ -4081,7 +4373,7 @@ static int __ps_make_nativeapp_desktop(manifest_x * mfx, const char *manifest, b
 			/* skip making a deskfile and update ail, if preload app is updated */
 			if(strstr(manifest, MANIFEST_RO_PREFIX)) {
 				__ail_change_info(AIL_INSTALL, mfx->uiapplication->appid);
-	            DBGE("preload app is update : skip and update ail : %s", manifest);
+	            _LOGE("preload app is update : skip and update ail : %s", manifest);
 				continue;
 			}
 		}
@@ -4099,7 +4391,7 @@ static int __ps_make_nativeapp_desktop(manifest_x * mfx, const char *manifest, b
 	        file = fopen(filepath, "w");
 	        if(file == NULL)
 	        {
-	            DBGE("Can't open %s", filepath);
+	            _LOGD("Can't open %s", filepath);
 		    free(buf);
 		    free(buftemp);
 	            return -1;
@@ -4165,7 +4457,7 @@ static int __ps_make_nativeapp_desktop(manifest_x * mfx, const char *manifest, b
 				while (mi) {
 					mime_count++;
 					mime = mi->name;
-					DBG("MIME type: %s\n", mime);
+					_LOGD("MIME type: %s\n", mime);
 					strncat(buf, mime, BUFMAX-strlen(buf)-1);
 					if(mi->next) {
 						strncat(buf, mime_delim, BUFMAX-strlen(buf)-1);
@@ -4176,8 +4468,8 @@ static int __ps_make_nativeapp_desktop(manifest_x * mfx, const char *manifest, b
 				}
 				asvc = asvc->next;
 			}
-			DBG("MIME types: buf[%s]\n", buf);
-			DBG("MIME count: %d\n", mime_count);
+			_LOGD("MIME types: buf[%s]\n", buf);
+			_LOGD("MIME count: %d\n", mime_count);
 			if(mime_count)
 				fwrite(buf, 1, strlen(buf), file);
 		}
@@ -4232,6 +4524,13 @@ static int __ps_make_nativeapp_desktop(manifest_x * mfx, const char *manifest, b
 			fwrite(buf, 1, strlen(buf), file);
 		}
 
+		if(mfx->uiapplication->submode && !strcasecmp(mfx->uiapplication->submode, "True")) {
+			snprintf(buf, BUFMAX, "X-TIZEN-Submode=%s\n", mfx->uiapplication->submode);
+			fwrite(buf, 1, strlen(buf), file);
+			snprintf(buf, BUFMAX, "X-TIZEN-SubmodeMainid=%s\n", mfx->uiapplication->submode_mainid);
+			fwrite(buf, 1, strlen(buf), file);
+		}
+
 		snprintf(buf, BUFMAX, "X-TIZEN-PkgID=%s\n", mfx->package);
 		fwrite(buf, 1, strlen(buf), file);
 
@@ -4242,7 +4541,7 @@ static int __ps_make_nativeapp_desktop(manifest_x * mfx, const char *manifest, b
 
 		if(mfx->uiapplication->appsvc) {
 			snprintf(buf, BUFMAX, "X-TIZEN-Svc=");
-			DBG("buf[%s]\n", buf);
+			_LOGD("buf[%s]\n", buf);
 
 
 			uiapplication_x *up = mfx->uiapplication;
@@ -4289,7 +4588,7 @@ static int __ps_make_nativeapp_desktop(manifest_x * mfx, const char *manifest, b
 
 								strncpy(buftemp, buf, BUFMAX);
 								snprintf(buf, BUFMAX, "%s%s|%s|%s|%s", buftemp, operation?operation:"NULL", uri?uri:"NULL", mime?mime:"NULL", subapp?subapp:"NULL");
-								DBG("buf[%s]\n", buf);
+								_LOGD("buf[%s]\n", buf);
 
 								if (ui)
 									ui = ui->next;
@@ -4320,7 +4619,7 @@ static int __ps_make_nativeapp_desktop(manifest_x * mfx, const char *manifest, b
 
 		if(mfx->uiapplication->appcontrol) {
 			snprintf(buf, BUFMAX, "X-TIZEN-Svc=");
-			DBG("buf[%s]\n", buf);
+			_LOGD("buf[%s]\n", buf);
 
 			uiapplication_x *up = mfx->uiapplication;
 			appcontrol_x *acontrol = NULL;
@@ -4364,7 +4663,7 @@ static int __ps_make_nativeapp_desktop(manifest_x * mfx, const char *manifest, b
 
 								strncpy(buftemp, buf, BUFMAX);
 								snprintf(buf, BUFMAX, "%s%s|%s|%s|%s", buftemp, operation?operation:"NULL", uri?uri:"NULL", mime?mime:"NULL", subapp?subapp:"NULL");
-								DBG("buf[%s]\n", buf);
+								_LOGD("buf[%s]\n", buf);
 
 								if (ui)
 									ui = ui->next;
@@ -4397,8 +4696,10 @@ static int __ps_make_nativeapp_desktop(manifest_x * mfx, const char *manifest, b
 	        fd = fileno(file);
 	        fsync(fd);
 	        fclose(file);
-
-		__ail_change_info(AIL_INSTALL, mfx->uiapplication->appid);
+		if (action == ACTION_FOTA)
+			__ail_change_info(AIL_FOTA, mfx->uiapplication->appid);
+		else
+			__ail_change_info(AIL_INSTALL, mfx->uiapplication->appid);
 	}
 
 	free(buf);
@@ -4426,7 +4727,7 @@ static int __ps_remove_nativeapp_desktop(manifest_x *mfx)
         return 0;
 }
 
-#define LIBAPPSVC_PATH LIB_PATH "/libappsvc.so.0"
+#define LIBAPPSVC_PATH "/usr/lib/libappsvc.so.0"
 
 static int __ps_remove_appsvc_db(manifest_x *mfx)
 {
@@ -4436,20 +4737,20 @@ static int __ps_remove_appsvc_db(manifest_x *mfx)
 	uiapplication_x *uiapplication = mfx->uiapplication;
 
 	if ((lib_handle = dlopen(LIBAPPSVC_PATH, RTLD_LAZY)) == NULL) {
-		DBGE("dlopen is failed LIBAIL_PATH[%s]\n", LIBAPPSVC_PATH);
+		_LOGE("dlopen is failed LIBAIL_PATH[%s]\n", LIBAPPSVC_PATH);
 		goto END;
 	}
 
 	if ((appsvc_operation =
 		 dlsym(lib_handle, "appsvc_unset_defapp")) == NULL || dlerror() != NULL) {
-		DBGE("can not find symbol \n");
+		_LOGE("can not find symbol \n");
 		goto END;
 	}
 
 	for(; uiapplication; uiapplication=uiapplication->next) {
 		ret = appsvc_operation(uiapplication->appid);
 		if (ret <0)
-			DBGE("can not operation  symbol \n");
+			_LOGE("can not operation  symbol \n");
 	}
 
 END:
@@ -4459,7 +4760,7 @@ END:
 	return ret;
 }
 
-#define PRELOAD_PACKAGE_LIST SYSCONFDIR "/package-manager/preload/preload_list.txt"
+#define PRELOAD_PACKAGE_LIST "/usr/etc/package-manager/preload/preload_list.txt"
 static int __add_preload_info(manifest_x * mfx, const char *manifest)
 {
 	FILE *fp = NULL;
@@ -4484,7 +4785,7 @@ static int __add_preload_info(manifest_x * mfx, const char *manifest)
 
 	fp = fopen(PRELOAD_PACKAGE_LIST, "r");
 	if (fp == NULL) {
-		DBGE("no preload list\n");
+		_LOGE("no preload list\n");
 		return -1;
 	}
 
@@ -4553,14 +4854,14 @@ API int pkgmgr_parser_create_desktop_file(manifest_x *mfx)
 {
         int ret = 0;
 	if (mfx == NULL) {
-		DBG("Manifest pointer is NULL\n");
+		_LOGD("Manifest pointer is NULL\n");
 		return -1;
 	}
-        ret = __ps_make_nativeapp_desktop(mfx, NULL, 0);
+        ret = __ps_make_nativeapp_desktop(mfx, NULL, ACTION_INSTALL);
         if (ret == -1)
-                DBG("Creating desktop file failed\n");
+                _LOGD("Creating desktop file failed\n");
         else
-                DBG("Creating desktop file Success\n");
+                _LOGD("Creating desktop file Success\n");
         return ret;
 }
 
@@ -4647,6 +4948,10 @@ API void pkgmgr_parser_free_manifest_xml(manifest_x *mfx)
 	if (mfx->nodisplay_setting) {
 		free((void *)mfx->nodisplay_setting);
 		mfx->nodisplay_setting = NULL;
+	}
+	if (mfx->main_package) {
+		free((void *)mfx->main_package);
+		mfx->main_package = NULL;
 	}
 
 	/*Free Icon*/
@@ -4796,7 +5101,7 @@ API void pkgmgr_parser_free_manifest_xml(manifest_x *mfx)
 
 API manifest_x *pkgmgr_parser_process_manifest_xml(const char *manifest)
 {
-	DBG("parsing start\n");
+	_LOGD("parsing start\n");
 	xmlTextReaderPtr reader;
 	manifest_x *mfx = NULL;
 
@@ -4806,17 +5111,17 @@ API manifest_x *pkgmgr_parser_process_manifest_xml(const char *manifest)
 		if (mfx) {
 			memset(mfx, '\0', sizeof(manifest_x));
 			if (__process_manifest(reader, mfx) < 0) {
-				DBG("Parsing Failed\n");
+				_LOGD("Parsing Failed\n");
 				pkgmgr_parser_free_manifest_xml(mfx);
 				mfx = NULL;
 			} else
-				DBG("Parsing Success\n");
+				_LOGD("Parsing Success\n");
 		} else {
-			DBG("Memory allocation error\n");
+			_LOGD("Memory allocation error\n");
 		}
 		xmlFreeTextReader(reader);
 	} else {
-		DBG("Unable to create xml reader\n");
+		_LOGD("Unable to create xml reader\n");
 	}
 	return mfx;
 }
@@ -4825,50 +5130,52 @@ API manifest_x *pkgmgr_parser_process_manifest_xml(const char *manifest)
 
 API int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char *const tagv[])
 {
-	char *temp[] = {"shortcut-list", "livebox", "account", "notifications", "privileges", "ime", "font", NULL};
-	if (manifest == NULL) {
-		DBG("argument supplied is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	DBG("parsing manifest for installation: %s\n", manifest);
+//	char *temp[] = {"shortcut-list", "livebox", "account", "notifications", "privileges", "ime", "font", NULL};
+	retvm_if(manifest == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
+	_LOGD("parsing manifest for installation: %s\n", manifest);
+
 	manifest_x *mfx = NULL;
 	int ret = -1;
-	char roxml_check[PKG_STRING_LEN_MAX] = {'\0'};
 
 	xmlInitParser();
 	mfx = pkgmgr_parser_process_manifest_xml(manifest);
-	DBG("Parsing Finished\n");
-	if (mfx == NULL)
-		return PMINFO_R_ERROR;
+	retvm_if(mfx == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
 
-	__streamFile(manifest, ACTION_INSTALL, temp, mfx->package);
+	_LOGD("Parsing Finished\n");
+
+//	__streamFile(manifest, ACTION_INSTALL, temp, mfx->package);
+	__ps_process_tag_parser(mfx, manifest, ACTION_INSTALL);
 	__add_preload_info(mfx, manifest);
-	DBG("Added preload infomation\n");
+
+	_LOGD("Added preload infomation\n");
 
 	__ps_process_tag(mfx, tagv);
 
 	ret = pkgmgr_parser_insert_manifest_info_in_db(mfx);
-	if (ret == -1)
-		DBG("DB Insert failed\n");
-	else
-		DBG("DB Insert Success\n");
+	retvm_if(ret == PMINFO_R_ERROR, PMINFO_R_ERROR, "DB Insert failed");
 
-	ret = __ps_process_mdparser(mfx, ACTION_INSTALL);
+	_LOGD("DB Insert Success\n");
+
+	ret = __ps_process_metadata_parser(mfx, ACTION_INSTALL);
 	if (ret == -1)
-		DBG("Creating metadata parser failed\n");
+		_LOGD("Creating metadata parser failed\n");
 
 	ret = __ps_process_category_parser(mfx, ACTION_INSTALL);
 	if (ret == -1)
-		DBG("Creating category parser failed\n");
+		_LOGD("Creating category parser failed\n");
 
-	ret = __ps_make_nativeapp_desktop(mfx, NULL, 0);
-	if (ret == -1)
-		DBG("Creating desktop file failed\n");
+	if (__check_action_fota(tagv))
+		ret = __ps_make_nativeapp_desktop(mfx, NULL, ACTION_FOTA);
 	else
-		DBG("Creating desktop file Success\n");
+		ret = __ps_make_nativeapp_desktop(mfx, NULL, ACTION_INSTALL);
+
+	if (ret == -1)
+		_LOGD("Creating desktop file failed\n");
+	else
+		_LOGD("Creating desktop file Success\n");
 
 	pkgmgr_parser_free_manifest_xml(mfx);
-	DBG("Free Done\n");
+	_LOGD("Free Done\n");
 	xmlCleanupParser();
 
 	return PMINFO_R_OK;
@@ -4876,12 +5183,10 @@ API int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char
 
 API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *const tagv[])
 {
-	char *temp[] = {"shortcut-list", "livebox", "account", "notifications", "privileges", "ime", "font", NULL};
-	if (manifest == NULL) {
-		DBG("argument supplied is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	DBG("parsing manifest for upgradation: %s\n", manifest);
+//	char *temp[] = {"shortcut-list", "livebox", "account", "notifications", "privileges", "ime", "font", NULL};
+	retvm_if(manifest == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
+	_LOGD("parsing manifest for upgradation: %s\n", manifest);
+
 	manifest_x *mfx = NULL;
 	int ret = -1;
 	bool preload = false;
@@ -4891,22 +5196,23 @@ API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *con
 
 	xmlInitParser();
 	mfx = pkgmgr_parser_process_manifest_xml(manifest);
-	DBG("Parsing Finished\n");
-	if (mfx == NULL)
-		return PMINFO_R_ERROR;
+	retvm_if(mfx == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
+
+	_LOGD("Parsing Finished\n");
 	
-	__streamFile(manifest, ACTION_UPGRADE, temp, mfx->package);
+//	__streamFile(manifest, ACTION_UPGRADE, temp, mfx->package);
+	__ps_process_tag_parser(mfx, manifest, ACTION_UPGRADE);
 	__add_preload_info(mfx, manifest);
-	DBG("Added preload infomation\n");
+	_LOGD("Added preload infomation\n");
 	__check_preload_updated(mfx, manifest);
 
 	ret = pkgmgrinfo_pkginfo_get_pkginfo(mfx->package, &handle);
 	if (ret != PMINFO_R_OK)
-		DBG("pkgmgrinfo_pkginfo_get_pkginfo failed\n");
+		_LOGD("pkgmgrinfo_pkginfo_get_pkginfo failed\n");
 
 	ret = pkgmgrinfo_pkginfo_is_preload(handle, &preload);
 	if (ret != PMINFO_R_OK)
-		DBG("pkgmgrinfo_pkginfo_is_preload failed\n");
+		_LOGD("pkgmgrinfo_pkginfo_is_preload failed\n");
 
 	if (preload) {
 		free((void *)mfx->preload);
@@ -4915,7 +5221,7 @@ API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *con
 
 	ret = pkgmgrinfo_pkginfo_is_system(handle, &system);
 	if (ret != PMINFO_R_OK)
-		DBG("pkgmgrinfo_pkginfo_is_system failed\n");
+		_LOGD("pkgmgrinfo_pkginfo_is_system failed\n");
 
 	if (system) {
 		free((void *)mfx->system);
@@ -4924,7 +5230,7 @@ API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *con
 
 	ret = pkgmgrinfo_pkginfo_get_csc_path(handle, &csc_path);
 	if (ret != PMINFO_R_OK)
-		DBG("pkgmgrinfo_pkginfo_get_csc_path failed\n");
+		_LOGD("pkgmgrinfo_pkginfo_get_csc_path failed\n");
 
 	if (csc_path != NULL) {
 		if (mfx->csc_path)
@@ -4933,28 +5239,26 @@ API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *con
 	}
 
 	ret = pkgmgr_parser_update_manifest_info_in_db(mfx);
-	if (ret == -1)
-		DBG("DB Update failed\n");
-	else
-		DBG("DB Update Success\n");
+	retvm_if(ret == PMINFO_R_ERROR, PMINFO_R_ERROR, "DB Insert failed");
+	_LOGD("DB Update Success\n");
 
-	ret = __ps_process_mdparser(mfx, ACTION_UPGRADE);
+	ret = __ps_process_metadata_parser(mfx, ACTION_UPGRADE);
 	if (ret == -1)
-		DBG("Upgrade metadata parser failed\n");
+		_LOGD("Upgrade metadata parser failed\n");
 
 	ret = __ps_process_category_parser(mfx, ACTION_UPGRADE);
 	if (ret == -1)
-		DBG("Creating category parser failed\n");
+		_LOGD("Creating category parser failed\n");
 
-	ret = __ps_make_nativeapp_desktop(mfx, manifest, 1);
+	ret = __ps_make_nativeapp_desktop(mfx, manifest, ACTION_UPGRADE);
 	if (ret == -1)
-		DBG("Creating desktop file failed\n");
+		_LOGD("Creating desktop file failed\n");
 	else
-		DBG("Creating desktop file Success\n");
+		_LOGD("Creating desktop file Success\n");
 
 	pkgmgrinfo_pkginfo_destroy_pkginfo(handle);
 	pkgmgr_parser_free_manifest_xml(mfx);
-	DBG("Free Done\n");
+	_LOGD("Free Done\n");
 	xmlCleanupParser();
 
 	return PMINFO_R_OK;
@@ -4962,52 +5266,52 @@ API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *con
 
 API int pkgmgr_parser_parse_manifest_for_uninstallation(const char *manifest, char *const tagv[])
 {
-	char *temp[] = {"shortcut-list", "livebox", "account", "notifications", "privileges", "ime", "font", NULL};
-	if (manifest == NULL) {
-		DBG("argument supplied is NULL\n");
-		return PMINFO_R_EINVAL;
-	}
-	DBG("parsing manifest for uninstallation: %s\n", manifest);
+//	char *temp[] = {"shortcut-list", "livebox", "account", "notifications", "privileges", "ime", "font", NULL};
+	retvm_if(manifest == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
+	_LOGD("parsing manifest for uninstallation: %s\n", manifest);
+
 	manifest_x *mfx = NULL;
 	int ret = -1;
 	xmlInitParser();
 	mfx = pkgmgr_parser_process_manifest_xml(manifest);
-	DBG("Parsing Finished\n");
-	if (mfx == NULL)
-		return PMINFO_R_ERROR;
-	
-	__streamFile(manifest, ACTION_UNINSTALL, temp, mfx->package);
-	__add_preload_info(mfx, manifest);
-	DBG("Added preload infomation\n");
+	retvm_if(mfx == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
 
-	ret = __ps_process_mdparser(mfx, ACTION_UNINSTALL);
+	_LOGD("Parsing Finished\n");
+
+//	__streamFile(manifest, ACTION_UNINSTALL, temp, mfx->package);
+	__ps_process_tag_parser(mfx, manifest, ACTION_UNINSTALL);
+
+	__add_preload_info(mfx, manifest);
+	_LOGD("Added preload infomation\n");
+
+	ret = __ps_process_metadata_parser(mfx, ACTION_UNINSTALL);
 	if (ret == -1)
-		DBG("Removing metadata parser failed\n");
+		_LOGD("Removing metadata parser failed\n");
 
 	ret = __ps_process_category_parser(mfx, ACTION_UNINSTALL);
 	if (ret == -1)
-		DBG("Creating category parser failed\n");
+		_LOGD("Creating category parser failed\n");
 
 	ret = pkgmgr_parser_delete_manifest_info_from_db(mfx);
 	if (ret == -1)
-		DBG("DB Delete failed\n");
+		_LOGD("DB Delete failed\n");
 	else
-		DBG("DB Delete Success\n");
+		_LOGD("DB Delete Success\n");
 
 	ret = __ps_remove_nativeapp_desktop(mfx);
 	if (ret == -1)
-		DBG("Removing desktop file failed\n");
+		_LOGD("Removing desktop file failed\n");
 	else
-		DBG("Removing desktop file Success\n");
+		_LOGD("Removing desktop file Success\n");
 
 	ret = __ps_remove_appsvc_db(mfx);
 	if (ret == -1)
-		DBG("Removing appsvc_db failed\n");
+		_LOGD("Removing appsvc_db failed\n");
 	else
-		DBG("Removing appsvc_db Success\n");
+		_LOGD("Removing appsvc_db Success\n");
 
 	pkgmgr_parser_free_manifest_xml(mfx);
-	DBG("Free Done\n");
+	_LOGD("Free Done\n");
 	xmlCleanupParser();
 
 	return PMINFO_R_OK;
@@ -5038,12 +5342,12 @@ API int pkgmgr_parser_run_parser_for_uninstallation(xmlDocPtr docPtr, const char
 	return __ps_run_parser(docPtr, tag, ACTION_UNINSTALL, pkgid);
 }
 
-#define SCHEMA_FILE SYSCONFDIR "/package-manager/preload/manifest.xsd"
+#define SCHEMA_FILE "/usr/etc/package-manager/preload/manifest.xsd"
 #if 1
 API int pkgmgr_parser_check_manifest_validation(const char *manifest)
 {
 	if (manifest == NULL) {
-		DBGE("manifest file is NULL\n");
+		_LOGE("manifest file is NULL\n");
 		return PMINFO_R_EINVAL;
 	}
 	int ret = -1;
@@ -5052,29 +5356,29 @@ API int pkgmgr_parser_check_manifest_validation(const char *manifest)
 	xmlSchemaPtr xschema;
 	ctx = xmlSchemaNewParserCtxt(SCHEMA_FILE);
 	if (ctx == NULL) {
-		DBGE("xmlSchemaNewParserCtxt() Failed\n");
+		_LOGE("xmlSchemaNewParserCtxt() Failed\n");
 		return PMINFO_R_ERROR;
 	}
 	xschema = xmlSchemaParse(ctx);
 	if (xschema == NULL) {
-		DBGE("xmlSchemaParse() Failed\n");
+		_LOGE("xmlSchemaParse() Failed\n");
 		return PMINFO_R_ERROR;
 	}
 	vctx = xmlSchemaNewValidCtxt(xschema);
 	if (vctx == NULL) {
-		DBGE("xmlSchemaNewValidCtxt() Failed\n");
+		_LOGE("xmlSchemaNewValidCtxt() Failed\n");
 		return PMINFO_R_ERROR;
 	}
 	xmlSchemaSetValidErrors(vctx, (xmlSchemaValidityErrorFunc) fprintf, (xmlSchemaValidityWarningFunc) fprintf, stderr);
 	ret = xmlSchemaValidateFile(vctx, manifest, 0);
 	if (ret == -1) {
-		DBGE("xmlSchemaValidateFile() failed\n");
+		_LOGE("xmlSchemaValidateFile() failed\n");
 		return PMINFO_R_ERROR;
 	} else if (ret == 0) {
-		DBGE("Manifest is Valid\n");
+		_LOGE("Manifest is Valid\n");
 		return PMINFO_R_OK;
 	} else {
-		DBGE("Manifest Validation Failed with error code %d\n", ret);
+		_LOGE("Manifest Validation Failed with error code %d\n", ret);
 		return PMINFO_R_ERROR;
 	}
 	return PMINFO_R_OK;
@@ -5091,7 +5395,7 @@ API int pkgmgr_parser_check_manifest_validation(const char *manifest)
 
 	switch (pid) {
 	case -1:
-		DBGE("fork failed\n");
+		_LOGE("fork failed\n");
 		return -1;
 	case 0:
 		/* child */
@@ -5106,7 +5410,7 @@ API int pkgmgr_parser_check_manifest_validation(const char *manifest)
 
 			if (execl("/usr/bin/xmllint", "xmllint", manifest, "--schema",
 				SCHEMA_FILE, NULL) < 0) {
-				DBGE("execl error\n");
+				_LOGE("execl error\n");
 			}
 
 			_exit(100);
@@ -5120,7 +5424,7 @@ API int pkgmgr_parser_check_manifest_validation(const char *manifest)
 		if (err < 0) {
 			if (errno == EINTR)
 				continue;
-			DBGE("waitpid failed\n");
+			_LOGE("waitpid failed\n");
 			return -1;
 		}
 	}
