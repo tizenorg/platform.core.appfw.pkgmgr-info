@@ -43,6 +43,11 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
+#ifdef LOG_TAG
+#undef LOG_TAG
+#endif
+#define LOG_TAG "PKGMGR_INFO"
+
 #define ASC_CHAR(s) (const char *)s
 #define XML_CHAR(s) (const xmlChar *)s
 
@@ -1100,6 +1105,11 @@ static int __pkginfo_cb(void *data, int ncols, char **coltxt, char **colname)
 				info->manifest_info->mainapp_id = strdup(coltxt[i]);
 			else
 				info->manifest_info->mainapp_id = NULL;
+		} else if (strcmp(colname[i], "storeclient_id") == 0 ){
+			if (coltxt[i])
+				info->manifest_info->storeclient_id = strdup(coltxt[i]);
+			else
+				info->manifest_info->storeclient_id = NULL;
 		} else if (strcmp(colname[i], "root_path") == 0 ){
 			if (coltxt[i])
 				info->manifest_info->root_path = strdup(coltxt[i]);
@@ -2747,7 +2757,7 @@ API int pkgmgrinfo_pkginfo_get_description(pkgmgrinfo_pkginfo_h handle, char **d
 		if (ptr->lang) {
 			if (strcmp(ptr->lang, locale) == 0) {
 				*description = (char *)ptr->text;
-				if (strcasecmp(*description, "(null)") == 0) {
+				if (strcasecmp(*description, PKGMGR_PARSER_EMPTY_STR) == 0) {
 					locale = DEFAULT_LOCALE;
 					continue;
 				} else
@@ -2778,7 +2788,7 @@ API int pkgmgrinfo_pkginfo_get_author_name(pkgmgrinfo_pkginfo_h handle, char **a
 		if (ptr->lang) {
 			if (strcmp(ptr->lang, locale) == 0) {
 				*author_name = (char *)ptr->text;
-				if (strcasecmp(*author_name, "(null)") == 0) {
+				if (strcasecmp(*author_name, PKGMGR_PARSER_EMPTY_STR) == 0) {
 					locale = DEFAULT_LOCALE;
 					continue;
 				} else
@@ -3847,7 +3857,7 @@ API int pkgmgrinfo_appinfo_get_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_app_
 
 	/*get system locale*/
 	syslocale = vconf_get_str(VCONFKEY_LANGSET);
-	tryvm_if(syslocale == NULL, ret = PMINFO_R_EINVAL, "current locale is NULL");
+	retvm_if(syslocale == NULL, PMINFO_R_EINVAL, "current locale is NULL");
 
 	/*get locale on db*/
 	locale = __convert_system_locale_to_manifest_locale(syslocale);
@@ -3875,7 +3885,7 @@ API int pkgmgrinfo_appinfo_get_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_app_
 
 	/*open db */
 	ret = db_util_open_with_options(MANIFEST_DB, &appinfo_db, SQLITE_OPEN_READONLY, NULL);
-	retvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "connect db [%s] failed!", MANIFEST_DB);
+	tryvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "connect db [%s] failed!", MANIFEST_DB);
 
 	appinfo->package = strdup(info->manifest_info->package);
 	snprintf(query, MAX_QUERY_LEN, "select DISTINCT * " \
