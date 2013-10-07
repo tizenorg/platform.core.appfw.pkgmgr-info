@@ -1614,6 +1614,14 @@ static int __insert_manifest_info_in_db(manifest_x *mfx)
 			mfx->package = strdup(mfx->main_package);
 		} else {
 			_LOGE("main package[%s] is not installed\n", root);
+			if (type) {
+				free(type);
+				type = NULL;
+			}
+			if (path) {
+				free(path);
+				path = NULL;
+			}
 			return -1;
 		}
 	}
@@ -2144,7 +2152,7 @@ API int pkgmgr_parser_insert_manifest_info_in_db(manifest_x *mfx)
 	/*Begin transaction*/
 	ret = sqlite3_exec(pkgmgr_parser_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
 	if (ret != SQLITE_OK) {
-		_LOGD("Failed to begin transaction\n");
+		_LOGD("Failed to begin transaction[%d]\n", ret);
 		ret = -1;
 		goto err;
 	}
