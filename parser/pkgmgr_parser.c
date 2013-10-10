@@ -2188,6 +2188,10 @@ static void __ps_free_uiapplication(uiapplication_x *uiapplication)
 		free((void *)uiapplication->submode_mainid);
 		uiapplication->submode_mainid = NULL;
 	}
+	if (uiapplication->installed_storage) {
+		free((void *)uiapplication->installed_storage);
+		uiapplication->installed_storage = NULL;
+	}
 
 	free((void*)uiapplication);
 	uiapplication = NULL;
@@ -4201,8 +4205,13 @@ static int __process_manifest(xmlTextReaderPtr reader, manifest_x * mfx)
 			/*app2ext needs package size for external installation*/
 			if (xmlTextReaderGetAttribute(reader, XMLCHAR("size")))
 				mfx->package_size = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("size")));
-			if (xmlTextReaderGetAttribute(reader, XMLCHAR("install-location")))
+			if (xmlTextReaderGetAttribute(reader, XMLCHAR("install-location"))) {
 				mfx->installlocation = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("install-location")));
+				if (mfx->installlocation == NULL)
+					mfx->installlocation = strdup("internal-only");
+			} else {
+				mfx->installlocation = strdup("internal-only");
+			}
 			if (xmlTextReaderGetAttribute(reader, XMLCHAR("type")))
 				mfx->type = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("type")));
 			if (xmlTextReaderGetAttribute(reader, XMLCHAR("root_path")))
@@ -4534,6 +4543,9 @@ static int __ps_make_nativeapp_desktop(manifest_x * mfx, const char *manifest, A
 		snprintf(buf, BUFMAX, "X-TIZEN-PkgID=%s\n", mfx->package);
 		fwrite(buf, 1, strlen(buf), file);
 
+
+		snprintf(buf, BUFMAX, "X-TIZEN-InstalledStorage=%s\n", mfx->installed_storage);
+		fwrite(buf, 1, strlen(buf), file);
 
 //		snprintf(buf, BUFMAX, "X-TIZEN-PackageType=rpm\n");
 //		fwrite(buf, 1, strlen(buf), file);
@@ -4912,6 +4924,14 @@ API void pkgmgr_parser_free_manifest_xml(manifest_x *mfx)
 	if (mfx->package_size) {
 		free((void *)mfx->package_size);
 		mfx->package_size = NULL;
+	}
+	if (mfx->package_total_size) {
+		free((void *)mfx->package_total_size);
+		mfx->package_total_size = NULL;
+	}
+	if (mfx->package_data_size) {
+		free((void *)mfx->package_data_size);
+		mfx->package_data_size = NULL;
 	}
 	if (mfx->installed_time) {
 		free((void *)mfx->installed_time);
