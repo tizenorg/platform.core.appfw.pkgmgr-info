@@ -227,12 +227,9 @@ typedef enum {
 #define MAX_PKG_INFO_LEN	10
 
 char *pkgtype = "rpm";
-__thread sqlite3 *manifest_db = NULL;
-__thread sqlite3 *datacontrol_db = NULL;
+
 __thread sqlite3 *cert_db = NULL;
 
-static int __open_manifest_db();
-static int __exec_pkginfo_query(char *query, void *data);
 static int __exec_certinfo_query(char *query, void *data);
 static int __exec_certindexinfo_query(char *query, void *data);
 static int __pkginfo_cb(void *data, int ncols, char **coltxt, char **colname);
@@ -475,34 +472,6 @@ static void __cleanup_appinfo(pkgmgr_appinfo_x *data)
 	free((void *)data);
 	data = NULL;
 	return;
-}
-
-static int __open_manifest_db()
-{
-	int ret = -1;
-	if (access(MANIFEST_DB, F_OK) == 0) {
-		ret =
-		    db_util_open_with_options(MANIFEST_DB, &manifest_db,
-				 SQLITE_OPEN_READONLY, NULL);
-		retvm_if(ret != SQLITE_OK, -1, "connect db [%s] failed!\n", MANIFEST_DB);
-		return 0;
-	}
-	_LOGE("Manifest DB does not exists !!\n");
-	return -1;
-}
-
-static int __open_datacontrol_db()
-{
-	int ret = -1;
-	if (access(DATACONTROL_DB, F_OK) == 0) {
-		ret =
-		    db_util_open_with_options(DATACONTROL_DB, &datacontrol_db,
-				 SQLITE_OPEN_READONLY, NULL);
-		retvm_if(ret != SQLITE_OK, -1, "connect db [%s] failed!\n", DATACONTROL_DB);
-		return 0;
-	}
-	_LOGE("Datacontrol DB does not exists !!\n");
-	return -1;
 }
 
 static int __pkg_list_cb(void *data, int ncols, char **coltxt, char **colname)
@@ -1863,20 +1832,6 @@ static int __fallback_locale_cb(void *data, int ncols, char **coltxt, char **col
 	return 0;
 }
 
-static int __exec_pkginfo_query(char *query, void *data)
-{
-	char *error_message = NULL;
-	if (SQLITE_OK !=
-	    sqlite3_exec(manifest_db, query, __pkginfo_cb, data, &error_message)) {
-		_LOGE("Don't execute query = %s error message = %s\n", query,
-		       error_message);
-		sqlite3_free(error_message);
-		return -1;
-	}
-	sqlite3_free(error_message);
-	return 0;
-}
-
 static int __exec_certinfo_query(char *query, void *data)
 {
 	char *error_message = NULL;
@@ -2355,14 +2310,11 @@ API int pkgmgrinfo_pkginfo_get_list(pkgmgrinfo_pkg_list_cb pkg_list_cb, void *us
 	sqlite3 *pkginfo_db = NULL;
 
 	/*open db*/
-	ret = db_util_open_with_options(MANIFEST_DB, &pkginfo_db, SQLITE_OPEN_READONLY, NULL);
+	ret = db_util_open(MANIFEST_DB, &pkginfo_db, 0);
 	retvm_if(ret != SQLITE_OK, PMINFO_R_ERROR, "connect db [%s] failed!", MANIFEST_DB);
 
 	/*get system locale*/
 	syslocale = vconf_get_str(VCONFKEY_LANGSET);
-	tryvm_if(syslocale == NULL, ret = PMINFO_R_ERROR, "current locale is NULL");
-
-	/*get locale on db*/
 	locale = __convert_system_locale_to_manifest_locale(syslocale);
 	tryvm_if(locale == NULL, ret = PMINFO_R_ERROR, "manifest locale is NULL");
 
@@ -2485,7 +2437,7 @@ API int pkgmgrinfo_pkginfo_get_pkginfo(const char *pkgid, pkgmgrinfo_pkginfo_h *
 	sqlite3 *pkginfo_db = NULL;
 
 	/*validate pkgid*/
-	ret = db_util_open_with_options(MANIFEST_DB, &pkginfo_db, SQLITE_OPEN_READONLY, NULL);
+	ret = db_util_open(MANIFEST_DB, &pkginfo_db, 0);
 	retvm_if(ret != SQLITE_OK, PMINFO_R_ERROR, "connect db [%s] failed!", MANIFEST_DB);
 
 	/*check pkgid exist on db*/
@@ -2496,9 +2448,6 @@ API int pkgmgrinfo_pkginfo_get_pkginfo(const char *pkgid, pkgmgrinfo_pkginfo_h *
 
 	/*get system locale*/
 	syslocale = vconf_get_str(VCONFKEY_LANGSET);
-	tryvm_if(syslocale == NULL, ret = PMINFO_R_ERROR, "current locale is NULL");
-
-	/*get locale on db*/
 	locale = __convert_system_locale_to_manifest_locale(syslocale);
 	tryvm_if(locale == NULL, ret = PMINFO_R_ERROR, "manifest locale is NULL");
 
@@ -3106,8 +3055,7 @@ API int pkgmgrinfo_pkginfo_compare_pkg_cert_info(const char *lhs_package_id, con
 	info = (pkgmgr_cert_x *)calloc(1, sizeof(pkgmgr_cert_x));
 	retvm_if(info == NULL, PMINFO_R_ERROR, "Out of Memory!!!");
 
-	ret = db_util_open_with_options(CERT_DB, &cert_db,
-					SQLITE_OPEN_READONLY, NULL);
+	ret = db_util_open_with_options(CERT_DB, &cert_db, SQLITE_OPEN_READONLY, NULL);
 	if (ret != SQLITE_OK) {
 		_LOGE("connect db [%s] failed!\n", CERT_DB);
 		ret = PMINFO_R_ERROR;
@@ -3203,25 +3151,21 @@ API int pkgmgrinfo_pkginfo_compare_app_cert_info(const char *lhs_app_id, const c
  	int exist = -1;
 	char *lpkgid = NULL;
 	char *rpkgid = NULL;
+	sqlite3 *pkginfo_db = NULL;
 
 	info = (pkgmgr_cert_x *)calloc(1, sizeof(pkgmgr_cert_x));
 	retvm_if(info == NULL, PMINFO_R_ERROR, "Out of Memory!!!");
 
-	ret = db_util_open_with_options(MANIFEST_DB, &manifest_db,
-					SQLITE_OPEN_READONLY, NULL);
-	if (ret != SQLITE_OK) {
-		_LOGE("connect db [%s] failed!\n", MANIFEST_DB);
-		ret = PMINFO_R_ERROR;
-		goto err;
-	}
+	ret = db_util_open(MANIFEST_DB, &pkginfo_db, 0);
+	tryvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "connect db [%s] failed!", MANIFEST_DB);
 
 	snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_app_info where app_id='%s')", lhs_app_id);
 	if (SQLITE_OK !=
-	    sqlite3_exec(manifest_db, query, __validate_cb, (void *)&exist, &error_message)) {
+	    sqlite3_exec(pkginfo_db, query, __validate_cb, (void *)&exist, &error_message)) {
 		_LOGE("Don't execute query = %s error message = %s\n", query,
 		       error_message);
 		ret = PMINFO_R_ERROR;
-		goto err;
+		goto catch;
 	}
 
 	if (exist == 0) {
@@ -3229,17 +3173,17 @@ API int pkgmgrinfo_pkginfo_compare_app_cert_info(const char *lhs_app_id, const c
 	} else {
 		snprintf(query, MAX_QUERY_LEN, "select package from package_app_info where app_id='%s' ", lhs_app_id);
 		if (SQLITE_OK !=
-			sqlite3_exec(manifest_db, query, __cert_cb, (void *)info, &error_message)) {
+			sqlite3_exec(pkginfo_db, query, __cert_cb, (void *)info, &error_message)) {
 			_LOGE("Don't execute query = %s error message = %s\n", query,
 				   error_message);
 			ret = PMINFO_R_ERROR;
-			goto err;
+			goto catch;
 		}
 		lpkgid = strdup(info->pkgid);
 		if (lpkgid == NULL) {
 			_LOGE("Out of Memory\n");
 			ret = PMINFO_R_ERROR;
-			goto err;
+			goto catch;
 		}
 		free(info->pkgid);
 		info->pkgid = NULL;
@@ -3247,11 +3191,11 @@ API int pkgmgrinfo_pkginfo_compare_app_cert_info(const char *lhs_app_id, const c
 
 	snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_app_info where app_id='%s')", rhs_app_id);
 	if (SQLITE_OK !=
-	    sqlite3_exec(manifest_db, query, __validate_cb, (void *)&exist, &error_message)) {
+	    sqlite3_exec(pkginfo_db, query, __validate_cb, (void *)&exist, &error_message)) {
 		_LOGE("Don't execute query = %s error message = %s\n", query,
 		       error_message);
 		ret = PMINFO_R_ERROR;
-		goto err;
+		goto catch;
 	}
 
 	if (exist == 0) {
@@ -3259,25 +3203,26 @@ API int pkgmgrinfo_pkginfo_compare_app_cert_info(const char *lhs_app_id, const c
 	} else {
 		snprintf(query, MAX_QUERY_LEN, "select package from package_app_info where app_id='%s' ", rhs_app_id);
 		if (SQLITE_OK !=
-			sqlite3_exec(manifest_db, query, __cert_cb, (void *)info, &error_message)) {
+			sqlite3_exec(pkginfo_db, query, __cert_cb, (void *)info, &error_message)) {
 			_LOGE("Don't execute query = %s error message = %s\n", query,
 				   error_message);
 			ret = PMINFO_R_ERROR;
-			goto err;
+			goto catch;
 		}
 		rpkgid = strdup(info->pkgid);
 		if (rpkgid == NULL) {
 			_LOGE("Out of Memory\n");
 			ret = PMINFO_R_ERROR;
-			goto err;
+			goto catch;
 		}
 		free(info->pkgid);
 		info->pkgid = NULL;
 	}
 	ret = pkgmgrinfo_pkginfo_compare_pkg_cert_info(lpkgid, rpkgid, compare_result);
- err:
+
+ catch:
 	sqlite3_free(error_message);
-	sqlite3_close(manifest_db);
+	sqlite3_close(pkginfo_db);
 	if (info) {
 		if (info->pkgid) {
 			free(info->pkgid);
@@ -3669,14 +3614,11 @@ API int pkgmgrinfo_pkginfo_filter_count(pkgmgrinfo_pkginfo_filter_h handle, int 
 	int filter_count = 0;
 
 	/*open db*/
-	ret = db_util_open_with_options(MANIFEST_DB, &pkginfo_db, SQLITE_OPEN_READONLY, NULL);
+	ret = db_util_open(MANIFEST_DB, &pkginfo_db, 0);
 	retvm_if(ret != SQLITE_OK, PMINFO_R_ERROR, "connect db [%s] failed!", MANIFEST_DB);
 
 	/*get system locale*/
 	syslocale = vconf_get_str(VCONFKEY_LANGSET);
-	tryvm_if(syslocale == NULL, ret = PMINFO_R_ERROR, "current locale is NULL");
-
-	/*get locale on db*/
 	locale = __convert_system_locale_to_manifest_locale(syslocale);
 	tryvm_if(locale == NULL, ret = PMINFO_R_ERROR, "manifest locale is NULL");
 
@@ -3789,14 +3731,11 @@ API int pkgmgrinfo_pkginfo_filter_foreach_pkginfo(pkgmgrinfo_pkginfo_filter_h ha
 	bool is_setting = false;
 
 	/*open db*/
-	ret = db_util_open_with_options(MANIFEST_DB, &pkginfo_db, SQLITE_OPEN_READONLY, NULL);
+	ret = db_util_open(MANIFEST_DB, &pkginfo_db, 0);
 	retvm_if(ret != SQLITE_OK, PMINFO_R_ERROR, "connect db [%s] failed!", MANIFEST_DB);
 
 	/*get system locale*/
 	syslocale = vconf_get_str(VCONFKEY_LANGSET);
-	tryvm_if(syslocale == NULL, ret = PMINFO_R_ERROR, "current locale is NULL");
-
-	/*get locale on db*/
 	locale = __convert_system_locale_to_manifest_locale(syslocale);
 	tryvm_if(locale == NULL, ret = PMINFO_R_ERROR, "manifest locale is NULL");
 
@@ -3973,9 +3912,6 @@ API int pkgmgrinfo_appinfo_get_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_app_
 
 	/*get system locale*/
 	syslocale = vconf_get_str(VCONFKEY_LANGSET);
-	retvm_if(syslocale == NULL, PMINFO_R_EINVAL, "current locale is NULL");
-
-	/*get locale on db*/
 	locale = __convert_system_locale_to_manifest_locale(syslocale);
 	tryvm_if(locale == NULL, ret = PMINFO_R_EINVAL, "manifest locale is NULL");
 
@@ -4000,7 +3936,7 @@ API int pkgmgrinfo_appinfo_get_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_app_
 		appinfo->app_component = PMINFO_ALL_APP;
 
 	/*open db */
-	ret = db_util_open_with_options(MANIFEST_DB, &appinfo_db, SQLITE_OPEN_READONLY, NULL);
+	ret = db_util_open(MANIFEST_DB, &appinfo_db, 0);
 	tryvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "connect db [%s] failed!", MANIFEST_DB);
 
 	appinfo->package = strdup(info->manifest_info->package);
@@ -4300,7 +4236,7 @@ API int pkgmgrinfo_appinfo_get_install_list(pkgmgrinfo_app_list_cb app_func, voi
 	sqlite3 *appinfo_db = NULL;
 
 	/*open db*/
-	ret = db_util_open_with_options(MANIFEST_DB, &appinfo_db, SQLITE_OPEN_READONLY, NULL);
+	ret = db_util_open(MANIFEST_DB, &appinfo_db, 0);
 	retvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "connect db [%s] failed!", MANIFEST_DB);
 
 	/*calloc pkginfo*/
@@ -4393,14 +4329,11 @@ API int pkgmgrinfo_appinfo_get_installed_list(pkgmgrinfo_app_list_cb app_func, v
 
 	/*get system locale*/
 	syslocale = vconf_get_str(VCONFKEY_LANGSET);
-	tryvm_if(syslocale == NULL, ret = PMINFO_R_ERROR, "current locale is NULL");
-
-	/*get locale on db*/
 	locale = __convert_system_locale_to_manifest_locale(syslocale);
 	tryvm_if(locale == NULL, ret = PMINFO_R_ERROR, "manifest locale is NULL");
 
 	/*open db*/
-	ret = db_util_open_with_options(MANIFEST_DB, &appinfo_db, SQLITE_OPEN_READONLY, NULL);
+	ret = db_util_open(MANIFEST_DB, &appinfo_db, 0);
 	retvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "connect db [%s] failed!", MANIFEST_DB);
 
 	/*calloc pkginfo*/
@@ -4609,7 +4542,7 @@ API int pkgmgrinfo_appinfo_get_appinfo(const char *appid, pkgmgrinfo_appinfo_h *
 	sqlite3 *appinfo_db = NULL;
 
 	/*open db*/
-	ret = db_util_open_with_options(MANIFEST_DB, &appinfo_db, SQLITE_OPEN_READONLY, NULL);
+	ret = db_util_open(MANIFEST_DB, &appinfo_db, 0);
 	retvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "connect db [%s] failed!", MANIFEST_DB);
 
 	/*check appid exist on db*/
@@ -4620,9 +4553,6 @@ API int pkgmgrinfo_appinfo_get_appinfo(const char *appid, pkgmgrinfo_appinfo_h *
 
 	/*get system locale*/
 	syslocale = vconf_get_str(VCONFKEY_LANGSET);
-	tryvm_if(syslocale == NULL, ret = PMINFO_R_ERROR, "current locale is NULL");
-
-	/*get locale on db*/
 	locale = __convert_system_locale_to_manifest_locale(syslocale);
 	tryvm_if(locale == NULL, ret = PMINFO_R_ERROR, "manifest locale is NULL");
 
@@ -5823,14 +5753,11 @@ API int pkgmgrinfo_appinfo_filter_count(pkgmgrinfo_appinfo_filter_h handle, int 
 	int filter_count = 0;
 
 	/*open db*/
-	ret = db_util_open_with_options(MANIFEST_DB, &pkginfo_db, SQLITE_OPEN_READONLY, NULL);
+	ret = db_util_open(MANIFEST_DB, &pkginfo_db, 0);
 	retvm_if(ret != SQLITE_OK, PMINFO_R_ERROR, "connect db [%s] failed!", MANIFEST_DB);
 
 	/*get system locale*/
 	syslocale = vconf_get_str(VCONFKEY_LANGSET);
-	tryvm_if(syslocale == NULL, ret = PMINFO_R_ERROR, "current locale is NULL");
-
-	/*get locale on db*/
 	locale = __convert_system_locale_to_manifest_locale(syslocale);
 	tryvm_if(locale == NULL, ret = PMINFO_R_ERROR, "manifest locale is NULL");
 
@@ -5977,14 +5904,11 @@ API int pkgmgrinfo_appinfo_filter_foreach_appinfo(pkgmgrinfo_appinfo_filter_h ha
 	sqlite3 *pkginfo_db = NULL;
 
 	/*open db*/
-	ret = db_util_open_with_options(MANIFEST_DB, &pkginfo_db, SQLITE_OPEN_READONLY, NULL);
+	ret = db_util_open(MANIFEST_DB, &pkginfo_db, 0);
 	retvm_if(ret != SQLITE_OK, PMINFO_R_ERROR, "connect db [%s] failed!", MANIFEST_DB);
 
 	/*get system locale*/
 	syslocale = vconf_get_str(VCONFKEY_LANGSET);
-	tryvm_if(syslocale == NULL, ret = PMINFO_R_ERROR, "current locale is NULL");
-
-	/*get locale on db*/
 	locale = __convert_system_locale_to_manifest_locale(syslocale);
 	tryvm_if(locale == NULL, ret = PMINFO_R_ERROR, "manifest locale is NULL");
 
@@ -6183,15 +6107,16 @@ API int pkgmgrinfo_appinfo_metadata_filter_foreach(pkgmgrinfo_appinfo_metadata_f
 	uiapplication_x *ptr1 = NULL;
 	serviceapplication_x *ptr2 = NULL;
 	pkgmgrinfo_filter_x *filter = (pkgmgrinfo_filter_x*)handle;
+	sqlite3 *pkginfo_db = NULL;
+
+	/*open db*/
+	ret = db_util_open(MANIFEST_DB, &pkginfo_db, 0);
+	retvm_if(ret != SQLITE_OK, PMINFO_R_ERROR, "connect db [%s] failed!", MANIFEST_DB);
 
 	/*Get current locale*/
 	syslocale = vconf_get_str(VCONFKEY_LANGSET);
-	retvm_if(syslocale == NULL, PMINFO_R_ERROR, "current locale is NULL\n");
 	locale = __convert_system_locale_to_manifest_locale(syslocale);
 	tryvm_if(locale == NULL, ret = PMINFO_R_ERROR, "manifest locale is NULL\n");
-
-	ret = __open_manifest_db();
-	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "Fail to open manifest DB\n");
 
 	/*Start constructing query*/
 	memset(where, '\0', MAX_QUERY_LEN);
@@ -6231,7 +6156,7 @@ API int pkgmgrinfo_appinfo_metadata_filter_foreach(pkgmgrinfo_appinfo_metadata_f
 	appinfo = (pkgmgr_appinfo_x *)calloc(1, sizeof(pkgmgr_appinfo_x));
 	tryvm_if(appinfo == NULL, ret = PMINFO_R_ERROR, "Out of Memory!!!\n");
 
-	ret = sqlite3_exec(manifest_db, query, __app_list_cb, (void *)info, &error_message);
+	ret = sqlite3_exec(pkginfo_db, query, __app_list_cb, (void *)info, &error_message);
 	tryvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "Don't execute query = %s error message = %s\n", query, error_message);
 	memset(query, '\0', MAX_QUERY_LEN);
 
@@ -6249,7 +6174,7 @@ API int pkgmgrinfo_appinfo_metadata_filter_foreach(pkgmgrinfo_appinfo_metadata_f
 	{
 		snprintf(query, MAX_QUERY_LEN, "select * from package_app_info where app_id='%s' and app_component='%s'",
 							ptr1->appid, "uiapp");
-		ret = sqlite3_exec(manifest_db, query, __uiapp_list_cb, (void *)filtinfo, &error_message);
+		ret = sqlite3_exec(pkginfo_db, query, __uiapp_list_cb, (void *)filtinfo, &error_message);
 		tryvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "Don't execute query = %s error message = %s\n", query, error_message);
 		memset(query, '\0', MAX_QUERY_LEN);
 	}
@@ -6258,7 +6183,7 @@ API int pkgmgrinfo_appinfo_metadata_filter_foreach(pkgmgrinfo_appinfo_metadata_f
 	{
 		snprintf(query, MAX_QUERY_LEN, "select * from package_app_info where app_id='%s' and app_component='%s'",
 							ptr2->appid, "svcapp");
-		ret = sqlite3_exec(manifest_db, query, __svcapp_list_cb, (void *)filtinfo, &error_message);
+		ret = sqlite3_exec(pkginfo_db, query, __svcapp_list_cb, (void *)filtinfo, &error_message);
 		tryvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "Don't execute query = %s error message = %s\n", query, error_message);
 		memset(query, '\0', MAX_QUERY_LEN);
 	}
@@ -6305,7 +6230,7 @@ catch:
 		syslocale = NULL;
 	}
 	sqlite3_free(error_message);
-	sqlite3_close(manifest_db);
+	sqlite3_close(pkginfo_db);
 	if (appinfo) {
 		free(appinfo);
 		appinfo = NULL;
@@ -6337,8 +6262,7 @@ API int pkgmgrinfo_pkginfo_load_certinfo(const char *pkgid, pkgmgrinfo_certinfo_
 	int i = 0;
 
 	/*Open db.*/
-	ret = db_util_open_with_options(CERT_DB, &cert_db,
-					SQLITE_OPEN_READONLY, NULL);
+	ret = db_util_open_with_options(CERT_DB, &cert_db, SQLITE_OPEN_READONLY, NULL);
 	if (ret != SQLITE_OK) {
 		_LOGE("connect db [%s] failed!\n", CERT_DB);
 		return PMINFO_R_ERROR;
@@ -6473,8 +6397,7 @@ API int pkgmgrinfo_save_certinfo(const char *pkgid, pkgmgrinfo_instcertinfo_h ha
 	info->pkgid = strdup(pkgid);
 
 	/*Open db.*/
-	ret = db_util_open_with_options(CERT_DB, &cert_db,
-					SQLITE_OPEN_READWRITE, NULL);
+	ret = db_util_open_with_options(CERT_DB, &cert_db, SQLITE_OPEN_READWRITE, NULL);
 	if (ret != SQLITE_OK) {
 		_LOGE("connect db [%s] failed!\n", CERT_DB);
 		ret = PMINFO_R_ERROR;
@@ -6667,8 +6590,7 @@ API int pkgmgrinfo_delete_certinfo(const char *pkgid)
 	retvm_if(pkgid == NULL, PMINFO_R_EINVAL, "Argument supplied is NULL\n");
 	int ret = -1;
 	/*Open db.*/
-	ret = db_util_open_with_options(CERT_DB, &cert_db,
-					SQLITE_OPEN_READWRITE, NULL);
+	ret = db_util_open_with_options(CERT_DB, &cert_db, SQLITE_OPEN_READWRITE, NULL);
 	if (ret != SQLITE_OK) {
 		_LOGE("connect db [%s] failed!\n", CERT_DB);
 		ret = PMINFO_R_ERROR;
@@ -6956,22 +6878,16 @@ API int pkgmgrinfo_appinfo_set_state_enabled(const char *appid, bool enabled)
 	retvm_if(appid == NULL, PMINFO_R_EINVAL, "appid is NULL\n");
 	int ret = -1;
 	char query[MAX_QUERY_LEN] = {'\0'};
-	ret = __open_manifest_db();
+	sqlite3 *pkginfo_db = NULL;
 
-	if (access(MANIFEST_DB, F_OK) == 0) {
-		ret = db_util_open(MANIFEST_DB, &manifest_db,
-			 DB_UTIL_REGISTER_HOOK_METHOD);
-		if (ret != SQLITE_OK) {
-			_LOGE("connect db [%s] failed! Manifest DB does not exists!!\n", MANIFEST_DB);
-			return PMINFO_R_ERROR;
-		}
-	}
+	ret = db_util_open(MANIFEST_DB, &pkginfo_db, 0);
+	retvm_if(ret != SQLITE_OK, PMINFO_R_ERROR, "connect db [%s] failed!", MANIFEST_DB);
 
 	/*Begin transaction*/
-	ret = sqlite3_exec(manifest_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
+	ret = sqlite3_exec(pkginfo_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
 	if (ret != SQLITE_OK) {
 		_LOGE("Failed to begin transaction\n");
-		sqlite3_close(manifest_db);
+		sqlite3_close(pkginfo_db);
 		return PMINFO_R_ERROR;
 	}
 	_LOGD("Transaction Begin\n");
@@ -6982,7 +6898,7 @@ API int pkgmgrinfo_appinfo_set_state_enabled(const char *appid, bool enabled)
 
 	char *error_message = NULL;
 	if (SQLITE_OK !=
-	    sqlite3_exec(manifest_db, query, NULL, NULL, &error_message)) {
+	    sqlite3_exec(pkginfo_db, query, NULL, NULL, &error_message)) {
 		_LOGE("Don't execute query = %s error message = %s\n", query,
 		       error_message);
 		sqlite3_free(error_message);
@@ -6991,15 +6907,15 @@ API int pkgmgrinfo_appinfo_set_state_enabled(const char *appid, bool enabled)
 	sqlite3_free(error_message);
 
 	/*Commit transaction*/
-	ret = sqlite3_exec(manifest_db, "COMMIT", NULL, NULL, NULL);
+	ret = sqlite3_exec(pkginfo_db, "COMMIT", NULL, NULL, NULL);
 	if (ret != SQLITE_OK) {
 		_LOGE("Failed to commit transaction. Rollback now\n");
-		sqlite3_exec(manifest_db, "ROLLBACK", NULL, NULL, NULL);
-		sqlite3_close(manifest_db);
+		sqlite3_exec(pkginfo_db, "ROLLBACK", NULL, NULL, NULL);
+		sqlite3_close(pkginfo_db);
 		return PMINFO_R_ERROR;
 	}
 	_LOGD("Transaction Commit and End\n");
-	sqlite3_close(manifest_db);
+	sqlite3_close(pkginfo_db);
 
 	return PMINFO_R_OK;
 }
@@ -7016,16 +6932,16 @@ API int pkgmgrinfo_datacontrol_get_info(const char *providerid, const char * typ
 	char *error_message = NULL;
 	pkgmgr_datacontrol_x *data = NULL;
 
-	ret = __open_datacontrol_db();
-	if (ret == -1) {
-		_LOGE("Fail to open datacontrol DB\n");
-		return PMINFO_R_ERROR;
-	}
+	sqlite3 *datacontrol_info_db = NULL;
+
+	/*open db*/
+	ret = db_util_open(MANIFEST_DB, &datacontrol_info_db, 0);
+	retvm_if(ret != SQLITE_OK, PMINFO_R_ERROR, "connect db [%s] failed!", MANIFEST_DB);
 
 	data = (pkgmgr_datacontrol_x *)calloc(1, sizeof(pkgmgr_datacontrol_x));
 	if (data == NULL) {
 		_LOGE("Failed to allocate memory for pkgmgr_datacontrol_x\n");
-		sqlite3_close(datacontrol_db);
+		sqlite3_close(datacontrol_info_db);
 		return PMINFO_R_ERROR;
 	}
 
@@ -7034,18 +6950,18 @@ API int pkgmgrinfo_datacontrol_get_info(const char *providerid, const char * typ
 		providerid, type);
 
 	if (SQLITE_OK !=
-		sqlite3_exec(datacontrol_db, query, __datacontrol_cb, (void *)data, &error_message)) {
+		sqlite3_exec(datacontrol_info_db, query, __datacontrol_cb, (void *)data, &error_message)) {
 		_LOGE("Don't execute query = %s error message = %s\n", query,
 			   error_message);
 		sqlite3_free(error_message);
-		sqlite3_close(datacontrol_db);
+		sqlite3_close(datacontrol_info_db);
 		return PMINFO_R_ERROR;
 	}
 
 	*appid = (char *)data->appid;
 	*access = (char *)data->access;
 	free(data);
-	sqlite3_close(datacontrol_db);
+	sqlite3_close(datacontrol_info_db);
 
 	return PMINFO_R_OK;
 }
@@ -7129,8 +7045,7 @@ API int pkgmgrinfo_appinfo_set_guestmode_visibility(pkgmgrinfo_appinfo_h handle,
 	val = (char *)info->uiapp_info->guestmode_visibility;
 	if (val ) {
                 ret =
-		    db_util_open_with_options(MANIFEST_DB, &pkgmgr_parser_db,
-				 SQLITE_OPEN_READWRITE, NULL);
+		    db_util_open_with_options(MANIFEST_DB, &pkgmgr_parser_db, SQLITE_OPEN_READWRITE, NULL);
 
                 if (ret != SQLITE_OK) {
 			_LOGE("DB Open Failed\n");
@@ -7163,3 +7078,95 @@ API int pkgmgrinfo_appinfo_set_guestmode_visibility(pkgmgrinfo_appinfo_h handle,
 	}
 	return PMINFO_R_OK;
 }
+
+/* pkgmgrinfo client start*/
+API pkgmgrinfo_client *pkgmgrinfo_client_new(pkgmgrinfo_client_type ctype)
+{
+	int ret = 0;
+	char *errmsg = NULL;
+	void *pc = NULL;
+	void *handle = NULL;
+	pkgmgrinfo_client *(*__pkgmgr_client_new)(pkgmgrinfo_client_type ctype) = NULL;
+
+	handle = dlopen("libpkgmgr-client.so.0", RTLD_LAZY | RTLD_GLOBAL);
+	retvm_if(!handle, PMINFO_R_ERROR, "dlopen() failed. [%s]", dlerror());
+
+	__pkgmgr_client_new = dlsym(handle, "pkgmgr_client_new");
+	errmsg = dlerror();
+	tryvm_if((errmsg != NULL) || (__pkgmgr_client_new == NULL), ret = PMINFO_R_ERROR, "dlsym() failed. [%s]", errmsg);
+
+	pc = __pkgmgr_client_new(ctype);
+	tryvm_if(pc == NULL, ret = PMINFO_R_ERROR, "pkgmgr_client_new failed.");
+
+catch:
+	dlclose(handle);
+	return (pkgmgrinfo_client *) pc;
+}
+
+API int pkgmgrinfo_client_set_status_type(pkgmgrinfo_client *pc, int status_type)
+{
+	int ret = 0;
+	char *errmsg = NULL;
+	void *handle = NULL;
+	int (*__pkgmgr_client_set_status_type)(pkgmgrinfo_client *pc, int status_type) = NULL;
+
+	handle = dlopen("libpkgmgr-client.so.0", RTLD_LAZY | RTLD_GLOBAL);
+	retvm_if(!handle, PMINFO_R_ERROR, "dlopen() failed. [%s]", dlerror());
+
+	__pkgmgr_client_set_status_type = dlsym(handle, "pkgmgr_client_set_status_type");
+	errmsg = dlerror();
+	tryvm_if((errmsg != NULL) || (__pkgmgr_client_set_status_type == NULL), ret = PMINFO_R_ERROR, "dlsym() failed. [%s]", errmsg);
+
+	ret = __pkgmgr_client_set_status_type(pc, status_type);
+	tryvm_if(ret < 0, ret = PMINFO_R_ERROR, "pkgmgr_client_new failed.");
+
+catch:
+	dlclose(handle);
+	return ret;
+}
+
+API int pkgmgrinfo_client_listen_status(pkgmgrinfo_client *pc, pkgmgrinfo_handler event_cb, void *data)
+{
+	int ret = 0;
+	char *errmsg = NULL;
+	void *handle = NULL;
+	int (*__pkgmgr_client_listen_status)(pkgmgrinfo_client *pc, pkgmgrinfo_handler event_cb, void *data) = NULL;
+
+	handle = dlopen("libpkgmgr-client.so.0", RTLD_LAZY | RTLD_GLOBAL);
+	retvm_if(!handle, PMINFO_R_ERROR, "dlopen() failed. [%s]", dlerror());
+
+	__pkgmgr_client_listen_status = dlsym(handle, "pkgmgr_client_listen_status");
+	errmsg = dlerror();
+	tryvm_if((errmsg != NULL) || (__pkgmgr_client_listen_status == NULL), ret = PMINFO_R_ERROR, "dlsym() failed. [%s]", errmsg);
+
+	ret = __pkgmgr_client_listen_status(pc, event_cb, data);
+	tryvm_if(ret < 0, ret = PMINFO_R_ERROR, "pkgmgr_client_new failed.");
+
+catch:
+	dlclose(handle);
+	return ret;
+}
+
+API int pkgmgrinfo_client_free(pkgmgrinfo_client *pc)
+{
+	int ret = 0;
+	char *errmsg = NULL;
+	void *handle = NULL;
+	int (*__pkgmgr_client_free)(pkgmgrinfo_client *pc) = NULL;
+
+	handle = dlopen("libpkgmgr-client.so.0", RTLD_LAZY | RTLD_GLOBAL);
+	retvm_if(!handle, PMINFO_R_ERROR, "dlopen() failed. [%s]", dlerror());
+
+	__pkgmgr_client_free = dlsym(handle, "pkgmgr_client_free");
+	errmsg = dlerror();
+	tryvm_if((errmsg != NULL) || (__pkgmgr_client_free == NULL), ret = PMINFO_R_ERROR, "dlsym() failed. [%s]", errmsg);
+
+	ret = __pkgmgr_client_free(pc);
+	tryvm_if(ret < 0, ret = PMINFO_R_ERROR, "pkgmgr_client_new failed.");
+
+catch:
+	dlclose(handle);
+	return ret;
+}
+/* pkgmgrinfo client end*/
+
