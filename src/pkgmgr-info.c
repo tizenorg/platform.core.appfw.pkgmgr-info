@@ -5782,7 +5782,7 @@ API int pkgmgrinfo_appinfo_filter_count(pkgmgrinfo_appinfo_filter_h handle, int 
 		strncat(query, where, sizeof(query) - strlen(query) - 1);
 		query[sizeof(query) - 1] = '\0';
 	}
-	SECURE_LOGD("query = %s\n", query);
+//	SECURE_LOGD("query = %s\n", query);
 	/*To get filtered list*/
 	pkgmgr_pkginfo_x *info = NULL;
 	info = (pkgmgr_pkginfo_x *)calloc(1, sizeof(pkgmgr_pkginfo_x));
