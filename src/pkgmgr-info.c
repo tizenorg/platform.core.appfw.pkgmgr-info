@@ -7099,7 +7099,7 @@ API pkgmgrinfo_client *pkgmgrinfo_client_new(pkgmgrinfo_client_type ctype)
 	tryvm_if(pc == NULL, ret = PMINFO_R_ERROR, "pkgmgr_client_new failed.");
 
 catch:
-	dlclose(handle);
+//	dlclose(handle);
 	return (pkgmgrinfo_client *) pc;
 }
 
@@ -7121,7 +7121,7 @@ API int pkgmgrinfo_client_set_status_type(pkgmgrinfo_client *pc, int status_type
 	tryvm_if(ret < 0, ret = PMINFO_R_ERROR, "pkgmgr_client_new failed.");
 
 catch:
-	dlclose(handle);
+//	dlclose(handle);
 	return ret;
 }
 
@@ -7143,7 +7143,7 @@ API int pkgmgrinfo_client_listen_status(pkgmgrinfo_client *pc, pkgmgrinfo_handle
 	tryvm_if(ret < 0, ret = PMINFO_R_ERROR, "pkgmgr_client_new failed.");
 
 catch:
-	dlclose(handle);
+//	dlclose(handle);
 	return ret;
 }
 
@@ -7165,7 +7165,7 @@ API int pkgmgrinfo_client_free(pkgmgrinfo_client *pc)
 	tryvm_if(ret < 0, ret = PMINFO_R_ERROR, "pkgmgr_client_new failed.");
 
 catch:
-	dlclose(handle);
+//	dlclose(handle);
 	return ret;
 }
 /* pkgmgrinfo client end*/
