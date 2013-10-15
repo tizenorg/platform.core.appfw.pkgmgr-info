@@ -6935,7 +6935,7 @@ API int pkgmgrinfo_datacontrol_get_info(const char *providerid, const char * typ
 	sqlite3 *datacontrol_info_db = NULL;
 
 	/*open db*/
-	ret = db_util_open(MANIFEST_DB, &datacontrol_info_db, 0);
+	ret = db_util_open(DATACONTROL_DB, &datacontrol_info_db, 0);
 	retvm_if(ret != SQLITE_OK, PMINFO_R_ERROR, "connect db [%s] failed!", MANIFEST_DB);
 
 	data = (pkgmgr_datacontrol_x *)calloc(1, sizeof(pkgmgr_datacontrol_x));
