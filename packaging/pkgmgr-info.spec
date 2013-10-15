@@ -56,6 +56,9 @@ make %{?jobs:-j%jobs}
 %install
 %make_install
 
+mkdir -p %{buildroot}/usr/share/license
+cp LICENSE %{buildroot}/usr/share/license/%{name}
+
 %post
 
 mkdir -p /opt/usr/apps/tmp
@@ -76,6 +79,7 @@ chsmack -a '_' /usr/etc/package-manager
 %manifest pkgmgr-info.manifest
 %defattr(-,root,root,-)
 %{_libdir}/libpkgmgr-info.so.*
+/usr/share/license/%{name}
 
 %files devel
 %defattr(-,root,root,-)
