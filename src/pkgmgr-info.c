@@ -36,6 +36,9 @@
 #include <libxml/xmlreader.h>
 #include <libxml/xmlschemas.h>
 
+#include <dbus/dbus.h>
+#include <dbus/dbus-glib-lowlevel.h>
+
 #include "pkgmgr_parser.h"
 #include "pkgmgr-info-internal.h"
 #include "pkgmgr-info-debug.h"
@@ -105,6 +108,11 @@
 
 #define LANGUAGE_LENGTH 2
 #define LIBAIL_PATH "/usr/lib/libail.so.0"
+
+#define SERVICE_NAME "org.tizen.system.deviced"
+#define PATH_NAME "/Org/Tizen/System/DeviceD/Mmc"
+#define INTERFACE_NAME "org.tizen.system.deviced.Mmc"
+#define METHOD_NAME "RequestMountApp2ext"
 
 typedef struct _pkgmgr_instcertinfo_x {
 	char *pkgid;
@@ -2292,6 +2300,25 @@ END:
 		dlclose(lib_handle);
 
 	return ret;
+}
+
+static int __get_pkg_location(const char *pkgid)
+{
+	retvm_if(pkgid == NULL, PMINFO_R_OK, "pkginfo handle is NULL");
+
+	FILE *fp = NULL;
+	char pkg_mmc_path[FILENAME_MAX] = { 0, };
+	snprintf(pkg_mmc_path, FILENAME_MAX, "%s%s", PKG_SD_PATH, pkgid);
+
+	/*check whether application is in external memory or not */
+	fp = fopen(pkg_mmc_path, "r");
+	if (fp != NULL) {
+		fclose(fp);
+		fp = NULL;
+		return PMINFO_EXTERNAL_STORAGE;
+	}
+
+	return PMINFO_INTERNAL_STORAGE;
 }
 
 API int pkgmgrinfo_pkginfo_get_list(pkgmgrinfo_pkg_list_cb pkg_list_cb, void *user_data)
@@ -7168,5 +7195,34 @@ catch:
 //	dlclose(handle);
 	return ret;
 }
+
+API int pkgmgrinfo_client_request_enable_external_pkg(char *pkgid)
+{
+	int ret = 0;
+	DBusConnection *bus;
+	DBusMessage *message;
+
+	retvm_if(pkgid == NULL, PMINFO_R_EINVAL, "pkgid is NULL\n");
+
+	if(__get_pkg_location(pkgid) != PMINFO_EXTERNAL_STORAGE)
+		return PMINFO_R_OK;
+
+	bus = dbus_bus_get(DBUS_BUS_SYSTEM, NULL);
+	retvm_if(bus == NULL, PMINFO_R_EINVAL, "dbus_bus_get() failed.");
+
+	message = dbus_message_new_method_call (SERVICE_NAME, PATH_NAME, INTERFACE_NAME, METHOD_NAME);
+	retvm_if(message == NULL, PMINFO_R_EINVAL, "dbus_message_new_method_call() failed.");
+
+	dbus_message_append_args(message, DBUS_TYPE_STRING, &pkgid, DBUS_TYPE_INVALID);
+
+	ret = dbus_connection_send_with_reply_and_block(bus, message, -1, NULL);
+	retvm_if(!ret, ret = PMINFO_R_EINVAL, "connection_send dbus fail");
+
+	dbus_connection_flush(bus);
+	dbus_message_unref(message);
+
+	return PMINFO_R_OK;
+}
+
 /* pkgmgrinfo client end*/
 

@@ -5419,6 +5419,8 @@ pkgmgrinfo_client *pkgmgrinfo_client_new(pkgmgrinfo_client_type ctype);
 int pkgmgrinfo_client_set_status_type(pkgmgrinfo_client *pc, int status_type);
 int pkgmgrinfo_client_listen_status(pkgmgrinfo_client *pc, pkgmgrinfo_handler event_cb, void *data);
 int pkgmgrinfo_client_free(pkgmgrinfo_client *pc);
+int pkgmgrinfo_client_request_enable_external_pkg(char *pkgid);
+
 /**
  * @pkgmgrinfo client API end
 **/

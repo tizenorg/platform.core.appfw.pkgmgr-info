@@ -1,6 +1,6 @@
 Name:       pkgmgr-info
 Summary:    Packager Manager infomation api for package
-Version:    0.0.142
+Version:    0.0.143
 Release:    1
 Group:      Application Framework/Package Management
 License:    Apache-2.0
@@ -11,6 +11,8 @@ BuildRequires:	pkgconfig(vconf)
 BuildRequires:	pkgconfig(sqlite3)
 BuildRequires:	pkgconfig(db-util)
 BuildRequires:pkgconfig(libxml-2.0)
+BuildRequires:	pkgconfig(dbus-1)
+BuildRequires:	pkgconfig(dbus-glib-1)
 
 %description
 Packager Manager infomation api for packaging
