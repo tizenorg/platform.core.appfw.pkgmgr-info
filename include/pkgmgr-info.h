@@ -53,6 +53,9 @@
 extern "C" {
 #endif
 
+#ifndef DEPRECATED
+#define DEPRECATED	__attribute__ ((__deprecated__))
+#endif
 
 /**
  * @mainpage
@@ -785,7 +788,7 @@ static int get_pkg_total_size(const char *pkgid)
 }
  * @endcode
  */
- int pkgmgrinfo_pkginfo_get_total_size(pkgmgrinfo_pkginfo_h handle, int *size);
+ int pkgmgrinfo_pkginfo_get_total_size(pkgmgrinfo_pkginfo_h handle, int *size) DEPRECATED;
 
 /**
  * @fn int pkgmgrinfo_pkginfo_get_data_size(pkgmgrinfo_pkginfo_h handle, int *size)
@@ -820,7 +823,7 @@ static int get_pkg_data_size(const char *pkgid)
 }
  * @endcode
  */
- int pkgmgrinfo_pkginfo_get_data_size(pkgmgrinfo_pkginfo_h handle, int *size);
+ int pkgmgrinfo_pkginfo_get_data_size(pkgmgrinfo_pkginfo_h handle, int *size) DEPRECATED;
 
 /**
  * @fn int pkgmgrinfo_pkginfo_get_size_info(pkgmgrinfo_pkginfo_h handle, int *total_size, int *data_size)
@@ -857,7 +860,7 @@ static int get_pkg_data_size(const char *pkgid)
 }
  * @endcode
  */
-int pkgmgrinfo_pkginfo_get_size_info(pkgmgrinfo_pkginfo_h handle, int *total_size, int *data_size);
+int pkgmgrinfo_pkginfo_get_size_info(pkgmgrinfo_pkginfo_h handle, int *total_size, int *data_size) DEPRECATED;
 
 /**
  * @fn int pkgmgrinfo_pkginfo_get_icon(pkgmgrinfo_pkginfo_h handle, char **icon)

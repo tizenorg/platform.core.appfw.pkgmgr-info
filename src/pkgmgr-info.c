@@ -2656,10 +2656,7 @@ API int pkgmgrinfo_pkginfo_get_total_size(pkgmgrinfo_pkginfo_h handle, int *size
 		*size = atoi(info->manifest_info->package_total_size);
 		return 0;
 	} else {
-		ret = pkgmgrinfo_pkginfo_get_pkgid(handle,&pkgid);
-		retvm_if(ret < 0, PMINFO_R_ERROR, "get pkgid fail");
-
-		*size = __reqeust_get_size(pkgid, PM_GET_TOTAL_SIZE);
+		*size = 0;
 		return 0;
 	}
 }
@@ -2679,10 +2676,7 @@ API int pkgmgrinfo_pkginfo_get_data_size(pkgmgrinfo_pkginfo_h handle, int *size)
 		*size = atoi(info->manifest_info->package_data_size);
 		return 0;
 	} else {
-		ret = pkgmgrinfo_pkginfo_get_pkgid(handle,&pkgid);
-		retvm_if(ret < 0, PMINFO_R_ERROR, "get pkgid fail");
-
-		*size = __reqeust_get_size(pkgid, PM_GET_DATA_SIZE);
+		*size = 0;
 		return 0;
 	}
 }
@@ -2708,20 +2702,9 @@ API int pkgmgrinfo_pkginfo_get_size_info(pkgmgrinfo_pkginfo_h handle, int *total
 		*data_size = atoi(info->manifest_info->package_data_size);
 		return 0;
 	} else {
-		ret = pkgmgrinfo_pkginfo_get_pkgid(handle,&pkgid);
-		retvm_if(ret < 0, PMINFO_R_ERROR, "get pkgid fail");
+		*total_size = 0;
+		*data_size = 0;
 
-		ret = __reqeust_get_size(pkgid, PM_GET_TOTAL_AND_DATA);
-		retvm_if(ret < 0, PMINFO_R_ERROR, "fail reqeust size info");
-
-		ret = __get_package_size_info(&package_size_info);
-		retvm_if(ret != 0 || package_size_info == NULL, PMINFO_R_ERROR, "__get_package_size_info() failed");
-
-		__get_package_size(package_size_info, pkgid, &total_tmp, &data_tmp);
-		*total_size = total_tmp;
-		*data_size = data_tmp;
-
-		free(package_size_info);
 		return 0;
 	}
 	return -1;
