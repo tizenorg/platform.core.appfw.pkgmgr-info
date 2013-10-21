@@ -26,6 +26,7 @@
 
 #define _LOGE(fmt, arg...) LOGE(fmt, ##arg)
 #define _LOGD(fmt, arg...) LOGD(fmt, ##arg)
+#define _LOGS(fmt, arg...) LOGD(fmt, ##arg)
 
 #define PKGMGR_INFO_ENABLE_DLOG
 

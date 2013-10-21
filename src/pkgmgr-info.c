@@ -5717,18 +5717,18 @@ API int pkgmgrinfo_appinfo_filter_add_string(pkgmgrinfo_appinfo_filter_h handle,
 		if (link) {
 			ptr = (pkgmgrinfo_node_x *)link->data;
 			strncpy(prev, ptr->value, PKG_STRING_LEN_MAX - 1);
-			_LOGE("Previous value is %s\n", prev);
+			_LOGS("Previous value is %s\n", prev);
 			filter->list = g_slist_delete_link(filter->list, link);
 			snprintf(temp, PKG_STRING_LEN_MAX - 1, "%s , '%s'", prev, value);
 			strncpy(val, temp, PKG_STRING_LEN_MAX - 1);
-			_LOGE("New value is %s\n", val);
+			_LOGS("New value is %s\n", val);
 			node->value = val;
 			filter->list = g_slist_append(filter->list, (gpointer)node);
 			memset(temp, '\0', PKG_STRING_LEN_MAX);
 		} else {
 			snprintf(temp, PKG_STRING_LEN_MAX - 1, "'%s'", value);
 			strncpy(val, temp, PKG_STRING_LEN_MAX - 1);
-			_LOGE("First value is %s\n", val);
+			_LOGS("First value is %s\n", val);
 			node->value = val;
 			filter->list = g_slist_append(filter->list, (gpointer)node);
 			memset(temp, '\0', PKG_STRING_LEN_MAX);
@@ -5787,12 +5787,12 @@ API int pkgmgrinfo_appinfo_filter_count(pkgmgrinfo_appinfo_filter_h handle, int 
 			where[sizeof(where) - 1] = '\0';
 		}
 	}
-	_LOGE("where = %s\n", where);
+	_LOGS("where = %s\n", where);
 	if (strlen(where) > 0) {
 		strncat(query, where, sizeof(query) - strlen(query) - 1);
 		query[sizeof(query) - 1] = '\0';
 	}
-//	SECURE_LOGD("query = %s\n", query);
+	_LOGS("query = %s\n", query);
 	/*To get filtered list*/
 	pkgmgr_pkginfo_x *info = NULL;
 	info = (pkgmgr_pkginfo_x *)calloc(1, sizeof(pkgmgr_pkginfo_x));
@@ -5938,12 +5938,12 @@ API int pkgmgrinfo_appinfo_filter_foreach_appinfo(pkgmgrinfo_appinfo_filter_h ha
 			where[sizeof(where) - 1] = '\0';
 		}
 	}
-	_LOGE("where = %s\n", where);
+	_LOGS("where = %s\n", where);
 	if (strlen(where) > 0) {
 		strncat(query, where, sizeof(query) - strlen(query) - 1);
 		query[sizeof(query) - 1] = '\0';
 	}
-	_LOGE("query = %s\n", query);
+	_LOGS("query = %s\n", query);
 	/*To get filtered list*/
 	pkgmgr_pkginfo_x *info = NULL;
 	info = (pkgmgr_pkginfo_x *)calloc(1, sizeof(pkgmgr_pkginfo_x));

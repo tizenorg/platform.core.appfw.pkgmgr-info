@@ -945,7 +945,7 @@ static int __run_parser_prestep(xmlTextReaderPtr reader, ACTION_TYPE action, con
 	}
 
 	value = xmlTextReaderConstValue(reader);
-	_LOGD("%d %d %s %d %d",
+	_LOGS("%d %d %s %d %d",
 	    xmlTextReaderDepth(reader),
 	    xmlTextReaderNodeType(reader),
 	    name,
@@ -966,7 +966,7 @@ static int __run_parser_prestep(xmlTextReaderPtr reader, ACTION_TYPE action, con
 	}
 
 	xmlDocPtr docPtr = xmlTextReaderCurrentDoc(reader);
-	_LOGD("docPtr->URL %s\n", (char *)docPtr->URL);
+	_LOGS("docPtr->URL %s\n", (char *)docPtr->URL);
 	xmlDocPtr copyDocPtr = xmlCopyDoc(docPtr, 1);
 	if (copyDocPtr == NULL)
 		return -1;
@@ -1007,7 +1007,7 @@ static int __run_parser_prestep(xmlTextReaderPtr reader, ACTION_TYPE action, con
 #ifdef __DEBUG__
 
 //#else
-	_LOGD("node type: %d, name: %s children->name: %s last->name: %s\n"
+	_LOGS("node type: %d, name: %s children->name: %s last->name: %s\n"
 	    "parent->name: %s next->name: %s prev->name: %s\n",
 	    cur_node->type, cur_node->name,
 	    cur_node->children ? cur_node->children->name : "NULL",
@@ -1310,10 +1310,10 @@ __streamFile(const char *filename, ACTION_TYPE action, char *const tagv[], const
 		xmlFreeTextReader(reader);
 
 		if (ret != 0) {
-			_LOGD("%s : failed to parse", filename);
+			_LOGS("%s : failed to parse", filename);
 		}
 	} else {
-		_LOGD("Unable to open %s", filename);
+		_LOGS("Unable to open %s", filename);
 	}
 
 	__plugin_process_tag(tagv, action, PLUGIN_POST_PROCESS, pkgid);
@@ -2444,10 +2444,10 @@ int __ps_process_tag_parser(manifest_x *mfx, const char *filename, ACTION_TYPE a
 			xmlFreeTextReader(reader);
 
 			if (ret != 0) {
-				_LOGD("%s : failed to parse", filename);
+				_LOGS("%s : failed to parse", filename);
 			}
 		} else {
-			_LOGD("Unable to open %s", filename);
+			_LOGS("Unable to open %s", filename);
 		}
 
 		ret = __parser_send_tag(lib_handle, action, PLUGIN_POST_PROCESS, mfx->package);
@@ -4400,7 +4400,7 @@ static int __ps_make_nativeapp_desktop(manifest_x * mfx, const char *manifest, A
 	        file = fopen(filepath, "w");
 	        if(file == NULL)
 	        {
-	            _LOGD("Can't open %s", filepath);
+	            _LOGS("Can't open %s", filepath);
 		    free(buf);
 		    free(buftemp);
 	            return -1;
@@ -4861,6 +4861,17 @@ static int __check_preload_updated(manifest_x * mfx, const char *manifest)
 	return 0;
 }
 
+static int __ps_check_mdm_policy(manifest_x * mfx, ACTION_TYPE action)
+{
+	int ret = PMINFO_R_OK;
+	return ret;
+}
+
+API int pkgmgr_parser_check_mdm_policy_for_uninstallation(const char *manifest)
+{
+	int ret = PMINFO_R_OK;
+	return ret;
+}
 
 API int pkgmgr_parser_create_desktop_file(manifest_x *mfx)
 {
@@ -5163,6 +5174,9 @@ API int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char
 
 	_LOGD("Parsing Finished\n");
 
+	ret = __ps_check_mdm_policy(mfx, ACTION_INSTALL);
+	retvm_if(ret == PMINFO_R_ERROR, PMINFO_R_ERROR, "pkg[%s] violate mdm policy.", mfx->package);
+
 //	__streamFile(manifest, ACTION_INSTALL, temp, mfx->package);
 	__ps_process_tag_parser(mfx, manifest, ACTION_INSTALL);
 	__add_preload_info(mfx, manifest);
@@ -5297,6 +5311,9 @@ API int pkgmgr_parser_parse_manifest_for_uninstallation(const char *manifest, ch
 	retvm_if(mfx == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
 
 	_LOGD("Parsing Finished\n");
+
+	ret = __ps_check_mdm_policy(mfx, ACTION_UNINSTALL);
+	retvm_if(ret == PMINFO_R_ERROR, PMINFO_R_ERROR, "pkg[%s] violate mdm policy.", mfx->package);
 
 //	__streamFile(manifest, ACTION_UNINSTALL, temp, mfx->package);
 	__ps_process_tag_parser(mfx, manifest, ACTION_UNINSTALL);

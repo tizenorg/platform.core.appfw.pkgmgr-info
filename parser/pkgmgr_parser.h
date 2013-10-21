@@ -490,6 +490,12 @@ typedef struct manifest_x {
 } manifest_x;
 
 /**
+ * @fn char 	int pkgmgr_parser_check_mdm_policy_for_uninstallation(manifest_x * mfx)
+ * @brief	This API gets the mdm policy form mdm server
+ */
+int pkgmgr_parser_check_mdm_policy_for_uninstallation(const char *manifest);
+
+/**
  * @fn char *pkgmgr_parser_get_manifest_file(const char *pkgid)
  * @brief	This API gets the manifest file of the package.
  *
