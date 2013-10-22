@@ -50,6 +50,9 @@ make %{?jobs:-j%jobs}
 mkdir -p %{buildroot}/opt/usr/apps/tmp
 touch %{buildroot}/opt/usr/apps/tmp/pkgmgr_tmp.txt
 
+# create the directory for hosting Read-Write application manifest files
+mkdir -p %{buildroot}/opt/share/packages/
+
 %post -p /sbin/ldconfig
 
 %postun -p /sbin/ldconfig
@@ -64,6 +67,7 @@ touch %{buildroot}/opt/usr/apps/tmp/pkgmgr_tmp.txt
 %{_libdir}/libpkgmgr-info.so.*
 %dir %attr(771,app,app) /opt/usr/apps/tmp
 /opt/usr/apps/tmp/pkgmgr_tmp.txt
+%dir /opt/share/packages
 
 %files devel
 %manifest %{name}.manifest
