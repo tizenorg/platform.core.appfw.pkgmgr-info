@@ -7182,6 +7182,11 @@ catch:
 
 API int pkgmgrinfo_client_request_enable_external_pkg(char *pkgid)
 {
+	retvm_if(pkgid == NULL, PMINFO_R_EINVAL, "pkgid is NULL\n");
+
+	if(__get_pkg_location(pkgid) != PMINFO_EXTERNAL_STORAGE)
+		return PMINFO_R_OK;
+
 	_LOGD("call system server to enable app2ext");
 	return mmc_mount_app2ext(pkgid);
 }
