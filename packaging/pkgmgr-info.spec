@@ -11,7 +11,9 @@ BuildRequires:	pkgconfig(dlog)
 BuildRequires:	pkgconfig(vconf)
 BuildRequires:	pkgconfig(sqlite3)
 BuildRequires:	pkgconfig(db-util)
-BuildRequires:  pkgconfig(libxml-2.0)
+BuildRequires:pkgconfig(libxml-2.0)
+BuildRequires:	pkgconfig(dbus-1)
+BuildRequires:	pkgconfig(dbus-glib-1)
 
 %description
 Packager Manager infomation api for packaging

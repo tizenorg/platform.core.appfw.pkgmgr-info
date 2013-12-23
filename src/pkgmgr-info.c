@@ -36,6 +36,9 @@
 #include <libxml/xmlreader.h>
 #include <libxml/xmlschemas.h>
 
+#include <dbus/dbus.h>
+#include <dbus/dbus-glib-lowlevel.h>
+
 #include "pkgmgr_parser.h"
 #include "pkgmgr-info-internal.h"
 #include "pkgmgr-info-debug.h"
@@ -104,6 +107,12 @@
 #define METADATA_FILTER_QUERY_UNION_CLAUSE	" UNION "METADATA_FILTER_QUERY_SELECT_CLAUSE
 
 #define LANGUAGE_LENGTH 2
+#define LIBAIL_PATH "/usr/lib/libail.so.0"
+
+#define SERVICE_NAME "org.tizen.system.deviced"
+#define PATH_NAME "/Org/Tizen/System/DeviceD/Mmc"
+#define INTERFACE_NAME "org.tizen.system.deviced.Mmc"
+#define METHOD_NAME "RequestMountApp2ext"
 
 typedef struct _pkgmgr_instcertinfo_x {
 	char *pkgid;
