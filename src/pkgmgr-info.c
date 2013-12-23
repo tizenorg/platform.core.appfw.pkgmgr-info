@@ -30,6 +30,7 @@
 #include <glib.h>
 #include <ctype.h>
 #include <assert.h>
+#include <dlfcn.h>
 
 #include <libxml/parser.h>
 #include <libxml/xmlreader.h>
@@ -188,6 +189,42 @@ typedef struct _pkgmgrinfo_appcontrol_x {
 } pkgmgrinfo_appcontrol_x;
 
 typedef int (*sqlite_query_callback)(void *data, int ncols, char **coltxt, char **colname);
+
+typedef int (*pkgmgr_handler)(int req_id, const char *pkg_type,
+				const char *pkgid, const char *key,
+				const char *val, const void *pmsg, void *data);
+
+typedef void pkgmgr_client;
+typedef void pkgmgr_info;
+
+typedef enum {
+	PM_REQUEST_CSC = 0,
+	PM_REQUEST_MOVE = 1,
+	PM_REQUEST_GET_SIZE = 2,
+	PM_REQUEST_KILL_APP = 3,
+	PM_REQUEST_CHECK_APP = 4,
+	PM_REQUEST_MAX
+}pkgmgr_request_service_type;
+
+typedef enum {
+	PM_GET_TOTAL_SIZE= 0,
+	PM_GET_DATA_SIZE = 1,
+	PM_GET_ALL_PKGS = 2,
+	PM_GET_SIZE_INFO = 3,
+	PM_GET_TOTAL_AND_DATA = 4,
+	PM_GET_SIZE_FILE = 5,
+	PM_GET_MAX
+}pkgmgr_getsize_type;
+
+typedef enum {
+	PC_REQUEST = 0,
+	PC_LISTENING,
+	PC_BROADCAST,
+}client_type;
+
+#define PKG_SIZE_INFO_FILE "/tmp/pkgmgr_size_info.txt"
+#define MAX_PKG_BUF_LEN		1024
+#define MAX_PKG_INFO_LEN	10
 
 char *pkgtype = "rpm";
 __thread sqlite3 *manifest_db = NULL;
@@ -7005,3 +7042,94 @@ API int pkgmgrinfo_appinfo_set_guestmode_visibility(pkgmgrinfo_appinfo_h handle,
 	}
 	return PMINFO_R_OK;
 }
+
+/* pkgmgrinfo client start*/
+API pkgmgrinfo_client *pkgmgrinfo_client_new(pkgmgrinfo_client_type ctype)
+{
+	int ret = 0;
+	char *errmsg = NULL;
+	void *pc = NULL;
+	void *handle = NULL;
+	pkgmgrinfo_client *(*__pkgmgr_client_new)(pkgmgrinfo_client_type ctype) = NULL;
+
+	handle = dlopen("libpkgmgr-client.so.0", RTLD_LAZY | RTLD_GLOBAL);
+	retvm_if(!handle, PMINFO_R_ERROR, "dlopen() failed. [%s]", dlerror());
+
+	__pkgmgr_client_new = dlsym(handle, "pkgmgr_client_new");
+	errmsg = dlerror();
+	tryvm_if((errmsg != NULL) || (__pkgmgr_client_new == NULL), ret = PMINFO_R_ERROR, "dlsym() failed. [%s]", errmsg);
+
+	pc = __pkgmgr_client_new(ctype);
+	tryvm_if(pc == NULL, ret = PMINFO_R_ERROR, "pkgmgr_client_new failed.");
+
+catch:
+	dlclose(handle);
+	return (pkgmgrinfo_client *) pc;
+}
+
+API int pkgmgrinfo_client_set_status_type(pkgmgrinfo_client *pc, int status_type)
+{
+	int ret = 0;
+	char *errmsg = NULL;
+	void *handle = NULL;
+	int (*__pkgmgr_client_set_status_type)(pkgmgrinfo_client *pc, int status_type) = NULL;
+
+	handle = dlopen("libpkgmgr-client.so.0", RTLD_LAZY | RTLD_GLOBAL);
+	retvm_if(!handle, PMINFO_R_ERROR, "dlopen() failed. [%s]", dlerror());
+
+	__pkgmgr_client_set_status_type = dlsym(handle, "pkgmgr_client_set_status_type");
+	errmsg = dlerror();
+	tryvm_if((errmsg != NULL) || (__pkgmgr_client_set_status_type == NULL), ret = PMINFO_R_ERROR, "dlsym() failed. [%s]", errmsg);
+
+	ret = __pkgmgr_client_set_status_type(pc, status_type);
+	tryvm_if(ret < 0, ret = PMINFO_R_ERROR, "pkgmgr_client_new failed.");
+
+catch:
+	dlclose(handle);
+	return ret;
+}
+
+API int pkgmgrinfo_client_listen_status(pkgmgrinfo_client *pc, pkgmgrinfo_handler event_cb, void *data)
+{
+	int ret = 0;
+	char *errmsg = NULL;
+	void *handle = NULL;
+	int (*__pkgmgr_client_listen_status)(pkgmgrinfo_client *pc, pkgmgrinfo_handler event_cb, void *data) = NULL;
+
+	handle = dlopen("libpkgmgr-client.so.0", RTLD_LAZY | RTLD_GLOBAL);
+	retvm_if(!handle, PMINFO_R_ERROR, "dlopen() failed. [%s]", dlerror());
+
+	__pkgmgr_client_listen_status = dlsym(handle, "pkgmgr_client_listen_status");
+	errmsg = dlerror();
+	tryvm_if((errmsg != NULL) || (__pkgmgr_client_listen_status == NULL), ret = PMINFO_R_ERROR, "dlsym() failed. [%s]", errmsg);
+
+	ret = __pkgmgr_client_listen_status(pc, event_cb, data);
+	tryvm_if(ret < 0, ret = PMINFO_R_ERROR, "pkgmgr_client_new failed.");
+
+catch:
+	dlclose(handle);
+	return ret;
+}
+
+API int pkgmgrinfo_client_free(pkgmgrinfo_client *pc)
+{
+	int ret = 0;
+	char *errmsg = NULL;
+	void *handle = NULL;
+	int (*__pkgmgr_client_free)(pkgmgrinfo_client *pc) = NULL;
+
+	handle = dlopen("libpkgmgr-client.so.0", RTLD_LAZY | RTLD_GLOBAL);
+	retvm_if(!handle, PMINFO_R_ERROR, "dlopen() failed. [%s]", dlerror());
+
+	__pkgmgr_client_free = dlsym(handle, "pkgmgr_client_free");
+	errmsg = dlerror();
+	tryvm_if((errmsg != NULL) || (__pkgmgr_client_free == NULL), ret = PMINFO_R_ERROR, "dlsym() failed. [%s]", errmsg);
+
+	ret = __pkgmgr_client_free(pc);
+	tryvm_if(ret < 0, ret = PMINFO_R_ERROR, "pkgmgr_client_new failed.");
+
+catch:
+	dlclose(handle);
+	return ret;
+}
+

@@ -5346,6 +5346,48 @@ static int set_app_guestmode_visibility(const char *appid, bool value)
  */
  int pkgmgrinfo_appinfo_set_guestmode_visibility(pkgmgrinfo_appinfo_h handle, bool status);
 
+/**
+ * @pkgmgrinfo client API
+**/
+
+/**
+ * @brief listening status type in pkgmgrinfo.
+ */
+#define PMINFO_CLIENT_STATUS_ALL						0x00
+#define PMINFO_CLIENT_STATUS_INSTALL					0x01
+#define PMINFO_CLIENT_STATUS_UNINSTALL					0x02
+#define PMINFO_CLIENT_STATUS_UPGRADE					0x04
+#define PMINFO_CLIENT_STATUS_MOVE						0x08
+#define PMINFO_CLIENT_STATUS_CLEAR_DATA					0x10
+#define PMINFO_CLIENT_STATUS_INSTALL_PROGRESS			0x20
+
+/**
+ * @brief type definition.
+ */
+typedef void pkgmgrinfo_client;
+typedef int (*pkgmgrinfo_handler)(int req_id, const char *pkg_type,
+				const char *pkgid, const char *key,
+				const char *val, const void *pmsg, void *data);
+
+typedef enum {
+	PMINFO_REQUEST = 0,
+	PMINFO_LISTENING,
+	PMINFO_BROADCAST,
+}pkgmgrinfo_client_type;
+
+/**
+ * @brief	This APIs provides pkgmgrinfo client listener
+ */
+pkgmgrinfo_client *pkgmgrinfo_client_new(pkgmgrinfo_client_type ctype);
+int pkgmgrinfo_client_set_status_type(pkgmgrinfo_client *pc, int status_type);
+int pkgmgrinfo_client_listen_status(pkgmgrinfo_client *pc, pkgmgrinfo_handler event_cb, void *data);
+int pkgmgrinfo_client_free(pkgmgrinfo_client *pc);
+int pkgmgrinfo_client_request_enable_external_pkg(char *pkgid);
+
+/**
+ * @pkgmgrinfo client API end
+**/
+
 
 /** @} */
 #ifdef __cplusplus
