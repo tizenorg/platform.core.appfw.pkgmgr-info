@@ -7133,3 +7133,33 @@ catch:
 	return ret;
 }
 
+API int pkgmgrinfo_client_request_enable_external_pkg(char *pkgid)
+{
+	int ret = 0;
+	DBusConnection *bus;
+	DBusMessage *message;
+
+	retvm_if(pkgid == NULL, PMINFO_R_EINVAL, "pkgid is NULL\n");
+
+	if(__get_pkg_location(pkgid) != PMINFO_EXTERNAL_STORAGE)
+		return PMINFO_R_OK;
+
+	bus = dbus_bus_get(DBUS_BUS_SYSTEM, NULL);
+	retvm_if(bus == NULL, PMINFO_R_EINVAL, "dbus_bus_get() failed.");
+
+	message = dbus_message_new_method_call (SERVICE_NAME, PATH_NAME, INTERFACE_NAME, METHOD_NAME);
+	retvm_if(message == NULL, PMINFO_R_EINVAL, "dbus_message_new_method_call() failed.");
+
+	dbus_message_append_args(message, DBUS_TYPE_STRING, &pkgid, DBUS_TYPE_INVALID);
+
+	ret = dbus_connection_send_with_reply_and_block(bus, message, -1, NULL);
+	retvm_if(!ret, ret = PMINFO_R_EINVAL, "connection_send dbus fail");
+
+	dbus_connection_flush(bus);
+	dbus_message_unref(message);
+
+	return PMINFO_R_OK;
+}
+
+/* pkgmgrinfo client end*/
+
