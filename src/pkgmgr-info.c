@@ -2210,6 +2210,25 @@ err:
 	return ret;
 }
 
+static int __get_pkg_location(const char *pkgid)
+{
+	retvm_if(pkgid == NULL, PMINFO_R_OK, "pkginfo handle is NULL");
+
+	FILE *fp = NULL;
+	char pkg_mmc_path[FILENAME_MAX] = { 0, };
+	snprintf(pkg_mmc_path, FILENAME_MAX, "%s%s", PKG_SD_PATH, pkgid);
+
+	/*check whether application is in external memory or not */
+	fp = fopen(pkg_mmc_path, "r");
+	if (fp != NULL) {
+		fclose(fp);
+		fp = NULL;
+		return PMINFO_EXTERNAL_STORAGE;
+	}
+
+	return PMINFO_INTERNAL_STORAGE;
+}
+
 API int pkgmgrinfo_pkginfo_get_list(pkgmgrinfo_pkg_list_cb pkg_list_cb, void *user_data)
 {
 	retvm_if(pkg_list_cb == NULL, PMINFO_R_EINVAL, "callback function is NULL\n");
