@@ -1,3 +1,6 @@
+* Fri Jan 10 2014 Chengwei Yang <chengwei.yang@intel.com>
+- Fix amd crash, PTREL-591
+
 * Mon Sep 16 2013 Anas Nashif <anas.nashif@intel.com> 2.2_release@383db6e
 - XML reader check linefeed on manifest parser
 - implement app screen reader

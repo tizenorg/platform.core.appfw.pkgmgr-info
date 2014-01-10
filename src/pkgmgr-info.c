@@ -7113,7 +7113,28 @@ API int pkgmgrinfo_client_set_status_type(pkgmgrinfo_client *pc, int status_type
 	tryvm_if(ret < 0, ret = PMINFO_R_ERROR, "pkgmgr_client_new failed.");
 
 catch:
+        /*
+         * Do not close libpkgmgr-client.so.0 to avoid munmap registered callback
+         *
+         * The lib dependency chain like below
+         * amd --> pkgmgr-info -- dlopen --> libpkgmgr-client --> libpkgmgr-installer-client
+         *
+         * And there is a function in libpkgmgr-installer-client named _on_signal_handle_filter()
+         * which will registered to dbus callback in amd though in fact amd doesn't direct depends
+         * on libpkgmgr-installer-client.
+         *
+         * So when the dlcose happen, then libpkgmgr-installer-client been closed too since no one
+         * link to it then.
+         *
+         * However, when the libdbus call into the callback function, it suddenly fond that the
+         * function address is gone (unmapped), then we receive a SIGSEGV.
+         *
+         * I'm not sure why we're using dlopen/dlclose in this case, I think it's much simple and
+         * robust if we just link to the well-known lib.
+         *
+         * See https://bugs.tizen.org/jira/browse/PTREL-591
 	dlclose(handle);
+         */
 	return ret;
 }
 
@@ -7135,7 +7156,7 @@ API int pkgmgrinfo_client_listen_status(pkgmgrinfo_client *pc, pkgmgrinfo_handle
 	tryvm_if(ret < 0, ret = PMINFO_R_ERROR, "pkgmgr_client_new failed.");
 
 catch:
-	dlclose(handle);
+        /* same as pkgmgrinfo_client_new */
 	return ret;
 }
 
@@ -7157,7 +7178,7 @@ API int pkgmgrinfo_client_free(pkgmgrinfo_client *pc)
 	tryvm_if(ret < 0, ret = PMINFO_R_ERROR, "pkgmgr_client_new failed.");
 
 catch:
-	dlclose(handle);
+        /* same as pkgmgrinfo_client_new */
 	return ret;
 }
 
