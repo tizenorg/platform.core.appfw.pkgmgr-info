@@ -1,0 +1,9 @@
+Verified+1: Chengwei Yang <chengwei.yang@intel.com>
+Code-Review+1: Patrick McCarty <patrick.mccarty@linux.intel.com>
+Code-Review+2: Brad Peters <brad.t.peters@intel.com>
+Verified+1: Brad Peters <brad.t.peters@intel.com>
+Submitted-by: Brad Peters <brad.t.peters@intel.com>
+Submitted-at: Fri, 10 Jan 2014 13:58:33 -0800
+Reviewed-on: https://review.tizen.org/gerrit/14691
+Project: platform/core/appfw/pkgmgr-info
+Branch: refs/heads/tizen
