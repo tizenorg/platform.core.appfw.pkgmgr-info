@@ -89,6 +89,7 @@ chsmack -a '_' /usr/etc/package-manager
 %{_includedir}/pkgmgr-info.h
 %{_libdir}/pkgconfig/pkgmgr-info.pc
 %{_libdir}/libpkgmgr-info.so
+/usr/share/license/%{name}
 
 %files parser
 %manifest pkgmgr-parser.manifest
@@ -101,6 +102,7 @@ chsmack -a '_' /usr/etc/package-manager
 %{_prefix}/etc/package-manager/parserlib/metadata/metadata_parser_list.txt
 %{_prefix}/etc/package-manager/parserlib/category/category_parser_list.txt
 %{_prefix}/etc/package-manager/parserlib/tag_parser_list.txt
+/usr/share/license/%{name}
 
 %files parser-devel
 %defattr(-,root,root,-)
@@ -108,3 +110,4 @@ chsmack -a '_' /usr/etc/package-manager
 %{_includedir}/pkgmgr/pkgmgr_parser_db.h
 %{_libdir}/pkgconfig/pkgmgr-parser.pc
 %{_libdir}/libpkgmgr_parser.so
+/usr/share/license/%{name}
