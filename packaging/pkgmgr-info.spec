@@ -88,6 +88,7 @@ mkdir -p %{buildroot}/opt/share/packages/
 %{_sysconfdir}/package-manager/parser_path.conf
 %{_sysconfdir}/package-manager/parserlib/metadata/mdparser_list.txt
 %{_sysconfdir}/package-manager/parserlib/category/category_parser_list.txt
+%{_sysconfdir}/package-manager/parserlib/tag_parser_list.txt
 
 %files parser-devel
 %manifest %{name}.manifest

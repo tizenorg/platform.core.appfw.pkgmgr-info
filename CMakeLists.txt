@@ -57,6 +57,7 @@ CONFIGURE_FILE(${CMAKE_SOURCE_DIR}/pkgmgr-info.pc.in ${CMAKE_BINARY_DIR}/pkgmgr-
 configure_file(parser_path.conf.in parser_path.conf @ONLY)
 configure_file(mdparser_list.txt.in mdparser_list.txt @ONLY)
 configure_file(category_parser_list.txt.in category_parser_list.txt @ONLY)
+configure_file(tag_parser_list.txt.in tag_parser_list.txt @ONLY)
 
 INSTALL(TARGETS pkgmgr-info DESTINATION ${LIB_INSTALL_DIR} COMPONENT RuntimeLibraries)
 INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/pkgmgr-info.pc DESTINATION ${LIB_INSTALL_DIR}/pkgconfig)
@@ -64,3 +65,4 @@ INSTALL(FILES ${CMAKE_CURRENT_SOURCE_DIR}/include/pkgmgr-info.h DESTINATION incl
 INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/parser_path.conf DESTINATION ${SYSCONFDIR}/package-manager/)
 INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/mdparser_list.txt DESTINATION ${SYSCONFDIR}/package-manager/parserlib/metadata)
 INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/category_parser_list.txt DESTINATION ${SYSCONFDIR}/package-manager/parserlib/category)
+INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/tag_parser_list.txt DESTINATION ${SYSCONFDIR}/package-manager/parserlib)
