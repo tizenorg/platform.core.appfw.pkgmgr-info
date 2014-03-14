@@ -53,6 +53,9 @@
 extern "C" {
 #endif
 
+#ifndef DEPRECATED
+#define DEPRECATED	__attribute__ ((__deprecated__))
+#endif
 
 /**
  * @mainpage
@@ -785,7 +788,7 @@ static int get_pkg_total_size(const char *pkgid)
 }
  * @endcode
  */
- int pkgmgrinfo_pkginfo_get_total_size(pkgmgrinfo_pkginfo_h handle, int *size);
+ int pkgmgrinfo_pkginfo_get_total_size(pkgmgrinfo_pkginfo_h handle, int *size) DEPRECATED;
 
 /**
  * @fn int pkgmgrinfo_pkginfo_get_data_size(pkgmgrinfo_pkginfo_h handle, int *size)
@@ -820,7 +823,44 @@ static int get_pkg_data_size(const char *pkgid)
 }
  * @endcode
  */
- int pkgmgrinfo_pkginfo_get_data_size(pkgmgrinfo_pkginfo_h handle, int *size);
+ int pkgmgrinfo_pkginfo_get_data_size(pkgmgrinfo_pkginfo_h handle, int *size) DEPRECATED;
+
+/**
+ * @fn int pkgmgrinfo_pkginfo_get_size_info(pkgmgrinfo_pkginfo_h handle, int *total_size, int *data_size)
+ * @brief	This API gets the size information for given package on the target.
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in]	handle	pointer to package info handle
+ * @param[out] total_size		pointer to hold package total size
+ * @param[out] data_size		pointer to hold package data size
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @code
+static int get_pkg_data_size(const char *pkgid)
+{
+	int ret = 0;
+	int total_size = 0;
+	int data_size = 0;
+	pkgmgrinfo_pkginfo_h handle;
+	ret = pkgmgrinfo_pkginfo_get_pkginfo(pkgid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_pkginfo_get_size_info(handle, &total_size, &data_size);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_pkginfo_destroy_pkginfo(handle);
+		return -1;
+	}
+	printf("pkg size:  total=%d, data=%d\n", total_size, data_size);
+	pkgmgrinfo_pkginfo_destroy_pkginfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_pkginfo_get_size_info(pkgmgrinfo_pkginfo_h handle, int *total_size, int *data_size) DEPRECATED;
 
 /**
  * @fn int pkgmgrinfo_pkginfo_get_icon(pkgmgrinfo_pkginfo_h handle, char **icon)

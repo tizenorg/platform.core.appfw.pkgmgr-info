@@ -2188,6 +2188,10 @@ static void __ps_free_uiapplication(uiapplication_x *uiapplication)
 		free((void *)uiapplication->submode_mainid);
 		uiapplication->submode_mainid = NULL;
 	}
+	if (uiapplication->installed_storage) {
+		free((void *)uiapplication->installed_storage);
+		uiapplication->installed_storage = NULL;
+	}
 
 	free((void*)uiapplication);
 	uiapplication = NULL;
@@ -4201,8 +4205,13 @@ static int __process_manifest(xmlTextReaderPtr reader, manifest_x * mfx)
 			/*app2ext needs package size for external installation*/
 			if (xmlTextReaderGetAttribute(reader, XMLCHAR("size")))
 				mfx->package_size = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("size")));
-			if (xmlTextReaderGetAttribute(reader, XMLCHAR("install-location")))
+			if (xmlTextReaderGetAttribute(reader, XMLCHAR("install-location"))) {
 				mfx->installlocation = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("install-location")));
+				if (mfx->installlocation == NULL)
+					mfx->installlocation = strdup("internal-only");
+			} else {
+				mfx->installlocation = strdup("internal-only");
+			}
 			if (xmlTextReaderGetAttribute(reader, XMLCHAR("type")))
 				mfx->type = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("type")));
 			if (xmlTextReaderGetAttribute(reader, XMLCHAR("root_path")))
@@ -4535,6 +4544,9 @@ static int __ps_make_nativeapp_desktop(manifest_x * mfx, const char *manifest, A
 		fwrite(buf, 1, strlen(buf), file);
 
 
+		snprintf(buf, BUFMAX, "X-TIZEN-InstalledStorage=%s\n", mfx->installed_storage);
+		fwrite(buf, 1, strlen(buf), file);
+
 //		snprintf(buf, BUFMAX, "X-TIZEN-PackageType=rpm\n");
 //		fwrite(buf, 1, strlen(buf), file);
 
@@ -4849,6 +4861,17 @@ static int __check_preload_updated(manifest_x * mfx, const char *manifest)
 	return 0;
 }
 
+static int __ps_check_mdm_policy(manifest_x * mfx, ACTION_TYPE action)
+{
+	int ret = PMINFO_R_OK;
+	return ret;
+}
+
+API int pkgmgr_parser_check_mdm_policy_for_uninstallation(const char *manifest)
+{
+	int ret = PMINFO_R_OK;
+	return ret;
+}
 
 API int pkgmgr_parser_create_desktop_file(manifest_x *mfx)
 {
@@ -4912,6 +4935,14 @@ API void pkgmgr_parser_free_manifest_xml(manifest_x *mfx)
 	if (mfx->package_size) {
 		free((void *)mfx->package_size);
 		mfx->package_size = NULL;
+	}
+	if (mfx->package_total_size) {
+		free((void *)mfx->package_total_size);
+		mfx->package_total_size = NULL;
+	}
+	if (mfx->package_data_size) {
+		free((void *)mfx->package_data_size);
+		mfx->package_data_size = NULL;
 	}
 	if (mfx->installed_time) {
 		free((void *)mfx->installed_time);
@@ -5143,6 +5174,9 @@ API int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char
 
 	_LOGD("Parsing Finished\n");
 
+	ret = __ps_check_mdm_policy(mfx, ACTION_INSTALL);
+	retvm_if(ret == PMINFO_R_ERROR, PMINFO_R_ERROR, "pkg[%s] violate mdm policy.", mfx->package);
+
 //	__streamFile(manifest, ACTION_INSTALL, temp, mfx->package);
 	__ps_process_tag_parser(mfx, manifest, ACTION_INSTALL);
 	__add_preload_info(mfx, manifest);
@@ -5277,6 +5311,9 @@ API int pkgmgr_parser_parse_manifest_for_uninstallation(const char *manifest, ch
 	retvm_if(mfx == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
 
 	_LOGD("Parsing Finished\n");
+
+	ret = __ps_check_mdm_policy(mfx, ACTION_UNINSTALL);
+	retvm_if(ret == PMINFO_R_ERROR, PMINFO_R_ERROR, "pkg[%s] violate mdm policy.", mfx->package);
 
 //	__streamFile(manifest, ACTION_UNINSTALL, temp, mfx->package);
 	__ps_process_tag_parser(mfx, manifest, ACTION_UNINSTALL);

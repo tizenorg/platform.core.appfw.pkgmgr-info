@@ -26,12 +26,9 @@
 
 #define _LOGE(fmt, arg...) LOGE(fmt, ##arg)
 #define _LOGD(fmt, arg...) LOGD(fmt, ##arg)
+#define _LOGS(fmt, arg...) LOGD(fmt, ##arg)
 
 #define PKGMGR_INFO_ENABLE_DLOG
-
-#define COLOR_RED 		"\033[0;31m"
-#define COLOR_BLUE 		"\033[0;34m"
-#define COLOR_END		"\033[0;m"
 
 #ifdef PKGMGR_INFO_ENABLE_DLOG
 #define PKGMGR_INFO_DEBUG(fmt, ...)\
@@ -43,19 +40,19 @@
 #define PKGMGR_INFO_DEBUG_ERR(fmt, ...)\
 	do\
 	{\
-		LOGE(COLOR_RED fmt COLOR_END, ##__VA_ARGS__);\
+		LOGE(fmt, ##__VA_ARGS__);\
 	}while (0)
 
 #define PKGMGR_INFO_BEGIN() \
 	do\
     {\
-		LOGD(COLOR_BLUE"BEGIN >>>>"COLOR_END);\
+		LOGD("BEGIN >>>>");\
     } while( 0 )
 
 #define PKGMGR_INFO_END() \
 	do\
     {\
-		LOGD(COLOR_BLUE"END <<<<"COLOR_END);\
+		LOGD("END <<<<");\
     } \
     while( 0 )
 

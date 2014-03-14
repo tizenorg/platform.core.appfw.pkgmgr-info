@@ -1,6 +1,6 @@
 Name:       pkgmgr-info
 Summary:    Packager Manager infomation api for package
-Version:    0.0.134
+Version:    0.0.144
 Release:    1
 Group:      Application Framework/Package Management
 License:    Apache-2.0
@@ -44,6 +44,13 @@ Dev package for libpkgmgr-parser
 cp %{SOURCE1001} .
 
 %build
+
+%if 0%{?tizen_build_binary_release_type_eng}
+export CFLAGS="$CFLAGS -DTIZEN_ENGINEER_MODE"
+export CXXFLAGS="$CXXFLAGS ?DTIZEN_ENGINEER_MODE"
+export FFLAGS="$FFLAGS -DTIZEN_ENGINEER_MODE"
+%endif
+
 %cmake .
 make %{?jobs:-j%jobs}
 
@@ -54,6 +61,12 @@ touch %{buildroot}/opt/usr/apps/tmp/pkgmgr_tmp.txt
 
 # create the directory for hosting Read-Write application manifest files
 mkdir -p %{buildroot}/opt/share/packages/
+mkdir -p %{buildroot}/usr/share/license
+cp LICENSE %{buildroot}/usr/share/license/%{name}
+cp LICENSE %{buildroot}/usr/share/license/%{name}-devel
+cp LICENSE %{buildroot}/usr/share/license/%{name}-parser
+cp LICENSE %{buildroot}/usr/share/license/%{name}-parser-devel
+
 
 %post -p /sbin/ldconfig
 
@@ -70,6 +83,7 @@ mkdir -p %{buildroot}/opt/share/packages/
 %dir %attr(771,app,app) /opt/usr/apps/tmp
 /opt/usr/apps/tmp/pkgmgr_tmp.txt
 %dir /opt/share/packages
+/usr/share/license/%{name}
 
 %files devel
 %manifest %{name}.manifest
@@ -77,6 +91,7 @@ mkdir -p %{buildroot}/opt/share/packages/
 %{_includedir}/pkgmgr-info.h
 %{_libdir}/pkgconfig/pkgmgr-info.pc
 %{_libdir}/libpkgmgr-info.so
+/usr/share/license/%{name}-devel
 
 %files parser
 %manifest %{name}.manifest
@@ -89,6 +104,7 @@ mkdir -p %{buildroot}/opt/share/packages/
 %{_sysconfdir}/package-manager/parserlib/metadata/mdparser_list.txt
 %{_sysconfdir}/package-manager/parserlib/category/category_parser_list.txt
 %{_sysconfdir}/package-manager/parserlib/tag_parser_list.txt
+/usr/share/license/%{name}-parser
 
 %files parser-devel
 %manifest %{name}.manifest
@@ -97,3 +113,4 @@ mkdir -p %{buildroot}/opt/share/packages/
 %{_includedir}/pkgmgr/pkgmgr_parser_db.h
 %{_libdir}/pkgconfig/pkgmgr-parser.pc
 %{_libdir}/libpkgmgr_parser.so
+/usr/share/license/%{name}-parser-devel

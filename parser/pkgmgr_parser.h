@@ -381,6 +381,7 @@ typedef struct uiapplication_x {
 	const char *preload;
 	const char *submode;
 	const char *submode_mainid;
+	const char *installed_storage;
 	struct label_x *label;
 	struct icon_x *icon;
 	struct image_x *image;
@@ -461,6 +462,8 @@ typedef struct manifest_x {
 	const char *system;		/**< package system flag*/
 	const char *type;		/**< package type*/
 	const char *package_size;		/**< package size for external installation*/
+	const char *package_total_size;		/**< package size for total*/
+	const char *package_data_size;		/**< package size for data*/
 	const char *installed_time;		/**< installed time after finishing of installation*/
 	const char *installed_storage;		/**< package currently installed storage*/
 	const char *storeclient_id;		/**< id of store client for installed package*/
@@ -485,6 +488,12 @@ typedef struct manifest_x {
 	struct compatibility_x *compatibility;		/**< package compatibility*/
 	struct deviceprofile_x *deviceprofile;		/**< package device profile*/
 } manifest_x;
+
+/**
+ * @fn char 	int pkgmgr_parser_check_mdm_policy_for_uninstallation(manifest_x * mfx)
+ * @brief	This API gets the mdm policy form mdm server
+ */
+int pkgmgr_parser_check_mdm_policy_for_uninstallation(const char *manifest);
 
 /**
  * @fn char *pkgmgr_parser_get_manifest_file(const char *pkgid)
