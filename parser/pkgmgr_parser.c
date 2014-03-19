@@ -34,6 +34,9 @@
 #include <vconf.h>
 #include <glib.h>
 
+/* For multi-user support */
+#include <tzplatform_config.h>
+
 #include "pkgmgr_parser.h"
 #include "pkgmgr_parser_internal.h"
 #include "pkgmgr_parser_db.h"
@@ -46,8 +49,8 @@
 #endif
 #define LOG_TAG "PKGMGR_PARSER"
 
-#define MANIFEST_RW_DIRECTORY "/opt/share/packages"
-#define MANIFEST_RO_DIRECTORY "/usr/share/packages"
+#define MANIFEST_RW_DIRECTORY tzplatform_getenv(TZ_SYS_RW_PACKAGES)
+#define MANIFEST_RO_DIRECTORY tzplatform_getenv(TZ_SYS_RO_PACKAGES)
 #define ASCII(s) (const char *)s
 #define XMLCHAR(s) (const xmlChar *)s
 
@@ -636,10 +639,10 @@ static char *__pkgid_to_manifest(const char *pkgid)
 		return NULL;
 	}
 	memset(manifest, '\0', size);
-	snprintf(manifest, size, MANIFEST_RW_DIRECTORY "/%s.xml", pkgid);
+	snprintf(manifest, size, "%s/%s.xml", MANIFEST_RW_DIRECTORY, pkgid);
 
 	if (access(manifest, F_OK)) {
-		snprintf(manifest, size, MANIFEST_RO_DIRECTORY "/%s.xml", pkgid);
+		snprintf(manifest, size, "%s/%s.xml", MANIFEST_RO_DIRECTORY, pkgid);
 	}
 
 	return manifest;
@@ -4255,7 +4258,7 @@ static int __process_manifest(xmlTextReaderPtr reader, manifest_x * mfx)
 	return ret;
 }
 
-#define DESKTOP_RW_PATH "/opt/share/applications/"
+#define DESKTOP_RW_PATH tzplatform_mkpath(TZ_SYS_SHARE, "applications/")
 #define DESKTOP_RO_PATH "/usr/share/applications/"
 #define MANIFEST_RO_PREFIX "/usr/share/packages/"
 
