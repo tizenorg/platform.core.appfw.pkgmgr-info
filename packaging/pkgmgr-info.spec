@@ -1,19 +1,20 @@
 Name:       pkgmgr-info
 Summary:    Packager Manager infomation api for package
 Version:    0.0.134
-Release:    1
+Release:    0
 Group:      Application Framework/Package Management
 License:    Apache-2.0
 Source0:    %{name}-%{version}.tar.gz
-Source1001: 	pkgmgr-info.manifest
-BuildRequires:	cmake
-BuildRequires:	pkgconfig(dlog)
-BuildRequires:	pkgconfig(vconf)
-BuildRequires:	pkgconfig(sqlite3)
-BuildRequires:	pkgconfig(db-util)
-BuildRequires:pkgconfig(libxml-2.0)
-BuildRequires:	pkgconfig(dbus-1)
-BuildRequires:	pkgconfig(dbus-glib-1)
+Source1001: pkgmgr-info.manifest
+BuildRequires: cmake
+BuildRequires: pkgconfig(dlog)
+BuildRequires: pkgconfig(vconf)
+BuildRequires: pkgconfig(sqlite3)
+BuildRequires: pkgconfig(db-util)
+BuildRequires: pkgconfig(libxml-2.0)
+BuildRequires: pkgconfig(dbus-1)
+BuildRequires: pkgconfig(dbus-glib-1)
+BuildRequires: pkgconfig(libtzplatform-config)
 
 %description
 Packager Manager infomation api for packaging
@@ -49,11 +50,9 @@ make %{?jobs:-j%jobs}
 
 %install
 %make_install
-mkdir -p %{buildroot}/opt/usr/apps/tmp
-touch %{buildroot}/opt/usr/apps/tmp/pkgmgr_tmp.txt
 
 # create the directory for hosting Read-Write application manifest files
-mkdir -p %{buildroot}/opt/share/packages/
+mkdir -p %{buildroot}%{TZ_SYS_RW_PACKAGES}
 
 %post -p /sbin/ldconfig
 
@@ -67,9 +66,7 @@ mkdir -p %{buildroot}/opt/share/packages/
 %manifest %{name}.manifest
 %defattr(-,root,root,-)
 %{_libdir}/libpkgmgr-info.so.*
-%dir %attr(771,app,app) /opt/usr/apps/tmp
-/opt/usr/apps/tmp/pkgmgr_tmp.txt
-%dir /opt/share/packages
+%dir %{TZ_SYS_RW_PACKAGES}
 
 %files devel
 %manifest %{name}.manifest
@@ -82,13 +79,13 @@ mkdir -p %{buildroot}/opt/share/packages/
 %manifest %{name}.manifest
 %defattr(-,root,root,-)
 %{_libdir}/libpkgmgr_parser.so.*
-%{_sysconfdir}/package-manager/preload/preload_list.txt
-%{_sysconfdir}/package-manager/preload/manifest.xsd
-%{_sysconfdir}/package-manager/preload/xml.xsd
-%{_sysconfdir}/package-manager/parser_path.conf
-%{_sysconfdir}/package-manager/parserlib/metadata/mdparser_list.txt
-%{_sysconfdir}/package-manager/parserlib/category/category_parser_list.txt
-%{_sysconfdir}/package-manager/parserlib/tag_parser_list.txt
+%config %{_sysconfdir}/package-manager/preload/preload_list.txt
+%config %{_sysconfdir}/package-manager/preload/manifest.xsd
+%config %{_sysconfdir}/package-manager/preload/xml.xsd
+%config %{_sysconfdir}/package-manager/parser_path.conf
+%config %{_sysconfdir}/package-manager/parserlib/metadata/mdparser_list.txt
+%config %{_sysconfdir}/package-manager/parserlib/category/category_parser_list.txt
+%config %{_sysconfdir}/package-manager/parserlib/tag_parser_list.txt
 
 %files parser-devel
 %manifest %{name}.manifest

@@ -28,6 +28,10 @@
 #include <unistd.h>
 #include <db-util.h>
 #include <glib.h>
+
+/* For multi-user support */
+#include <tzplatform_config.h>
+
 #include "pkgmgr-info.h"
 #include "pkgmgr_parser_internal.h"
 #include "pkgmgr_parser_db.h"
@@ -39,8 +43,8 @@
 #endif
 #define LOG_TAG "PKGMGR_PARSER"
 
-#define PKGMGR_PARSER_DB_FILE "/opt/dbspace/.pkgmgr_parser.db"
-#define PKGMGR_CERT_DB_FILE "/opt/dbspace/.pkgmgr_cert.db"
+#define PKGMGR_PARSER_DB_FILE tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_parser.db")
+#define PKGMGR_CERT_DB_FILE tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_cert.db")
 #define MAX_QUERY_LEN		4096
 
 sqlite3 *pkgmgr_parser_db;
@@ -1530,6 +1534,7 @@ static int __insert_manifest_info_in_db(manifest_x *mfx)
 	const char *auth_name = NULL;
 	const char *auth_email = NULL;
 	const char *auth_href = NULL;
+	const char *apps_path = NULL;
 
 	GList *pkglocale = NULL;
 	GList *applocale = NULL;
@@ -1554,10 +1559,13 @@ static int __insert_manifest_info_in_db(manifest_x *mfx)
 	if (mfx->root_path)
 		path = strdup(mfx->root_path);
 	else{
-		if (strcmp(type,"rpm")==0)
-			snprintf(root, MAX_QUERY_LEN - 1, "/usr/apps/%s", mfx->package);
-		else
-			snprintf(root, MAX_QUERY_LEN - 1, "/opt/usr/apps/%s", mfx->package);
+		if (strcmp(type,"rpm")==0) {
+			apps_path = tzplatform_getenv(TZ_SYS_RO_APP);
+			snprintf(root, MAX_QUERY_LEN - 1, "%s/%s", apps_path, mfx->package);
+		} else {
+			apps_path = tzplatform_getenv(TZ_USER_APP);
+			snprintf(root, MAX_QUERY_LEN - 1, "%s/%s", apps_path, mfx->package);
+		}
 
 		path = strdup(root);
 	}
