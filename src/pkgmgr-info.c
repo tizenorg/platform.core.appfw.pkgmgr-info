@@ -39,6 +39,9 @@
 #include <dbus/dbus.h>
 #include <dbus/dbus-glib-lowlevel.h>
 
+/* For multi-user support */
+#include <tzplatform_config.h>
+
 #include "pkgmgr_parser.h"
 #include "pkgmgr-info-internal.h"
 #include "pkgmgr-info-debug.h"
@@ -55,22 +58,22 @@
 #define ASC_CHAR(s) (const char *)s
 #define XML_CHAR(s) (const xmlChar *)s
 
-#define MANIFEST_DB	"/opt/dbspace/.pkgmgr_parser.db"
+#define MANIFEST_DB	tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_parser.db")
 #define MAX_QUERY_LEN	4096
 #define MAX_CERT_TYPE	9
-#define CERT_DB		"/opt/dbspace/.pkgmgr_cert.db"
-#define DATACONTROL_DB	"/opt/usr/dbspace/.app-package.db"
+#define CERT_DB		tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_cert.db")
+#define DATACONTROL_DB	tzplatform_mkpath(TZ_USER_DB, ".app-package.db")
 #define PKG_TYPE_STRING_LEN_MAX		128
 #define PKG_VERSION_STRING_LEN_MAX	128
 #define PKG_VALUE_STRING_LEN_MAX		512
 #define PKG_LOCALE_STRING_LEN_MAX		8
-#define PKG_RW_PATH "/opt/usr/apps/"
-#define PKG_RO_PATH "/usr/apps/"
+#define PKG_RW_PATH tzplatform_mkpath(TZ_USER_APP, "")
+#define PKG_RO_PATH tzplatform_mkpath(TZ_SYS_RO_APP, "")
 #define BLOCK_SIZE      4096 /*in bytes*/
 
-#define MMC_PATH "/opt/storage/sdcard"
-#define PKG_SD_PATH MMC_PATH"/app2sd/"
-#define PKG_INSTALLATION_PATH "/opt/usr/apps/"
+#define MMC_PATH tzplaform_mkpath(TZ_SYS_STORAGE, "sdcard")
+#define PKG_SD_PATH tzplaform_mkpath3(TZ_SYS_STORAGE, "sdcard", "app2sd/")
+#define PKG_INSTALLATION_PATH tzplatform_mkpath(TZ_USER_APP, "")
 
 #define FILTER_QUERY_COUNT_PACKAGE	"select count(DISTINCT package_info.package) " \
 				"from package_info LEFT OUTER JOIN package_localized_info " \
