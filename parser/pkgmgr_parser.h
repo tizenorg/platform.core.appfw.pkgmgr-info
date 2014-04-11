@@ -42,6 +42,9 @@
  */
 
 #include <libxml/xmlreader.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <pwd.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -485,6 +488,30 @@ typedef struct manifest_x {
 	struct compatibility_x *compatibility;		/**< package compatibility*/
 	struct deviceprofile_x *deviceprofile;		/**< package device profile*/
 } manifest_x;
+
+
+
+static char* getUserAppDesktopFile(char *appid) {
+
+char *UserAppDF = NULL;
+char *homedir = NULL;
+struct passwd *pw;
+uid_t uid = getuid();
+  if(uid) {
+    pw = getpwuid(uid);
+    if (pw) {
+      homedir = pw->pw_dir;
+      int len = snprintf(NULL,0,"%s/.applications/desktop/%s.desktop",pw->pw_dir,appid);
+      UserAppDF = (char*)malloc( len + 1); 
+      snprintf(UserAppDF,len,"%s/.applications/desktop/%s.desktop",pw->pw_dir,appid);
+    }
+    else
+      return NULL;
+  } else 
+	return NULL;
+
+return UserAppDF;
+}
 
 /**
  * @fn char *pkgmgr_parser_get_manifest_file(const char *pkgid)

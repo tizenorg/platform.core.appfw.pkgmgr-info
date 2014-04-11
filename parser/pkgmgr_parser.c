@@ -4347,10 +4347,10 @@ END:
 #define BUFMAX 1024*128
 static int __ps_make_nativeapp_desktop(manifest_x * mfx, const char *manifest, ACTION_TYPE action)
 {
-        FILE* file = NULL;
-        int fd = 0;
-        char filepath[PKG_STRING_LEN_MAX] = "";
-        char *buf = NULL;
+	FILE* file = NULL;
+	int fd = 0;
+	char filepath[PKG_STRING_LEN_MAX] = "";
+	char *buf = NULL;
 	char *buftemp = NULL;
 	char *locale = NULL;
 
@@ -4380,28 +4380,38 @@ static int __ps_make_nativeapp_desktop(manifest_x * mfx, const char *manifest, A
 				continue;
 			}
 		}
-
-		if(mfx->readonly && !strcasecmp(mfx->readonly, "True"))
-			snprintf(filepath, sizeof(filepath),"%s%s.desktop", DESKTOP_RO_PATH, mfx->uiapplication->appid);
-		else
-			snprintf(filepath, sizeof(filepath),"%s%s.desktop", DESKTOP_RW_PATH, mfx->uiapplication->appid);
-
-		/* skip if desktop exists
-		if (access(filepath, R_OK) == 0)
-			continue;
-		*/
-
-	        file = fopen(filepath, "w");
-	        if(file == NULL)
-	        {
-	            _LOGD("Can't open %s", filepath);
-		    free(buf);
-		    free(buftemp);
-	            return -1;
-	        }
-
-	        snprintf(buf, BUFMAX, "[Desktop Entry]\n");
-	        fwrite(buf, 1, strlen(buf), file);
+		
+		if(getuid() == 0) {
+			if(mfx->readonly && !strcasecmp(mfx->readonly, "True"))
+				snprintf(filepath, sizeof(filepath),"%s%s.desktop", DESKTOP_RO_PATH, mfx->uiapplication->appid);
+			else
+				snprintf(filepath, sizeof(filepath),"%s%s.desktop", DESKTOP_RW_PATH, mfx->uiapplication->appid);
+			
+			file = fopen(filepath, "w");
+			if(file == NULL) {
+				_LOGD("Can't open %s", filepath);
+				free(buf);
+				free(buftemp);
+				return -1;
+			}
+			/* skip if desktop exists
+			if (access(filepath, R_OK) == 0)
+				continue;
+			*/
+		} else {
+			char * fileUser = getUserAppDesktopFile(mfx->uiapplication->appid);
+			file = fopen(fileUser, "w");
+			if(file == NULL) {
+				_LOGD("Can't open %s", fileUser);
+				free(buf);
+				free(buftemp);
+				return -1;
+			}
+			free(fileUser);
+		}
+	    
+		snprintf(buf, BUFMAX, "[Desktop Entry]\n");
+		fwrite(buf, 1, strlen(buf), file);
 
 		for( ; mfx->uiapplication->label ; mfx->uiapplication->label = mfx->uiapplication->label->next) {
 			if(!strcmp(mfx->uiapplication->label->lang, DEFAULT_LOCALE)) {
@@ -4430,8 +4440,8 @@ static int __ps_make_nativeapp_desktop(manifest_x * mfx, const char *manifest, A
 */
 
 
-	        snprintf(buf, BUFMAX, "Type=Application\n");
-	        fwrite(buf, 1, strlen(buf), file);
+		snprintf(buf, BUFMAX, "Type=Application\n");
+		fwrite(buf, 1, strlen(buf), file);
 
 		if(mfx->uiapplication->exec) {
 		        snprintf(buf, BUFMAX, "Exec=%s\n", mfx->uiapplication->exec);

@@ -46,6 +46,58 @@
 extern "C" {
 #endif
 #include "pkgmgr_parser.h"
+#include <pwd.h>
+#include <sys/types.h>
+#include <tzplatform_config.h>
+
+#define PKGMGR_PARSER_DB_FILE tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_parser.db")
+#define PKGMGR_CERT_DB_FILE tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_cert.db")
+static char* getUserPkgCertDB(void) {
+
+char *UserDB = NULL;
+char *homedir = NULL;
+struct passwd *pw;
+uid_t uid = getuid();
+  if(uid) {
+    pw = getpwuid(uid);
+    if (pw) {
+      homedir = pw->pw_dir;
+      UserDB = (char*)malloc( strlen(homedir) +  strlen(".pkgmgr_cert.db")  + 40 ); 
+      sprintf(UserDB,"%s/.applications/dbspace/.pkgmgr_cert.db",pw->pw_dir);
+    }
+    else
+      return NULL;
+  } else {
+    UserDB = (char*)malloc( strlen(PKGMGR_CERT_DB_FILE)  + 4 ); 
+    sprintf(UserDB,PKGMGR_CERT_DB_FILE);
+  }
+
+return UserDB;
+}
+
+static char* getUserPkgParserDB(void) {
+
+char *UserDB = NULL;
+char *homedir = NULL;
+struct passwd *pw;
+uid_t uid = getuid();
+  if(uid) {
+    pw = getpwuid(uid);
+    if (pw) {
+      homedir = pw->pw_dir;
+      UserDB = (char*)malloc( strlen(homedir) +  strlen(".pkgmgr_parser.db")  + 40 ); 
+      sprintf(UserDB,"%s/.applications/dbspace/.pkgmgr_parser.db",pw->pw_dir);
+    }
+    else
+      return NULL;
+  } else {
+    UserDB = (char*)malloc( strlen(PKGMGR_PARSER_DB_FILE)  + 4 ); 
+    sprintf(UserDB,PKGMGR_PARSER_DB_FILE);
+  }
+
+return UserDB;
+}
+
 
 /**
  * @fn int pkgmgr_parser_insert_manifest_info_in_db(manifest_x *mfx)

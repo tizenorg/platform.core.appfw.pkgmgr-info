@@ -43,8 +43,7 @@
 #endif
 #define LOG_TAG "PKGMGR_PARSER"
 
-#define PKGMGR_PARSER_DB_FILE tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_parser.db")
-#define PKGMGR_CERT_DB_FILE tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_cert.db")
+
 #define MAX_QUERY_LEN		4096
 
 sqlite3 *pkgmgr_parser_db;
@@ -2114,17 +2113,29 @@ int pkgmgr_parser_check_and_create_db()
 {
 	int ret = -1;
 	/*Manifest DB*/
-	ret = __pkgmgr_parser_create_db(&pkgmgr_parser_db, PKGMGR_PARSER_DB_FILE);
+	char * parserdb = getUserPkgParserDB();
+	char * certdb = getUserPkgCertDB();
+	if((!parserdb)||(!certdb)) {
+		_LOGD("Manifest DB get Names Failed\n");
+		return -1;
+	}
+	ret = __pkgmgr_parser_create_db(&pkgmgr_parser_db, parserdb);
 	if (ret) {
+		free(parserdb);
+		free(certdb);
 		_LOGD("Manifest DB creation Failed\n");
 		return -1;
 	}
 	/*Cert DB*/
-	ret = __pkgmgr_parser_create_db(&pkgmgr_cert_db, PKGMGR_CERT_DB_FILE);
+	ret = __pkgmgr_parser_create_db(&pkgmgr_cert_db, certdb);
 	if (ret) {
+		free(parserdb);
+		free(certdb);
 		_LOGD("Cert DB creation Failed\n");
 		return -1;
 	}
+	free(parserdb);
+	free(certdb);
 	return 0;
 }
 
