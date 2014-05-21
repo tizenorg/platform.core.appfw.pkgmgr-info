@@ -2114,13 +2114,14 @@ int pkgmgr_parser_check_and_create_db()
 {
 	int ret = -1;
 	/*Manifest DB*/
-	ret = __pkgmgr_parser_create_db(&pkgmgr_parser_db, PKGMGR_PARSER_DB_FILE);
+	ret = __pkgmgr_parser_create_db(&pkgmgr_parser_db, getUserPkgParserDBPath());
+	_LOGD("create db  %s", getUserPkgParserDBPath());
 	if (ret) {
 		_LOGD("Manifest DB creation Failed\n");
 		return -1;
 	}
 	/*Cert DB*/
-	ret = __pkgmgr_parser_create_db(&pkgmgr_cert_db, PKGMGR_CERT_DB_FILE);
+	ret = __pkgmgr_parser_create_db(&pkgmgr_cert_db, getUserPkgParserDBPath());
 	if (ret) {
 		_LOGD("Cert DB creation Failed\n");
 		return -1;
@@ -2136,6 +2137,7 @@ void pkgmgr_parser_close_db()
 
 API int pkgmgr_parser_insert_manifest_info_in_db(manifest_x *mfx)
 {
+	_LOGD("pkgmgr_parser_insert_manifest_info_in_db\n");
 	if (mfx == NULL) {
 		_LOGD("manifest pointer is NULL\n");
 		return -1;

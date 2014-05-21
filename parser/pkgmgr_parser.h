@@ -43,6 +43,9 @@
 
 #include <libxml/xmlreader.h>
 
+/* For multi-user support */
+#include <tzplatform_config.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -485,6 +488,14 @@ typedef struct manifest_x {
 	struct compatibility_x *compatibility;		/**< package compatibility*/
 	struct deviceprofile_x *deviceprofile;		/**< package device profile*/
 } manifest_x;
+
+/* For multiuser support */
+char *getUserDBLabel(void);
+char *getUserPkgParserDBPath(void);
+char *getUserPkgParserDBPathUID(uid_t uid);
+char *getUserPkgParserJournalDBPath(void);
+char *getUserPkgCertDBPath(void);
+char *getUserPkgCertJournalDBPath(void);
 
 /**
  * @fn char *pkgmgr_parser_get_manifest_file(const char *pkgid)

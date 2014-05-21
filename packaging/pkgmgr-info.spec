@@ -45,7 +45,7 @@ Dev package for libpkgmgr-parser
 cp %{SOURCE1001} .
 
 %build
-%cmake .
+%cmake . 
 make %{?jobs:-j%jobs}
 
 %install

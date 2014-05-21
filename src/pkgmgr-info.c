@@ -492,11 +492,11 @@ static void __cleanup_appinfo(pkgmgr_appinfo_x *data)
 static int __open_manifest_db()
 {
 	int ret = -1;
-	if (access(MANIFEST_DB, F_OK) == 0) {
+	if (access(getUserPkgParserDBPath(), F_OK) == 0) {
 		ret =
-		    db_util_open_with_options(MANIFEST_DB, &manifest_db,
+		    db_util_open_with_options(getUserPkgParserDBPath(), &manifest_db,
 				 SQLITE_OPEN_READONLY, NULL);
-		retvm_if(ret != SQLITE_OK, -1, "connect db [%s] failed!\n", MANIFEST_DB);
+		retvm_if(ret != SQLITE_OK, -1, "connect db [%s] failed!\n", getUserPkgParserDBPath());
 		return 0;
 	}
 	_LOGE("Manifest DB does not exists !!\n");
@@ -2402,8 +2402,8 @@ API int pkgmgrinfo_pkginfo_get_pkginfo(const char *pkgid, pkgmgrinfo_pkginfo_h *
 	sqlite3 *pkginfo_db = NULL;
 
 	/*validate pkgid*/
-	ret = db_util_open_with_options(MANIFEST_DB, &pkginfo_db, SQLITE_OPEN_READONLY, NULL);
-	retvm_if(ret != SQLITE_OK, PMINFO_R_ERROR, "connect db [%s] failed!", MANIFEST_DB);
+	ret = db_util_open_with_options(getUserPkgParserDBPath(), &pkginfo_db, SQLITE_OPEN_READONLY, NULL);
+	retvm_if(ret != SQLITE_OK, PMINFO_R_ERROR, "connect db [%s] failed!", getUserPkgParserDBPath());
 
 	/*check pkgid exist on db*/
 	snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_info where package='%s')", pkgid);
@@ -3197,10 +3197,10 @@ API int pkgmgrinfo_pkginfo_compare_app_cert_info(const char *lhs_app_id, const c
 	info = (pkgmgr_cert_x *)calloc(1, sizeof(pkgmgr_cert_x));
 	retvm_if(info == NULL, PMINFO_R_ERROR, "Out of Memory!!!");
 
-	ret = db_util_open_with_options(MANIFEST_DB, &manifest_db,
+	ret = db_util_open_with_options(getUserPkgParserDBPath(), &manifest_db,
 					SQLITE_OPEN_READONLY, NULL);
 	if (ret != SQLITE_OK) {
-		_LOGE("connect db [%s] failed!\n", MANIFEST_DB);
+		_LOGE("connect db [%s] failed!\n", getUserPkgParserDBPath());
 		ret = PMINFO_R_ERROR;
 		goto err;
 	}
@@ -3952,8 +3952,8 @@ API int pkgmgrinfo_appinfo_get_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_app_
 		appinfo->app_component = PMINFO_ALL_APP;
 
 	/*open db */
-	ret = db_util_open_with_options(MANIFEST_DB, &appinfo_db, SQLITE_OPEN_READONLY, NULL);
-	tryvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "connect db [%s] failed!", MANIFEST_DB);
+	ret = db_util_open_with_options(getUserPkgParserDBPath(), &appinfo_db, SQLITE_OPEN_READONLY, NULL);
+	tryvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "connect db [%s] failed!", getUserPkgParserDBPath());
 
 	appinfo->package = strdup(info->manifest_info->package);
 	snprintf(query, MAX_QUERY_LEN, "select DISTINCT * " \
@@ -4252,8 +4252,8 @@ API int pkgmgrinfo_appinfo_get_install_list(pkgmgrinfo_app_list_cb app_func, voi
 	sqlite3 *appinfo_db = NULL;
 
 	/*open db*/
-	ret = db_util_open_with_options(MANIFEST_DB, &appinfo_db, SQLITE_OPEN_READONLY, NULL);
-	retvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "connect db [%s] failed!", MANIFEST_DB);
+	ret = db_util_open_with_options(getUserPkgParserDBPath(), &appinfo_db, SQLITE_OPEN_READONLY, NULL);
+	retvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "connect db [%s] failed!", getUserPkgParserDBPath());
 
 	/*calloc pkginfo*/
 	pkgmgr_pkginfo_x *info = NULL;
@@ -4348,8 +4348,8 @@ API int pkgmgrinfo_appinfo_get_installed_list(pkgmgrinfo_app_list_cb app_func, v
 	tryvm_if(locale == NULL, ret = PMINFO_R_ERROR, "manifest locale is NULL");
 
 	/*open db*/
-	ret = db_util_open_with_options(MANIFEST_DB, &appinfo_db, SQLITE_OPEN_READONLY, NULL);
-	retvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "connect db [%s] failed!", MANIFEST_DB);
+	ret = db_util_open_with_options(getUserPkgParserDBPath(), &appinfo_db, SQLITE_OPEN_READONLY, NULL);
+	retvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "connect db [%s] failed!", getUserPkgParserDBPath());
 
 	/*calloc pkginfo*/
 	pkgmgr_pkginfo_x *info = NULL;
@@ -4532,6 +4532,194 @@ catch:
 	return ret;
 }
 
+API int pkgmgrinfo_appinfo_get_appinfo_user(const char *appid, uid_t uid, pkgmgrinfo_appinfo_h *handle)
+{
+	retvm_if(appid == NULL, PMINFO_R_EINVAL, "appid is NULL");
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
+
+	pkgmgr_appinfo_x *appinfo = NULL;
+	char *syslocale = NULL;
+	char *locale = NULL;
+	int ret = -1;
+	int exist = 0;
+	label_x *tmp1 = NULL;
+	icon_x *tmp2 = NULL;
+	category_x *tmp3 = NULL;
+	metadata_x *tmp4 = NULL;
+	permission_x *tmp5 = NULL;
+	image_x *tmp6 = NULL;
+	char query[MAX_QUERY_LEN] = {'\0'};
+	sqlite3 *appinfo_db = NULL;
+
+	if (uid != 0) {
+		/*open db*/
+		_LOGD("getUserPkgParserDBPathUID(%d) returns: [%s]", uid, getUserPkgParserDBPathUID(uid));
+		ret = db_util_open_with_options(getUserPkgParserDBPathUID(uid), &appinfo_db, SQLITE_OPEN_READONLY, NULL);
+		retvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "connect db [%s] failed!", getUserPkgParserDBPathUID(uid));
+	}else
+	{
+		/*open db*/
+		_LOGD("getUserPkgParserDBPath() returns: [%s]", getUserPkgParserDBPath);
+		ret = db_util_open_with_options(getUserPkgParserDBPath(), &appinfo_db, SQLITE_OPEN_READONLY, NULL);
+		retvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "connect db [%s] failed!", getUserPkgParserDBPath());
+	}
+  
+	/*check appid exist on db*/
+	snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_app_info where app_id='%s')", appid);
+	ret = __exec_db_query(appinfo_db, query, __validate_cb, (void *)&exist);
+	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "sqlite3_exec fail");
+	tryvm_if(exist == 0, ret = PMINFO_R_ERROR, "Appid[%s] not found in DB", appid);
+
+	/*get system locale*/
+	syslocale = vconf_get_str(VCONFKEY_LANGSET);
+	tryvm_if(syslocale == NULL, ret = PMINFO_R_ERROR, "current locale is NULL");
+
+	/*get locale on db*/
+	locale = __convert_system_locale_to_manifest_locale(syslocale);
+	tryvm_if(locale == NULL, ret = PMINFO_R_ERROR, "manifest locale is NULL");
+
+	/*calloc appinfo*/
+	appinfo = (pkgmgr_appinfo_x *)calloc(1, sizeof(pkgmgr_appinfo_x));
+	tryvm_if(appinfo == NULL, ret = PMINFO_R_ERROR, "Failed to allocate memory for appinfo");
+
+	/*check app_component from DB*/
+	memset(query, '\0', MAX_QUERY_LEN);
+	snprintf(query, MAX_QUERY_LEN, "select app_component, package from package_app_info where app_id='%s' ", appid);
+	ret = __exec_db_query(appinfo_db, query, __appcomponent_cb, (void *)appinfo);
+	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App Info DB Information retrieval failed");
+
+	/*calloc app_component*/
+	if (appinfo->app_component == PMINFO_UI_APP) {
+		appinfo->uiapp_info = (uiapplication_x *)calloc(1, sizeof(uiapplication_x));
+		tryvm_if(appinfo->uiapp_info == NULL, ret = PMINFO_R_ERROR, "Failed to allocate memory for uiapp info");
+	} else {
+		appinfo->svcapp_info = (serviceapplication_x *)calloc(1, sizeof(serviceapplication_x));
+		tryvm_if(appinfo->svcapp_info == NULL, ret = PMINFO_R_ERROR, "Failed to allocate memory for svcapp info");
+	}
+	appinfo->locale = strdup(locale);
+
+	/*populate app_info from DB*/
+	memset(query, '\0', MAX_QUERY_LEN);
+	snprintf(query, MAX_QUERY_LEN, "select * from package_app_info where app_id='%s' ", appid);
+	ret = __exec_db_query(appinfo_db, query, __appinfo_cb, (void *)appinfo);
+	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App Info DB Information retrieval failed");
+
+	memset(query, '\0', MAX_QUERY_LEN);
+	snprintf(query, MAX_QUERY_LEN, "select * from package_app_localized_info where app_id='%s' and app_locale='%s'", appid, locale);
+	ret = __exec_db_query(appinfo_db, query, __appinfo_cb, (void *)appinfo);
+	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App Info DB Information retrieval failed");
+
+	/*Also store the values corresponding to default locales*/
+	memset(query, '\0', MAX_QUERY_LEN);
+	snprintf(query, MAX_QUERY_LEN, "select * from package_app_localized_info where app_id='%s' and app_locale='%s'", appid, DEFAULT_LOCALE);
+	ret = __exec_db_query(appinfo_db, query, __appinfo_cb, (void *)appinfo);
+	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App Localized Info DB Information retrieval failed");
+
+	/*Populate app category*/
+	memset(query, '\0', MAX_QUERY_LEN);
+	snprintf(query, MAX_QUERY_LEN, "select * from package_app_app_category where app_id='%s'", appid);
+	ret = __exec_db_query(appinfo_db, query, __appinfo_cb, (void *)appinfo);
+	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App Category Info DB Information retrieval failed");
+
+	/*Populate app metadata*/
+	memset(query, '\0', MAX_QUERY_LEN);
+	snprintf(query, MAX_QUERY_LEN, "select * from package_app_app_metadata where app_id='%s'", appid);
+	ret = __exec_db_query(appinfo_db, query, __appinfo_cb, (void *)appinfo);
+	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App Metadata Info DB Information retrieval failed");
+
+	/*Populate app permission*/
+	memset(query, '\0', MAX_QUERY_LEN);
+	snprintf(query, MAX_QUERY_LEN, "select * from package_app_app_permission where app_id='%s'", appid);
+	ret = __exec_db_query(appinfo_db, query, __appinfo_cb, (void *)appinfo);
+	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App permission Info DB Information retrieval failed");
+
+	/*store setting notification icon section*/
+	memset(query, '\0', MAX_QUERY_LEN);
+	snprintf(query, MAX_QUERY_LEN, "select * from package_app_icon_section_info where app_id='%s'", appid);
+	ret = __exec_db_query(appinfo_db, query, __appinfo_cb, (void *)appinfo);
+	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App icon section Info DB Information retrieval failed");
+
+	/*store app preview image info*/
+	memset(query, '\0', MAX_QUERY_LEN);
+	snprintf(query, MAX_QUERY_LEN, "select app_image_section, app_image from package_app_image_info where app_id='%s'", appid);
+	ret = __exec_db_query(appinfo_db, query, __appinfo_cb, (void *)appinfo);
+	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App image Info DB Information retrieval failed");
+
+	switch (appinfo->app_component) {
+	case PMINFO_UI_APP:
+		if (appinfo->uiapp_info->label) {
+			LISTHEAD(appinfo->uiapp_info->label, tmp1);
+			appinfo->uiapp_info->label = tmp1;
+		}
+		if (appinfo->uiapp_info->icon) {
+			LISTHEAD(appinfo->uiapp_info->icon, tmp2);
+			appinfo->uiapp_info->icon = tmp2;
+		}
+		if (appinfo->uiapp_info->category) {
+			LISTHEAD(appinfo->uiapp_info->category, tmp3);
+			appinfo->uiapp_info->category = tmp3;
+		}
+		if (appinfo->uiapp_info->metadata) {
+			LISTHEAD(appinfo->uiapp_info->metadata, tmp4);
+			appinfo->uiapp_info->metadata = tmp4;
+		}
+		if (appinfo->uiapp_info->permission) {
+			LISTHEAD(appinfo->uiapp_info->permission, tmp5);
+			appinfo->uiapp_info->permission = tmp5;
+		}
+		if (appinfo->uiapp_info->image) {
+			LISTHEAD(appinfo->uiapp_info->image, tmp6);
+			appinfo->uiapp_info->image = tmp6;
+		}
+		break;
+	case PMINFO_SVC_APP:
+		if (appinfo->svcapp_info->label) {
+			LISTHEAD(appinfo->svcapp_info->label, tmp1);
+			appinfo->svcapp_info->label = tmp1;
+		}
+		if (appinfo->svcapp_info->icon) {
+			LISTHEAD(appinfo->svcapp_info->icon, tmp2);
+			appinfo->svcapp_info->icon = tmp2;
+		}
+		if (appinfo->svcapp_info->category) {
+			LISTHEAD(appinfo->svcapp_info->category, tmp3);
+			appinfo->svcapp_info->category = tmp3;
+		}
+		if (appinfo->svcapp_info->metadata) {
+			LISTHEAD(appinfo->svcapp_info->metadata, tmp4);
+			appinfo->svcapp_info->metadata = tmp4;
+		}
+		if (appinfo->svcapp_info->permission) {
+			LISTHEAD(appinfo->svcapp_info->permission, tmp5);
+			appinfo->svcapp_info->permission = tmp5;
+		}
+		break;
+	default:
+		break;
+	}
+
+	ret = PMINFO_R_OK;
+
+catch:
+	if (ret == PMINFO_R_OK)
+		*handle = (void*)appinfo;
+	else {
+		*handle = NULL;
+		__cleanup_appinfo(appinfo);
+	}
+
+	sqlite3_close(appinfo_db);
+	if (syslocale) {
+		free(syslocale);
+		syslocale = NULL;
+	}
+	if (locale) {
+		free(locale);
+		locale = NULL;
+	}
+	return ret;
+}
+
 API int pkgmgrinfo_appinfo_get_appinfo(const char *appid, pkgmgrinfo_appinfo_h *handle)
 {
 	retvm_if(appid == NULL, PMINFO_R_EINVAL, "appid is NULL");
@@ -4552,8 +4740,8 @@ API int pkgmgrinfo_appinfo_get_appinfo(const char *appid, pkgmgrinfo_appinfo_h *
 	sqlite3 *appinfo_db = NULL;
 
 	/*open db*/
-	ret = db_util_open_with_options(MANIFEST_DB, &appinfo_db, SQLITE_OPEN_READONLY, NULL);
-	retvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "connect db [%s] failed!", MANIFEST_DB);
+	ret = db_util_open_with_options(getUserPkgParserDBPath(), &appinfo_db, SQLITE_OPEN_READONLY, NULL);
+	retvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "connect db [%s] failed!", getUserPkgParserDBPath());
 
 	/*check appid exist on db*/
 	snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_app_info where app_id='%s')", appid);
@@ -6861,11 +7049,11 @@ API int pkgmgrinfo_appinfo_set_state_enabled(const char *appid, bool enabled)
 	char query[MAX_QUERY_LEN] = {'\0'};
 	ret = __open_manifest_db();
 
-	if (access(MANIFEST_DB, F_OK) == 0) {
+	if (access(getUserPkgParserDBPath(), F_OK) == 0) {
 		ret = db_util_open(MANIFEST_DB, &manifest_db,
 			 DB_UTIL_REGISTER_HOOK_METHOD);
 		if (ret != SQLITE_OK) {
-			_LOGE("connect db [%s] failed! Manifest DB does not exists!!\n", MANIFEST_DB);
+			_LOGE("connect db [%s] failed! Manifest DB does not exists!!\n", getUserPkgParserDBPath());
 			return PMINFO_R_ERROR;
 		}
 	}
@@ -6961,11 +7149,11 @@ API int pkgmgrinfo_appinfo_set_default_label(const char *appid, const char *labe
 	char *error_message = NULL;
 	ret = __open_manifest_db();
 
-	if (access(MANIFEST_DB, F_OK) == 0) {
-		ret = db_util_open(MANIFEST_DB, &manifest_db,
+	if (access(getUserPkgParserDBPath(), F_OK) == 0) {
+		ret = db_util_open(getUserPkgParserDBPath(), &manifest_db,
 			 DB_UTIL_REGISTER_HOOK_METHOD);
 		if (ret != SQLITE_OK) {
-			_LOGE("connect db [%s] failed! Manifest DB does not exists!!\n", MANIFEST_DB);
+			_LOGE("connect db [%s] failed! Manifest DB does not exists!!\n", getUserPkgParserDBPath());
 			return PMINFO_R_ERROR;
 		}
 	}
@@ -7039,7 +7227,7 @@ API int pkgmgrinfo_appinfo_set_guestmode_visibility(pkgmgrinfo_appinfo_h handle,
 	val = (char *)info->uiapp_info->guestmode_visibility;
 	if (val ) {
                 ret =
-		    db_util_open_with_options(MANIFEST_DB, &pkgmgr_parser_db,
+		    db_util_open_with_options(getUserPkgParserDBPath(), &pkgmgr_parser_db,
 				 SQLITE_OPEN_READWRITE, NULL);
 
                 if (ret != SQLITE_OK) {

@@ -33,9 +33,8 @@
 #include <libxml/xmlschemas.h>
 #include <vconf.h>
 #include <glib.h>
-
-/* For multi-user support */
-#include <tzplatform_config.h>
+#include <pwd.h>
+#include <grp.h>
 
 #include "pkgmgr_parser.h"
 #include "pkgmgr_parser_internal.h"
@@ -64,6 +63,8 @@
 #define TAG_PARSER_NAME	"parserlib:"
 
 #define PKG_TAG_LEN_MAX 128
+
+
 
 /* operation_type */
 typedef enum {
@@ -170,6 +171,83 @@ static int __run_parser_prestep(xmlTextReaderPtr reader, ACTION_TYPE action, con
 static void __processNode(xmlTextReaderPtr reader, ACTION_TYPE action, char *const tagv[], const char *pkgid);
 static void __streamFile(const char *filename, ACTION_TYPE action, char *const tagv[], const char *pkgid);
 static int __validate_appid(const char *pkgid, const char *appid, char **newappid);
+static int __is_admin();
+
+API char *getUserDBLabel(void)
+{
+	char *result;
+	if(__is_admin())
+		result = strdup("System");
+	else
+		result = strdup("User");
+	return result;
+}
+
+API char *getUserPkgParserDBPath(void)
+{
+   return getUserPkgParserDBPathUID(getuid());
+}
+
+API char *getUserPkgParserDBPathUID(uid_t uid)
+{
+	char *result = NULL;
+	if(!uid)
+	{
+		result = tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_parser.db");
+	}
+	else
+	{
+		const char *name = "users";
+		struct passwd *userinfo = NULL;
+		struct group *grpinfo = NULL;
+
+		userinfo = getpwuid(uid);
+		if(userinfo == NULL)
+			_LOGE("getpwuid(%d) returns NULL !", uid);
+
+		grpinfo = getgrnam(name);
+		if(grpinfo == NULL)
+			_LOGE("getgrnam(users) returns NULL !");
+
+		// Compare git_t type and not group name
+		if (grpinfo->gr_gid != userinfo->pw_gid)
+			_LOGE("UID [%d] does not belong to 'users' group!", uid);
+
+		result = userinfo->pw_dir;
+		strcat(result,"/.applications/dbspace/.pkgmgr_parser.db");
+	}
+  return result;
+}
+
+API char *getUserPkgParserJournalDBPath(void)
+{
+	char *result;
+	if(getuid())
+		result = tzplatform_mkpath(TZ_USER_HOME, ".applications/dbspace/.pkgmgr_parser-journal.db");
+	else
+		result = tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_parser.db-journal");
+    return result;
+}
+
+API char *getUserPkgCertDBPath(void)
+{
+	char *result;
+	if(getuid())
+		result = tzplatform_mkpath(TZ_USER_HOME, ".applications/dbspace/.pkgmgr_cert.db");
+	else
+		result = tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_cert.db");
+    return result;
+}
+
+API char *getUserPkgCertJournalDBPath(void)
+{
+	char *result;
+	if(getuid())
+		result = tzplatform_mkpath(TZ_USER_HOME, ".applications/dbspace/.pkgmgr_cert-journal.db");
+	else
+		result = tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_cert-journal.db");
+    return result;
+}
 
 void *__open_lib_handle(char *tag)
 {
@@ -208,6 +286,17 @@ static void __str_trim(char *input)
 	*trim_str = 0;
 	return;
 }
+
+static int __is_admin()
+{
+	uid_t uid = getuid();
+	if ((uid_t) 0 == uid )
+		return 1;
+	else
+		return 0;
+}
+
+
 
 static int __validate_appid(const char *pkgid, const char *appid, char **newappid)
 {
@@ -4258,9 +4347,37 @@ static int __process_manifest(xmlTextReaderPtr reader, manifest_x * mfx)
 	return ret;
 }
 
-#define DESKTOP_RW_PATH tzplatform_mkpath(TZ_SYS_SHARE, "applications/")
-#define DESKTOP_RO_PATH "/usr/share/applications/"
-#define MANIFEST_RO_PREFIX "/usr/share/packages/"
+static const char* getUserDesktopPath(void)
+{
+	const char* desktop_path;
+	if(getuid() > 0)
+  {
+    desktop_path = tzplatform_mkpath(TZ_USER_HOME, ".applications/desktop/");
+  }
+  else
+  {
+    desktop_path = tzplatform_mkpath(TZ_SYS_RW_DESKTOP_APP, "/");
+  }
+
+  _LOGD("uid: [%d] / desktop_path: [%s]\n", getuid(), desktop_path);
+  return desktop_path;
+}
+
+static const char* getUserManifestPath(void)
+{
+	const char* manifest_path;
+	if(getuid() > 0)
+  {
+    manifest_path = tzplatform_mkpath(TZ_USER_HOME, ".config/xwalk-service/applications/");
+  }
+  else
+  {
+    manifest_path = tzplatform_mkpath(TZ_SYS_RW_PACKAGES, "/");
+  }
+
+  _LOGD("uid: [%d] / manifest_path: [%s]\n", getuid(), manifest_path);
+  return manifest_path;
+}
 
 static char* __convert_to_system_locale(const char *mlocale)
 {
@@ -4374,17 +4491,14 @@ static int __ps_make_nativeapp_desktop(manifest_x * mfx, const char *manifest, A
 
 		if (manifest != NULL) {
 			/* skip making a deskfile and update ail, if preload app is updated */
-			if(strstr(manifest, MANIFEST_RO_PREFIX)) {
+			if(strstr(manifest, getUserManifestPath())) {
 				__ail_change_info(AIL_INSTALL, mfx->uiapplication->appid);
 	            _LOGE("preload app is update : skip and update ail : %s", manifest);
 				continue;
 			}
 		}
 
-		if(mfx->readonly && !strcasecmp(mfx->readonly, "True"))
-			snprintf(filepath, sizeof(filepath),"%s%s.desktop", DESKTOP_RO_PATH, mfx->uiapplication->appid);
-		else
-			snprintf(filepath, sizeof(filepath),"%s%s.desktop", DESKTOP_RW_PATH, mfx->uiapplication->appid);
+		snprintf(filepath, sizeof(filepath),"%s%s.desktop", getUserDesktopPath(), mfx->uiapplication->appid);
 
 		/* skip if desktop exists
 		if (access(filepath, R_OK) == 0)
@@ -4718,7 +4832,7 @@ static int __ps_remove_nativeapp_desktop(manifest_x *mfx)
 	uiapplication_x *uiapplication = mfx->uiapplication;
 
 	for(; uiapplication; uiapplication=uiapplication->next) {
-	        snprintf(filepath, sizeof(filepath),"%s%s.desktop", DESKTOP_RW_PATH, uiapplication->appid);
+	        snprintf(filepath, sizeof(filepath),"%s%s.desktop", getUserDesktopPath(), uiapplication->appid);
 
 		__ail_change_info(AIL_REMOVE, uiapplication->appid);
 
@@ -4770,7 +4884,7 @@ static int __add_preload_info(manifest_x * mfx, const char *manifest)
 	char buffer[1024] = { 0 };
 	int state = 0;
 
-	if(strstr(manifest, MANIFEST_RO_PREFIX)) {
+	if(strstr(manifest, getUserManifestPath())) {
 		free((void *)mfx->readonly);
 		mfx->readonly = strdup("True");
 
@@ -4835,10 +4949,10 @@ static int __check_preload_updated(manifest_x * mfx, const char *manifest)
 	int ret = 0;
 	uiapplication_x *uiapplication = mfx->uiapplication;
 
-	if(strstr(manifest, MANIFEST_RO_PREFIX)) {
+	if(strstr(manifest, getUserManifestPath())) {
 		/* if preload app is updated, then remove previous desktop file on RW*/
 		for(; uiapplication; uiapplication=uiapplication->next) {
-				snprintf(filepath, sizeof(filepath),"%s%s.desktop", DESKTOP_RW_PATH, uiapplication->appid);
+				snprintf(filepath, sizeof(filepath),"%s%s.desktop", getUserDesktopPath(), uiapplication->appid);
 			ret = remove(filepath);
 			if (ret <0)
 				return -1;

@@ -2236,7 +2236,7 @@ static int get_app_type(const char *appid)
  * @endcode
  */
 int pkgmgrinfo_appinfo_get_appinfo(const char *appid, pkgmgrinfo_appinfo_h *handle);
-
+int pkgmgrinfo_appinfo_get_appinfo_user(const char *appid, uid_t uid, pkgmgrinfo_appinfo_h *handle);
 /**
  * @fn int pkgmgrinfo_appinfo_get_appid(pkgmgrinfo_appinfo_h handle, char **appid)
  * @brief	This API gets the application ID
