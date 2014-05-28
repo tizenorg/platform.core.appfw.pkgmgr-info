@@ -35,6 +35,7 @@ Library for manifest parser
 %package parser-devel
 Summary:    Dev package for libpkgmgr-parser
 Requires:   %{name} = %{version}-%{release}
+Requires:	pkgconfig(libtzplatform-config)
 
 %description parser-devel
 Dev package for libpkgmgr-parser
