@@ -2121,7 +2121,7 @@ int pkgmgr_parser_check_and_create_db()
 		return -1;
 	}
 	/*Cert DB*/
-	ret = __pkgmgr_parser_create_db(&pkgmgr_cert_db, getUserPkgParserDBPath());
+	ret = __pkgmgr_parser_create_db(&pkgmgr_cert_db, getUserPkgCertDBPath());
 	if (ret) {
 		_LOGD("Cert DB creation Failed\n");
 		return -1;
