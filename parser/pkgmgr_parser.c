@@ -190,13 +190,14 @@ API char *getUserPkgParserDBPath(void)
 
 API char *getUserPkgParserDBPathUID(uid_t uid)
 {
-	char *result = NULL;
+	char  *result = NULL;
 	if(!uid)
 	{
 		result = tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_parser.db");
 	}
 	else
 	{
+		static char result_psswd[4096];
 		const char *name = "users";
 		struct passwd *userinfo = NULL;
 		struct group *grpinfo = NULL;
@@ -212,9 +213,8 @@ API char *getUserPkgParserDBPathUID(uid_t uid)
 		// Compare git_t type and not group name
 		if (grpinfo->gr_gid != userinfo->pw_gid)
 			_LOGE("UID [%d] does not belong to 'users' group!", uid);
-
-		result = userinfo->pw_dir;
-		strcat(result,"/.applications/dbspace/.pkgmgr_parser.db");
+		snprintf(result_psswd,sizeof(result_psswd),"%s/.applications/dbspace/.pkgmgr_parser.db",userinfo->pw_dir);
+		result = result_psswd;
 	}
   return result;
 }
