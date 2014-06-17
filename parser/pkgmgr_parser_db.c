@@ -28,6 +28,7 @@
 #include <unistd.h>
 #include <db-util.h>
 #include <glib.h>
+#include <grp.h>
 
 /* For multi-user support */
 #include <tzplatform_config.h>
@@ -46,6 +47,8 @@
 #define PKGMGR_PARSER_DB_FILE tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_parser.db")
 #define PKGMGR_CERT_DB_FILE tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_cert.db")
 #define MAX_QUERY_LEN		4096
+#define BUFSIZE 4096
+#define OWNER_ROOT 0
 
 sqlite3 *pkgmgr_parser_db;
 sqlite3 *pkgmgr_cert_db;
@@ -73,7 +76,7 @@ sqlite3 *pkgmgr_cert_db;
 						"mainapp_id text," \
 						"package_url text," \
 						"root_path text," \
-						"csc_path text)"
+						"csc_path text )"
 
 #define QUERY_CREATE_TABLE_PACKAGE_LOCALIZED_INFO "create table if not exists package_localized_info " \
 						"(package text not null, " \
@@ -240,6 +243,7 @@ sqlite3 *pkgmgr_cert_db;
 						"dist2_signer_cert integer, " \
 						"PRIMARY KEY(package)) "
 
+
 static int __insert_uiapplication_info(manifest_x *mfx);
 static int __insert_serviceapplication_info(manifest_x *mfx);
 static int __insert_uiapplication_appsvc_info(manifest_x *mfx);
@@ -269,7 +273,8 @@ static gint __comparefunc(gconstpointer a, gconstpointer b, gpointer userdata);
 static GList *__create_locale_list(GList *locale, label_x *lbl, license_x *lcn, icon_x *icn, description_x *dcn, author_x *ath);
 static void __preserve_guestmode_visibility_value(manifest_x *mfx);
 static int __guestmode_visibility_cb(void *data, int ncols, char **coltxt, char **colname);
-static int __pkgmgr_parser_create_db(sqlite3 **db_handle, const char *db_path);
+static int __pkgmgr_parser_create_parser_db(sqlite3 **db_handle, const char *db_path, uid_t uid);
+static int __pkgmgr_parser_create_cert_db(sqlite3 **db_handle, const char *db_path, uid_t uid);
 
 static int __delete_subpkg_list_cb(void *data, int ncols, char **coltxt, char **colname)
 {
@@ -289,10 +294,12 @@ static char *__get_str(const char *str)
 	return str;
 }
 
-static int __pkgmgr_parser_create_db(sqlite3 **db_handle, const char *db_path)
+static int __pkgmgr_parser_create_parser_db(sqlite3 **db_handle, const char *db_path, uid_t uid)
 {
 	int ret = -1;
 	sqlite3 *handle;
+	char *pk, key1, key2, key3, key4, key5;
+
 	if (access(db_path, F_OK) == 0) {
 		ret =
 		    db_util_open(db_path, &handle,
@@ -303,7 +310,7 @@ static int __pkgmgr_parser_create_db(sqlite3 **db_handle, const char *db_path)
 			return -1;
 		}
 		*db_handle = handle;
-		return 0;
+
 	}
 	_LOGD("%s DB does not exists. Create one!!\n", db_path);
 
@@ -316,6 +323,39 @@ static int __pkgmgr_parser_create_db(sqlite3 **db_handle, const char *db_path)
 		return -1;
 	}
 	*db_handle = handle;
+	
+	return 0;
+}
+
+static int __pkgmgr_parser_create_cert_db(sqlite3 **db_handle, const char *db_path, uid_t uid)
+{
+	int ret = -1;
+	sqlite3 *handle;
+
+	if (access(db_path, F_OK) == 0) {
+		ret =
+		    db_util_open(db_path, &handle,
+				 DB_UTIL_REGISTER_HOOK_METHOD);
+		if (ret != SQLITE_OK) {
+			_LOGD("connect db [%s] failed!\n",
+			       db_path);
+			return -1;
+		}
+		*db_handle = handle;
+
+	}
+	_LOGD("%s DB does not exists. Create one!!\n", db_path);
+
+	ret =
+	    db_util_open(db_path, &handle,
+			 DB_UTIL_REGISTER_HOOK_METHOD);
+
+	if (ret != SQLITE_OK) {
+		_LOGD("connect db [%s] failed!\n", db_path);
+		return -1;
+	}
+	*db_handle = handle;
+
 	return 0;
 }
 
@@ -394,10 +434,12 @@ static int __initialize_db(sqlite3 *db_handle, const char *db_query)
 static int __exec_query(char *query)
 {
 	char *error_message = NULL;
+	fprintf(stdout, "__exec_queryquery : %s \n\n\n",query);
 	if (SQLITE_OK !=
 	    sqlite3_exec(pkgmgr_parser_db, query, NULL, NULL, &error_message)) {
 		_LOGD("Don't execute query = %s error message = %s\n", query,
 		       error_message);
+		fprintf(stdout, "__exec_query error:%s\n : %s error:%s\n",error_message);
 		sqlite3_free(error_message);
 		return -1;
 	}
@@ -1549,12 +1591,13 @@ static int __insert_manifest_info_in_db(manifest_x *mfx)
 		if (ath->href)
 			auth_href = ath->href;
 	}
-
+	fprintf(stdout, "/*Insert in the package_info DB*/n");
 	/*Insert in the package_info DB*/
 	if (mfx->type)
 		type = strdup(mfx->type);
 	else
 		type = strdup("rpm");
+	fprintf(stdout, "Insert in the package_info DB/n");
 	/*Insert in the package_info DB*/
 	if (mfx->root_path)
 		path = strdup(mfx->root_path);
@@ -1566,7 +1609,7 @@ static int __insert_manifest_info_in_db(manifest_x *mfx)
 			apps_path = tzplatform_getenv(TZ_USER_APP);
 			snprintf(root, MAX_QUERY_LEN - 1, "%s/%s", apps_path, mfx->package);
 		}
-
+	fprintf(stdout, "apps_path: %s/n", apps_path);
 		path = strdup(root);
 	}
 	snprintf(query, MAX_QUERY_LEN,
@@ -1596,12 +1639,13 @@ static int __insert_manifest_info_in_db(manifest_x *mfx)
 		 __get_str(mfx->package_url),
 		 path,
 		 __get_str(mfx->csc_path));
-
+	fprintf(stdout, "If package dont have main_package tag, this package is main package.\n");
 	/*If package dont have main_package tag, this package is main package.*/
 	if (mfx->main_package == NULL) {
 		ret = __exec_query(query);
 		if (ret == -1) {
 			_LOGD("Package Info DB Insert Failed\n");
+			fprintf(stdout, "Package Info DB Insert Failed query %s :\n\n\n", query);
 			if (type) {
 				free(type);
 				type = NULL;
@@ -1613,6 +1657,7 @@ static int __insert_manifest_info_in_db(manifest_x *mfx)
 			return -1;
 		}
 	} else {
+		fprintf(stdout, "If package has main_package tag, this package is sub package(ug, efl).\n");
 		/*If package has main_package tag, this package is sub package(ug, efl).
 		skip __exec_query for package_info and change pkgid with main_package*/
 		memset(root, '\0', MAX_QUERY_LEN);
@@ -1622,6 +1667,7 @@ static int __insert_manifest_info_in_db(manifest_x *mfx)
 			mfx->package = strdup(mfx->main_package);
 		} else {
 			_LOGE("main package[%s] is not installed\n", root);
+			fprintf(stdout,"main package[%s] is not installed\n");
 			return -1;
 		}
 	}
@@ -1634,6 +1680,7 @@ static int __insert_manifest_info_in_db(manifest_x *mfx)
 		path = NULL;
 	}
 
+	fprintf(stdout,"Insert in the package_privilege_info DB\n");
 	/*Insert in the package_privilege_info DB*/
 	pvs = mfx->privileges;
 	while (pvs != NULL) {
@@ -1647,6 +1694,7 @@ static int __insert_manifest_info_in_db(manifest_x *mfx)
 			ret = __exec_query(query);
 			if (ret == -1) {
 				_LOGD("Package Privilege Info DB Insert Failed\n");
+				fprintf(stdout,"Package Privilege Info DB Insert Failed\n");
 				return -1;
 			}
 			pv = pv->next;
@@ -1743,56 +1791,67 @@ static int __insert_manifest_info_in_db(manifest_x *mfx)
 	g_list_free(appimage);
 	appimage = NULL;
 
-
+	fprintf(stdout,"et = __insert_uiapplication_info(mfx)\n");
 	/*Insert in the package_app_info DB*/
 	ret = __insert_uiapplication_info(mfx);
 	if (ret == -1)
 		return -1;
+	fprintf(stdout,"et = __insert_serviceapplication_info(mfx)\n");	
 	ret = __insert_serviceapplication_info(mfx);
 	if (ret == -1)
 		return -1;
-
+	fprintf(stdout,"__insert_uiapplication_appcontrol_info\n");
 	/*Insert in the package_app_app_control DB*/
 	ret = __insert_uiapplication_appcontrol_info(mfx);
 	if (ret == -1)
 		return -1;
+	fprintf(stdout,"__insert_serviceapplication_appcontrol_info\n");
 	ret = __insert_serviceapplication_appcontrol_info(mfx);
 	if (ret == -1)
 		return -1;
 
 	/*Insert in the package_app_app_category DB*/
+	fprintf(stdout,"__insert_uiapplication_appcategory_info\n");
 	ret = __insert_uiapplication_appcategory_info(mfx);
 	if (ret == -1)
 		return -1;
+	fprintf(stdout,"__insert_serviceapplication_appcategory_info\n");
 	ret = __insert_serviceapplication_appcategory_info(mfx);
 	if (ret == -1)
 		return -1;
 
 	/*Insert in the package_app_app_metadata DB*/
+	fprintf(stdout,"__insert_uiapplication_appmetadata_info\n");
 	ret = __insert_uiapplication_appmetadata_info(mfx);
 	if (ret == -1)
 		return -1;
-	ret = __insert_serviceapplication_appmetadata_info(mfx);
+	fprintf(stdout,"__insert_uiapplication_appmetadata_info\n");
+	ret = __insert_uiapplication_appmetadata_info(mfx);
 	if (ret == -1)
 		return -1;
 
 	/*Insert in the package_app_app_permission DB*/
+	fprintf(stdout,"__insert_uiapplication_apppermission_info\n");
 	ret = __insert_uiapplication_apppermission_info(mfx);
 	if (ret == -1)
 		return -1;
+	fprintf(stdout,"__insert_serviceapplication_apppermission_info\n");
 	ret = __insert_serviceapplication_apppermission_info(mfx);
 	if (ret == -1)
 		return -1;
 
 	/*Insert in the package_app_app_svc DB*/
+	fprintf(stdout,"__insert_uiapplication_appsvc_info\n");
 	ret = __insert_uiapplication_appsvc_info(mfx);
 	if (ret == -1)
 		return -1;
+	fprintf(stdout,"__insert_serviceapplication_appsvc_info\n");
 	ret = __insert_serviceapplication_appsvc_info(mfx);
 	if (ret == -1)
 		return -1;
 
 	/*Insert in the package_app_share_allowed DB*/
+	fprintf(stdout,"__insert_uiapplication_share_allowed_info\n");
 	ret = __insert_uiapplication_share_allowed_info(mfx);
 	if (ret == -1)
 		return -1;
@@ -1801,9 +1860,11 @@ static int __insert_manifest_info_in_db(manifest_x *mfx)
 		return -1;
 
 	/*Insert in the package_app_share_request DB*/
+	fprintf(stdout,"__insert_uiapplication_share_request_info\n");
 	ret = __insert_uiapplication_share_request_info(mfx);
 	if (ret == -1)
 		return -1;
+	fprintf(stdout,"__insert_serviceapplication_share_request_info\n");
 	ret = __insert_serviceapplication_share_request_info(mfx);
 	if (ret == -1)
 		return -1;
@@ -1814,6 +1875,7 @@ static int __insert_manifest_info_in_db(manifest_x *mfx)
 
 static int __delete_appinfo_from_db(char *db_table, const char *appid)
 {
+	fprintf(stdout,"DB Deletion from table (%s) __delete_appinfo_from_db\n", db_table);
 	char query[MAX_QUERY_LEN] = { '\0' };
 	int ret = -1;
 	memset(query, '\0', MAX_QUERY_LEN);
@@ -1822,6 +1884,7 @@ static int __delete_appinfo_from_db(char *db_table, const char *appid)
 	ret = __exec_query(query);
 	if (ret == -1) {
 		_LOGD("DB Deletion from table (%s) Failed\n", db_table);
+		fprintf(stdout,"DB Deletion from table (%s) Failed\n", db_table);
 		return -1;
 	}
 	return 0;
@@ -2110,22 +2173,81 @@ int pkgmgr_parser_initialize_db()
 	return 0;
 }
 
-int pkgmgr_parser_check_and_create_db()
+static int parserdb_change_perm(const char *db_file)
+{
+	char buf[BUFSIZE];
+	char journal_file[BUFSIZE];
+	char *files[3];
+	int ret, i;
+	struct group *grpinfo = NULL;
+	files[0] = (char *)db_file;
+	files[1] = journal_file;
+	files[2] = NULL;
+
+	const char *name = "users";
+
+	if(db_file == NULL)
+		return -1;
+	if(db_file == NULL)
+		return -1;
+
+	snprintf(journal_file, sizeof(journal_file), "%s%s", db_file, "-journal");
+	grpinfo = getgrnam(name);
+	if(grpinfo == NULL){
+		_LOGD("getgrnam(users) returns NULL !");
+		fprintf(stdout,"getgrnam(users) returns NULL !\n"); 
+	}
+	for (i = 0; files[i]; i++) {
+		ret = chown(files[i], OWNER_ROOT, (gid_t)grpinfo->gr_gid);
+		if (ret == -1) {
+			strerror_r(errno, buf, sizeof(buf));
+			_LOGD("FAIL : chown %s %d.%d, because %s", db_file, OWNER_ROOT, grpinfo->gr_gid, buf);
+			fprintf(stdout,"FAIL : chown %s %d.%d, because %s", db_file, OWNER_ROOT, grpinfo->gr_gid, buf);
+			return -1;
+		}
+
+		ret = chmod(files[i], S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
+		if (ret == -1) {
+			strerror_r(errno, buf, sizeof(buf));
+			_LOGD("FAIL : chmod %s 0664, because %s", db_file, buf);
+			fprintf(stdout,"FAIL : chmod %s 0664, because %s", db_file, buf);
+			return -1;
+		}
+	}
+
+	return 0;
+}
+
+int pkgmgr_parser_check_and_create_db(uid_t uid)
 {
 	int ret = -1;
 	/*Manifest DB*/
-	ret = __pkgmgr_parser_create_db(&pkgmgr_parser_db, getUserPkgParserDBPath());
-	_LOGD("create db  %s", getUserPkgParserDBPath());
+	ret = __pkgmgr_parser_create_parser_db(&pkgmgr_parser_db, getUserPkgParserDBPathUID(uid), uid);
+	_LOGD("create db  %s", getUserPkgParserDBPathUID(uid));
+	fprintf(stdout, "create db  %s", getUserPkgParserDBPathUID(uid));
 	if (ret) {
 		_LOGD("Manifest DB creation Failed\n");
 		return -1;
 	}
+	if(uid != GLOBAL_USER) {
+	  if( 0 != parserdb_change_perm(getUserPkgParserDBPathUID(uid))) {
+		_LOGD("Failed to change permission\n");
+		fprintf(stdout, "Failed to change permission, %s \n",getUserPkgParserDBPathUID(uid) );
+	  }
+    }
 	/*Cert DB*/
-	ret = __pkgmgr_parser_create_db(&pkgmgr_cert_db, getUserPkgCertDBPath());
+	ret = __pkgmgr_parser_create_cert_db(&pkgmgr_cert_db, getUserPkgCertDBPathUID(uid), uid);
+	fprintf(stdout, "create db  %s", getUserPkgCertDBPathUID(uid));
 	if (ret) {
 		_LOGD("Cert DB creation Failed\n");
 		return -1;
 	}
+	if(uid != GLOBAL_USER) {
+	  if( 0 != parserdb_change_perm(getUserPkgCertDBPathUID(uid))) {
+		_LOGD("Failed to change permission\n");
+		fprintf(stdout, "Cert DB Failed to change permission\n");
+	  }
+    }
 	return 0;
 }
 
@@ -2135,6 +2257,7 @@ void pkgmgr_parser_close_db()
 	sqlite3_close(pkgmgr_cert_db);
 }
 
+
 API int pkgmgr_parser_insert_manifest_info_in_db(manifest_x *mfx)
 {
 	_LOGD("pkgmgr_parser_insert_manifest_info_in_db\n");
@@ -2143,7 +2266,8 @@ API int pkgmgr_parser_insert_manifest_info_in_db(manifest_x *mfx)
 		return -1;
 	}
 	int ret = 0;
-	ret = pkgmgr_parser_check_and_create_db();
+	fprintf(stdout,"pkgmgr_parser_check_and_create_db <-- pkgmgr_parser_insert_manifest_info_in_db\n");
+	ret = pkgmgr_parser_check_and_create_db(GLOBAL_USER);
 	if (ret == -1) {
 		_LOGD("Failed to open DB\n");
 		return ret;
@@ -2179,6 +2303,64 @@ err:
 	return ret;
 }
 
+API int pkgmgr_parser_insert_manifest_info_in_usr_db(manifest_x *mfx, uid_t uid)
+{
+	_LOGD("pkgmgr_parser_insert_manifest_info_in_usr_db\n");
+	_LOGE("pkgmgr_parser_insert_manifest_info_in_usr_db\n");
+	fprintf(stdout, "pkgmgr_parser_insert_manifest_info_in_db, uid : %d\n", uid);	
+	if (mfx == NULL) {
+		_LOGD("manifest pointer is NULL\n");
+		fprintf(stdout,"manifest pointer is NULL\n" );
+		return -1;
+	}
+	int ret = 0;
+	fprintf(stdout,"pkgmgr_parser_check_and_create_db <-- pkgmgr_parser_insert_manifest_info_in_usr_db uid %d \n", uid);
+	ret = pkgmgr_parser_check_and_create_db(uid);
+	if (ret == -1) {
+		_LOGD("Failed to open DB\n");
+		_LOGE("Failed to open DB\n");
+		fprintf(stdout,"Failed to open DB\n");
+		return ret;
+	}
+	ret = pkgmgr_parser_initialize_db();
+	if (ret == -1)
+		goto err;
+	/*Begin transaction*/
+	ret = sqlite3_exec(pkgmgr_parser_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGD("Failed to begin transaction\n");
+		_LOGE("Failed to begin transaction\n");
+		fprintf(stdout,"Failed to begin transaction\n");
+		ret = -1;
+		goto err;
+	}
+	_LOGD("Transaction Begin\n");
+	fprintf(stdout,"Transaction Begin\n" );
+	ret = __insert_manifest_info_in_db(mfx);
+	if (ret == -1) {
+		_LOGD("Insert into DB failed. Rollback now\n");
+		_LOGE("Insert into DB failed. Rollback now\n");
+		fprintf(stdout,"Insert into DB failed. Rollback now\n");
+		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
+		goto err;
+	}
+	/*Commit transaction*/
+	ret = sqlite3_exec(pkgmgr_parser_db, "COMMIT", NULL, NULL, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGD("Failed to commit transaction. Rollback now\n");
+		_LOGE("Failed to commit transaction. Rollback now\n");
+		fprintf(stdout,"Failed to commit transaction. Rollback now\n");
+		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
+		ret = -1;
+		goto err;
+	}
+	_LOGD("Transaction Commit and End\n");
+	_LOGE("Transaction Commit and End\n");
+	fprintf(stdout,"Transaction Commit and End\n");
+err:
+	pkgmgr_parser_close_db();
+	return ret;
+}
 API int pkgmgr_parser_update_manifest_info_in_db(manifest_x *mfx)
 {
 	if (mfx == NULL) {
@@ -2186,7 +2368,8 @@ API int pkgmgr_parser_update_manifest_info_in_db(manifest_x *mfx)
 		return -1;
 	}
 	int ret = 0;
-	ret = pkgmgr_parser_check_and_create_db();
+	fprintf(stdout,"pkgmgr_parser_check_and_create_db <-- pkgmgr_parser_update_manifest_info_in_db\n");
+	ret = pkgmgr_parser_check_and_create_db(GLOBAL_USER);
 	if (ret == -1) {
 		_LOGD("Failed to open DB\n");
 		return ret;
@@ -2231,6 +2414,60 @@ err:
 	return ret;
 }
 
+API int pkgmgr_parser_update_manifest_info_in_usr_db(manifest_x *mfx, uid_t uid)
+{
+	if (mfx == NULL) {
+		_LOGD("manifest pointer is NULL\n");
+		return -1;
+	}
+	int ret = 0;
+	fprintf(stdout,"pkgmgr_parser_check_and_create_db <-- pkgmgr_parser_update_manifest_info_in_usr_db\n");
+	ret = pkgmgr_parser_check_and_create_db(uid);
+	if (ret == -1) {
+		_LOGD("Failed to open DB\n");
+		return ret;
+	}
+	ret = pkgmgr_parser_initialize_db();
+	if (ret == -1)
+		goto err;
+	/*Preserve guest mode visibility*/
+	__preserve_guestmode_visibility_value( mfx);
+	/*Begin transaction*/
+	ret = sqlite3_exec(pkgmgr_parser_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGD("Failed to begin transaction\n");
+		ret = -1;
+		goto err;
+	}
+	_LOGD("Transaction Begin\n");
+	ret = __delete_manifest_info_from_db(mfx);
+	if (ret == -1) {
+		_LOGD("Delete from DB failed. Rollback now\n");
+		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
+		goto err;
+	}
+	ret = __insert_manifest_info_in_db(mfx);
+	if (ret == -1) {
+		_LOGD("Insert into DB failed. Rollback now\n");
+		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
+		goto err;
+	}
+
+	/*Commit transaction*/
+	ret = sqlite3_exec(pkgmgr_parser_db, "COMMIT", NULL, NULL, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGD("Failed to commit transaction. Rollback now\n");
+		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
+		ret = -1;
+		goto err;
+	}
+	_LOGD("Transaction Commit and End\n");
+err:
+	pkgmgr_parser_close_db();
+	return ret;
+}
+
+
 API int pkgmgr_parser_delete_manifest_info_from_db(manifest_x *mfx)
 {
 	if (mfx == NULL) {
@@ -2238,7 +2475,49 @@ API int pkgmgr_parser_delete_manifest_info_from_db(manifest_x *mfx)
 		return -1;
 	}
 	int ret = 0;
-	ret = pkgmgr_parser_check_and_create_db();
+	fprintf(stdout,"pkgmgr_parser_check_and_create_db <-- pkgmgr_parser_delete_manifest_info_from_db\n");
+	ret = pkgmgr_parser_check_and_create_db(GLOBAL_USER);
+	if (ret == -1) {
+		_LOGD("Failed to open DB\n");
+		return ret;
+	}
+	/*Begin transaction*/
+	ret = sqlite3_exec(pkgmgr_parser_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGD("Failed to begin transaction\n");
+		ret = -1;
+		goto err;
+	}
+	_LOGD("Transaction Begin\n");
+	ret = __delete_manifest_info_from_db(mfx);
+	if (ret == -1) {
+		_LOGD("Delete from DB failed. Rollback now\n");
+		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
+		goto err;
+	}
+	/*Commit transaction*/
+	ret = sqlite3_exec(pkgmgr_parser_db, "COMMIT", NULL, NULL, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGD("Failed to commit transaction, Rollback now\n");
+		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
+		ret = -1;
+		goto err;
+	}
+	_LOGD("Transaction Commit and End\n");
+err:
+	pkgmgr_parser_close_db();
+	return ret;
+}
+
+API int pkgmgr_parser_delete_manifest_info_from_usr_db(manifest_x *mfx, uid_t uid)
+{
+	if (mfx == NULL) {
+		_LOGD("manifest pointer is NULL\n");
+		return -1;
+	}
+	int ret = 0;
+	fprintf(stdout,"pkgmgr_parser_check_and_create_db <-- pkgmgr_parser_delete_manifest_info_from_usr_db\n");
+	ret = pkgmgr_parser_check_and_create_db(uid);
 	if (ret == -1) {
 		_LOGD("Failed to open DB\n");
 		return ret;
@@ -2274,7 +2553,8 @@ err:
 API int pkgmgr_parser_update_preload_info_in_db()
 {
 	int ret = 0;
-	ret = pkgmgr_parser_check_and_create_db();
+	fprintf(stdout,"pkgmgr_parser_check_and_create_db <-- pkgmgr_parser_update_preload_info_in_db\n");
+	ret = pkgmgr_parser_check_and_create_db(GLOBAL_USER);
 	if (ret == -1) {
 		_LOGD("Failed to open DB\n");
 		return ret;
@@ -2307,3 +2587,39 @@ err:
 	return ret;
 }
 
+API int pkgmgr_parser_update_preload_info_in_usr_db(uid_t uid)
+{
+	int ret = 0;
+	fprintf(stdout,"pkgmgr_parser_check_and_create_db <-- pkgmgr_parser_update_preload_info_in_usr_db\n");
+	ret = pkgmgr_parser_check_and_create_db(uid);
+	if (ret == -1) {
+		_LOGD("Failed to open DB\n");
+		return ret;
+	}
+	/*Begin transaction*/
+	ret = sqlite3_exec(pkgmgr_parser_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGD("Failed to begin transaction\n");
+		ret = -1;
+		goto err;
+	}
+	_LOGD("Transaction Begin\n");
+	ret = __update_preload_condition_in_db();
+	if (ret == -1) {
+		_LOGD("__update_preload_condition_in_db failed. Rollback now\n");
+		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
+		goto err;
+	}
+	/*Commit transaction*/
+	ret = sqlite3_exec(pkgmgr_parser_db, "COMMIT", NULL, NULL, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGD("Failed to commit transaction, Rollback now\n");
+		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
+		ret = -1;
+		goto err;
+	}
+	_LOGD("Transaction Commit and End\n");
+err:
+	pkgmgr_parser_close_db();
+	return ret;
+}

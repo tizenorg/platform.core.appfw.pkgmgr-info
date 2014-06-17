@@ -435,14 +435,27 @@ typedef enum {
  /** string property for filtering based on pkg info*/
 #define	PMINFO_PKGINFO_PROP_RANGE_BASIC	"PMINFO_PKGINFO_PROP_RANGE_BASIC"
 
+/* For multiuser support */
+char *getUserDBLabel(void);
+char *getUserPkgParserDBPath(void);
+char *getUserPkgParserDBPathUID(uid_t uid);
+char *getUserPkgParserJournalDBPath(uid_t uid);
+char *getUserPkgCertDBPath(void);
+char *getUserPkgCertDBPathUID(uid_t uid);
+char *getUserPkgCertJournalDBPath(uid_t uid);
+const char* getUserDesktopPath(uid_t uid);
+const char* getUserManifestPath(uid_t uid);
+
 /**
  * @fn	int pkgmgrinfo_pkginfo_get_list(pkgmgrinfo_pkg_list_cb pkg_list_cb, void *user_data)
+ * @fn	int pkgmgrinfo_pkginfo_get_usr_list(pkgmgrinfo_pkg_list_cb pkg_list_cb, void *user_data, uid_t uid)
  * @brief	This API gets list of installed packages
  *
  * @par		This API is for package-manager client application
  * @par Sync (or) Async : Synchronous API
  * @param[in]	pkg_list_cb	iteration function for list
  * @param[in]	user_data	user data to be passed to callback function
+ * @param[in]	uid	the addressee user id of the instruction
  * @return	0 if success, error code(<0) if fail
  * @retval	PMINFO_R_OK	success
  * @retval	PMINFO_R_EINVAL	invalid argument
@@ -476,7 +489,7 @@ static int list_pkgs()
  * @endcode
  */
 int pkgmgrinfo_pkginfo_get_list(pkgmgrinfo_pkg_list_cb pkg_list_cb, void *user_data);
-
+int pkgmgrinfo_pkginfo_get_usr_list(pkgmgrinfo_pkg_list_cb pkg_list_cb, void *user_data, uid_t uid);
 /**
  * @fn int pkgmgrinfo_pkginfo_get_pkginfo(const char *pkgid, pkgmgrinfo_pkginfo_h *handle)
  * @brief	This API creates the package information handle from db
@@ -485,6 +498,7 @@ int pkgmgrinfo_pkginfo_get_list(pkgmgrinfo_pkg_list_cb pkg_list_cb, void *user_d
  * @par Sync (or) Async : Synchronous API
  *
  * @param[in]	pkgid	pointer to package ID
+ * @param[in]	uid	the addressee user id of the instruction
  * @param[out] handle		pointer to the package info handle.
  * @return	0 if success, error code(<0) if fail
  * @retval	PMINFO_R_OK	success
@@ -515,6 +529,7 @@ static int get_pkg_type(const char *pkgid)
  * @endcode
  */
 int pkgmgrinfo_pkginfo_get_pkginfo(const char *pkgid, pkgmgrinfo_pkginfo_h *handle);
+int pkgmgrinfo_pkginfo_get_usr_pkginfo(const char *pkgid, uid_t uid, pkgmgrinfo_pkginfo_h *handle);
 
 /**
  * @fn int pkgmgrinfo_pkginfo_get_pkgname(pkgmgrinfo_pkginfo_h handle, char **pkg_name)
@@ -1359,7 +1374,7 @@ static int compare_pkg_cert_info(const char *lhs_package_id, const char *rhs_pac
  * @endcode
  */
 int pkgmgrinfo_pkginfo_compare_pkg_cert_info(const char *lhs_package_id, const char *rhs_package_id, pkgmgrinfo_cert_compare_result_type_e *compare_result);
-
+int pkgmgrinfo_pkginfo_compare_usr_pkg_cert_info(const char *lhs_package_id, const char *rhs_package_id, uid_t uid, pkgmgrinfo_cert_compare_result_type_e *compare_result);
 /**
  * @fn int pkgmgrinfo_pkginfo_compare_app_cert_info(const char *lhs_app_id, const char *rhs_app_id, pkgmgrinfo_cert_compare_result_type_e *compare_result)
  * @brief	This API compare the cert information from given app id
@@ -1394,7 +1409,7 @@ static int compare_app_cert_info(const char *lhs_app_id, const char *rhs_app_id,
  * @endcode
  */
 int pkgmgrinfo_pkginfo_compare_app_cert_info(const char *lhs_app_id, const char *rhs_app_id, pkgmgrinfo_cert_compare_result_type_e *compare_result);
-
+int pkgmgrinfo_pkginfo_compare_usr_app_cert_info(const char *lhs_app_id, const char *rhs_app_id, uid_t uid, pkgmgrinfo_cert_compare_result_type_e *compare_result);
 /**
  * @fn int pkgmgrinfo_pkginfo_is_removable(pkgmgrinfo_pkginfo_h handle, bool *removable)
  * @brief	This API gets the package 'removable' value from the package ID
@@ -1983,6 +1998,7 @@ int pkgmgrinfo_pkginfo_filter_foreach_pkginfo(pkgmgrinfo_pkginfo_filter_h handle
 
 /**
  * @fn int pkgmgrinfo_pkginfo_filter_count(pkgmgrinfo_pkginfo_filter_h handle, int *count)
+ * @fn int pkgmgrinfo_pkginfo_usr_filter_count(pkgmgrinfo_pkginfo_filter_h handle, int *count, uid_t uid)
  * @brief	This API counts the package that satisfy the filter conditions
  *
  * @par		This API is for package-manager client application
@@ -1990,6 +2006,7 @@ int pkgmgrinfo_pkginfo_filter_foreach_pkginfo(pkgmgrinfo_pkginfo_filter_h handle
  *
  * @param[in] handle		pointer to the package info filter handle.
  * @param[in] count		pointer to store the count value.
+ * @param[in]	uid	the addressee user id of the instruction
  * @return	0 if success, error code(<0) if fail
  * @retval	PMINFO_R_OK	success
  * @retval	PMINFO_R_EINVAL	invalid argument
@@ -2023,7 +2040,7 @@ static int get_rpm_pkg_count()
  * @endcode
  */
 int pkgmgrinfo_pkginfo_filter_count(pkgmgrinfo_pkginfo_filter_h handle, int *count);
-
+int pkgmgrinfo_pkginfo_usr_filter_count(pkgmgrinfo_pkginfo_filter_h handle, int *count, uid_t uid);
 /**
  * @fn	int pkgmgrinfo_pkginfo_foreach_privilege(pkgmgrinfo_pkginfo_h handle,
 			pkgmgrinfo_pkg_privilege_list_cb privilege_func, void *user_data);
@@ -2155,7 +2172,7 @@ static int list_apps()
  * @endcode
  */
 int pkgmgrinfo_appinfo_get_install_list(pkgmgrinfo_app_list_cb app_func, void *user_data);
-
+int pkgmgrinfo_appinfo_get_usr_install_list(pkgmgrinfo_app_list_cb app_func, uid_t uid, void *user_data);
 /**
  * @fn	int pkgmgrinfo_appinfo_get_installed_list(pkgmgrinfo_app_list_cb app_func, void *user_data);
  * @brief	This API gets list of installed applications from all packages.
@@ -2197,6 +2214,7 @@ static int list_apps()
  * @endcode
  */
 int pkgmgrinfo_appinfo_get_installed_list(pkgmgrinfo_app_list_cb app_func, void *user_data);
+int pkgmgrinfo_appinfo_get_usr_installed_list(pkgmgrinfo_app_list_cb app_func, uid_t uid, void *user_data);
 
 /**
  * @fn int pkgmgrinfo_appinfo_get_appinfo(const char *appid, pkgmgrinfo_appinfo_h *handle)
@@ -2236,7 +2254,7 @@ static int get_app_type(const char *appid)
  * @endcode
  */
 int pkgmgrinfo_appinfo_get_appinfo(const char *appid, pkgmgrinfo_appinfo_h *handle);
-int pkgmgrinfo_appinfo_get_appinfo_user(const char *appid, uid_t uid, pkgmgrinfo_appinfo_h *handle);
+int pkgmgrinfo_appinfo_get_usr_appinfo(const char *appid, uid_t uid, pkgmgrinfo_appinfo_h *handle);
 /**
  * @fn int pkgmgrinfo_appinfo_get_appid(pkgmgrinfo_appinfo_h handle, char **appid)
  * @brief	This API gets the application ID
@@ -3298,6 +3316,8 @@ int pkgmgrinfo_appinfo_foreach_metadata(pkgmgrinfo_appinfo_h handle,
 /**
  * @fn	int pkgmgrinfo_appinfo_foreach_appcontrol(pkgmgrinfo_appinfo_h handle,
 			pkgmgrinfo_app_control_list_cb appcontrol_func, void *user_data);
+ * @fn	int pkgmgrinfo_usr_appinfo_foreach_appcontrol(pkgmgrinfo_appinfo_h handle,
+			pkgmgrinfo_app_control_list_cb appcontrol_func, void *user_data, uid_t uid);
  * @brief	This API gets the list of app-control for a particular application
  *
  * @par		This API is for package-manager client application
@@ -3305,6 +3325,7 @@ int pkgmgrinfo_appinfo_foreach_metadata(pkgmgrinfo_appinfo_h handle,
  * @param[in]	handle		pointer to the application info handle.
  * @param[in]	appcontrol_func		callback function for list
  * @param[in] user_data	user data to be passed to callback function
+ * @param[in]	uid	the addressee user id of the instruction
  * @return	0 if success, error code(<0) if fail
  * @retval	PMINFO_R_OK	success
  * @retval	PMINFO_R_EINVAL	invalid argument
@@ -3345,6 +3366,8 @@ static int check_operation(const char *appid, char *operation)
  */
 int pkgmgrinfo_appinfo_foreach_appcontrol(pkgmgrinfo_appinfo_h handle,
 			pkgmgrinfo_app_control_list_cb appcontrol_func, void *user_data);
+int pkgmgrinfo_usr_appinfo_foreach_appcontrol(pkgmgrinfo_appinfo_h handle,
+			pkgmgrinfo_app_control_list_cb appcontrol_func, void *user_data, uid_t uid);
 
 /**
  * @fn int pkgmgrinfo_appinfo_is_nodisplay(pkgmgrinfo_appinfo_h handle, bool *nodisplay)
@@ -4054,6 +4077,7 @@ int pkgmgrinfo_appinfo_filter_foreach_appinfo(pkgmgrinfo_appinfo_filter_h handle
 
 /**
  * @fn int pkgmgrinfo_appinfo_filter_count(pkgmgrinfo_appinfo_filter_h handle, int *count)
+ * @fn int pkgmgrinfo_appinfo_usr_filter_count(pkgmgrinfo_appinfo_filter_h handle, int *count, uid_t uid)
  * @brief	This API counts the application that satisfy the filter conditions
  *
  * @par		This API is for package-manager client application
@@ -4061,6 +4085,7 @@ int pkgmgrinfo_appinfo_filter_foreach_appinfo(pkgmgrinfo_appinfo_filter_h handle
  *
  * @param[in] handle		pointer to the application info filter handle.
  * @param[in] count		pointer to store count value
+ * @param[in]	uid	the addressee user id of the instruction
  * @return	0 if success, error code(<0) if fail
  * @retval	PMINFO_R_OK	success
  * @retval	PMINFO_R_EINVAL	invalid argument
@@ -4094,7 +4119,7 @@ static int get_capp_count()
  * @endcode
  */
 int pkgmgrinfo_appinfo_filter_count(pkgmgrinfo_appinfo_filter_h handle, int *count);
-
+int pkgmgrinfo_appinfo_usr_filter_count(pkgmgrinfo_appinfo_filter_h handle, int *count, uid_t uid);
 /**
  * @fn int pkgmgrinfo_appinfo_metadata_filter_create(pkgmgrinfo_appinfo_metadata_filter_h *handle)
  * @brief	This API creates the application's metadata  information filter handle from db.
@@ -4245,6 +4270,7 @@ int pkgmgrinfo_appinfo_metadata_filter_add(pkgmgrinfo_appinfo_metadata_filter_h 
 
 /**
  * @fn int pkgmgrinfo_appinfo_metadata_filter_foreach(pkgmgrinfo_appinfo_metadata_filter_h handle, pkgmgrinfo_app_list_cb app_cb, void *user_data)
+ * @fn int pkgmgrinfo_appinfo_usr_metadata_filter_foreach(pkgmgrinfo_appinfo_metadata_filter_h handle, pkgmgrinfo_app_list_cb app_cb, void *user_data, uid_t uid)
  * @brief	This API executes the filter query. The query will search the entire application metadata  information collected from
  * the manifest file of all the installed packages. For each application returned by the query, the callback will be called. If callback returns
  * negative value, no more callbacks will be called and API will return.
@@ -4255,6 +4281,7 @@ int pkgmgrinfo_appinfo_metadata_filter_add(pkgmgrinfo_appinfo_metadata_filter_h 
  * @param[in] handle		pointer to the application metadata info filter handle.
  * @param[in] app_cb		function pointer to callback
  * @param[in] user_data		pointer to user data
+ * @param[in]	uid	the addressee user id of the instruction
  * @return	0 if success, error code(<0) if fail
  * @retval	PMINFO_R_OK	success
  * @retval	PMINFO_R_EINVAL	invalid argument
@@ -4294,7 +4321,8 @@ static int get_app_list(const char *mkey, const char *mvalue)
  */
 int pkgmgrinfo_appinfo_metadata_filter_foreach(pkgmgrinfo_appinfo_metadata_filter_h handle,
 		pkgmgrinfo_app_list_cb app_cb, void *user_data);
-
+int pkgmgrinfo_appinfo_usr_metadata_filter_foreach(pkgmgrinfo_appinfo_metadata_filter_h handle,
+		pkgmgrinfo_app_list_cb app_cb, void *user_data, uid_t uid);
 /**
  * @fn int pkgmgrinfo_pkginfo_create_certinfo(pkgmgrinfo_certinfo_h *handle)
  * @brief	This API creates the package cert information handle to get data from db.
@@ -4496,12 +4524,14 @@ static int delete_cert_info(const char *pkgid)
 
 /**
  * @fn int pkgmgrinfo_create_pkgdbinfo(const char *pkgid, pkgmgrinfo_pkgdbinfo_h *handle)
+ * @fn int pkgmgrinfo_create_pkgusrdbinfo(const char *pkgid, pkgmgrinfo_pkgdbinfo_h *handle)
  * @brief	This API creates the package db information handle to set data in db.
  *
  * @par		This API is for package-manager client application
  * @par Sync (or) Async : Synchronous API
  *
  * @param[in] pkgid	pointer to the package ID.
+ * @param[in]	uid	the addressee user id of the instruction
  * @param[out] handle		pointer to the package db info handle.
  * @return	0 if success, error code(<0) if fail
  * @retval	PMINFO_R_OK	success
@@ -4535,6 +4565,7 @@ static int set_pkg_in_db(const char *pkgid)
  * @endcode
  */
 int pkgmgrinfo_create_pkgdbinfo(const char *pkgid, pkgmgrinfo_pkgdbinfo_h *handle);
+int pkgmgrinfo_create_pkgusrdbinfo(const char *pkgid, uid_t uid, pkgmgrinfo_pkgdbinfo_h *handle);
 
 /**
  * @fn int pkgmgrinfo_set_type_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, const char *type)
@@ -5007,12 +5038,14 @@ int pkgmgrinfo_set_installed_storage_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle,
 
 /**
  * @fn int pkgmgrinfo_save_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle)
+ * @fn int pkgmgrinfo_save_pkgdbusrinfo(pkgmgrinfo_pkgdbinfo_h handle, uid_t uid)
  * @brief	This API saves all the information from the handle to the DB.
  *
  * @par		This API is for package-manager client application
  * @par Sync (or) Async : Synchronous API
  *
  * @param[in] handle		pointer to the package db info handle.
+ * @param[in]	uid	the addressee user id of the instruction
  * @return	0 if success, error code(<0) if fail
  * @retval	PMINFO_R_OK	success
  * @retval	PMINFO_R_EINVAL	invalid argument
@@ -5044,7 +5077,7 @@ static int set_pkg_in_db(const char *pkgid)
  * @endcode
  */
 int pkgmgrinfo_save_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle);
-
+int pkgmgrinfo_save_pkgdbusrinfo(pkgmgrinfo_pkgdbinfo_h handle, uid_t uid);
 /**
  * @fn int pkgmgrinfo_destroy_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle)
  * @brief	This API destroys the package db information handle freeing up all the resources
@@ -5345,7 +5378,7 @@ static int set_app_guestmode_visibility(const char *appid, bool value)
  * @endcode
  */
  int pkgmgrinfo_appinfo_set_guestmode_visibility(pkgmgrinfo_appinfo_h handle, bool status);
-
+ int pkgmgrinfo_appinfo_set_usr_guestmode_visibility(pkgmgrinfo_appinfo_h handle, uid_t uid, bool status);
 /**
  * @pkgmgrinfo client API
 **/
