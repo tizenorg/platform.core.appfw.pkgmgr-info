@@ -33,7 +33,6 @@
 #include <libxml/xmlschemas.h>
 #include <vconf.h>
 #include <glib.h>
-#include <pwd.h>
 #include <grp.h>
 
 #include "pkgmgr_parser.h"
@@ -48,12 +47,11 @@
 #endif
 #define LOG_TAG "PKGMGR_PARSER"
 
-#define MANIFEST_RW_DIRECTORY tzplatform_getenv(TZ_SYS_RW_PACKAGES)
-#define MANIFEST_RO_DIRECTORY tzplatform_getenv(TZ_SYS_RO_PACKAGES)
 #define ASCII(s) (const char *)s
 #define XMLCHAR(s) (const xmlChar *)s
 
-#define METADATA_PARSER_LIST SYSCONFDIR "/package-manager/parserlib/metadata/metadata_parser_list.txt"
+//#define METADATA_PARSER_LIST SYSCONFDIR "/package-manager/parserlib/metadata/metadata_parser_list.txt"
+#define METADATA_PARSER_LIST SYSCONFDIR "/package-manager/parserlib/metadata/mdparser_list.txt"
 #define METADATA_PARSER_NAME	"metadataparser:"
 
 #define CATEGORY_PARSER_LIST SYSCONFDIR "/package-manager/parserlib/category/category_parser_list.txt"
@@ -63,8 +61,8 @@
 #define TAG_PARSER_NAME	"parserlib:"
 
 #define PKG_TAG_LEN_MAX 128
-
-
+#define OWNER_ROOT 0
+#define BUFSIZE 4096
 
 /* operation_type */
 typedef enum {
@@ -113,15 +111,15 @@ static int __ps_process_define(xmlTextReaderPtr reader, define_x *define);
 static int __ps_process_appsvc(xmlTextReaderPtr reader, appsvc_x *appsvc);
 static int __ps_process_launchconditions(xmlTextReaderPtr reader, launchconditions_x *launchconditions);
 static int __ps_process_datashare(xmlTextReaderPtr reader, datashare_x *datashare);
-static int __ps_process_icon(xmlTextReaderPtr reader, icon_x *icon);
+static int __ps_process_icon(xmlTextReaderPtr reader, icon_x *icon, uid_t uid);
 static int __ps_process_author(xmlTextReaderPtr reader, author_x *author);
 static int __ps_process_description(xmlTextReaderPtr reader, description_x *description);
 static int __ps_process_capability(xmlTextReaderPtr reader, capability_x *capability);
 static int __ps_process_license(xmlTextReaderPtr reader, license_x *license);
 static int __ps_process_appcontrol(xmlTextReaderPtr reader, appcontrol_x *appcontrol);
 static int __ps_process_datacontrol(xmlTextReaderPtr reader, datacontrol_x *datacontrol);
-static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *uiapplication);
-static int __ps_process_serviceapplication(xmlTextReaderPtr reader, serviceapplication_x *serviceapplication);
+static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *uiapplication, uid_t uid);
+static int __ps_process_serviceapplication(xmlTextReaderPtr reader, serviceapplication_x *serviceapplication, uid_t uid);
 static int __ps_process_font(xmlTextReaderPtr reader, font_x *font);
 static int __ps_process_theme(xmlTextReaderPtr reader, theme_x *theme);
 static int __ps_process_daemon(xmlTextReaderPtr reader, daemon_x *daemon);
@@ -160,10 +158,10 @@ static void __ps_free_font(font_x *font);
 static void __ps_free_theme(theme_x *theme);
 static void __ps_free_daemon(daemon_x *daemon);
 static void __ps_free_ime(ime_x *ime);
-static char *__pkgid_to_manifest(const char *pkgid);
+static char *__pkgid_to_manifest(const char *pkgid, uid_t uid);
 static int __next_child_element(xmlTextReaderPtr reader, int depth);
-static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx);
-static int __process_manifest(xmlTextReaderPtr reader, manifest_x * mfx);
+static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx, uid_t uid);
+static int __process_manifest(xmlTextReaderPtr reader, manifest_x * mfx, uid_t uid);
 static void __str_trim(char *input);
 static char *__get_parser_plugin(const char *type);
 static int __ps_run_parser(xmlDocPtr docPtr, const char *tag, ACTION_TYPE action, const char *pkgid);
@@ -171,83 +169,7 @@ static int __run_parser_prestep(xmlTextReaderPtr reader, ACTION_TYPE action, con
 static void __processNode(xmlTextReaderPtr reader, ACTION_TYPE action, char *const tagv[], const char *pkgid);
 static void __streamFile(const char *filename, ACTION_TYPE action, char *const tagv[], const char *pkgid);
 static int __validate_appid(const char *pkgid, const char *appid, char **newappid);
-static int __is_admin();
-
-API char *getUserDBLabel(void)
-{
-	char *result;
-	if(__is_admin())
-		result = strdup("System");
-	else
-		result = strdup("User");
-	return result;
-}
-
-API char *getUserPkgParserDBPath(void)
-{
-   return getUserPkgParserDBPathUID(getuid());
-}
-
-API char *getUserPkgParserDBPathUID(uid_t uid)
-{
-	char  *result = NULL;
-	if(!uid)
-	{
-		result = tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_parser.db");
-	}
-	else
-	{
-		static char result_psswd[4096];
-		const char *name = "users";
-		struct passwd *userinfo = NULL;
-		struct group *grpinfo = NULL;
-
-		userinfo = getpwuid(uid);
-		if(userinfo == NULL)
-			_LOGE("getpwuid(%d) returns NULL !", uid);
-
-		grpinfo = getgrnam(name);
-		if(grpinfo == NULL)
-			_LOGE("getgrnam(users) returns NULL !");
-
-		// Compare git_t type and not group name
-		if (grpinfo->gr_gid != userinfo->pw_gid)
-			_LOGE("UID [%d] does not belong to 'users' group!", uid);
-		snprintf(result_psswd,sizeof(result_psswd),"%s/.applications/dbspace/.pkgmgr_parser.db",userinfo->pw_dir);
-		result = result_psswd;
-	}
-  return result;
-}
-
-API char *getUserPkgParserJournalDBPath(void)
-{
-	char *result;
-	if(getuid())
-		result = tzplatform_mkpath(TZ_USER_HOME, ".applications/dbspace/.pkgmgr_parser-journal.db");
-	else
-		result = tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_parser.db-journal");
-    return result;
-}
-
-API char *getUserPkgCertDBPath(void)
-{
-	char *result;
-	if(getuid())
-		result = tzplatform_mkpath(TZ_USER_HOME, ".applications/dbspace/.pkgmgr_cert.db");
-	else
-		result = tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_cert.db");
-    return result;
-}
-
-API char *getUserPkgCertJournalDBPath(void)
-{
-	char *result;
-	if(getuid())
-		result = tzplatform_mkpath(TZ_USER_HOME, ".applications/dbspace/.pkgmgr_cert-journal.db");
-	else
-		result = tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_cert-journal.db");
-    return result;
-}
+API int __is_admin();
 
 void *__open_lib_handle(char *tag)
 {
@@ -287,7 +209,7 @@ static void __str_trim(char *input)
 	return;
 }
 
-static int __is_admin()
+API int __is_admin()
 {
 	uid_t uid = getuid();
 	if ((uid_t) 0 == uid )
@@ -711,7 +633,7 @@ END:
 	return ret;
 }
 
-static char *__pkgid_to_manifest(const char *pkgid)
+static char *__pkgid_to_manifest(const char *pkgid, uid_t uid)
 {
 	char *manifest;
 	int size;
@@ -721,17 +643,17 @@ static char *__pkgid_to_manifest(const char *pkgid)
 		return NULL;
 	}
 
-	size = strlen(MANIFEST_RW_DIRECTORY) + strlen(pkgid) + 10;
+	size = strlen(getUserManifestPath(uid)) + strlen(pkgid) + 10;
 	manifest = malloc(size);
 	if (manifest == NULL) {
 		_LOGE("No memory");
 		return NULL;
 	}
 	memset(manifest, '\0', size);
-	snprintf(manifest, size, "%s/%s.xml", MANIFEST_RW_DIRECTORY, pkgid);
+	snprintf(manifest, size, "%s/%s.xml", getUserManifestPath(uid), pkgid);
 
 	if (access(manifest, F_OK)) {
-		snprintf(manifest, size, "%s/%s.xml", MANIFEST_RO_DIRECTORY, pkgid);
+		snprintf(manifest, size, "%s/%s.xml", getUserManifestPath(uid), pkgid);
 	}
 
 	return manifest;
@@ -920,10 +842,12 @@ static int __run_metadata_parser_prestep (manifest_x *mfx, char *md_key, ACTION_
 		//send glist to parser when tags for metadata plugin parser exist.
 		if (tag_exist) {
 			ret = __ps_run_metadata_parser(md_list, md_tag, action, mfx->package, up->appid);
-			if (ret < 0)
+			if (ret < 0){
 				_LOGD("metadata_parser failed[%d] for tag[%s]\n", ret, md_tag);
-			else
+			}
+			else{
 				_LOGD("metadata_parser success for tag[%s]\n", md_tag);
+			}
 		}
 		__metadata_parser_clear_dir_list(md_list);
 		md_list = NULL;
@@ -1108,9 +1032,8 @@ static int __run_parser_prestep(xmlTextReaderPtr reader, ACTION_TYPE action, con
 	    cur_node->next ? cur_node->next->name : "NULL",
 	    cur_node->prev ? cur_node->prev->name : "NULL");
 
-	FILE *fp = fopen("/opt/share/test.xml", "a");
+	FILE *fp = fopen(tzplatform_mkpath(TZ_SYS_SHARE, "test.xml"), "a");
 	xmlDocDump(fp, copyDocPtr);
-	fprintf(fp, "\n");
 	fclose(fp);
 #endif
 
@@ -2554,6 +2477,7 @@ int __ps_process_tag_parser(manifest_x *mfx, const char *filename, ACTION_TYPE a
 
 int __ps_process_metadata_parser(manifest_x *mfx, ACTION_TYPE action)
 {
+	fprintf(stdout,"__ps_process_metadata_parser\n");
 	int ret = -1;
 	FILE *fp = NULL;
 	char md_key[PKG_STRING_LEN_MAX] = { 0 };
@@ -2563,7 +2487,7 @@ int __ps_process_metadata_parser(manifest_x *mfx, ACTION_TYPE action)
 		_LOGD("no preload list\n");
 		return -1;
 	}
-
+	
 	while (fgets(md_key, sizeof(md_key), fp) != NULL) {
 		__str_trim(md_key);
 		ret = __run_metadata_parser_prestep(mfx, md_key, action);
@@ -3108,13 +3032,14 @@ static int __ps_process_datashare(xmlTextReaderPtr reader, datashare_x *datashar
 }
 
 static char*
-__get_icon_with_path(const char* icon)
+__get_icon_with_path(const char* icon, uid_t uid)
 {
 	if (!icon)
 		return NULL;
 
 	if (index(icon, '/') == NULL) {
 		char* theme = NULL;
+		char* iconPath = NULL;
 		char* icon_with_path = NULL;
 		int len;
 
@@ -3143,30 +3068,57 @@ __get_icon_with_path(const char* icon)
 		}
 
 		memset(icon_with_path, 0, len);
+		//--------------------------------------------------------------
+		//workaround to bypass segfault when we use geticon function
+		
+		if(uid != GLOBAL_USER)
+			iconPath = tzplatform_getenv(TZ_USER_ICONS);
+		else
+			iconPath = tzplatform_getenv(TZ_SYS_RW_ICONS);
+		if(access(iconPath, F_OK)) {
+			struct group *grpinfo = NULL;
+			const char *name = "users";
+			int ret;
+			char buf[BUFSIZE];
+			mkdir(iconPath, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
+			grpinfo = getgrnam(name);
+			if(grpinfo == NULL)
+				_LOGD("getgrnam(users) returns NULL !");
 
-		snprintf(icon_with_path, len, "/opt/share/icons/%s/small/%s", theme, icon);
+			ret = chown(iconPath, uid, grpinfo->gr_gid);
+			if (ret == -1) {
+				strerror_r(errno, buf, sizeof(buf));
+				_LOGD("FAIL : chown %s %d.%d, because %s", iconPath, uid, grpinfo->gr_gid, buf);
+			}
+			
+		}
+		if(iconPath == NULL)
+			_LOGD("Icon path error: %s ",iconPath );
+		else
+			snprintf(icon_with_path, len, "%s/%s/small/%s", iconPath, theme, icon);
+
 		do {
 			if (access(icon_with_path, R_OK) == 0) break;
-			snprintf(icon_with_path, len, "/usr/share/icons/%s/small/%s", theme, icon);
+			snprintf(icon_with_path, len, "%s/%s/small/%s", tzplatform_getenv(TZ_SYS_RO_ICONS), theme, icon);
 			if (access(icon_with_path, R_OK) == 0) break;
 			_LOGD("cannot find icon %s", icon_with_path);
-			snprintf(icon_with_path, len,"/opt/share/icons/default/small/%s", icon);
+			snprintf(icon_with_path, len,"%s/default/small/%s", iconPath, icon);
 			if (access(icon_with_path, R_OK) == 0) break;
-			snprintf(icon_with_path, len, "/usr/share/icons/default/small/%s", icon);
+			snprintf(icon_with_path, len, "%s/icons/default/small/%s", tzplatform_getenv(TZ_SYS_RO_ICONS), icon);
 			if (access(icon_with_path, R_OK) == 0) break;
 
 			/* icon path is going to be moved intto the app directory */
 			_LOGE("icon file must be moved to %s", icon_with_path);
-			snprintf(icon_with_path, len, "/opt/apps/%s/res/icons/%s/small/%s", package, theme, icon);
+			snprintf(icon_with_path, len, "%s/%s/res/icons/%s/small/%s", tzplatform_getenv(TZ_SYS_RW_APP), package, theme, icon);
 			if (access(icon_with_path, R_OK) == 0) break;
-			snprintf(icon_with_path, len, "/usr/apps/%s/res/icons/%s/small/%s", package, theme, icon);
+			snprintf(icon_with_path, len, "%s/%s/res/icons/%s/small/%s", tzplatform_getenv(TZ_SYS_RO_APP), package, theme, icon);
 			if (access(icon_with_path, R_OK) == 0) break;
 			_LOGD("cannot find icon %s", icon_with_path);
-			snprintf(icon_with_path, len, "/opt/apps/%s/res/icons/default/small/%s", package, icon);
+			snprintf(icon_with_path, len, "%s/%s/res/icons/default/small/%s", tzplatform_getenv(TZ_SYS_RW_APP), package, icon);
 			if (access(icon_with_path, R_OK) == 0) break;
-			snprintf(icon_with_path, len, "/usr/apps/%s/res/icons/default/small/%s", package, icon);
+			snprintf(icon_with_path, len, "%s/res/icons/default/small/%s", tzplatform_getenv(TZ_SYS_RO_APP), package, icon);
 			if (access(icon_with_path, R_OK) == 0) break;
-			snprintf(icon_with_path, len, "/usr/ug/res/images/%s/%s", package, icon);
+			snprintf(icon_with_path, len, "%s/res/images/%s/%s", tzplatform_getenv(TZ_SYS_RO_UG), package, icon);
 			if (access(icon_with_path, R_OK) == 0) break;
 		} while (0);
 
@@ -3234,7 +3186,7 @@ static void __ps_process_tag(manifest_x * mfx, char *const tagv[])
 	}
 }
 
-static int __ps_process_icon(xmlTextReaderPtr reader, icon_x *icon)
+static int __ps_process_icon(xmlTextReaderPtr reader, icon_x *icon, uid_t uid)
 {
 	if (xmlTextReaderGetAttribute(reader, XMLCHAR("name")))
 		icon->name = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("name")));
@@ -3255,7 +3207,7 @@ static int __ps_process_icon(xmlTextReaderPtr reader, icon_x *icon)
 	if (xmlTextReaderValue(reader)) {
 		const char *text  = ASCII(xmlTextReaderValue(reader));
 		if(text) {
-			icon->text = (const char *)__get_icon_with_path(text);
+			icon->text = (const char *)__get_icon_with_path(text, uid);
 			free((void *)text);
 		}
 	}
@@ -3291,12 +3243,12 @@ static int __ps_process_label(xmlTextReaderPtr reader, label_x *label)
 		label->lang = strdup(ASCII(xmlTextReaderConstXmlLang(reader)));
 		if (label->lang == NULL)
 			label->lang = strdup(DEFAULT_LOCALE);
-	} else {
+	} else 
 		label->lang = strdup(DEFAULT_LOCALE);
-	}
 	xmlTextReaderRead(reader);
 	if (xmlTextReaderValue(reader))
 		label->text = ASCII(xmlTextReaderValue(reader));
+
 
 /*	_LOGD("lable name %s\n", label->name);
 	_LOGD("lable lang %s\n", label->lang);
@@ -3455,8 +3407,9 @@ static int __ps_process_datacontrol(xmlTextReaderPtr reader, datacontrol_x *data
 	return ret;
 }
 
-static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *uiapplication)
+static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *uiapplication, uid_t uid)
 {
+	fprintf(stdout, "__ps_process_uiapplication\n");
 	const xmlChar *node;
 	int ret = -1;
 	int depth = -1;
@@ -3633,7 +3586,7 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 			}
 			memset(icon, '\0', sizeof(icon_x));
 			LISTADD(uiapplication->icon, icon);
-			ret = __ps_process_icon(reader, icon);
+			ret = __ps_process_icon(reader, icon, uid);
 		} else if (!strcmp(ASCII(node), "image")) {
 			image_x *image = malloc(sizeof(image_x));
 			if (image == NULL) {
@@ -3771,8 +3724,9 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 	return ret;
 }
 
-static int __ps_process_serviceapplication(xmlTextReaderPtr reader, serviceapplication_x *serviceapplication)
+static int __ps_process_serviceapplication(xmlTextReaderPtr reader, serviceapplication_x *serviceapplication, uid_t uid)
 {
+	fprintf(stdout, "__ps_process_serviceapplication\n");
 	const xmlChar *node;
 	int ret = -1;
 	int depth = -1;
@@ -3862,7 +3816,7 @@ static int __ps_process_serviceapplication(xmlTextReaderPtr reader, serviceappli
 			}
 			memset(icon, '\0', sizeof(icon_x));
 			LISTADD(serviceapplication->icon, icon);
-			ret = __ps_process_icon(reader, icon);
+			ret = __ps_process_icon(reader, icon, uid);
 		} else if (!strcmp(ASCII(node), "category")) {
 			category_x *category = malloc(sizeof(category_x));
 			if (category == NULL) {
@@ -4030,7 +3984,7 @@ static int __ps_process_ime(xmlTextReaderPtr reader, ime_x *ime)
 	return 0;
 }
 
-static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx)
+static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx, uid_t uid)
 {
 	_LOGD("__start_process\n");
 	const xmlChar *node;
@@ -4052,6 +4006,7 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx)
 	privileges_x *tmp14 = NULL;
 
 	depth = xmlTextReaderDepth(reader);
+	int  i =0;
 	while ((ret = __next_child_element(reader, depth))) {
 		node = xmlTextReaderConstName(reader);
 		if (!node) {
@@ -4112,7 +4067,7 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx)
 			}
 			memset(uiapplication, '\0', sizeof(uiapplication_x));
 			LISTADD(mfx->uiapplication, uiapplication);
-			ret = __ps_process_uiapplication(reader, uiapplication);
+			ret = __ps_process_uiapplication(reader, uiapplication, uid);
 		} else if (!strcmp(ASCII(node), "service-application")) {
 			serviceapplication_x *serviceapplication = malloc(sizeof(serviceapplication_x));
 			if (serviceapplication == NULL) {
@@ -4121,7 +4076,7 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx)
 			}
 			memset(serviceapplication, '\0', sizeof(serviceapplication_x));
 			LISTADD(mfx->serviceapplication, serviceapplication);
-			ret = __ps_process_serviceapplication(reader, serviceapplication);
+			ret = __ps_process_serviceapplication(reader, serviceapplication, uid);
 		} else if (!strcmp(ASCII(node), "daemon")) {
 			daemon_x *daemon = malloc(sizeof(daemon_x));
 			if (daemon == NULL) {
@@ -4166,7 +4121,7 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx)
 			}
 			memset(icon, '\0', sizeof(icon_x));
 			LISTADD(mfx->icon, icon);
-			ret = __ps_process_icon(reader, icon);
+			ret = __ps_process_icon(reader, icon, uid);
 		} else if (!strcmp(ASCII(node), "device-profile")) {
 			deviceprofile_x *deviceprofile = malloc(sizeof(deviceprofile_x));
 			if (deviceprofile == NULL) {
@@ -4262,7 +4217,7 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx)
 	return ret;
 }
 
-static int __process_manifest(xmlTextReaderPtr reader, manifest_x * mfx)
+static int __process_manifest(xmlTextReaderPtr reader, manifest_x * mfx, uid_t uid)
 {
 	const xmlChar *node;
 	int ret = -1;
@@ -4275,8 +4230,9 @@ static int __process_manifest(xmlTextReaderPtr reader, manifest_x * mfx)
 		}
 
 		if (!strcmp(ASCII(node), "manifest")) {
-			if (xmlTextReaderGetAttribute(reader, XMLCHAR("xmlns")))
+			if (xmlTextReaderGetAttribute(reader, XMLCHAR("xmlns"))){
 				mfx->ns = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("xmlns")));
+			}
 			if (xmlTextReaderGetAttribute(reader, XMLCHAR("package"))) {
 				mfx->package= ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("package")));
 				if (mfx->package == NULL) {
@@ -4321,7 +4277,6 @@ static int __process_manifest(xmlTextReaderPtr reader, manifest_x * mfx)
 			}
 			if (xmlTextReaderGetAttribute(reader, XMLCHAR("url")))
 				mfx->package_url= ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("url")));
-
 			/*Assign default values. If required it will be overwritten in __add_preload_info()*/
 			mfx->preload = strdup("False");
 			mfx->removable = strdup("True");
@@ -4335,48 +4290,15 @@ static int __process_manifest(xmlTextReaderPtr reader, manifest_x * mfx)
 			snprintf(buf, PKG_STRING_LEN_MAX - 1, "%d", current_time);
 			val = strndup(buf, PKG_STRING_LEN_MAX - 1);
 			mfx->installed_time = val;
-
 			mfx->installed_storage= strdup("installed_internal");
 
-			ret = __start_process(reader, mfx);
+			ret = __start_process(reader, mfx, uid);
 		} else {
 			_LOGD("No Manifest element found\n");
 			return -1;
 		}
 	}
 	return ret;
-}
-
-static const char* getUserDesktopPath(void)
-{
-	const char* desktop_path;
-	if(getuid() > 0)
-  {
-    desktop_path = tzplatform_mkpath(TZ_USER_HOME, ".applications/desktop/");
-  }
-  else
-  {
-    desktop_path = tzplatform_mkpath(TZ_SYS_RW_DESKTOP_APP, "/");
-  }
-
-  _LOGD("uid: [%d] / desktop_path: [%s]\n", getuid(), desktop_path);
-  return desktop_path;
-}
-
-static const char* getUserManifestPath(void)
-{
-	const char* manifest_path;
-	if(getuid() > 0)
-  {
-    manifest_path = tzplatform_mkpath(TZ_USER_HOME, ".config/xwalk-service/applications/");
-  }
-  else
-  {
-    manifest_path = tzplatform_mkpath(TZ_SYS_RW_PACKAGES, "/");
-  }
-
-  _LOGD("uid: [%d] / manifest_path: [%s]\n", getuid(), manifest_path);
-  return manifest_path;
 }
 
 static char* __convert_to_system_locale(const char *mlocale)
@@ -4409,10 +4331,9 @@ typedef enum {
 	AIL_MAX
 } AIL_TYPE;
 
-static int __ail_change_info(int op, const char *appid)
+static int __ail_change_info(int op, const char *appid, uid_t uid)
 {
 	void *lib_handle = NULL;
-	int (*ail_desktop_operation) (const char *);
 	char *aop = NULL;
 	int ret = 0;
 
@@ -4420,37 +4341,70 @@ static int __ail_change_info(int op, const char *appid)
 		_LOGE("dlopen is failed LIBAIL_PATH[%s]\n", LIBAIL_PATH);
 		goto END;
 	}
+//is_admin
+	if(uid != GLOBAL_USER)
+	{
+		int (*ail_desktop_operation) (const char *, uid_t uid);
+		switch (op) {
+			case 0:
+				aop  = "ail_usr_desktop_add";
+				break;
+			case 1:
+				aop  = "ail_usr_desktop_update";
+				break;
+			case 2:
+				aop  = "ail_usr_desktop_remove";
+				break;
+			case 3:
+				aop  = "ail_usr_desktop_clean";
+				break;
+			case 4:
+				aop  = "ail_usr_desktop_fota";
+				break;
+			default:
+				goto END;
+				break;
+		}
 
-
-	switch (op) {
-		case 0:
-			aop  = "ail_desktop_add";
-			break;
-		case 1:
-			aop  = "ail_desktop_update";
-			break;
-		case 2:
-			aop  = "ail_desktop_remove";
-			break;
-		case 3:
-			aop  = "ail_desktop_clean";
-			break;
-		case 4:
-			aop  = "ail_desktop_fota";
-			break;
-		default:
+		if ((ail_desktop_operation =
+			dlsym(lib_handle, aop)) == NULL || dlerror() != NULL) {
+			_LOGE("can not find symbol \n");
 			goto END;
-			break;
+		}
+
+		ret = ail_desktop_operation(appid, uid);
+	}else{
+		int (*ail_desktop_operation) (const char *);
+		switch (op) {
+			case 0:
+				aop  = "ail_desktop_add";
+				break;
+			case 1:
+				aop  = "ail_desktop_update";
+				break;
+			case 2:
+				aop  = "ail_desktop_remove";
+				break;
+			case 3:
+				aop  = "ail_desktop_clean";
+				break;
+			case 4:
+				aop  = "ail_desktop_fota";
+				break;
+			default:
+				goto END;
+				break;
+		}
+
+		if ((ail_desktop_operation =
+			dlsym(lib_handle, aop)) == NULL || dlerror() != NULL) {
+			_LOGE("can not find symbol \n");
+			goto END;
+		}
+
+		ret = ail_desktop_operation(appid);
+
 	}
-
-	if ((ail_desktop_operation =
-	     dlsym(lib_handle, aop)) == NULL || dlerror() != NULL) {
-		_LOGE("can not find symbol \n");
-		goto END;
-	}
-
-	ret = ail_desktop_operation(appid);
-
 END:
 	if (lib_handle)
 		dlclose(lib_handle);
@@ -4458,11 +4412,10 @@ END:
 	return ret;
 }
 
-
 /* desktop shoud be generated automatically based on manifest */
 /* Currently removable, taskmanage, etc fields are not considerd. it will be decided soon.*/
 #define BUFMAX 1024*128
-static int __ps_make_nativeapp_desktop(manifest_x * mfx, const char *manifest, ACTION_TYPE action)
+static int __ps_make_nativeapp_desktop(manifest_x * mfx, const char *manifest, ACTION_TYPE action, uid_t uid)
 {
         FILE* file = NULL;
         int fd = 0;
@@ -4485,20 +4438,20 @@ static int __ps_make_nativeapp_desktop(manifest_x * mfx, const char *manifest, A
 	}
 
 	if (action == ACTION_UPGRADE)
-		__ail_change_info(AIL_CLEAN, mfx->package);
+		__ail_change_info(AIL_CLEAN, mfx->package, uid);
 
 	for(; mfx->uiapplication; mfx->uiapplication=mfx->uiapplication->next) {
 
 		if (manifest != NULL) {
 			/* skip making a deskfile and update ail, if preload app is updated */
-			if(strstr(manifest, getUserManifestPath())) {
-				__ail_change_info(AIL_INSTALL, mfx->uiapplication->appid);
+			if(strstr(manifest, getUserManifestPath(uid))) {
+				__ail_change_info(AIL_INSTALL, mfx->uiapplication->appid, uid);
 	            _LOGE("preload app is update : skip and update ail : %s", manifest);
 				continue;
 			}
 		}
 
-		snprintf(filepath, sizeof(filepath),"%s%s.desktop", getUserDesktopPath(), mfx->uiapplication->appid);
+		snprintf(filepath, sizeof(filepath),"%s%s.desktop", getUserDesktopPath(uid), mfx->uiapplication->appid);
 
 		/* skip if desktop exists
 		if (access(filepath, R_OK) == 0)
@@ -4814,9 +4767,9 @@ static int __ps_make_nativeapp_desktop(manifest_x * mfx, const char *manifest, A
 	        fsync(fd);
 	        fclose(file);
 		if (action == ACTION_FOTA)
-			__ail_change_info(AIL_FOTA, mfx->uiapplication->appid);
+			__ail_change_info(AIL_FOTA, mfx->uiapplication->appid, uid);
 		else
-			__ail_change_info(AIL_INSTALL, mfx->uiapplication->appid);
+			__ail_change_info(AIL_INSTALL, mfx->uiapplication->appid, uid);
 	}
 
 	free(buf);
@@ -4825,16 +4778,16 @@ static int __ps_make_nativeapp_desktop(manifest_x * mfx, const char *manifest, A
         return 0;
 }
 
-static int __ps_remove_nativeapp_desktop(manifest_x *mfx)
+static int __ps_remove_nativeapp_desktop(manifest_x *mfx, uid_t uid)
 {
 	char filepath[PKG_STRING_LEN_MAX] = "";
 	int ret = 0;
 	uiapplication_x *uiapplication = mfx->uiapplication;
 
 	for(; uiapplication; uiapplication=uiapplication->next) {
-	        snprintf(filepath, sizeof(filepath),"%s%s.desktop", getUserDesktopPath(), uiapplication->appid);
+	        snprintf(filepath, sizeof(filepath),"%s%s.desktop", getUserDesktopPath(uid), uiapplication->appid);
 
-		__ail_change_info(AIL_REMOVE, uiapplication->appid);
+		__ail_change_info(AIL_REMOVE, uiapplication->appid, uid);
 
 		ret = remove(filepath);
 		if (ret <0)
@@ -4878,13 +4831,13 @@ END:
 }
 
 #define PRELOAD_PACKAGE_LIST SYSCONFDIR "/package-manager/preload/preload_list.txt"
-static int __add_preload_info(manifest_x * mfx, const char *manifest)
+static int __add_preload_info(manifest_x * mfx, const char *manifest, uid_t uid)
 {
 	FILE *fp = NULL;
 	char buffer[1024] = { 0 };
 	int state = 0;
 
-	if(strstr(manifest, getUserManifestPath())) {
+	if(strstr(manifest, getUserManifestPath(uid))) {
 		free((void *)mfx->readonly);
 		mfx->readonly = strdup("True");
 
@@ -4943,16 +4896,16 @@ static int __add_preload_info(manifest_x * mfx, const char *manifest)
 	return 0;
 }
 
-static int __check_preload_updated(manifest_x * mfx, const char *manifest)
+static int __check_preload_updated(manifest_x * mfx, const char *manifest, uid_t uid)
 {
 	char filepath[PKG_STRING_LEN_MAX] = "";
 	int ret = 0;
 	uiapplication_x *uiapplication = mfx->uiapplication;
 
-	if(strstr(manifest, getUserManifestPath())) {
+	if(strstr(manifest, getUserManifestPath(uid))) {
 		/* if preload app is updated, then remove previous desktop file on RW*/
 		for(; uiapplication; uiapplication=uiapplication->next) {
-				snprintf(filepath, sizeof(filepath),"%s%s.desktop", getUserDesktopPath(), uiapplication->appid);
+				snprintf(filepath, sizeof(filepath),"%s%s.desktop", getUserDesktopPath(uid), uiapplication->appid);
 			ret = remove(filepath);
 			if (ret <0)
 				return -1;
@@ -4974,13 +4927,29 @@ API int pkgmgr_parser_create_desktop_file(manifest_x *mfx)
 		_LOGD("Manifest pointer is NULL\n");
 		return -1;
 	}
-        ret = __ps_make_nativeapp_desktop(mfx, NULL, ACTION_INSTALL);
+        ret = __ps_make_nativeapp_desktop(mfx, NULL, ACTION_INSTALL, GLOBAL_USER);
         if (ret == -1)
                 _LOGD("Creating desktop file failed\n");
         else
                 _LOGD("Creating desktop file Success\n");
         return ret;
 }
+
+API int pkgmgr_parser_create_usr_desktop_file(manifest_x *mfx, uid_t uid)
+{
+        int ret = 0;
+	if (mfx == NULL) {
+		_LOGD("Manifest pointer is NULL\n");
+		return -1;
+	}
+        ret = __ps_make_nativeapp_desktop(mfx, NULL, ACTION_INSTALL, uid);
+        if (ret == -1)
+                _LOGD("Creating desktop file failed\n");
+        else
+                _LOGD("Creating desktop file Success\n");
+        return ret;
+}
+
 
 API void pkgmgr_parser_free_manifest_xml(manifest_x *mfx)
 {
@@ -5218,7 +5187,7 @@ API void pkgmgr_parser_free_manifest_xml(manifest_x *mfx)
 
 API manifest_x *pkgmgr_parser_process_manifest_xml(const char *manifest)
 {
-	_LOGD("parsing start\n");
+	_LOGD("parsing start pkgmgr_parser_process_manifest_xml\n");
 	xmlTextReaderPtr reader;
 	manifest_x *mfx = NULL;
 
@@ -5227,7 +5196,35 @@ API manifest_x *pkgmgr_parser_process_manifest_xml(const char *manifest)
 		mfx = malloc(sizeof(manifest_x));
 		if (mfx) {
 			memset(mfx, '\0', sizeof(manifest_x));
-			if (__process_manifest(reader, mfx) < 0) {
+			if (__process_manifest(reader, mfx, GLOBAL_USER) < 0) {
+				_LOGD("Parsing Failed\n");
+				pkgmgr_parser_free_manifest_xml(mfx);
+				mfx = NULL;
+			} else
+				_LOGD("Parsing Success\n");
+		} else {
+			_LOGD("Memory allocation error\n");
+		}
+		xmlFreeTextReader(reader);
+	} else {
+		_LOGD("Unable to create xml reader\n");
+	}
+	return mfx;
+}
+
+
+API manifest_x *pkgmgr_parser_usr_process_manifest_xml(const char *manifest, uid_t uid)
+{
+	_LOGD("parsing start pkgmgr_parser_usr_process_manifest_xml\n");
+	xmlTextReaderPtr reader;
+	manifest_x *mfx = NULL;
+
+	reader = xmlReaderForFile(manifest, NULL, 0);
+	if (reader) {
+		mfx = malloc(sizeof(manifest_x));
+		if (mfx) {
+			memset(mfx, '\0', sizeof(manifest_x));
+			if (__process_manifest(reader, mfx, uid) < 0) {
 				_LOGD("Parsing Failed\n");
 				pkgmgr_parser_free_manifest_xml(mfx);
 				mfx = NULL;
@@ -5262,7 +5259,7 @@ API int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char
 
 //	__streamFile(manifest, ACTION_INSTALL, temp, mfx->package);
 	__ps_process_tag_parser(mfx, manifest, ACTION_INSTALL);
-	__add_preload_info(mfx, manifest);
+	__add_preload_info(mfx, manifest, GLOBAL_USER);
 
 	_LOGD("Added preload infomation\n");
 
@@ -5282,9 +5279,9 @@ API int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char
 		_LOGD("Creating category parser failed\n");
 
 	if (__check_action_fota(tagv))
-		ret = __ps_make_nativeapp_desktop(mfx, NULL, ACTION_FOTA);
+		ret = __ps_make_nativeapp_desktop(mfx, NULL, ACTION_FOTA, GLOBAL_USER);
 	else
-		ret = __ps_make_nativeapp_desktop(mfx, NULL, ACTION_INSTALL);
+		ret = __ps_make_nativeapp_desktop(mfx, NULL, ACTION_INSTALL, GLOBAL_USER);
 
 	if (ret == -1)
 		_LOGD("Creating desktop file failed\n");
@@ -5297,13 +5294,58 @@ API int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char
 
 	return PMINFO_R_OK;
 }
+API int pkgmgr_parser_parse_usr_manifest_for_installation(const char *manifest, uid_t uid, char *const tagv[])
+{
+//	char *temp[] = {"shortcut-list", "livebox", "account", "notifications", "privileges", "ime", "font", NULL};
+	retvm_if(manifest == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
+	_LOGD("parsing manifest for installation: %s\n", manifest);
+	manifest_x *mfx = NULL;
+	int ret = -1;
+
+	xmlInitParser();
+	mfx = pkgmgr_parser_usr_process_manifest_xml(manifest, uid);
+	retvm_if(mfx == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
+
+	_LOGD("Parsing Finished\n");
+//	__streamFile(manifest, ACTION_INSTALL, temp, mfx->package);
+	__ps_process_tag_parser(mfx, manifest, ACTION_INSTALL);
+	__add_preload_info(mfx, manifest, uid);
+
+	_LOGD("Added preload infomation\n");
+	__ps_process_tag(mfx, tagv);
+
+	ret = pkgmgr_parser_insert_manifest_info_in_usr_db(mfx, uid);
+	retvm_if(ret == PMINFO_R_ERROR, PMINFO_R_ERROR, "DB Insert failed");
+
+	_LOGD("DB Insert Success\n");
+	ret = __ps_process_metadata_parser(mfx, ACTION_INSTALL);
+	if (ret == -1)
+		_LOGD("Creating metadata parser failed\n");
+	ret = __ps_process_category_parser(mfx, ACTION_INSTALL);
+	if (ret == -1)
+		_LOGD("Creating category parser failed\n");
+
+	if (__check_action_fota(tagv))
+		ret = __ps_make_nativeapp_desktop(mfx, NULL, ACTION_FOTA, uid);
+	else
+		ret = __ps_make_nativeapp_desktop(mfx, NULL, ACTION_INSTALL, uid);
+
+	if (ret == -1)
+		_LOGD("Creating desktop file failed\n");
+	else
+		_LOGD("Creating desktop file Success\n");
+	pkgmgr_parser_free_manifest_xml(mfx);
+	_LOGD("Free Done\n");
+	xmlCleanupParser();
+
+	return PMINFO_R_OK;
+}
 
 API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *const tagv[])
 {
 //	char *temp[] = {"shortcut-list", "livebox", "account", "notifications", "privileges", "ime", "font", NULL};
 	retvm_if(manifest == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
-	_LOGD("parsing manifest for upgradation: %s\n", manifest);
-
+	_LOGD("pkgmgr_parser_parse_manifest_for_upgrade  parsing manifest for upgradation: %s\n", manifest);
 	manifest_x *mfx = NULL;
 	int ret = -1;
 	bool preload = false;
@@ -5316,17 +5358,92 @@ API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *con
 	retvm_if(mfx == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
 
 	_LOGD("Parsing Finished\n");
-
 //	__streamFile(manifest, ACTION_UPGRADE, temp, mfx->package);
 	__ps_process_tag_parser(mfx, manifest, ACTION_UPGRADE);
-	__add_preload_info(mfx, manifest);
+	__add_preload_info(mfx, manifest, GLOBAL_USER);
 	_LOGD("Added preload infomation\n");
-	__check_preload_updated(mfx, manifest);
+	__check_preload_updated(mfx, manifest, GLOBAL_USER);
 
 	ret = pkgmgrinfo_pkginfo_get_pkginfo(mfx->package, &handle);
 	if (ret != PMINFO_R_OK)
 		_LOGD("pkgmgrinfo_pkginfo_get_pkginfo failed\n");
+	ret = pkgmgrinfo_pkginfo_is_preload(handle, &preload);
+	if (ret != PMINFO_R_OK)
+		_LOGD("pkgmgrinfo_pkginfo_is_preload failed\n");
 
+	if (preload) {
+		free((void *)mfx->preload);
+		mfx->preload = strdup("true");
+	}
+
+	ret = pkgmgrinfo_pkginfo_is_system(handle, &system);
+	if (ret != PMINFO_R_OK)
+		_LOGD("pkgmgrinfo_pkginfo_is_system failed\n");
+	if (system) {
+		free((void *)mfx->system);
+		mfx->system = strdup("true");
+	}
+
+	ret = pkgmgrinfo_pkginfo_get_csc_path(handle, &csc_path);
+	if (ret != PMINFO_R_OK)
+		_LOGD("pkgmgrinfo_pkginfo_get_csc_path failed\n");
+	
+	if (csc_path != NULL) {
+		if (mfx->csc_path)
+			free((void *)mfx->csc_path);
+		mfx->csc_path = strdup(csc_path);
+	}
+
+	ret = pkgmgr_parser_update_manifest_info_in_db(mfx);
+	retvm_if(ret == PMINFO_R_ERROR, PMINFO_R_ERROR, "DB Insert failed");
+	_LOGD("DB Update Success\n");
+	ret = __ps_process_metadata_parser(mfx, ACTION_UPGRADE);
+	if (ret == -1){
+		_LOGD("Upgrade metadata parser failed\n");
+	}
+	ret = __ps_process_category_parser(mfx, ACTION_UPGRADE);
+	if (ret == -1)
+		_LOGD("Creating category parser failed\n");
+	ret = __ps_make_nativeapp_desktop(mfx, manifest, ACTION_UPGRADE, GLOBAL_USER);
+	if (ret == -1)
+		_LOGD("Creating desktop file failed\n");
+	else
+		_LOGD("Creating desktop file Success\n");
+	pkgmgrinfo_pkginfo_destroy_pkginfo(handle);
+	pkgmgr_parser_free_manifest_xml(mfx);
+	_LOGD("Free Done\n");
+	xmlCleanupParser();
+
+	return PMINFO_R_OK;
+}
+
+API int pkgmgr_parser_parse_usr_manifest_for_upgrade(const char *manifest, uid_t uid, char *const tagv[])
+{
+//	char *temp[] = {"shortcut-list", "livebox", "account", "notifications", "privileges", "ime", "font", NULL};
+	retvm_if(manifest == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
+	_LOGD(" pkgmgr_parser_parse_usr_manifest_for_upgrade parsing manifest for upgradation: %s\n", manifest);
+	manifest_x *mfx = NULL;
+	int ret = -1;
+	bool preload = false;
+	bool system = false;
+	char *csc_path = NULL;
+	pkgmgrinfo_pkginfo_h handle = NULL;
+
+	xmlInitParser();
+	mfx = pkgmgr_parser_usr_process_manifest_xml(manifest, uid);
+	retvm_if(mfx == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
+
+	_LOGD("Parsing Finished\n");
+	//__streamFile(manifest, ACTION_UPGRADE, temp, mfx->package);
+	__ps_process_tag_parser(mfx, manifest, ACTION_UPGRADE);
+	__add_preload_info(mfx, manifest, uid);
+	_LOGD("Added preload infomation\n");
+	_LOGE("Added preload infomation\n");
+	__check_preload_updated(mfx, manifest, uid);
+
+	ret = pkgmgrinfo_pkginfo_get_usr_pkginfo(mfx->package, uid, &handle);
+	if (ret != PMINFO_R_OK)
+		_LOGD("pkgmgrinfo_pkginfo_get_pkginfo failed\n");
 	ret = pkgmgrinfo_pkginfo_is_preload(handle, &preload);
 	if (ret != PMINFO_R_OK)
 		_LOGD("pkgmgrinfo_pkginfo_is_preload failed\n");
@@ -5348,31 +5465,27 @@ API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *con
 	ret = pkgmgrinfo_pkginfo_get_csc_path(handle, &csc_path);
 	if (ret != PMINFO_R_OK)
 		_LOGD("pkgmgrinfo_pkginfo_get_csc_path failed\n");
-
 	if (csc_path != NULL) {
 		if (mfx->csc_path)
 			free((void *)mfx->csc_path);
 		mfx->csc_path = strdup(csc_path);
 	}
 
-	ret = pkgmgr_parser_update_manifest_info_in_db(mfx);
+	ret = pkgmgr_parser_update_manifest_info_in_usr_db(mfx, uid);
 	retvm_if(ret == PMINFO_R_ERROR, PMINFO_R_ERROR, "DB Insert failed");
 	_LOGD("DB Update Success\n");
-
+	_LOGE("DB Update Success\n" );
 	ret = __ps_process_metadata_parser(mfx, ACTION_UPGRADE);
 	if (ret == -1)
 		_LOGD("Upgrade metadata parser failed\n");
-
 	ret = __ps_process_category_parser(mfx, ACTION_UPGRADE);
 	if (ret == -1)
 		_LOGD("Creating category parser failed\n");
-
-	ret = __ps_make_nativeapp_desktop(mfx, manifest, ACTION_UPGRADE);
+	ret = __ps_make_nativeapp_desktop(mfx, manifest, ACTION_UPGRADE, GLOBAL_USER);
 	if (ret == -1)
 		_LOGD("Creating desktop file failed\n");
 	else
 		_LOGD("Creating desktop file Success\n");
-
 	pkgmgrinfo_pkginfo_destroy_pkginfo(handle);
 	pkgmgr_parser_free_manifest_xml(mfx);
 	_LOGD("Free Done\n");
@@ -5398,7 +5511,7 @@ API int pkgmgr_parser_parse_manifest_for_uninstallation(const char *manifest, ch
 //	__streamFile(manifest, ACTION_UNINSTALL, temp, mfx->package);
 	__ps_process_tag_parser(mfx, manifest, ACTION_UNINSTALL);
 
-	__add_preload_info(mfx, manifest);
+	__add_preload_info(mfx, manifest, GLOBAL_USER);
 	_LOGD("Added preload infomation\n");
 
 	ret = __ps_process_metadata_parser(mfx, ACTION_UNINSTALL);
@@ -5415,7 +5528,61 @@ API int pkgmgr_parser_parse_manifest_for_uninstallation(const char *manifest, ch
 	else
 		_LOGD("DB Delete Success\n");
 
-	ret = __ps_remove_nativeapp_desktop(mfx);
+	ret = __ps_remove_nativeapp_desktop(mfx, GLOBAL_USER);
+	if (ret == -1)
+		_LOGD("Removing desktop file failed\n");
+	else
+		_LOGD("Removing desktop file Success\n");
+
+	ret = __ps_remove_appsvc_db(mfx);
+	if (ret == -1)
+		_LOGD("Removing appsvc_db failed\n");
+	else
+		_LOGD("Removing appsvc_db Success\n");
+
+	pkgmgr_parser_free_manifest_xml(mfx);
+	_LOGD("Free Done\n");
+	xmlCleanupParser();
+
+	return PMINFO_R_OK;
+}
+
+
+API int pkgmgr_parser_parse_usr_manifest_for_uninstallation(const char *manifest, uid_t uid, char *const tagv[])
+{
+//	char *temp[] = {"shortcut-list", "livebox", "account", "notifications", "privileges", "ime", "font", NULL};
+	retvm_if(manifest == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
+	_LOGD("parsing manifest for uninstallation: %s\n", manifest);
+
+	manifest_x *mfx = NULL;
+	int ret = -1;
+	xmlInitParser();
+	mfx = pkgmgr_parser_usr_process_manifest_xml(manifest, uid);
+	retvm_if(mfx == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
+
+	_LOGD("Parsing Finished\n");
+
+//	__streamFile(manifest, ACTION_UNINSTALL, temp, mfx->package);
+	__ps_process_tag_parser(mfx, manifest, ACTION_UNINSTALL);
+
+	__add_preload_info(mfx, manifest, GLOBAL_USER);
+	_LOGD("Added preload infomation\n");
+
+	ret = __ps_process_metadata_parser(mfx, ACTION_UNINSTALL);
+	if (ret == -1)
+		_LOGD("Removing metadata parser failed\n");
+
+	ret = __ps_process_category_parser(mfx, ACTION_UNINSTALL);
+	if (ret == -1)
+		_LOGD("Creating category parser failed\n");
+
+	ret = pkgmgr_parser_delete_manifest_info_from_usr_db(mfx, uid);
+	if (ret == -1)
+		_LOGD("DB Delete failed\n");
+	else
+		_LOGD("DB Delete Success\n");
+
+	ret = __ps_remove_nativeapp_desktop(mfx, uid);
 	if (ret == -1)
 		_LOGD("Removing desktop file failed\n");
 	else
@@ -5439,9 +5606,20 @@ API int pkgmgr_parser_parse_manifest_for_preload()
 	return pkgmgr_parser_update_preload_info_in_db();
 }
 
+API int pkgmgr_parser_parse_usr_manifest_for_preload(uid_t uid)
+{
+	return pkgmgr_parser_update_preload_info_in_usr_db(uid);
+}
+
+
+API char *pkgmgr_parser_get_usr_manifest_file(const char *pkgid, uid_t uid)
+{
+	return __pkgid_to_manifest(pkgid, uid);
+}
+
 API char *pkgmgr_parser_get_manifest_file(const char *pkgid)
 {
-	return __pkgid_to_manifest(pkgid);
+	return __pkgid_to_manifest(pkgid, GLOBAL_USER);
 }
 
 API int pkgmgr_parser_run_parser_for_installation(xmlDocPtr docPtr, const char *tag, const char *pkgid)

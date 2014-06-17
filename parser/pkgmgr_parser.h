@@ -57,6 +57,8 @@ extern "C" {
 #define PKG_STRING_LEN_MAX 1024
 
 #define PKGMGR_PARSER_EMPTY_STR		""
+#define GLOBAL_USER	0 //#define 	tzplatform_getenv(TZ_GLOBAL) //TODO
+
 
 /**
  * @brief List definitions.
@@ -489,13 +491,27 @@ typedef struct manifest_x {
 	struct deviceprofile_x *deviceprofile;		/**< package device profile*/
 } manifest_x;
 
-/* For multiuser support */
-char *getUserDBLabel(void);
-char *getUserPkgParserDBPath(void);
-char *getUserPkgParserDBPathUID(uid_t uid);
-char *getUserPkgParserJournalDBPath(void);
-char *getUserPkgCertDBPath(void);
-char *getUserPkgCertJournalDBPath(void);
+/*enum uid_value {
+	ROOT,
+	GLOBAL,
+	USER
+};*/
+
+/**uid check
+ * 
+ */
+/* int check_uid(uid_t uid)
+ {
+	 switch(uid)
+	 {
+		case GLOBAL_USER: return GLOBAL;
+		case 0:	return ROOT;
+		default: goto user; break;
+	}
+user:
+cf getdbpath
+*/
+ 
 
 /**
  * @fn char *pkgmgr_parser_get_manifest_file(const char *pkgid)
@@ -525,12 +541,14 @@ char *pkgmgr_parser_get_manifest_file(const char *pkgid);
 
 /**
  * @fn int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char *const tagv[])
+ * @fn int pkgmgr_parser_parse_usr_manifest_for_installation(const char *manifest, uid_t uid, char *const tagv[])
  * @brief	This API parses the manifest file of the package after installation and stores the data in DB.
  *
  * @par		This API is for package-manager installer backends.
  * @par Sync (or) Async : Synchronous API
  *
  * @param[in]	manifest	pointer to package manifest file
+ * @param[in]	uid	the addressee user id of the instruction
  * @param[in]	tagv		array of xml tags or NULL
  * @return	0 if success, error code(<0) if fail
  * @retval	PMINFO_R_OK	success
@@ -550,8 +568,10 @@ static int parse_manifest_file_for_installation(const char *manifest)
  * @endcode
  */
 int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char *const tagv[]);
+int pkgmgr_parser_parse_usr_manifest_for_installation(const char *manifest, uid_t uid, char *const tagv[]);
 
 /**
+ * @fn int pkgmgr_parser_parse_usr_manifest_for_upgrade(const char *manifest,  uid_t uid, char *const tagv[])
  * @fn int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *const tagv[])
  * @brief	This API parses the manifest file of the package after upgrade and stores the data in DB.
  *
@@ -559,6 +579,7 @@ int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char *co
  * @par Sync (or) Async : Synchronous API
  *
  * @param[in]	manifest	pointer to package manifest file
+ * @param[in]	uid	the addressee user id of the instruction
  * @param[in]	tagv		array of xml tags or NULL
  * @return	0 if success, error code(<0) if fail
  * @retval	PMINFO_R_OK	success
@@ -578,15 +599,17 @@ static int parse_manifest_file_for_upgrade(const char *manifest)
  * @endcode
  */
 int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *const tagv[]);
-
+int pkgmgr_parser_parse_usr_manifest_for_upgrade(const char *manifest, uid_t uid, char *const tagv[]);
 /**
  * @fn int pkgmgr_parser_parse_manifest_for_uninstallation(const char *manifest, char *const tagv[])
+ * @fn int pkgmgr_parser_parse_usr_manifest_for_uninstallation(const char *manifest, uid_t uid, char *const tagv[])
  * @brief	This API parses the manifest file of the package after uninstallation and deletes the data from DB.
  *
  * @par		This API is for package-manager installer backends.
  * @par Sync (or) Async : Synchronous API
  *
  * @param[in]	manifest	pointer to package manifest file
+ * @param[in]	uid	the addressee user id of the instruction
  * @param[in]	tagv		array of xml tags or NULL
  * @return	0 if success, error code(<0) if fail
  * @retval	PMINFO_R_OK	success
@@ -606,9 +629,10 @@ static int parse_manifest_file_for_uninstallation(const char *manifest)
  * @endcode
  */
 int pkgmgr_parser_parse_manifest_for_uninstallation(const char *manifest, char *const tagv[]);
-
+int pkgmgr_parser_parse_usr_manifest_for_uninstallation(const char *manifest, uid_t uid, char *const tagv[]);
 /**
  * @fn int pkgmgr_parser_parse_manifest_for_preload()
+ * @fn int pkgmgr_parser_parse_usr_manifest_for_preload(uid_t uid)
  * @brief	This API update  preload information to DB.
  *
  * @par		This API is for package-manager installer backends.
@@ -632,6 +656,7 @@ static int parser_parse_manifest_for_preload()
  * @endcode
  */
 int pkgmgr_parser_parse_manifest_for_preload();
+int pkgmgr_parser_parse_usr_manifest_for_preload(uid_t uid);
 
 /**
  * @fn int pkgmgr_parser_check_manifest_validation(const char *manifest)
@@ -687,12 +712,14 @@ void pkgmgr_parser_free_manifest_xml(manifest_x *mfx);
 
 /**
  * @fn manifest_x *pkgmgr_parser_process_manifest_xml(const char *manifest)
+ * @fn manifest_x *pkgmgr_parser_usr_process_manifest_xml(const char *manifest, uid_t uid)
  * @brief	This API parses the manifest file and stores all the data in the manifest structure.
  *
  * @par		This API is for package-manager installer backends.
  * @par Sync (or) Async : Synchronous API
  *
  * @param[in]	manifest	pointer to package manifest file
+ * @param[in]	uid	the addressee user id of the instruction
  * @return	manifest pointer on success, NULL on failure
  * @pre		None
  * @post		pkgmgr_parser_free_manifest_xml()
@@ -710,6 +737,7 @@ static int parse_manifest_file(const char *manifest)
  * @endcode
  */
 manifest_x *pkgmgr_parser_process_manifest_xml(const char *manifest);
+manifest_x *pkgmgr_parser_usr_process_manifest_xml(const char *manifest, uid_t uid);
 
 /**
  * @fn manifest_x *pkgmgr_parser_get_manifest_info(const char *pkigid)
@@ -834,12 +862,14 @@ int pkgmgr_parser_run_parser_for_uninstallation(xmlDocPtr docPtr, const char *ta
 
 /**
  * @fn int pkgmgr_parser_create_desktop_file(manifest_x *mfx)
+ * @fn int pkgmgr_parser_create_usr_desktop_file(manifest_x *mfx, uid_t uid)
  * @brief	This API generates the application desktop file
  *
  * @par		This API is for package-manager installer backends.
  * @par Sync (or) Async : Synchronous API
  *
  * @param[in]	mfx	manifest pointer
+ * @param[in]	uid	the addressee user id of the instruction
  * @return	0 if success, error code(<0) if fail
  * @retval	PMINFO_R_OK	success
  * @retval	PMINFO_R_EINVAL	invalid argument
@@ -861,6 +891,7 @@ static int create_desktop_file(char *manifest)
  * @endcode
  */
 int pkgmgr_parser_create_desktop_file(manifest_x *mfx);
+int pkgmgr_parser_create_usr_desktop_file(manifest_x *mfx, uid_t uid);
 
 /** @} */
 #ifdef __cplusplus

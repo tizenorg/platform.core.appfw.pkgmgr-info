@@ -46,8 +46,8 @@
 extern "C" {
 #endif
 #include "pkgmgr_parser.h"
-
 /**
+ * @fn int pkgmgr_parser_insert_manifest_info_in_usr_db(manifest_x *mfx, uid_t uid)
  * @fn int pkgmgr_parser_insert_manifest_info_in_db(manifest_x *mfx)
  * @brief	This API inserts the parsed manifest info in db
  *
@@ -55,6 +55,7 @@ extern "C" {
  * @par Sync (or) Async : Synchronous API
  *
  * @param[in]	mfx	pointer to manifest info
+ * @param[in]	uid	the addressee user id of the instruction
  * @return	0 if success, error code(<0) if fail
  * @pre		None
  * @post		None
@@ -72,8 +73,10 @@ static int insert_manifest_data(manifest_x *mfx)
  * @endcode
  */
 int pkgmgr_parser_insert_manifest_info_in_db(manifest_x *mfx);
+int pkgmgr_parser_insert_manifest_info_in_usr_db(manifest_x *mfx, uid_t uid);
 
 /**
+ * @fn int pkgmgr_parser_update_manifest_info_in_db(manifest_x *mfx)
  * @fn int pkgmgr_parser_update_manifest_info_in_db(manifest_x *mfx)
  * @brief	This API updates the manifest info in db
  *
@@ -81,6 +84,7 @@ int pkgmgr_parser_insert_manifest_info_in_db(manifest_x *mfx);
  * @par Sync (or) Async : Synchronous API
  *
  * @param[in]	mfx	pointer to manifest info
+ * @param[in]	uid	the addressee user id of the instruction
  * @return	0 if success, error code(<0) if fail
  * @pre		None
  * @post		None
@@ -98,8 +102,10 @@ static int update_manifest_data(manifest_x *mfx)
  * @endcode
  */
 int pkgmgr_parser_update_manifest_info_in_db(manifest_x *mfx);
+int pkgmgr_parser_update_manifest_info_in_usr_db(manifest_x *mfx, uid_t uid);
 
 /**
+ * @fn int pkgmgr_parser_delete_manifest_info_from_usr_db(manifest_x *mfx, uid_t uid)
  * @fn int pkgmgr_parser_delete_manifest_info_from_db(manifest_x *mfx)
  * @brief	This API deletes the parsed manifest info from db
  *
@@ -107,6 +113,7 @@ int pkgmgr_parser_update_manifest_info_in_db(manifest_x *mfx);
  * @par Sync (or) Async : Synchronous API
  *
  * @param[in]	mfx	pointer to manifest info
+ * @param[in]	uid	the addressee user id of the instruction
  * @return	0 if success, error code(<0) if fail
  * @pre		None
  * @post		None
@@ -124,10 +131,15 @@ static int delete_manifest_data(manifest_x *mfx)
  * @endcode
  */
 int pkgmgr_parser_delete_manifest_info_from_db(manifest_x *mfx);
+int pkgmgr_parser_delete_manifest_info_from_usr_db(manifest_x *mfx, uid_t uid);
 
 int pkgmgr_parser_update_preload_info_in_db();
-int pkgmgr_parser_check_and_create_db();
+int pkgmgr_parser_update_preload_info_in_usr_db(uid_t uid);
+int pkgmgr_parser_check_and_create_db(uid_t uid);
 int pkgmgr_parser_initialize_db();
+
+
+
 /** @} */
 #ifdef __cplusplus
 }
