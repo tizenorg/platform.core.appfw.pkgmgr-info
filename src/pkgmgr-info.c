@@ -238,6 +238,26 @@ typedef enum {
 #define MAX_PKG_BUF_LEN		1024
 #define MAX_PKG_INFO_LEN	10
 
+#define QUERY_CREATE_TABLE_PACKAGE_CERT_INDEX_INFO "create table if not exists package_cert_index_info " \
+						"(cert_info text not null, " \
+						"cert_id integer, " \
+						"cert_ref_count integer, " \
+						"PRIMARY KEY(cert_id)) "
+
+#define QUERY_CREATE_TABLE_PACKAGE_CERT_INFO "create table if not exists package_cert_info " \
+						"(package text not null, " \
+						"author_root_cert integer, " \
+						"author_im_cert integer, " \
+						"author_signer_cert integer, " \
+						"dist_root_cert integer, " \
+						"dist_im_cert integer, " \
+						"dist_signer_cert integer, " \
+						"dist2_root_cert integer, " \
+						"dist2_im_cert integer, " \
+						"dist2_signer_cert integer, " \
+						"PRIMARY KEY(package)) "
+
+
 char *pkgtype = "rpm";
 __thread sqlite3 *manifest_db = NULL;
 __thread sqlite3 *datacontrol_db = NULL;
@@ -266,6 +286,22 @@ static void __get_filter_condition(gpointer data, char **condition);
 static void __get_metadata_filter_condition(gpointer data, char **condition);
 static gint __compare_func(gconstpointer data1, gconstpointer data2);
 static int __delete_certinfo(const char *pkgid);
+static int _check_create_Cert_db( sqlite3 *certdb);
+static int __exec_db_query(sqlite3 *db, char *query, sqlite_query_callback callback, void *data);
+
+
+
+static int _check_create_Cert_db( sqlite3 *certdb)
+{
+	int ret = 0;
+	ret = __exec_db_query(certdb, QUERY_CREATE_TABLE_PACKAGE_CERT_INDEX_INFO, NULL, NULL);
+	if(ret < 0)
+		return ret;
+	ret = __exec_db_query(certdb, QUERY_CREATE_TABLE_PACKAGE_CERT_INFO, NULL, NULL);
+	return ret;
+}
+
+
 
 static gint __compare_func(gconstpointer data1, gconstpointer data2)
 {
@@ -3096,14 +3132,14 @@ API int pkgmgrinfo_pkginfo_compare_pkg_cert_info(const char *lhs_package_id, con
 	info = (pkgmgr_cert_x *)calloc(1, sizeof(pkgmgr_cert_x));
 	retvm_if(info == NULL, PMINFO_R_ERROR, "Out of Memory!!!");
 
-	ret = db_util_open_with_options(CERT_DB, &cert_db,
+	ret = db_util_open_with_options(getUserPkgCertDBPath(), &cert_db,
 					SQLITE_OPEN_READONLY, NULL);
 	if (ret != SQLITE_OK) {
-		_LOGE("connect db [%s] failed!\n", CERT_DB);
+		_LOGE("connect db [%s] failed!\n", getUserPkgCertDBPath());
 		ret = PMINFO_R_ERROR;
 		goto err;
 	}
-
+	_check_create_Cert_db(cert_db);
 	snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_cert_info where package='%s')", lhs_package_id);
 	if (SQLITE_OK !=
 	    sqlite3_exec(cert_db, query, __validate_cb, (void *)&exist, &error_message)) {
@@ -6428,12 +6464,13 @@ API int pkgmgrinfo_pkginfo_load_certinfo(const char *pkgid, pkgmgrinfo_certinfo_
 	int i = 0;
 
 	/*Open db.*/
-	ret = db_util_open_with_options(CERT_DB, &cert_db,
+	ret = db_util_open_with_options(getUserPkgCertDBPath(), &cert_db,
 					SQLITE_OPEN_READONLY, NULL);
 	if (ret != SQLITE_OK) {
-		_LOGE("connect db [%s] failed!\n", CERT_DB);
+		_LOGE("connect db [%s] failed!\n", getUserPkgCertDBPath());
 		return PMINFO_R_ERROR;
 	}
+	_check_create_Cert_db(cert_db);
 	/*validate pkgid*/
 	snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_cert_info where package='%s')", pkgid);
 	if (SQLITE_OK !=
@@ -6564,13 +6601,14 @@ API int pkgmgrinfo_save_certinfo(const char *pkgid, pkgmgrinfo_instcertinfo_h ha
 	info->pkgid = strdup(pkgid);
 
 	/*Open db.*/
-	ret = db_util_open_with_options(CERT_DB, &cert_db,
+	ret = db_util_open_with_options(getUserPkgCertDBPath(), &cert_db,
 					SQLITE_OPEN_READWRITE, NULL);
 	if (ret != SQLITE_OK) {
-		_LOGE("connect db [%s] failed!\n", CERT_DB);
+		_LOGE("connect db [%s] failed!\n", getUserPkgCertDBPath());
 		ret = PMINFO_R_ERROR;
 		goto err;
 	}
+	_check_create_Cert_db(cert_db);
 	/*Begin Transaction*/
 	ret = sqlite3_exec(cert_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
 	if (ret != SQLITE_OK) {
@@ -6758,13 +6796,14 @@ API int pkgmgrinfo_delete_certinfo(const char *pkgid)
 	retvm_if(pkgid == NULL, PMINFO_R_EINVAL, "Argument supplied is NULL\n");
 	int ret = -1;
 	/*Open db.*/
-	ret = db_util_open_with_options(CERT_DB, &cert_db,
+	ret = db_util_open_with_options(getUserPkgCertDBPath(), &cert_db,
 					SQLITE_OPEN_READWRITE, NULL);
 	if (ret != SQLITE_OK) {
-		_LOGE("connect db [%s] failed!\n", CERT_DB);
+		_LOGE("connect db [%s] failed!\n", getUserPkgCertDBPath());
 		ret = PMINFO_R_ERROR;
 		goto err;
 	}
+	_check_create_Cert_db(cert_db);
 	/*Begin Transaction*/
 	ret = sqlite3_exec(cert_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
 	if (ret != SQLITE_OK) {
