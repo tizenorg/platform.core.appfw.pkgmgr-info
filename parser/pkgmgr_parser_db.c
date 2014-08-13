@@ -24,6 +24,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
+#include <sys/smack.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <db-util.h>
@@ -2145,7 +2146,7 @@ int pkgmgr_parser_initialize_db()
 	return 0;
 }
 
-static int parserdb_change_perm(const char *db_file)
+static int parserdb_change_perm(const char *db_file, uid_t uid)
 {
 	char buf[BUFSIZE];
 	char journal_file[BUFSIZE];
@@ -2169,10 +2170,10 @@ static int parserdb_change_perm(const char *db_file)
 		_LOGD("getgrnam(users) returns NULL !");
 	}
 	for (i = 0; files[i]; i++) {
-		ret = chown(files[i], OWNER_ROOT, (gid_t)grpinfo->gr_gid);
+		ret = chown(files[i], uid, (gid_t)grpinfo->gr_gid);
 		if (ret == -1) {
 			strerror_r(errno, buf, sizeof(buf));
-			_LOGD("FAIL : chown %s %d.%d, because %s", db_file, OWNER_ROOT, grpinfo->gr_gid, buf);
+			_LOGD("FAIL : chown %s %d.%d, because %s", db_file, uid, grpinfo->gr_gid, buf);
 			return -1;
 		}
 
@@ -2182,6 +2183,13 @@ static int parserdb_change_perm(const char *db_file)
 			_LOGD("FAIL : chmod %s 0664, because %s", db_file, buf);
 			return -1;
 		}
+    /* chsmack */
+    if(smack_setlabel(db_file, "_", SMACK_LABEL_ACCESS))
+	  {
+		  _LOGE("failed chsmack -a \"_\" %s", db_file);
+	  } else {
+		  _LOGD("chsmack -a \"_\" %s", db_file);
+	  }
 	}
 
 	return 0;
@@ -2198,7 +2206,7 @@ int pkgmgr_parser_check_and_create_db(uid_t uid)
 		return -1;
 	}
 	if(uid != GLOBAL_USER) {
-	  if( 0 != parserdb_change_perm(getUserPkgParserDBPathUID(uid))) {
+	  if( 0 != parserdb_change_perm(getUserPkgParserDBPathUID(uid), uid)) {
 		_LOGD("Failed to change permission\n");
 	  }
     }
@@ -2209,7 +2217,7 @@ int pkgmgr_parser_check_and_create_db(uid_t uid)
 		return -1;
 	}
 	if(uid != GLOBAL_USER) {
-	  if( 0 != parserdb_change_perm(getUserPkgCertDBPathUID(uid))) {
+	  if( 0 != parserdb_change_perm(getUserPkgCertDBPathUID(uid), uid)) {
 		_LOGD("Failed to change permission\n");
 	  }
     }
