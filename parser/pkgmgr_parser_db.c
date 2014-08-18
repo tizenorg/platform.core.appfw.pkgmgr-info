@@ -2143,6 +2143,7 @@ int pkgmgr_parser_initialize_db()
 		_LOGD("package cert index info DB initialization failed\n");
 		return ret;
 	}
+  
 	return 0;
 }
 
@@ -2205,22 +2206,22 @@ int pkgmgr_parser_check_and_create_db(uid_t uid)
 		_LOGD("Manifest DB creation Failed\n");
 		return -1;
 	}
-	if(uid != GLOBAL_USER) {
-	  if( 0 != parserdb_change_perm(getUserPkgParserDBPathUID(uid), uid)) {
-		_LOGD("Failed to change permission\n");
-	  }
-    }
+
 	/*Cert DB*/
 	ret = __pkgmgr_parser_create_cert_db(&pkgmgr_cert_db, getUserPkgCertDBPathUID(uid), uid);
 	if (ret) {
 		_LOGD("Cert DB creation Failed\n");
 		return -1;
 	}
+  
 	if(uid != GLOBAL_USER) {
 	  if( 0 != parserdb_change_perm(getUserPkgCertDBPathUID(uid), uid)) {
-		_LOGD("Failed to change permission\n");
+		  _LOGD("Failed to change cert db permission\n");
 	  }
-    }
+	  if( 0 != parserdb_change_perm(getUserPkgParserDBPathUID(uid), uid)) {
+		  _LOGD("Failed to change parser db permission\n");
+	  }
+  }
 	return 0;
 }
 

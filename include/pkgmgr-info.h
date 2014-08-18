@@ -436,13 +436,10 @@ typedef enum {
 #define	PMINFO_PKGINFO_PROP_RANGE_BASIC	"PMINFO_PKGINFO_PROP_RANGE_BASIC"
 
 /* For multiuser support */
-char *getUserDBLabel(void);
 char *getUserPkgParserDBPath(void);
 char *getUserPkgParserDBPathUID(uid_t uid);
-char *getUserPkgParserJournalDBPath(uid_t uid);
 char *getUserPkgCertDBPath(void);
 char *getUserPkgCertDBPathUID(uid_t uid);
-char *getUserPkgCertJournalDBPath(uid_t uid);
 const char* getUserDesktopPath(uid_t uid);
 const char* getUserManifestPath(uid_t uid);
 
@@ -875,45 +872,6 @@ static int get_pkg_icon(const char *pkgid)
  * @endcode
  */
 int pkgmgrinfo_pkginfo_get_icon(pkgmgrinfo_pkginfo_h handle, char **icon);
-
-/**
- * @fn int pkgmgrinfo_pkginfo_get_label(pkgmgrinfo_pkginfo_h handle, char **label)
- * @brief	This API gets the package label from the package ID
- *
- * @par		This API is for package-manager client application
- * @par Sync (or) Async : Synchronous API
- *
- * @param[in]	handle	pointer to package info handle
- * @param[out] label		pointer to hold package label
- * @return	0 if success, error code(<0) if fail
- * @retval	PMINFO_R_OK	success
- * @retval	PMINFO_R_EINVAL	invalid argument
- * @retval	PMINFO_R_ERROR	internal error
- * @pre		pkgmgrinfo_pkginfo_get_pkginfo()
- * @post		pkgmgrinfo_pkginfo_destroy_pkginfo()
- * @see		pkgmgrinfo_pkginfo_get_pkgid()
- * @see		pkgmgrinfo_pkginfo_is_removable()
- * @code
-static int get_pkg_label(const char *pkgid)
-{
-	int ret = 0;
-	char *label = NULL;
-	pkgmgrinfo_pkginfo_h handle;
-	ret = pkgmgrinfo_pkginfo_get_pkginfo(pkgid, &handle);
-	if (ret != PMINFO_R_OK)
-		return -1;
-	ret = pkgmgrinfo_pkginfo_get_label(handle, &label);
-	if (ret != PMINFO_R_OK) {
-		pkgmgrinfo_pkginfo_destroy_pkginfo(handle);
-		return -1;
-	}
-	printf("pkg label: %s\n", label);
-	pkgmgrinfo_pkginfo_destroy_pkginfo(handle);
-	return 0;
-}
- * @endcode
- */
-int pkgmgrinfo_pkginfo_get_label(pkgmgrinfo_pkginfo_h handle, char **label);
 
 /**
  * @fn int pkgmgrinfo_pkginfo_get_description(pkgmgrinfo_pkginfo_h handle, char **description)
@@ -1995,6 +1953,8 @@ static int get_rpm_pkg_list()
  */
 int pkgmgrinfo_pkginfo_filter_foreach_pkginfo(pkgmgrinfo_pkginfo_filter_h handle,
 		pkgmgrinfo_pkg_list_cb pkg_cb, void *user_data);
+int pkgmgrinfo_pkginfo_usr_filter_foreach_pkginfo(pkgmgrinfo_pkginfo_filter_h handle,
+		pkgmgrinfo_pkg_list_cb pkg_cb, void *user_data, uid_t uid);
 
 /**
  * @fn int pkgmgrinfo_pkginfo_filter_count(pkgmgrinfo_pkginfo_filter_h handle, int *count)
@@ -2131,6 +2091,8 @@ static int list_apps(const char *pkgid)
  */
 int pkgmgrinfo_appinfo_get_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_app_component component,
 							pkgmgrinfo_app_list_cb app_func, void *user_data);
+int pkgmgrinfo_appinfo_get_usr_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_app_component component,
+							pkgmgrinfo_app_list_cb app_func, void *user_data, uid_t uid);
 /**
  * @fn	int pkgmgrinfo_appinfo_get_install_list(pkgmgrinfo_app_list_cb app_func, void *user_data);
  * @brief	This API gets list of installed applications from all packages with  minimum informaion.
@@ -4074,6 +4036,8 @@ static int get_capp_list()
  */
 int pkgmgrinfo_appinfo_filter_foreach_appinfo(pkgmgrinfo_appinfo_filter_h handle,
 		pkgmgrinfo_app_list_cb app_cb, void *user_data);
+int pkgmgrinfo_appinfo_usr_filter_foreach_appinfo(pkgmgrinfo_appinfo_filter_h handle,
+		pkgmgrinfo_app_list_cb app_cb, void *user_data, uid_t uid);
 
 /**
  * @fn int pkgmgrinfo_appinfo_filter_count(pkgmgrinfo_appinfo_filter_h handle, int *count)
