@@ -63,6 +63,7 @@
 #define PKG_TAG_LEN_MAX 128
 #define OWNER_ROOT 0
 #define BUFSIZE 4096
+#define GLOBAL_USER 0
 
 /* operation_type */
 typedef enum {
@@ -650,10 +651,10 @@ static char *__pkgid_to_manifest(const char *pkgid, uid_t uid)
 		return NULL;
 	}
 	memset(manifest, '\0', size);
-	snprintf(manifest, size, "%s/%s.xml", getUserManifestPath(uid), pkgid);
+	snprintf(manifest, size, "%s%s.xml", getUserManifestPath(uid), pkgid);
 
 	if (access(manifest, F_OK)) {
-		snprintf(manifest, size, "%s/%s.xml", getUserManifestPath(uid), pkgid);
+		snprintf(manifest, size, "%s%s.xml", getUserManifestPath(uid), pkgid);
 	}
 
 	return manifest;
@@ -3068,65 +3069,23 @@ __get_icon_with_path(const char* icon, uid_t uid)
 		}
 
 		memset(icon_with_path, 0, len);
-		//--------------------------------------------------------------
-		//workaround to bypass segfault when we use geticon function
-		
-		if(uid != GLOBAL_USER)
-			iconPath = tzplatform_getenv(TZ_USER_ICONS);
-		else
-			iconPath = tzplatform_getenv(TZ_SYS_RW_ICONS);
-		if(access(iconPath, F_OK)) {
-			struct group *grpinfo = NULL;
-			const char *name = "users";
-			int ret;
-			char buf[BUFSIZE];
-			mkdir(iconPath, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
-			grpinfo = getgrnam(name);
-			if(grpinfo == NULL)
-				_LOGD("getgrnam(users) returns NULL !");
-
-			ret = chown(iconPath, uid, grpinfo->gr_gid);
-			if (ret == -1) {
-				strerror_r(errno, buf, sizeof(buf));
-				_LOGD("FAIL : chown %s %d.%d, because %s", iconPath, uid, grpinfo->gr_gid, buf);
+		if (uid != GLOBAL_USER)
+			snprintf(icon_with_path, len, "%s%s", getIconPath(uid), icon);
+		else {
+			snprintf(icon_with_path, len, "%s%s/small/%s", getIconPath(GLOBAL_USER), theme, icon);
+			if (!access (icon_with_path, F_OK))
+				snprintf( len, icon_with_path, "%s/%q/res/icons/%q/small/%q", tzplatform_getenv(TZ_SYS_RO_APP), package, theme, icon);
+			else if (!access (icon_with_path, F_OK))
+				snprintf( len, icon_with_path, "%s/%q/res/icons/%q/small/%q", tzplatform_getenv(TZ_SYS_RW_APP), package, theme, icon);
 			}
-			
-		}
-		if(iconPath == NULL)
-			_LOGD("Icon path error: %s ",iconPath );
-		else
-			snprintf(icon_with_path, len, "%s/%s/small/%s", iconPath, theme, icon);
+			if (!access (icon_with_path, F_OK))
+				_LOGD("Cannot find icon path");
 
-		do {
-			if (access(icon_with_path, R_OK) == 0) break;
-			snprintf(icon_with_path, len, "%s/%s/small/%s", tzplatform_getenv(TZ_SYS_RO_ICONS), theme, icon);
-			if (access(icon_with_path, R_OK) == 0) break;
-			_LOGD("cannot find icon %s", icon_with_path);
-			snprintf(icon_with_path, len,"%s/default/small/%s", iconPath, icon);
-			if (access(icon_with_path, R_OK) == 0) break;
-			snprintf(icon_with_path, len, "%s/icons/default/small/%s", tzplatform_getenv(TZ_SYS_RO_ICONS), icon);
-			if (access(icon_with_path, R_OK) == 0) break;
+			free(theme);
 
-			/* icon path is going to be moved intto the app directory */
-			_LOGE("icon file must be moved to %s", icon_with_path);
-			snprintf(icon_with_path, len, "%s/%s/res/icons/%s/small/%s", tzplatform_getenv(TZ_SYS_RW_APP), package, theme, icon);
-			if (access(icon_with_path, R_OK) == 0) break;
-			snprintf(icon_with_path, len, "%s/%s/res/icons/%s/small/%s", tzplatform_getenv(TZ_SYS_RO_APP), package, theme, icon);
-			if (access(icon_with_path, R_OK) == 0) break;
-			_LOGD("cannot find icon %s", icon_with_path);
-			snprintf(icon_with_path, len, "%s/%s/res/icons/default/small/%s", tzplatform_getenv(TZ_SYS_RW_APP), package, icon);
-			if (access(icon_with_path, R_OK) == 0) break;
-			snprintf(icon_with_path, len, "%s/res/icons/default/small/%s", tzplatform_getenv(TZ_SYS_RO_APP), package, icon);
-			if (access(icon_with_path, R_OK) == 0) break;
-			snprintf(icon_with_path, len, "%s/res/images/%s/%s", tzplatform_getenv(TZ_SYS_RO_UG), package, icon);
-			if (access(icon_with_path, R_OK) == 0) break;
-		} while (0);
+			_LOGD("Icon path : %s ---> %s", icon, icon_with_path);
 
-		free(theme);
-
-		_LOGD("Icon path : %s ---> %s", icon, icon_with_path);
-
-		return icon_with_path;
+			return icon_with_path;
 	} else {
 		char* confirmed_icon = NULL;
 
@@ -3409,7 +3368,6 @@ static int __ps_process_datacontrol(xmlTextReaderPtr reader, datacontrol_x *data
 
 static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *uiapplication, uid_t uid)
 {
-	fprintf(stdout, "__ps_process_uiapplication\n");
 	const xmlChar *node;
 	int ret = -1;
 	int depth = -1;
@@ -3726,7 +3684,6 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 
 static int __ps_process_serviceapplication(xmlTextReaderPtr reader, serviceapplication_x *serviceapplication, uid_t uid)
 {
-	fprintf(stdout, "__ps_process_serviceapplication\n");
 	const xmlChar *node;
 	int ret = -1;
 	int depth = -1;
@@ -5481,7 +5438,7 @@ API int pkgmgr_parser_parse_usr_manifest_for_upgrade(const char *manifest, uid_t
 	ret = __ps_process_category_parser(mfx, ACTION_UPGRADE);
 	if (ret == -1)
 		_LOGD("Creating category parser failed\n");
-	ret = __ps_make_nativeapp_desktop(mfx, manifest, ACTION_UPGRADE, GLOBAL_USER);
+	ret = __ps_make_nativeapp_desktop(mfx, manifest, ACTION_UPGRADE, uid);
 	if (ret == -1)
 		_LOGD("Creating desktop file failed\n");
 	else
@@ -5565,7 +5522,7 @@ API int pkgmgr_parser_parse_usr_manifest_for_uninstallation(const char *manifest
 //	__streamFile(manifest, ACTION_UNINSTALL, temp, mfx->package);
 	__ps_process_tag_parser(mfx, manifest, ACTION_UNINSTALL);
 
-	__add_preload_info(mfx, manifest, GLOBAL_USER);
+	__add_preload_info(mfx, manifest, uid);
 	_LOGD("Added preload infomation\n");
 
 	ret = __ps_process_metadata_parser(mfx, ACTION_UNINSTALL);
