@@ -3042,6 +3042,7 @@ __get_icon_with_path(const char* icon, uid_t uid)
 		char* theme = NULL;
 		char* iconPath = NULL;
 		char* icon_with_path = NULL;
+		char *app_path = NULL;
 		int len;
 
 		if (!package)
@@ -3073,19 +3074,17 @@ __get_icon_with_path(const char* icon, uid_t uid)
 			snprintf(icon_with_path, len, "%s%s", getIconPath(uid), icon);
 		else {
 			snprintf(icon_with_path, len, "%s%s/small/%s", getIconPath(GLOBAL_USER), theme, icon);
-			if (!access (icon_with_path, F_OK))
-				snprintf( len, icon_with_path, "%s/%q/res/icons/%q/small/%q", tzplatform_getenv(TZ_SYS_RO_APP), package, theme, icon);
-			else if (!access (icon_with_path, F_OK))
-				snprintf( len, icon_with_path, "%s/%q/res/icons/%q/small/%q", tzplatform_getenv(TZ_SYS_RW_APP), package, theme, icon);
+			if (access (icon_with_path, F_OK)) { //If doesn't exist in case of Global app, try to get icon directly into app's directory
+				app_path = tzplatform_getenv(TZ_SYS_RW_APP);
+				if (app_path)
+					snprintf( len, icon_with_path, "%s/%q/res/icons/%q/small/%q", app_path  , package, theme, icon);
+				if (access (icon_with_path, F_OK))
+					_LOGE("Cannot find icon path");
 			}
-			if (!access (icon_with_path, F_OK))
-				_LOGD("Cannot find icon path");
-
-			free(theme);
-
-			_LOGD("Icon path : %s ---> %s", icon, icon_with_path);
-
-			return icon_with_path;
+		}
+		free(theme);
+		_LOGD("Icon path : %s ---> %s", icon, icon_with_path);
+		return icon_with_path;
 	} else {
 		char* confirmed_icon = NULL;
 
