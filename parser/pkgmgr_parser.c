@@ -63,7 +63,7 @@
 #define PKG_TAG_LEN_MAX 128
 #define OWNER_ROOT 0
 #define BUFSIZE 4096
-#define GLOBAL_USER 0
+#define GLOBAL_USER tzplatform_getuid(TZ_SYS_GLOBALAPP_USER)
 
 /* operation_type */
 typedef enum {
