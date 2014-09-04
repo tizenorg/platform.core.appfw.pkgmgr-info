@@ -121,7 +121,6 @@
 #define INTERFACE_NAME "org.tizen.system.deviced.Mmc"
 #define METHOD_NAME "RequestMountApp2ext"
 
-#define SMACK_LABEL "_"
 
 
 typedef struct _pkgmgr_instcertinfo_x {
@@ -540,12 +539,6 @@ API char *getIconPath(uid_t uid)
 			return NULL;
 		}
 		result = tzplatform_mkpath(TZ_SYS_RW_ICONS, "/");
-		/* chsmack */
-		if (smack_setlabel(result, SMACK_LABEL, SMACK_LABEL_ACCESS)) {
-			_LOGE("failed chsmack -a \"%s\" %s", SMACK_LABEL, result);
-		} else {
-			_LOGD("chsmack -a \"%s\" %s", SMACK_LABEL, result);
-		}
 	}
 
 	int ret;
@@ -601,30 +594,25 @@ API char *getUserPkgParserDBPathUID(uid_t uid)
 		}
 		result = tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_parser.db");
 		journal = tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_parser-journal.db");
-		/* chsmack */
-		if (smack_setlabel(result, SMACK_LABEL, SMACK_LABEL_ACCESS)) {
-		_LOGE("failed chsmack -a \"%s\" %s", SMACK_LABEL, result);
-		} else {
-			_LOGD("chsmack -a \"%s\" %s", SMACK_LABEL, result);
-		}
-		if (smack_setlabel(journal, SMACK_LABEL, SMACK_LABEL_ACCESS)) {
-			_LOGE("failed chsmack -a \"%s\" %s", SMACK_LABEL, journal);
-		} else {
-			_LOGD("chsmack -a \"%s\" %s", SMACK_LABEL, journal);
-		}
 	}
-	dir = strrchr(result, '/');
+	char *temp = strdup(result);
+	dir = strrchr(temp, '/');
 	if(!dir)
+	{
+		free(temp);
 		return result;
+	}
+	*dir = 0;
 
 	int ret;
-	mkdir(dir + 1, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
+	mkdir(temp, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
 	ret = chown(dir + 1, uid, grpinfo->gr_gid);
 	if (ret == -1) {
 		char buf[BUFSIZE];
 		strerror_r(errno, buf, sizeof(buf));
 		_LOGE("FAIL : chown %s %d.%d, because %s", dir + 1, uid, grpinfo->gr_gid, buf);
 	}
+	free(temp);
 	return result;
 }
 
@@ -667,30 +655,25 @@ API char *getUserPkgCertDBPathUID(uid_t uid)
 			_LOGE("getgrnam(root) returns NULL !");
 			return NULL;
 		}
-		/* chsmack */
-		if (smack_setlabel(result, SMACK_LABEL, SMACK_LABEL_ACCESS)) {
-			_LOGE("failed chsmack -a \"%s\" %s", SMACK_LABEL, result);
-		} else {
-			_LOGD("chsmack -a \"%s\" %s", SMACK_LABEL, result);
-		}
-		if (smack_setlabel(journal, SMACK_LABEL, SMACK_LABEL_ACCESS)) {
-			_LOGE("failed chsmack -a \"%s\" %s", SMACK_LABEL, journal);
-		} else {
-			_LOGD("chsmack -a \"%s\" %s", SMACK_LABEL, journal);
-		}
 	}
-	dir = strrchr(result, '/');
+	char *temp = strdup(result);
+	dir = strrchr(temp, '/');
 	if(!dir)
+	{
+		free(temp);
 		return result;
+	}
+	*dir = 0;
 
 	int ret;
-	mkdir(dir + 1, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
+	mkdir(temp, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
 	ret = chown(dir + 1, uid, grpinfo->gr_gid);
 	if (ret == -1) {
 		char buf[BUFSIZE];
 		strerror_r(errno, buf, sizeof(buf));
 		_LOGE("FAIL : chown %s %d.%d, because %s", dir + 1, uid, grpinfo->gr_gid, buf);
 	}
+	free(temp);
 	return result;
 }
 
@@ -729,12 +712,6 @@ API const char* getUserDesktopPath(uid_t uid)
 				return NULL;
 			}
 			result = tzplatform_mkpath(TZ_SYS_RW_DESKTOP_APP, "/");
-		 /* chsmack */
-		 if (smack_setlabel(result, SMACK_LABEL, SMACK_LABEL_ACCESS)) {
-			_LOGE("failed chsmack -a \"%s\" %s", SMACK_LABEL, result);
-		} else {
-			_LOGD("chsmack -a \"%s\" %s", SMACK_LABEL, result);
-		}
 	}
 
 	int ret;
@@ -783,12 +760,6 @@ API const char* getUserManifestPath(uid_t uid)
 				return NULL;
 			}
 			result = tzplatform_mkpath(TZ_SYS_RW_PACKAGES, "/");
-		 /* chsmack */
-		 if (smack_setlabel(result, SMACK_LABEL, SMACK_LABEL_ACCESS)) {
-			_LOGE("failed chsmack -a \"%s\" %s", SMACK_LABEL, result);
-		} else {
-			_LOGD("chsmack -a \"%s\" %s", SMACK_LABEL, result);
-		}
 	}
 
 	int ret;

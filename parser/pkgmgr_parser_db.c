@@ -2184,15 +2184,7 @@ static int parserdb_change_perm(const char *db_file, uid_t uid)
 			_LOGD("FAIL : chmod %s 0664, because %s", db_file, buf);
 			return -1;
 		}
-    /* chsmack */
-    if(smack_setlabel(db_file, "_", SMACK_LABEL_ACCESS))
-	  {
-		  _LOGE("failed chsmack -a \"_\" %s", db_file);
-	  } else {
-		  _LOGD("chsmack -a \"_\" %s", db_file);
-	  }
 	}
-
 	return 0;
 }
 
