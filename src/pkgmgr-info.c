@@ -74,6 +74,7 @@
 #define PKG_RO_PATH tzplatform_mkpath(TZ_SYS_RO_APP, "")
 #define BLOCK_SIZE      4096 /*in bytes*/
 #define BUFSIZE 4096
+#define OWNER_ROOT 0
 
 #define MMC_PATH tzplatform_mkpath(TZ_SYS_STORAGE, "sdcard")
 #define PKG_SD_PATH tzplatform_mkpath3(TZ_SYS_STORAGE, "sdcard", "app2sd/")
@@ -529,25 +530,18 @@ API char *getIconPath(uid_t uid)
 		}
 		asprintf(&result, "%s/.applications/icons/", userinfo->pw_dir);
 	} else {
-		grpinfo = getgrnam("root");
-		if (grpinfo == NULL) {
-			_LOGE("getgrnam(root) returns NULL !");
-			return NULL;
-		}
-		if (grpinfo->gr_gid != userinfo->pw_gid) {
-			_LOGE("UID [%d] does not belong to 'root' group!", uid);
-			return NULL;
-		}
 		result = tzplatform_mkpath(TZ_SYS_RW_ICONS, "/");
 	}
 
 	int ret;
 	mkdir(result, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
-	ret = chown(result, uid, grpinfo->gr_gid);
-	if (ret == -1) {
-		char buf[BUFSIZE];
-		strerror_r(errno, buf, sizeof(buf));
-		_LOGE("FAIL : chown %s %d.%d, because %s", result, uid, grpinfo->gr_gid, buf);
+	if (getuid() == OWNER_ROOT) {
+		ret = chown(result, uid, ((grpinfo)?grpinfo->gr_gid:0));
+		if (ret == -1) {
+			char buf[BUFSIZE];
+			strerror_r(errno, buf, sizeof(buf));
+			_LOGE("FAIL : chown %s %d.%d, because %s", result, uid, ((grpinfo)?grpinfo->gr_gid:0), buf);
+		}
 	}
 	return result;
 }
@@ -583,15 +577,6 @@ API char *getUserPkgParserDBPathUID(uid_t uid)
 		asprintf(&result, "%s/.applications/dbspace/.pkgmgr_parser.db", userinfo->pw_dir);
 		asprintf(&journal, "%s/.applications/dbspace/.pkgmgr_parser.db-journal", userinfo->pw_dir);
 	} else {
-		grpinfo = getgrnam("root");
-		if (grpinfo == NULL) {
-		_LOGE("getgrnam(root) returns NULL !");
-		return NULL;
-		}
-		if (grpinfo->gr_gid != userinfo->pw_gid) {
-		_LOGE("UID [%d] does not belong to 'root' group!", uid);
-		return NULL;
-		}
 		result = tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_parser.db");
 		journal = tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_parser-journal.db");
 	}
@@ -606,11 +591,13 @@ API char *getUserPkgParserDBPathUID(uid_t uid)
 
 	int ret;
 	mkdir(temp, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
-	ret = chown(dir + 1, uid, grpinfo->gr_gid);
-	if (ret == -1) {
-		char buf[BUFSIZE];
-		strerror_r(errno, buf, sizeof(buf));
-		_LOGE("FAIL : chown %s %d.%d, because %s", dir + 1, uid, grpinfo->gr_gid, buf);
+	if (getuid() == OWNER_ROOT) {
+		ret = chown(temp, uid, ((grpinfo)?grpinfo->gr_gid:0));
+		if (ret == -1) {
+			char buf[BUFSIZE];
+			strerror_r(errno, buf, sizeof(buf));
+			_LOGE("FAIL : chown %s %d.%d, because %s", temp, uid, ((grpinfo)?grpinfo->gr_gid:0), buf);
+		}
 	}
 	free(temp);
 	return result;
@@ -650,11 +637,6 @@ API char *getUserPkgCertDBPathUID(uid_t uid)
 	} else {
 		result = tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_cert.db");
 		result = tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_cert-journal.db");
-		grpinfo = getgrnam("root");
-		if (grpinfo == NULL) {
-			_LOGE("getgrnam(root) returns NULL !");
-			return NULL;
-		}
 	}
 	char *temp = strdup(result);
 	dir = strrchr(temp, '/');
@@ -667,11 +649,13 @@ API char *getUserPkgCertDBPathUID(uid_t uid)
 
 	int ret;
 	mkdir(temp, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
-	ret = chown(dir + 1, uid, grpinfo->gr_gid);
-	if (ret == -1) {
-		char buf[BUFSIZE];
-		strerror_r(errno, buf, sizeof(buf));
-		_LOGE("FAIL : chown %s %d.%d, because %s", dir + 1, uid, grpinfo->gr_gid, buf);
+	if (getuid() == OWNER_ROOT) {
+		ret = chown(temp, uid, ((grpinfo)?grpinfo->gr_gid:0));
+		if (ret == -1) {
+			char buf[BUFSIZE];
+			strerror_r(errno, buf, sizeof(buf));
+			_LOGE("FAIL : chown %s %d.%d, because %s", temp, uid, ((grpinfo)?grpinfo->gr_gid:0), buf);
+		}
 	}
 	free(temp);
 	return result;
@@ -702,25 +686,18 @@ API const char* getUserDesktopPath(uid_t uid)
 		}
 		asprintf(&result, "%s/.applications/desktop/", userinfo->pw_dir);
 	} else {
-			grpinfo = getgrnam("root");
-			if (grpinfo == NULL) {
-				_LOGE("getgrnam(root) returns NULL !");
-				return NULL;
-			}
-			if (grpinfo->gr_gid != userinfo->pw_gid) {
-				_LOGE("UID [%d] does not belong to 'root' group!", uid);
-				return NULL;
-			}
 			result = tzplatform_mkpath(TZ_SYS_RW_DESKTOP_APP, "/");
 	}
 
 	int ret;
 	mkdir(result, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
-	ret = chown(result, uid, grpinfo->gr_gid);
-	if (ret == -1) {
-		char buf[BUFSIZE];
-		strerror_r(errno, buf, sizeof(buf));
-		_LOGE("FAIL : chown %s %d.%d, because %s", result, uid, grpinfo->gr_gid, buf);
+	if (getuid() == OWNER_ROOT) {
+		ret = chown(result, uid,((grpinfo)?grpinfo->gr_gid:0));
+		if (ret == -1) {
+			char buf[BUFSIZE];
+			strerror_r(errno, buf, sizeof(buf));
+			_LOGE("FAIL : chown %s %d.%d, because %s", result, uid, ((grpinfo)?grpinfo->gr_gid:0), buf);
+		}
 	}
 	return result;
 }
@@ -750,25 +727,18 @@ API const char* getUserManifestPath(uid_t uid)
 		}
 		asprintf(&result, "%s/.config/xwalk-service/applications/", userinfo->pw_dir);
 	} else {
-			grpinfo = getgrnam("root");
-			if (grpinfo == NULL) {
-				_LOGE("getgrnam(root) returns NULL !");
-				return NULL;
-			}
-			if (grpinfo->gr_gid != userinfo->pw_gid) {
-				_LOGE("UID [%d] does not belong to 'root' group!", uid);
-				return NULL;
-			}
 			result = tzplatform_mkpath(TZ_SYS_RW_PACKAGES, "/");
 	}
 
 	int ret;
 	mkdir(result, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
-	ret = chown(result, uid, grpinfo->gr_gid);
-	if (ret == -1) {
-		char buf[BUFSIZE];
-		strerror_r(errno, buf, sizeof(buf));
-		_LOGE("FAIL : chown %s %d.%d, because %s", result, uid, grpinfo->gr_gid, buf);
+	if (getuid() == OWNER_ROOT) {
+		ret = chown(result, uid, ((grpinfo)?grpinfo->gr_gid:0));
+		if (ret == -1) {
+			char buf[BUFSIZE];
+			strerror_r(errno, buf, sizeof(buf));
+			_LOGE("FAIL : chown %s %d.%d, because %s", result, uid, ((grpinfo)?grpinfo->gr_gid:0), buf);
+		}
 	}
 
 	return result;
@@ -7429,15 +7399,15 @@ API int pkgmgrinfo_destroy_certinfo_set_handle(pkgmgrinfo_instcertinfo_h handle)
 	return PMINFO_R_OK;
 }
 
-API int pkgmgrinfo_delete_certinfo(const char *pkgid)
+API int pkgmgrinfo_delete_usr_certinfo(const char *pkgid, uid_t uid)
 {
 	retvm_if(pkgid == NULL, PMINFO_R_EINVAL, "Argument supplied is NULL\n");
 	int ret = -1;
 	/*Open db.*/
-	ret = db_util_open_with_options(getUserPkgCertDBPath(), &cert_db,
+	ret = db_util_open_with_options(getUserPkgCertDBPathUID(uid), &cert_db,
 					SQLITE_OPEN_READWRITE, NULL);
 	if (ret != SQLITE_OK) {
-		_LOGE("connect db [%s] failed!\n", getUserPkgCertDBPath());
+		_LOGE("connect db [%s] failed!\n", getUserPkgCertDBPathUID(uid));
 		ret = PMINFO_R_ERROR;
 		goto err;
 	}
@@ -7469,6 +7439,12 @@ API int pkgmgrinfo_delete_certinfo(const char *pkgid)
 err:
 	sqlite3_close(cert_db);
 	return ret;
+}
+
+
+API int pkgmgrinfo_delete_certinfo(const char *pkgid)
+{
+	return pkgmgrinfo_delete_usr_certinfo(pkgid, GLOBAL_USER);
 }
 
 API int pkgmgrinfo_create_pkgusrdbinfo(const char *pkgid, uid_t uid, pkgmgrinfo_pkgdbinfo_h *handle)
