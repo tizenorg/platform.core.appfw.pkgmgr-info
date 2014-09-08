@@ -74,6 +74,7 @@
 #define PKG_RO_PATH tzplatform_mkpath(TZ_SYS_RO_APP, "")
 #define BLOCK_SIZE      4096 /*in bytes*/
 #define BUFSIZE 4096
+#define OWNER_ROOT 0
 
 #define MMC_PATH tzplatform_mkpath(TZ_SYS_STORAGE, "sdcard")
 #define PKG_SD_PATH tzplatform_mkpath3(TZ_SYS_STORAGE, "sdcard", "app2sd/")
@@ -534,11 +535,13 @@ API char *getIconPath(uid_t uid)
 
 	int ret;
 	mkdir(result, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
-	ret = chown(result, uid, grpinfo->gr_gid);
-	if (ret == -1) {
-		char buf[BUFSIZE];
-		strerror_r(errno, buf, sizeof(buf));
-		_LOGE("FAIL : chown %s %d.%d, because %s", result, uid, grpinfo->gr_gid, buf);
+	if (getuid() == OWNER_ROOT) {
+		ret = chown(result, uid, grpinfo->gr_gid);
+		if (ret == -1) {
+			char buf[BUFSIZE];
+			strerror_r(errno, buf, sizeof(buf));
+			_LOGE("FAIL : chown %s %d.%d, because %s", result, uid, grpinfo->gr_gid, buf);
+		}
 	}
 	return result;
 }
@@ -588,11 +591,13 @@ API char *getUserPkgParserDBPathUID(uid_t uid)
 
 	int ret;
 	mkdir(temp, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
-	ret = chown(dir + 1, uid, grpinfo->gr_gid);
-	if (ret == -1) {
-		char buf[BUFSIZE];
-		strerror_r(errno, buf, sizeof(buf));
-		_LOGE("FAIL : chown %s %d.%d, because %s", dir + 1, uid, grpinfo->gr_gid, buf);
+	if (getuid() == OWNER_ROOT) {
+		ret = chown(dir + 1, uid, grpinfo->gr_gid);
+		if (ret == -1) {
+			char buf[BUFSIZE];
+			strerror_r(errno, buf, sizeof(buf));
+			_LOGE("FAIL : chown %s %d.%d, because %s", dir + 1, uid, grpinfo->gr_gid, buf);
+		}
 	}
 	free(temp);
 	return result;
@@ -644,11 +649,13 @@ API char *getUserPkgCertDBPathUID(uid_t uid)
 
 	int ret;
 	mkdir(temp, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
-	ret = chown(dir + 1, uid, grpinfo->gr_gid);
-	if (ret == -1) {
-		char buf[BUFSIZE];
-		strerror_r(errno, buf, sizeof(buf));
-		_LOGE("FAIL : chown %s %d.%d, because %s", dir + 1, uid, grpinfo->gr_gid, buf);
+	if (getuid() == OWNER_ROOT) {
+		ret = chown(dir + 1, uid, grpinfo->gr_gid);
+		if (ret == -1) {
+			char buf[BUFSIZE];
+			strerror_r(errno, buf, sizeof(buf));
+			_LOGE("FAIL : chown %s %d.%d, because %s", dir + 1, uid, grpinfo->gr_gid, buf);
+		}
 	}
 	free(temp);
 	return result;
@@ -684,11 +691,13 @@ API const char* getUserDesktopPath(uid_t uid)
 
 	int ret;
 	mkdir(result, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
-	ret = chown(result, uid, grpinfo->gr_gid);
-	if (ret == -1) {
-		char buf[BUFSIZE];
-		strerror_r(errno, buf, sizeof(buf));
-		_LOGE("FAIL : chown %s %d.%d, because %s", result, uid, grpinfo->gr_gid, buf);
+	if (getuid() == OWNER_ROOT) {
+		ret = chown(result, uid, grpinfo->gr_gid);
+		if (ret == -1) {
+			char buf[BUFSIZE];
+			strerror_r(errno, buf, sizeof(buf));
+			_LOGE("FAIL : chown %s %d.%d, because %s", result, uid, grpinfo->gr_gid, buf);
+		}
 	}
 	return result;
 }
@@ -723,11 +732,13 @@ API const char* getUserManifestPath(uid_t uid)
 
 	int ret;
 	mkdir(result, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
-	ret = chown(result, uid, grpinfo->gr_gid);
-	if (ret == -1) {
-		char buf[BUFSIZE];
-		strerror_r(errno, buf, sizeof(buf));
-		_LOGE("FAIL : chown %s %d.%d, because %s", result, uid, grpinfo->gr_gid, buf);
+	if (getuid() == OWNER_ROOT) {
+		ret = chown(result, uid, grpinfo->gr_gid);
+		if (ret == -1) {
+			char buf[BUFSIZE];
+			strerror_r(errno, buf, sizeof(buf));
+			_LOGE("FAIL : chown %s %d.%d, because %s", result, uid, grpinfo->gr_gid, buf);
+		}
 	}
 
 	return result;
@@ -7432,7 +7443,7 @@ err:
 
 API int pkgmgrinfo_delete_certinfo(const char *pkgid)
 {
-	return kgmgrinfo_delete_usr_certinfo(pkgid, GLOBAL_USER);
+	return pkgmgrinfo_delete_usr_certinfo(pkgid, GLOBAL_USER);
 }
 
 API int pkgmgrinfo_create_pkgusrdbinfo(const char *pkgid, uid_t uid, pkgmgrinfo_pkgdbinfo_h *handle)
