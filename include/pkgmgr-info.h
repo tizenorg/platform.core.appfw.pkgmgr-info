@@ -4485,7 +4485,7 @@ static int delete_cert_info(const char *pkgid)
  * @endcode
  */
  int pkgmgrinfo_delete_certinfo(const char *pkgid);
-
+ int pkgmgrinfo_delete_usr_certinfo(const char *pkgid, uid_t uid);
 /**
  * @fn int pkgmgrinfo_create_pkgdbinfo(const char *pkgid, pkgmgrinfo_pkgdbinfo_h *handle)
  * @fn int pkgmgrinfo_create_pkgusrdbinfo(const char *pkgid, pkgmgrinfo_pkgdbinfo_h *handle)

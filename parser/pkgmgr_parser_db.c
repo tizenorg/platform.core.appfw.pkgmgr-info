@@ -263,7 +263,7 @@ static void __insert_serviceapplication_locale_info(gpointer data, gpointer user
 static void __insert_uiapplication_locale_info(gpointer data, gpointer userdata);
 static void __insert_pkglocale_info(gpointer data, gpointer userdata);
 static int __insert_manifest_info_in_db(manifest_x *mfx);
-static int __delete_manifest_info_from_db(manifest_x *mfx);
+static int __delete_manifest_info_from_db(manifest_x *mfx, uid_t uid);
 static int __delete_subpkg_info_from_db(char *appid);
 static int __delete_appinfo_from_db(char *db_table, const char *appid);
 static int __initialize_db(sqlite3 *db_handle, const char *db_query);
@@ -1923,14 +1923,17 @@ static int __delete_subpkg_from_db(manifest_x *mfx)
 	return 0;
 }
 
-static int __delete_manifest_info_from_db(manifest_x *mfx)
+static int __delete_manifest_info_from_db(manifest_x *mfx, uid_t uid)
 {
 	char query[MAX_QUERY_LEN] = { '\0' };
 	int ret = -1;
 	uiapplication_x *up = mfx->uiapplication;
 	serviceapplication_x *sp = mfx->serviceapplication;
 	/*Delete from cert table*/
-	ret = pkgmgrinfo_delete_certinfo(mfx->package);
+	if (uid != GLOBAL_USER)
+		ret = pkgmgrinfo_delete_usr_certinfo(mfx->package, uid);
+	else
+		ret = pkgmgrinfo_delete_certinfo(mfx->package);
 	if (ret) {
 		_LOGD("Cert Info  DB Delete Failed\n");
 		return -1;
@@ -2311,57 +2314,6 @@ err:
 	pkgmgr_parser_close_db();
 	return ret;
 }
-API int pkgmgr_parser_update_manifest_info_in_db(manifest_x *mfx)
-{
-	if (mfx == NULL) {
-		_LOGD("manifest pointer is NULL\n");
-		return -1;
-	}
-	int ret = 0;
-	ret = pkgmgr_parser_check_and_create_db(GLOBAL_USER);
-	if (ret == -1) {
-		_LOGD("Failed to open DB\n");
-		return ret;
-	}
-	ret = pkgmgr_parser_initialize_db();
-	if (ret == -1)
-		goto err;
-	/*Preserve guest mode visibility*/
-	__preserve_guestmode_visibility_value( mfx);
-	/*Begin transaction*/
-	ret = sqlite3_exec(pkgmgr_parser_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
-	if (ret != SQLITE_OK) {
-		_LOGD("Failed to begin transaction\n");
-		ret = -1;
-		goto err;
-	}
-	_LOGD("Transaction Begin\n");
-	ret = __delete_manifest_info_from_db(mfx);
-	if (ret == -1) {
-		_LOGD("Delete from DB failed. Rollback now\n");
-		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
-		goto err;
-	}
-	ret = __insert_manifest_info_in_db(mfx);
-	if (ret == -1) {
-		_LOGD("Insert into DB failed. Rollback now\n");
-		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
-		goto err;
-	}
-
-	/*Commit transaction*/
-	ret = sqlite3_exec(pkgmgr_parser_db, "COMMIT", NULL, NULL, NULL);
-	if (ret != SQLITE_OK) {
-		_LOGD("Failed to commit transaction. Rollback now\n");
-		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
-		ret = -1;
-		goto err;
-	}
-	_LOGD("Transaction Commit and End\n");
-err:
-	pkgmgr_parser_close_db();
-	return ret;
-}
 
 API int pkgmgr_parser_update_manifest_info_in_usr_db(manifest_x *mfx, uid_t uid)
 {
@@ -2388,7 +2340,7 @@ API int pkgmgr_parser_update_manifest_info_in_usr_db(manifest_x *mfx, uid_t uid)
 		goto err;
 	}
 	_LOGD("Transaction Begin\n");
-	ret = __delete_manifest_info_from_db(mfx);
+	ret = __delete_manifest_info_from_db(mfx, uid);
 	if (ret == -1) {
 		_LOGD("Delete from DB failed. Rollback now\n");
 		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
@@ -2415,45 +2367,9 @@ err:
 	return ret;
 }
 
-
-API int pkgmgr_parser_delete_manifest_info_from_db(manifest_x *mfx)
+API int pkgmgr_parser_update_manifest_info_in_db(manifest_x *mfx)
 {
-	if (mfx == NULL) {
-		_LOGD("manifest pointer is NULL\n");
-		return -1;
-	}
-	int ret = 0;
-	ret = pkgmgr_parser_check_and_create_db(GLOBAL_USER);
-	if (ret == -1) {
-		_LOGD("Failed to open DB\n");
-		return ret;
-	}
-	/*Begin transaction*/
-	ret = sqlite3_exec(pkgmgr_parser_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
-	if (ret != SQLITE_OK) {
-		_LOGD("Failed to begin transaction\n");
-		ret = -1;
-		goto err;
-	}
-	_LOGD("Transaction Begin\n");
-	ret = __delete_manifest_info_from_db(mfx);
-	if (ret == -1) {
-		_LOGD("Delete from DB failed. Rollback now\n");
-		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
-		goto err;
-	}
-	/*Commit transaction*/
-	ret = sqlite3_exec(pkgmgr_parser_db, "COMMIT", NULL, NULL, NULL);
-	if (ret != SQLITE_OK) {
-		_LOGD("Failed to commit transaction, Rollback now\n");
-		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
-		ret = -1;
-		goto err;
-	}
-	_LOGD("Transaction Commit and End\n");
-err:
-	pkgmgr_parser_close_db();
-	return ret;
+	return pkgmgr_parser_update_manifest_info_in_usr_db(mfx, GLOBAL_USER);
 }
 
 API int pkgmgr_parser_delete_manifest_info_from_usr_db(manifest_x *mfx, uid_t uid)
@@ -2476,7 +2392,7 @@ API int pkgmgr_parser_delete_manifest_info_from_usr_db(manifest_x *mfx, uid_t ui
 		goto err;
 	}
 	_LOGD("Transaction Begin\n");
-	ret = __delete_manifest_info_from_db(mfx);
+	ret = __delete_manifest_info_from_db(mfx, uid);
 	if (ret == -1) {
 		_LOGD("Delete from DB failed. Rollback now\n");
 		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
@@ -2494,6 +2410,11 @@ API int pkgmgr_parser_delete_manifest_info_from_usr_db(manifest_x *mfx, uid_t ui
 err:
 	pkgmgr_parser_close_db();
 	return ret;
+}
+
+API int pkgmgr_parser_delete_manifest_info_from_db(manifest_x *mfx)
+{
+	return pkgmgr_parser_delete_manifest_info_from_usr_db(mfx, GLOBAL_USER);
 }
 
 API int pkgmgr_parser_update_preload_info_in_db()

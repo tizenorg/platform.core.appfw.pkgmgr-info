@@ -7388,15 +7388,15 @@ API int pkgmgrinfo_destroy_certinfo_set_handle(pkgmgrinfo_instcertinfo_h handle)
 	return PMINFO_R_OK;
 }
 
-API int pkgmgrinfo_delete_certinfo(const char *pkgid)
+API int pkgmgrinfo_delete_usr_certinfo(const char *pkgid, uid_t uid)
 {
 	retvm_if(pkgid == NULL, PMINFO_R_EINVAL, "Argument supplied is NULL\n");
 	int ret = -1;
 	/*Open db.*/
-	ret = db_util_open_with_options(getUserPkgCertDBPath(), &cert_db,
+	ret = db_util_open_with_options(getUserPkgCertDBPathUID(uid), &cert_db,
 					SQLITE_OPEN_READWRITE, NULL);
 	if (ret != SQLITE_OK) {
-		_LOGE("connect db [%s] failed!\n", getUserPkgCertDBPath());
+		_LOGE("connect db [%s] failed!\n", getUserPkgCertDBPathUID(uid));
 		ret = PMINFO_R_ERROR;
 		goto err;
 	}
@@ -7428,6 +7428,11 @@ API int pkgmgrinfo_delete_certinfo(const char *pkgid)
 err:
 	sqlite3_close(cert_db);
 	return ret;
+}
+
+API int pkgmgrinfo_delete_certinfo(const char *pkgid)
+{
+	return kgmgrinfo_delete_usr_certinfo(pkgid, GLOBAL_USER);
 }
 
 API int pkgmgrinfo_create_pkgusrdbinfo(const char *pkgid, uid_t uid, pkgmgrinfo_pkgdbinfo_h *handle)
