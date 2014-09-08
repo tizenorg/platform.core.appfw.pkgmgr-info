@@ -529,15 +529,6 @@ API char *getIconPath(uid_t uid)
 		}
 		asprintf(&result, "%s/.applications/icons/", userinfo->pw_dir);
 	} else {
-		grpinfo = getgrnam("root");
-		if (grpinfo == NULL) {
-			_LOGE("getgrnam(root) returns NULL !");
-			return NULL;
-		}
-		if (grpinfo->gr_gid != userinfo->pw_gid) {
-			_LOGE("UID [%d] does not belong to 'root' group!", uid);
-			return NULL;
-		}
 		result = tzplatform_mkpath(TZ_SYS_RW_ICONS, "/");
 	}
 
@@ -583,15 +574,6 @@ API char *getUserPkgParserDBPathUID(uid_t uid)
 		asprintf(&result, "%s/.applications/dbspace/.pkgmgr_parser.db", userinfo->pw_dir);
 		asprintf(&journal, "%s/.applications/dbspace/.pkgmgr_parser.db-journal", userinfo->pw_dir);
 	} else {
-		grpinfo = getgrnam("root");
-		if (grpinfo == NULL) {
-		_LOGE("getgrnam(root) returns NULL !");
-		return NULL;
-		}
-		if (grpinfo->gr_gid != userinfo->pw_gid) {
-		_LOGE("UID [%d] does not belong to 'root' group!", uid);
-		return NULL;
-		}
 		result = tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_parser.db");
 		journal = tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_parser-journal.db");
 	}
@@ -650,11 +632,6 @@ API char *getUserPkgCertDBPathUID(uid_t uid)
 	} else {
 		result = tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_cert.db");
 		result = tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_cert-journal.db");
-		grpinfo = getgrnam("root");
-		if (grpinfo == NULL) {
-			_LOGE("getgrnam(root) returns NULL !");
-			return NULL;
-		}
 	}
 	char *temp = strdup(result);
 	dir = strrchr(temp, '/');
@@ -702,15 +679,6 @@ API const char* getUserDesktopPath(uid_t uid)
 		}
 		asprintf(&result, "%s/.applications/desktop/", userinfo->pw_dir);
 	} else {
-			grpinfo = getgrnam("root");
-			if (grpinfo == NULL) {
-				_LOGE("getgrnam(root) returns NULL !");
-				return NULL;
-			}
-			if (grpinfo->gr_gid != userinfo->pw_gid) {
-				_LOGE("UID [%d] does not belong to 'root' group!", uid);
-				return NULL;
-			}
 			result = tzplatform_mkpath(TZ_SYS_RW_DESKTOP_APP, "/");
 	}
 
@@ -750,15 +718,6 @@ API const char* getUserManifestPath(uid_t uid)
 		}
 		asprintf(&result, "%s/.config/xwalk-service/applications/", userinfo->pw_dir);
 	} else {
-			grpinfo = getgrnam("root");
-			if (grpinfo == NULL) {
-				_LOGE("getgrnam(root) returns NULL !");
-				return NULL;
-			}
-			if (grpinfo->gr_gid != userinfo->pw_gid) {
-				_LOGE("UID [%d] does not belong to 'root' group!", uid);
-				return NULL;
-			}
 			result = tzplatform_mkpath(TZ_SYS_RW_PACKAGES, "/");
 	}
 
