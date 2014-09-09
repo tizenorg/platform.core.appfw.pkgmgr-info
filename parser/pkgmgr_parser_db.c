@@ -2209,14 +2209,14 @@ int pkgmgr_parser_check_and_create_db(uid_t uid)
 		return -1;
 	}
 
-	if(uid != GLOBAL_USER) {
+/*	if(getuid() == OWNER_ROOT & uid != GLOBAL_USER) {
 		if( 0 != parserdb_change_perm(getUserPkgCertDBPathUID(uid), uid)) {
 			_LOGD("Failed to change cert db permission\n");
 		}
 		if( 0 != parserdb_change_perm(getUserPkgParserDBPathUID(uid), uid)) {
 			_LOGD("Failed to change parser db permission\n");
 		}
-	}
+	}*/
 	return 0;
 }
 
