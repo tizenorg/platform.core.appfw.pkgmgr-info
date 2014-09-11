@@ -578,7 +578,7 @@ API char *getUserPkgParserDBPathUID(uid_t uid)
 		asprintf(&journal, "%s/.applications/dbspace/.pkgmgr_parser.db-journal", userinfo->pw_dir);
 	} else {
 		result = tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_parser.db");
-		journal = tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_parser-journal.db");
+		journal = tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_parser.db-journal");
 	}
 	char *temp = strdup(result);
 	dir = strrchr(temp, '/');
@@ -636,7 +636,7 @@ API char *getUserPkgCertDBPathUID(uid_t uid)
 		asprintf(&journal, "%s/.applications/dbspace/.pkgmgr_cert.db-journal", userinfo->pw_dir);
 	} else {
 		result = tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_cert.db");
-		result = tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_cert-journal.db");
+		journal = tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_cert.db-journal");
 	}
 	char *temp = strdup(result);
 	dir = strrchr(temp, '/');
