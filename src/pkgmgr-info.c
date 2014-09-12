@@ -513,6 +513,10 @@ API char *getIconPath(uid_t uid)
 	char * dir = NULL;
 	struct passwd *userinfo = getpwuid(uid);
 
+	if (uid == 0) {
+		_LOGE("FAIL : Root is not allowed user! please fix it replacing with DEFAULT_USER");
+		return NULL;
+	}
 	if (uid != GLOBAL_USER) {
 		if (userinfo == NULL) {
 			_LOGE("getpwuid(%d) returns NULL !", uid);
@@ -559,6 +563,10 @@ API char *getUserPkgParserDBPathUID(uid_t uid)
 	char * dir = NULL;
 	struct passwd *userinfo = getpwuid(uid);
 
+	if (uid == 0) {
+		_LOGE("FAIL : Root is not allowed user! please fix it replacing with DEFAULT_USER");
+		return NULL;
+	}
 	if (uid != GLOBAL_USER) {
 		if (userinfo == NULL) {
 			_LOGE("getpwuid(%d) returns NULL !", uid);
@@ -616,8 +624,11 @@ API char *getUserPkgCertDBPathUID(uid_t uid)
 	char * dir = NULL;
 	struct passwd *userinfo = getpwuid(uid);
 
+	if (uid == 0) {
+		_LOGE("FAIL : Root is not allowed user! please fix it replacing with DEFAULT_USER");
+		return NULL;
+	}
 	if (uid != GLOBAL_USER) {
-
 		if (userinfo == NULL) {
 			_LOGE("getpwuid(%d) returns NULL !", uid);
 			return NULL;
@@ -668,8 +679,11 @@ API const char* getUserDesktopPath(uid_t uid)
 	char * dir = NULL;
 	struct passwd *userinfo = getpwuid(uid);
 
+	if (uid == 0) {
+		_LOGE("FAIL : Root is not allowed user! please fix it replacing with DEFAULT_USER");
+		return NULL;
+	}
 	if (uid != GLOBAL_USER) {
-
 		if (userinfo == NULL) {
 			_LOGE("getpwuid(%d) returns NULL !", uid);
 			return NULL;
@@ -709,8 +723,11 @@ API const char* getUserManifestPath(uid_t uid)
 	char * dir = NULL;
 	struct passwd *userinfo = getpwuid(uid);
 
+	if (uid == 0) {
+		_LOGE("FAIL : Root is not allowed user! please fix it replacing with DEFAULT_USER");
+		return NULL;
+	}
 	if (uid != GLOBAL_USER) {
-
 		if (userinfo == NULL) {
 			_LOGE("getpwuid(%d) returns NULL !", uid);
 			return NULL;
