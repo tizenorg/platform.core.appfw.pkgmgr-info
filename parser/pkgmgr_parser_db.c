@@ -52,6 +52,10 @@
 #define BUFSIZE 4096
 #define OWNER_ROOT 0
 
+#define SET_SMACK_LABEL(x,uid) \
+	if(smack_setlabel((x), (((uid) == GLOBAL_USER)?"*":"User"), SMACK_LABEL_ACCESS)) _LOGE("failed chsmack -a \"User/*\" %s", x); \
+	else _LOGD("chsmack -a \"User/*\" %s", x);
+
 sqlite3 *pkgmgr_parser_db;
 sqlite3 *pkgmgr_cert_db;
 
@@ -2177,6 +2181,7 @@ static int parserdb_change_perm(const char *db_file, uid_t uid)
 
 	for (i = 0; files[i]; i++) {
 		ret = chown(files[i], uid, userinfo->pw_gid);
+		SET_SMACK_LABEL(files[i],uid)
 		if (ret == -1) {
 			strerror_r(errno, buf, sizeof(buf));
 			_LOGD("FAIL : chown %s %d.%d, because %s", db_file, uid, userinfo->pw_gid, buf);
