@@ -30,6 +30,7 @@
 #include <db-util.h>
 #include <glib.h>
 #include <grp.h>
+#include <pwd.h>
 
 /* For multi-user support */
 #include <tzplatform_config.h>
@@ -2156,28 +2157,29 @@ static int parserdb_change_perm(const char *db_file, uid_t uid)
 	char journal_file[BUFSIZE];
 	char *files[3];
 	int ret, i;
-	struct group *grpinfo = NULL;
+	struct passwd *userinfo = NULL;
 	files[0] = (char *)db_file;
 	files[1] = journal_file;
 	files[2] = NULL;
 
-	const char *name = "users";
-
-	if(db_file == NULL)
-		return -1;
 	if(db_file == NULL)
 		return -1;
 
+	if(getuid() != OWNER_ROOT) //At this time we should be root to apply this
+			return 0;
 	snprintf(journal_file, sizeof(journal_file), "%s%s", db_file, "-journal");
-	grpinfo = getgrnam(name);
-	if(grpinfo == NULL){
-		_LOGD("getgrnam(users) returns NULL !");
+  userinfo = getpwuid(uid);
+    if (!userinfo) {
+		_LOGE("FAIL: user %d doesn't exist", uid);
+		return -1;
 	}
+	snprintf(journal_file, sizeof(journal_file), "%s%s", db_file, "-journal");
+
 	for (i = 0; files[i]; i++) {
-		ret = chown(files[i], uid, (gid_t)grpinfo->gr_gid);
+		ret = chown(files[i], uid, userinfo->pw_gid);
 		if (ret == -1) {
 			strerror_r(errno, buf, sizeof(buf));
-			_LOGD("FAIL : chown %s %d.%d, because %s", db_file, uid, grpinfo->gr_gid, buf);
+			_LOGD("FAIL : chown %s %d.%d, because %s", db_file, uid, userinfo->pw_gid, buf);
 			return -1;
 		}
 
@@ -2208,15 +2210,12 @@ int pkgmgr_parser_check_and_create_db(uid_t uid)
 		_LOGD("Cert DB creation Failed\n");
 		return -1;
 	}
-
-/*	if(getuid() == OWNER_ROOT & uid != GLOBAL_USER) {
-		if( 0 != parserdb_change_perm(getUserPkgCertDBPathUID(uid), uid)) {
-			_LOGD("Failed to change cert db permission\n");
-		}
-		if( 0 != parserdb_change_perm(getUserPkgParserDBPathUID(uid), uid)) {
-			_LOGD("Failed to change parser db permission\n");
-		}
-	}*/
+	if( 0 != parserdb_change_perm(getUserPkgCertDBPathUID(uid), uid)) {
+		_LOGD("Failed to change cert db permission\n");
+	}
+	if( 0 != parserdb_change_perm(getUserPkgParserDBPathUID(uid), uid)) {
+		_LOGD("Failed to change parser db permission\n");
+	}
 	return 0;
 }
 
