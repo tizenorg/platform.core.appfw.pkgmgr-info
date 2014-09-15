@@ -536,7 +536,7 @@ API char *getIconPath(uid_t uid)
 	int ret;
 	mkdir(result, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
 	if (getuid() == OWNER_ROOT) {
-		ret = chown(result, uid, grpinfo->gr_gid);
+		ret = chown(result, uid, ((grpinfo)?grpinfo->gr_gid:0));
 		if (ret == -1) {
 			char buf[BUFSIZE];
 			strerror_r(errno, buf, sizeof(buf));
@@ -592,11 +592,11 @@ API char *getUserPkgParserDBPathUID(uid_t uid)
 	int ret;
 	mkdir(temp, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
 	if (getuid() == OWNER_ROOT) {
-		ret = chown(dir + 1, uid, grpinfo->gr_gid);
+		ret = chown(temp, uid, ((grpinfo)?grpinfo->gr_gid:0));
 		if (ret == -1) {
 			char buf[BUFSIZE];
 			strerror_r(errno, buf, sizeof(buf));
-			_LOGE("FAIL : chown %s %d.%d, because %s", dir + 1, uid, grpinfo->gr_gid, buf);
+			_LOGE("FAIL : chown %s %d.%d, because %s", temp, uid, grpinfo->gr_gid, buf);
 		}
 	}
 	free(temp);
@@ -650,11 +650,11 @@ API char *getUserPkgCertDBPathUID(uid_t uid)
 	int ret;
 	mkdir(temp, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
 	if (getuid() == OWNER_ROOT) {
-		ret = chown(dir + 1, uid, grpinfo->gr_gid);
+		ret = chown(temp, uid, ((grpinfo)?grpinfo->gr_gid:0));
 		if (ret == -1) {
 			char buf[BUFSIZE];
 			strerror_r(errno, buf, sizeof(buf));
-			_LOGE("FAIL : chown %s %d.%d, because %s", dir + 1, uid, grpinfo->gr_gid, buf);
+			_LOGE("FAIL : chown %s %d.%d, because %s", temp, uid, grpinfo->gr_gid, buf);
 		}
 	}
 	free(temp);
@@ -692,7 +692,7 @@ API const char* getUserDesktopPath(uid_t uid)
 	int ret;
 	mkdir(result, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
 	if (getuid() == OWNER_ROOT) {
-		ret = chown(result, uid, grpinfo->gr_gid);
+		ret = chown(result, uid,((grpinfo)?grpinfo->gr_gid:0));
 		if (ret == -1) {
 			char buf[BUFSIZE];
 			strerror_r(errno, buf, sizeof(buf));
@@ -733,7 +733,7 @@ API const char* getUserManifestPath(uid_t uid)
 	int ret;
 	mkdir(result, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
 	if (getuid() == OWNER_ROOT) {
-		ret = chown(result, uid, grpinfo->gr_gid);
+		ret = chown(result, uid, ((grpinfo)?grpinfo->gr_gid:0));
 		if (ret == -1) {
 			char buf[BUFSIZE];
 			strerror_r(errno, buf, sizeof(buf));
