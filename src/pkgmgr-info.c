@@ -2744,21 +2744,21 @@ API int pkgmgrinfo_pkginfo_get_usr_list(pkgmgrinfo_pkg_list_cb pkg_list_cb, void
 	syslocale = vconf_get_str(VCONFKEY_LANGSET);
 	if (syslocale == NULL) {
 		_LOGE("current locale is NULL\n");
-		ret = PMINFO_R_ERROR;
-		goto err;
+		return PMINFO_R_ERROR;
 	}
 	locale = __convert_system_locale_to_manifest_locale(syslocale);
 	if (locale == NULL) {
 		_LOGE("manifest locale is NULL\n");
-		ret = PMINFO_R_EINVAL;
-		goto err;
+		free(syslocale);
+		return PMINFO_R_ERROR;
 	}
 
 	ret = __open_manifest_db(uid);
 	if (ret == -1) {
 		_LOGE("Fail to open manifest DB\n");
-		ret = PMINFO_R_ERROR;
-		goto err;
+		free(syslocale);
+		free(locale);
+		return PMINFO_R_ERROR;
 	}
 	pkgmgr_pkginfo_x *tmphead = (pkgmgr_pkginfo_x *)calloc(1, sizeof(pkgmgr_pkginfo_x));
 	pkgmgr_pkginfo_x *node = NULL;
@@ -4278,8 +4278,9 @@ API int pkgmgrinfo_pkginfo_usr_filter_count(pkgmgrinfo_pkginfo_filter_h handle, 
 	ret = __open_manifest_db(uid);
 	if (ret == -1) {
 		_LOGE("Fail to open manifest DB\n");
-		ret = PMINFO_R_ERROR;
-		goto err;
+		free(syslocale);
+		free(locale);
+		return PMINFO_R_ERROR;
 	}
 
 	/*Start constructing query*/
@@ -4375,8 +4376,9 @@ API int pkgmgrinfo_pkginfo_usr_filter_foreach_pkginfo(pkgmgrinfo_pkginfo_filter_
 	ret = __open_manifest_db(uid);
 	if (ret == -1) {
 		_LOGE("Fail to open manifest DB\n");
-		ret = PMINFO_R_ERROR;
-		goto err;
+		free(syslocale);
+		free(locale);
+		return PMINFO_R_ERROR;
 	}
 	/*Start constructing query*/
 	snprintf(query, MAX_QUERY_LEN - 1, FILTER_QUERY_LIST_PACKAGE, locale);
@@ -4413,7 +4415,6 @@ API int pkgmgrinfo_pkginfo_usr_filter_foreach_pkginfo(pkgmgrinfo_pkginfo_filter_
 		_LOGE("Don't execute query = %s error message = %s\n", query,
 		       error_message);
 		sqlite3_free(error_message);
-		sqlite3_close(manifest_db);
 		ret = PMINFO_R_ERROR;
 		goto err;
 	}
@@ -6607,8 +6608,9 @@ API int pkgmgrinfo_appinfo_usr_filter_count(pkgmgrinfo_appinfo_filter_h handle, 
 	ret = __open_manifest_db(uid);
 	if (ret == -1) {
 		_LOGE("Fail to open manifest DB\n");
-		ret = PMINFO_R_ERROR;
-		goto err;
+		free(syslocale);
+		free(locale);
+		return PMINFO_R_ERROR;
 	}
 
 	/*Start constructing query*/
@@ -6697,8 +6699,9 @@ API int pkgmgrinfo_appinfo_usr_filter_foreach_appinfo(pkgmgrinfo_appinfo_filter_
 	ret = __open_manifest_db(uid);
 	if (ret == -1) {
 		_LOGE("Fail to open manifest DB\n");
-		ret = PMINFO_R_ERROR;
-		goto err;
+		free(syslocale);
+		free(locale);
+		return PMINFO_R_ERROR;
 	}
 	/*Start constructing query*/
 	snprintf(query, MAX_QUERY_LEN - 1, FILTER_QUERY_LIST_APP, locale);
@@ -6937,8 +6940,12 @@ API int pkgmgrinfo_appinfo_usr_metadata_filter_foreach(pkgmgrinfo_appinfo_metada
 	tryvm_if(locale == NULL, ret = PMINFO_R_ERROR, "manifest locale is NULL\n");
 
 	ret = __open_manifest_db(uid);
-	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "Fail to open manifest DB\n");
-
+	if (ret == -1) {
+		_LOGE("Fail to open manifest DB\n");
+		free(syslocale);
+		free(locale);
+		return PMINFO_R_ERROR;
+	}
 	/*Start constructing query*/
 	memset(where, '\0', MAX_QUERY_LEN);
 	memset(query, '\0', MAX_QUERY_LEN);
@@ -7760,15 +7767,6 @@ API int pkgmgrinfo_appinfo_set_usr_state_enabled(const char *appid, bool enabled
 	char query[MAX_QUERY_LEN] = {'\0'};
 	ret = __open_manifest_db(uid);
 
-	if (access(getUserPkgParserDBPathUID(uid), F_OK) == 0) {
-		ret = db_util_open(MANIFEST_DB, &manifest_db,
-			 DB_UTIL_REGISTER_HOOK_METHOD);
-		if (ret != SQLITE_OK) {
-			_LOGE("connect db [%s] failed! Manifest DB does not exists!!\n", getUserPkgParserDBPathUID(uid));
-			return PMINFO_R_ERROR;
-		}
-	}
-
 	/*Begin transaction*/
 	ret = sqlite3_exec(manifest_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
 	if (ret != SQLITE_OK) {
@@ -7864,14 +7862,6 @@ API int pkgmgrinfo_appinfo_set_usr_default_label(const char *appid, const char *
 	char *error_message = NULL;
 	ret = __open_manifest_db(uid);
 
-	if (access(getUserPkgParserDBPathUID(uid), F_OK) == 0) {
-		ret = db_util_open(getUserPkgParserDBPathUID(uid), &manifest_db,
-			 DB_UTIL_REGISTER_HOOK_METHOD);
-		if (ret != SQLITE_OK) {
-			_LOGE("connect db [%s] failed! Manifest DB does not exists!!\n", getUserPkgParserDBPathUID(uid));
-			return PMINFO_R_ERROR;
-		}
-	}
 
 	/*Begin transaction*/
 	ret = sqlite3_exec(manifest_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
