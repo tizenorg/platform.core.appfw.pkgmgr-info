@@ -438,6 +438,7 @@ typedef enum {
 /* For multiuser support */
 char *getUserPkgParserDBPath(void);
 char *getUserPkgParserDBPathUID(uid_t uid);
+char *getUserPkgParserDBJournalPathUID(uid_t uid);
 char *getUserPkgCertDBPath(void);
 char *getUserPkgCertDBPathUID(uid_t uid);
 const char* getUserDesktopPath(uid_t uid);
