@@ -550,6 +550,15 @@ API char *getIconPath(uid_t uid)
 	return result;
 }
 
+API char *getUserPkgParserDBJournalPathUID(uid_t uid) {
+
+	char *pkgmgr_parser_db = getUserPkgParserDBPathUID(uid);
+	char *result = NULL;
+
+	asprintf(&result, "%s-journal", pkgmgr_parser_db);
+	return result;
+}
+
 API char *getUserPkgParserDBPath(void)
 {
 		return getUserPkgParserDBPathUID(GLOBAL_USER);
@@ -742,7 +751,7 @@ API const char* getUserManifestPath(uid_t uid)
 			_LOGE("UID [%d] does not belong to 'users' group!", uid);
 			return NULL;
 		}
-		asprintf(&result, "%s/.config/xwalk-service/applications/", userinfo->pw_dir);
+		asprintf(&result, "%s/.applications/manifest/", userinfo->pw_dir);
 	} else {
 			result = tzplatform_mkpath(TZ_SYS_RW_PACKAGES, "/");
 	}
