@@ -537,16 +537,17 @@ API char *getIconPath(uid_t uid)
 		result = tzplatform_mkpath(TZ_SYS_RW_ICONS, "/");
 	}
 
-	int ret;
-	mkdir(result, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
-	if (getuid() == OWNER_ROOT) {
-		ret = chown(result, uid, ((grpinfo)?grpinfo->gr_gid:0));
-		if (ret == -1) {
-			char buf[BUFSIZE];
-			strerror_r(errno, buf, sizeof(buf));
-			_LOGE("FAIL : chown %s %d.%d, because %s", result, uid, ((grpinfo)?grpinfo->gr_gid:0), buf);
+		int ret = mkdir(result, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
+		if (ret == -1 && errno != EEXIST) {
+			_LOGE("FAIL : to create directory %s %d", result, errno);
+		} else if (getuid() == OWNER_ROOT) {
+			ret = chown(result, uid, ((grpinfo)?grpinfo->gr_gid:0));
+			if (ret == -1) {
+				char buf[BUFSIZE];
+				strerror_r(errno, buf, sizeof(buf));
+				_LOGE("FAIL : chown %s %d.%d, because %s", result, uid, ((grpinfo)?grpinfo->gr_gid:0), buf);
+			}
 		}
-	}
 	return result;
 }
 
@@ -597,9 +598,10 @@ API char *getUserPkgParserDBPathUID(uid_t uid)
 	}
 	*dir = 0;
 
-	int ret;
-	mkdir(temp, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
-	if (getuid() == OWNER_ROOT) {
+	int ret = mkdir(temp, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
+	if (ret == -1 && errno != EEXIST) {
+			_LOGE("FAIL : to create directory %s %d", temp, errno);
+	} else if (getuid() == OWNER_ROOT) {
 		ret = chown(temp, uid, ((grpinfo)?grpinfo->gr_gid:0));
 		if (ret == -1) {
 			char buf[BUFSIZE];
@@ -658,16 +660,17 @@ API char *getUserPkgCertDBPathUID(uid_t uid)
 	}
 	*dir = 0;
 
-	int ret;
-	mkdir(temp, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
-	if (getuid() == OWNER_ROOT) {
+	int ret = mkdir(temp, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
+	if (ret == -1 && errno != EEXIST) {
+			_LOGE("FAIL : to create directory %s %d", temp, errno);
+	} else if (getuid() == OWNER_ROOT) {
 		ret = chown(temp, uid, ((grpinfo)?grpinfo->gr_gid:0));
 		if (ret == -1) {
 			char buf[BUFSIZE];
 			strerror_r(errno, buf, sizeof(buf));
 			_LOGE("FAIL : chown %s %d.%d, because %s", temp, uid, ((grpinfo)?grpinfo->gr_gid:0), buf);
 		}
-	}
+		}
 	free(temp);
 	return result;
 }
@@ -703,16 +706,17 @@ API const char* getUserDesktopPath(uid_t uid)
 			result = tzplatform_mkpath(TZ_SYS_RW_DESKTOP_APP, "/");
 	}
 
-	int ret;
-	mkdir(result, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
-	if (getuid() == OWNER_ROOT) {
+	int ret = mkdir(result, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
+	if (ret == -1 && errno != EEXIST) {
+			_LOGE("FAIL : to create directory %s %d", result, errno);
+	} else if (getuid() == OWNER_ROOT) {
 		ret = chown(result, uid,((grpinfo)?grpinfo->gr_gid:0));
 		if (ret == -1) {
 			char buf[BUFSIZE];
 			strerror_r(errno, buf, sizeof(buf));
 			_LOGE("FAIL : chown %s %d.%d, because %s", result, uid, ((grpinfo)?grpinfo->gr_gid:0), buf);
 		}
-	}
+		}
 	return result;
 }
 
@@ -747,16 +751,17 @@ API const char* getUserManifestPath(uid_t uid)
 			result = tzplatform_mkpath(TZ_SYS_RW_PACKAGES, "/");
 	}
 
-	int ret;
-	mkdir(result, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
-	if (getuid() == OWNER_ROOT) {
+	int ret = mkdir(result, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
+	if (ret == -1 && errno != EEXIST) {
+			_LOGE("FAIL : to create directory %s %d", result, errno);
+	} else if (getuid() == OWNER_ROOT) {
 		ret = chown(result, uid, ((grpinfo)?grpinfo->gr_gid:0));
 		if (ret == -1) {
 			char buf[BUFSIZE];
 			strerror_r(errno, buf, sizeof(buf));
 			_LOGE("FAIL : chown %s %d.%d, because %s", result, uid, ((grpinfo)?grpinfo->gr_gid:0), buf);
 		}
-	}
+		}
 
 	return result;
 }
