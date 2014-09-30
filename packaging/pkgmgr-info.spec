@@ -56,7 +56,9 @@ make %{?jobs:-j%jobs}
 # create the directory for hosting Read-Write application manifest files
 mkdir -p %{buildroot}%{TZ_SYS_RW_PACKAGES}
 
-%post -p /sbin/ldconfig
+%post
+/sbin/ldconfig
+chsmack -a '*' %{TZ_SYS_RW_PACKAGES}
 
 %postun -p /sbin/ldconfig
 
@@ -68,7 +70,7 @@ mkdir -p %{buildroot}%{TZ_SYS_RW_PACKAGES}
 %manifest %{name}.manifest
 %defattr(-,root,root,-)
 %{_libdir}/libpkgmgr-info.so.*
-%dir %{TZ_SYS_RW_PACKAGES}
+%attr(-,tizenglobalapp,root) %dir %{TZ_SYS_RW_PACKAGES}
 
 %files devel
 %manifest %{name}.manifest
