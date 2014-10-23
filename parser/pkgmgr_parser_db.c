@@ -1813,7 +1813,7 @@ static int __insert_manifest_info_in_db(manifest_x *mfx)
 	ret = __insert_uiapplication_appmetadata_info(mfx);
 	if (ret == -1)
 		return -1;
-	ret = __insert_uiapplication_appmetadata_info(mfx);
+	ret = __insert_serviceapplication_appmetadata_info(mfx);
 	if (ret == -1)
 		return -1;
 
