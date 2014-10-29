@@ -4557,8 +4557,15 @@ static int __ps_make_nativeapp_desktop(manifest_x * mfx, const char *manifest, A
 			fwrite(buf, 1, strlen(buf), file);
 		}
 
-		snprintf(buf, BUFMAX, "X-TIZEN-PkgID=%s\n", mfx->package);
-		fwrite(buf, 1, strlen(buf), file);
+		if(mfx->type) {
+			snprintf(buf, BUFMAX, "X-TIZEN-PkgID=%s\n", mfx->package);
+			fwrite(buf, 1, strlen(buf), file);
+		}
+		if(mfx->uiapplication->appid) {
+			snprintf(buf, BUFMAX, "X-TIZEN-AppID=%s\n", mfx->uiapplication->appid);
+			fwrite(buf, 1, strlen(buf), file);
+		}
+
 
 
 //		snprintf(buf, BUFMAX, "X-TIZEN-PackageType=rpm\n");
