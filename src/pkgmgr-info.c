@@ -746,7 +746,7 @@ API const char* getUserManifestPath(uid_t uid)
 			_LOGE("UID [%d] does not belong to 'users' group!", uid);
 			return NULL;
 		}
-		asprintf(&result, "%s/.config/xwalk-service/applications/", userinfo->pw_dir);
+		asprintf(&result, "%s/.applications/manifest/", userinfo->pw_dir);
 	} else {
 			result = tzplatform_mkpath(TZ_SYS_RW_PACKAGES, "/");
 	}
