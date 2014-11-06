@@ -4398,15 +4398,6 @@ static int __ps_make_nativeapp_desktop(manifest_x * mfx, const char *manifest, A
 
 	for(; mfx->uiapplication; mfx->uiapplication=mfx->uiapplication->next) {
 
-		if (manifest != NULL) {
-			/* skip making a deskfile and update ail, if preload app is updated */
-			if(strstr(manifest, getUserManifestPath(uid))) {
-				__ail_change_info(AIL_INSTALL, mfx->uiapplication->appid, uid);
-	            _LOGE("preload app is update : skip and update ail : %s", manifest);
-				continue;
-			}
-		}
-
 		snprintf(filepath, sizeof(filepath),"%s%s.desktop", getUserDesktopPath(uid), mfx->uiapplication->appid);
 
 		/* skip if desktop exists
