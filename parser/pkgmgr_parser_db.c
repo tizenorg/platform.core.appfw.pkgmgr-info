@@ -442,7 +442,7 @@ static int __exec_query(char *query)
 	char *error_message = NULL;
 	if (SQLITE_OK !=
 	    sqlite3_exec(pkgmgr_parser_db, query, NULL, NULL, &error_message)) {
-		_LOGD("Don't execute query = %s error message = %s\n", query,
+		  _LOGD("Don't execute query = %s error message = %s\n", query,
 		       error_message);
 		sqlite3_free(error_message);
 		return -1;
