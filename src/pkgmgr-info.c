@@ -139,6 +139,7 @@ typedef struct _pkgmgr_certindexinfo_x {
 } pkgmgr_certindexinfo_x;
 
 typedef struct _pkgmgr_pkginfo_x {
+	uid_t uid;
 	manifest_x *manifest_info;
 	char *locale;
 
@@ -188,6 +189,7 @@ typedef struct _pkgmgr_certinfo_x {
 
 /*For filter APIs*/
 typedef struct _pkgmgrinfo_filter_x {
+	uid_t uid;
 	GSList *list;
 } pkgmgrinfo_filter_x;
 
@@ -267,43 +269,34 @@ typedef enum {
 
 
 #define QUERY_ATTACH "attach database '%s' as Global"
-#define QUERY_CREATE_VIEW_1 "CREATE temp VIEW package_app_app_category as select distinct * " \
-    "from (select  * from main.package_app_app_category  m union select * from  Global.package_app_app_category g WHERE m.app_id=g.app_id AND m.category=g.category)"
-#define QUERY_CREATE_VIEW_2 "CREATE temp VIEW package_app_info as select distinct * "\
-    "from (select  * from main.package_app_info  m union select * from  Global.package_app_info g WHERE m.package=g.package)"
-#define QUERY_CREATE_VIEW_3 "CREATE temp VIEW package_app_app_control as select distinct * "\
-    "from (select  * from main.package_app_app_control  m union select * from  Globalpackage_app_app_control g WHERE m.app_id=g.app_id AND m.operation=g.operation "\
-        "AND m.uri_scheme=guri_scheme AND m.mime_type=g.mime_type AND m.subapp_name=g.subapp_name)"
-#define QUERY_CREATE_VIEW_4 "CREATE temp VIEW package_app_localized_info as select distinct * "\
-    "from (select  * from main.package_app_localized_info  m union select * from  Global.package_app_localized_info g WHERE m.app_id=g.app_id AND m.app_locale=g.app_locale)"
-#define QUERY_CREATE_VIEW_5 "CREATE temp VIEW package_app_app_metadata as select distinct * "\
-    "from (select  * from main.package_app_app_metadata  m union select * from  Global.package_app_app_metadata g WHERE m.app_id=g.app_id AND m.md_key=g.md_key "\
-        "AND m.md_value=g.md_value)"
-#define QUERY_CREATE_VIEW_6 "CREATE temp VIEW package_app_share_allowed as select distinct * "\
-    "from (select  * from main.package_app_share_allowed  m union select * from  Global.package_app_share_allowed g WHERE m.app_id=g.app_id AND m.data_share_path=g.data_share_path "\
-        "AND m.data_share_allowed=g.data_share_allowed)"
-#define QUERY_CREATE_VIEW_7 "CREATE temp VIEW package_app_app_permission as select distinct * "\
-    "from (select  * from main.package_app_app_permission  m union select * from  Global.package_app_app_permission g WHERE m.app_id=g.app_id AND m.pm_type=g.pm_type "\
-        "AND m.pm_value=g.pm_value)"
-#define QUERY_CREATE_VIEW_8 "CREATE temp VIEW package_app_share_request as select distinct * "\
-    "from (select  * from main.package_app_share_request  m union select * from  Global.package_app_share_request g WHERE m.app_id=g.app_id AND m.data_share_request=g.data_share_request)"
-#define QUERY_CREATE_VIEW_9 "CREATE temp VIEW package_app_app_svc as select distinct * "\
-    "from (select  * from main.package_app_app_svc  m union select * from  Global.package_app_app_svc g WHERE m.app_id=g.app_id AND m.operation=g.operation "\
-        "AND m.uri_scheme=g.uri_scheme AND m.mime_type=g.mime_type AND m.subapp_name=g.subapp_name)"
-#define QUERY_CREATE_VIEW_10 "CREATE temp VIEW package_info as select distinct * "\
-    "from (select  * from main.package_info  m union select * from  Global.package_info g WHERE m.package=g.package)"
-#define QUERY_CREATE_VIEW_11 "CREATE temp VIEW package_app_icon_section_info as select distinct * "\
-    "from (select  * from main.package_app_icon_section_info  m union select * from  Global.package_app_icon_section_info g WHERE m.app_id=g.app_id "\
-        "AND m.app_icon_section=g.app_icon_section AND m.app_icon_resolution=g.app_icon_resolution)"
-#define QUERY_CREATE_VIEW_12 "CREATE temp VIEW package_localized_info as select distinct * "\
-    "from (select  * from main.package_localized_info  m union select * from  Global.package_localized_info g WHERE m.package=g.package AND m.package_locale=g.package_locale)"
-#define QUERY_CREATE_VIEW_13 "CREATE temp VIEW package_app_image_info as select distinct * "\
-    "from (select  * from main.package_localized_info  m union select * from  Global.package_localized_info g WHERE m.app_id=g.app_id AND m.app_icon_section=g.app_icon_section "\
-        "AND m.app_icon_resolution=g.app_icon_resolution)"
-#define QUERY_CREATE_VIEW_14 "CREATE temp VIEW package_privilege_info as select distinct * "\
-    "from (select  * from main.package_privilege_info  m union select * from  Global.package_privilege_info g WHERE m.package=g.package AND m.privilege=g.privilege)"	
-
-
+#define QUERY_CREATE_VIEW_1 "CREATE temp VIEW package_app_app_category as select * " \
+    "from (select  *,0 as uid from  main.package_app_app_category union select *,1 as uid from Global.package_app_app_category)"
+#define QUERY_CREATE_VIEW_2 "CREATE temp VIEW package_app_info as select * "\
+    "from (select  *,0 as uid from  main.package_app_info union select *,1 as uid from Global.package_app_info)"
+#define QUERY_CREATE_VIEW_3 "CREATE temp VIEW package_app_app_control as select * "\
+    "from (select  *,0 as uid from  main.package_app_app_control union select *,1 as uid from Globalpackage_app_app_control)"
+#define QUERY_CREATE_VIEW_4 "CREATE temp VIEW package_app_localized_info as select * "\
+    "from (select  *,0 as uid from  main.package_app_localized_info union select *,1 as uid from Global.package_app_localized_info)"
+#define QUERY_CREATE_VIEW_5 "CREATE temp VIEW package_app_app_metadata as select * "\
+    "from (select  *,0 as uid from  main.package_app_app_metadata union select *,1 as uid from Global.package_app_app_metadata)"
+#define QUERY_CREATE_VIEW_6 "CREATE temp VIEW package_app_share_allowed as select * "\
+    "from (select  *,0 as uid from  main.package_app_share_allowed union select *,1 as uid from Global.package_app_share_allowed)"
+#define QUERY_CREATE_VIEW_7 "CREATE temp VIEW package_app_app_permission as select * "\
+    "from (select  *,0 as uid from  main.package_app_app_permission union select *,1 as uid from Global.package_app_app_permission)"
+#define QUERY_CREATE_VIEW_8 "CREATE temp VIEW package_app_share_request as select * "\
+    "from (select  *,0 as uid from  main.package_app_share_request union select *,1 as uid from Global.package_app_share_request)"
+#define QUERY_CREATE_VIEW_9 "CREATE temp VIEW package_app_app_svc as select * "\
+    "from (select  *,0 as uid from  main.package_app_app_svc union select *,1 as uid from Global.package_app_app_svc)"
+#define QUERY_CREATE_VIEW_10 "CREATE temp VIEW package_info as select * "\
+    "from (select  *,0 as uid from  main.package_info union select *,1 as uid from Global.package_info)"
+#define QUERY_CREATE_VIEW_11 "CREATE temp VIEW package_app_icon_section_info as select * "\
+    "from (select  *,0 as uid from  main.package_app_icon_section_info union select *,1 as uid from Global.package_app_icon_section_info)"
+#define QUERY_CREATE_VIEW_12 "CREATE temp VIEW package_localized_info as select * "\
+    "from (select  *,0 as uid from  main.package_localized_info union select *,1 as uid from Global.package_localized_info)"
+#define QUERY_CREATE_VIEW_13 "CREATE temp VIEW package_app_image_info as select * "\
+    "from (select  *,0 as uid from  main.package_app_image_info union select *,1 as uid from Global.package_app_image_info )"
+#define QUERY_CREATE_VIEW_14 "CREATE temp VIEW package_privilege_info as select  * "\
+    "from (select  *,0 as uid from  main.package_privilege_info union select *,1 as uid from Global.package_privilege_info)"
 
 char *pkgtype = "rpm";
 __thread sqlite3 *manifest_db = NULL;
@@ -311,6 +304,7 @@ __thread sqlite3 *datacontrol_db = NULL;
 __thread sqlite3 *cert_db = NULL;
 
 static int __open_manifest_db(uid_t uid);
+static int __open_cert_db(uid_t uid);
 static int __exec_pkginfo_query(char *query, void *data);
 static int __exec_certinfo_query(char *query, void *data);
 static int __exec_certindexinfo_query(char *query, void *data);
@@ -356,7 +350,7 @@ static  int _pkgmgr_parser_attach_create_view_certdb(sqlite3 *handle, uid_t uid)
 			char *primary_key;
 		};
 
-		snprintf(query_view, MAX_QUERY_LEN - 1, "CREATE temp VIEW %s as select distinct * from (select  * from main.%s  m union select * from  Global.%s g WHERE m.%s=g.%s)", "package_cert_index_info", "package_cert_index_info", "package_cert_index_info", "cert_id", "cert_id");
+		snprintf(query_view, MAX_QUERY_LEN - 1, "CREATE temp VIEW %s as select * from (select  *,0 as uid from  main.%s union select *,1 as uid from Global.%s )", "package_cert_index_info", "package_cert_index_info", "package_cert_index_info");
 		if (SQLITE_OK !=
 			sqlite3_exec(handle, query_view,
 				NULL, NULL, &error_message)) {
@@ -364,7 +358,7 @@ static  int _pkgmgr_parser_attach_create_view_certdb(sqlite3 *handle, uid_t uid)
 				query_view, error_message);
 			sqlite3_free(error_message);
 		}
-		snprintf(query_view, MAX_QUERY_LEN - 1, "CREATE temp VIEW %s as select distinct * from (select  * from main.%s  m union select * from  Global.%s g WHERE m.%s=g.%s)", "package_cert_info", "package_cert_info", "package_cert_info", "package", "package");
+		snprintf(query_view, MAX_QUERY_LEN - 1, "CREATE temp VIEW %s as select * from (select  *,0 as uid from  main.%s  union select *,1 as uid from Global.%s)", "package_cert_info", "package_cert_info", "package_cert_info");
 		if (SQLITE_OK !=
 			sqlite3_exec(handle, query_view,
 				NULL, NULL, &error_message)) {
@@ -372,8 +366,8 @@ static  int _pkgmgr_parser_attach_create_view_certdb(sqlite3 *handle, uid_t uid)
 				query_view, error_message);
 			sqlite3_free(error_message);
 		}
-    }
-    return 0;
+	}
+	return SQLITE_OK;
 }
 
 
@@ -1014,6 +1008,25 @@ static int __open_manifest_db(uid_t uid)
 		return 0;
 	}
 	_LOGE("Manifest DB does not exists !!\n");
+	return -1;
+}
+
+static int __open_cert_db(uid_t uid)
+{
+	int ret = -1;
+	const char* user_cert_parser = getUserPkgCertDBPathUID(uid);
+	if (access(user_cert_parser, F_OK) == 0) {
+		ret =
+		    db_util_open_with_options(user_cert_parser, &cert_db,
+				 SQLITE_OPEN_READWRITE, NULL);
+		retvm_if(ret != SQLITE_OK, -1, "connect db [%s] failed!\n", user_cert_parser);
+		
+		ret = _pkgmgr_parser_attach_create_view_certdb(cert_db,uid);
+		retvm_if(ret != SQLITE_OK, -1, "attach db [%s] failed!\n", user_cert_parser);
+
+		return 0;
+	}
+	_LOGE("Cert DB does not exists !!\n");
 	return -1;
 }
 
@@ -2868,6 +2881,7 @@ API int pkgmgrinfo_pkginfo_get_usr_list(pkgmgrinfo_pkg_list_cb pkg_list_cb, void
 
 	for(node = node->next; node ; node = node->next) {
 		pkginfo = node;
+		pkginfo->uid = uid;
 		ret = pkg_list_cb( (void *)pkginfo, user_data);
 		if(ret < 0)
 			break;
@@ -3621,15 +3635,12 @@ API int pkgmgrinfo_pkginfo_compare_usr_pkg_cert_info(const char *lhs_package_id,
 	info = (pkgmgr_cert_x *)calloc(1, sizeof(pkgmgr_cert_x));
 	retvm_if(info == NULL, PMINFO_R_ERROR, "Out of Memory!!!");
 
-	ret = db_util_open_with_options(getUserPkgCertDBPathUID(uid), &cert_db,
-					SQLITE_OPEN_READWRITE, NULL);
-	if (ret != SQLITE_OK) {
-		_LOGE("connect db [%s] failed!\n", getUserPkgCertDBPathUID(uid));
+	ret = __open_cert_db(uid);
+	if (ret != 0) {
 		ret = PMINFO_R_ERROR;
 		goto err;
 	}
 	_check_create_Cert_db(cert_db);
-	_pkgmgr_parser_attach_create_view_certdb(cert_db,uid);
 	snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_cert_info where package='%s')", lhs_package_id);
 	if (SQLITE_OK !=
 	    sqlite3_exec(cert_db, query, __validate_cb, (void *)&exist, &error_message)) {
@@ -3723,14 +3734,15 @@ API int pkgmgrinfo_pkginfo_compare_app_cert_info(const char *lhs_app_id, const c
  	int exist = -1;
 	char *lpkgid = NULL;
 	char *rpkgid = NULL;
+	const char* user_pkg_parser = getUserPkgParserDBPath();
 
 	info = (pkgmgr_cert_x *)calloc(1, sizeof(pkgmgr_cert_x));
 	retvm_if(info == NULL, PMINFO_R_ERROR, "Out of Memory!!!");
 
-	ret = db_util_open_with_options(getUserPkgParserDBPath(), &manifest_db,
+	ret = db_util_open_with_options(user_pkg_parser, &manifest_db,
 					SQLITE_OPEN_READONLY, NULL);
 	if (ret != SQLITE_OK) {
-		_LOGE("connect db [%s] failed!\n", getUserPkgParserDBPath());
+		_LOGE("connect db [%s] failed!\n", user_pkg_parser);
 		ret = PMINFO_R_ERROR;
 		goto err;
 	}
@@ -3830,14 +3842,13 @@ API int pkgmgrinfo_pkginfo_compare_usr_app_cert_info(const char *lhs_app_id, con
  	int exist = -1;
 	char *lpkgid = NULL;
 	char *rpkgid = NULL;
-	const char* user_pkg_parser = NULL;
 
 	info = (pkgmgr_cert_x *)calloc(1, sizeof(pkgmgr_cert_x));
 	retvm_if(info == NULL, PMINFO_R_ERROR, "Out of Memory!!!");
 
 	ret = __open_manifest_db(uid);
 	if (ret != SQLITE_OK) {
-		_LOGE("connect db [%s] failed!\n", user_pkg_parser);
+		_LOGE("connect db [%s] failed!\n", getUserPkgParserDBPathUID(uid));
 		ret = PMINFO_R_ERROR;
 		goto err;
 	}
@@ -4284,6 +4295,7 @@ API int pkgmgrinfo_pkginfo_usr_filter_count(pkgmgrinfo_pkginfo_filter_h handle, 
 	int ret = 0;
 
 	pkgmgrinfo_filter_x *filter = (pkgmgrinfo_filter_x*)handle;
+	filter->uid = uid;
 	/*Get current locale*/
 	syslocale = vconf_get_str(VCONFKEY_LANGSET);
 	if (syslocale == NULL) {
@@ -4432,6 +4444,7 @@ API int pkgmgrinfo_pkginfo_usr_filter_foreach_pkginfo(pkgmgrinfo_pkginfo_filter_
 		goto err;
 	}
 
+	tmphead->uid = uid;
 	if (SQLITE_OK !=
 	    sqlite3_exec(manifest_db, query, __pkg_list_cb, (void *)tmphead, &error_message)) {
 		_LOGE("Don't execute query = %s error message = %s\n", query,
@@ -4505,6 +4518,7 @@ API int pkgmgrinfo_pkginfo_usr_filter_foreach_pkginfo(pkgmgrinfo_pkginfo_filter_
 
 	for(node = node->next ; node ; node = node->next) {
 		pkginfo = node;
+		pkginfo->uid = uid;
 		ret = pkg_cb( (void *)pkginfo, user_data);
 		if(ret < 0)
 			break;
@@ -4907,7 +4921,6 @@ API int pkgmgrinfo_appinfo_get_usr_install_list(pkgmgrinfo_app_list_cb app_func,
 	serviceapplication_x *ptr2 = NULL;
 	const char* user_pkg_parser = NULL;
 
-
 	/*open db*/
 	user_pkg_parser = getUserPkgParserDBPathUID(uid);
 	ret = __open_manifest_db(uid);
@@ -5000,7 +5013,7 @@ API int pkgmgrinfo_appinfo_get_usr_installed_list(pkgmgrinfo_app_list_cb app_fun
 	metadata_x *tmp4 = NULL;
 	permission_x *tmp5 = NULL;
 	image_x *tmp6 = NULL;
-	const char *user_pkg_parser = NULL;;
+	const char *user_pkg_parser = NULL;
 
 	/*get system locale*/
 	syslocale = vconf_get_str(VCONFKEY_LANGSET);
@@ -5218,7 +5231,6 @@ API int pkgmgrinfo_appinfo_get_usr_appinfo(const char *appid, uid_t uid, pkgmgri
 	permission_x *tmp5 = NULL;
 	image_x *tmp6 = NULL;
 	char query[MAX_QUERY_LEN] = {'\0'};
-	sqlite3 *appinfo_db = NULL;
 	const char* user_pkg_parser = NULL;
 
 	*handle = NULL;
@@ -7123,12 +7135,14 @@ API int pkgmgrinfo_pkginfo_load_certinfo(const char *pkgid, pkgmgrinfo_certinfo_
 	char query[MAX_QUERY_LEN] = {'\0'};
 	int exist = 0;
 	int i = 0;
+	const char* user_pkg_cert = NULL;
 
 	/*Open db.*/
-	ret = db_util_open_with_options(getUserPkgCertDBPath(), &cert_db,
+	user_pkg_cert = getUserPkgCertDBPath();
+	ret = db_util_open_with_options(user_pkg_cert, &cert_db,
 					SQLITE_OPEN_READWRITE, NULL);
 	if (ret != SQLITE_OK) {
-		_LOGE("connect db [%s] failed!\n", getUserPkgCertDBPath());
+		_LOGE("connect db [%s] failed!\n", user_pkg_cert);
 		return PMINFO_R_ERROR;
 	}
 	_check_create_Cert_db(cert_db);
@@ -7458,9 +7472,8 @@ API int pkgmgrinfo_delete_usr_certinfo(const char *pkgid, uid_t uid)
 	retvm_if(pkgid == NULL, PMINFO_R_EINVAL, "Argument supplied is NULL\n");
 	int ret = -1;
 	/*Open db.*/
-	ret = db_util_open_with_options(getUserPkgCertDBPathUID(uid), &cert_db,
-					SQLITE_OPEN_READWRITE, NULL);
-	if (ret != SQLITE_OK) {
+	ret = __open_cert_db(uid);
+	if (ret != 0) {
 		_LOGE("connect db [%s] failed!\n", getUserPkgCertDBPathUID(uid));
 		ret = PMINFO_R_ERROR;
 		goto err;
@@ -7795,7 +7808,14 @@ API int pkgmgrinfo_appinfo_set_usr_state_enabled(const char *appid, bool enabled
 	retvm_if(appid == NULL, PMINFO_R_EINVAL, "appid is NULL\n");
 	int ret = -1;
 	char query[MAX_QUERY_LEN] = {'\0'};
+
+	/* Open db.*/
 	ret = __open_manifest_db(uid);
+	if (ret != SQLITE_OK) {
+		_LOGE("connect db [%s] failed!\n", getUserPkgParserDBPathUID(uid));
+		sqlite3_close(manifest_db);
+		return PMINFO_R_ERROR;
+	}
 
 	/*Begin transaction*/
 	ret = sqlite3_exec(manifest_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
