@@ -2904,6 +2904,7 @@ API int pkgmgrinfo_pkginfo_get_usr_pkginfo(const char *pkgid, uid_t uid, pkgmgri
 	privilege_x *tmp5 = NULL;
 	sqlite3 *pkginfo_db = NULL;
 
+	*handle = NULL;
 	/*validate pkgid*/
 	ret = db_util_open_with_options(getUserPkgParserDBPathUID(uid), &pkginfo_db, SQLITE_OPEN_READONLY, NULL);
 	retvm_if(ret != SQLITE_OK, PMINFO_R_ERROR, "connect db [%s] failed!", getUserPkgParserDBPathUID(uid));
@@ -5199,6 +5200,7 @@ API int pkgmgrinfo_appinfo_get_usr_appinfo(const char *appid, uid_t uid, pkgmgri
 	char query[MAX_QUERY_LEN] = {'\0'};
 	sqlite3 *appinfo_db = NULL;
 
+	*handle = NULL;
 	/*open db*/
 	_LOGD("getUserPkgParserDBPathUID(%d) returns: [%s]", uid, getUserPkgParserDBPathUID(uid));
 	ret = db_util_open_with_options(getUserPkgParserDBPathUID(uid), &appinfo_db, SQLITE_OPEN_READONLY, NULL);
@@ -7084,6 +7086,7 @@ API int pkgmgrinfo_pkginfo_create_certinfo(pkgmgrinfo_certinfo_h *handle)
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 	pkgmgr_certinfo_x *certinfo = NULL;
 	certinfo = calloc(1, sizeof(pkgmgr_certinfo_x));
+	*handle = NULL;
 	retvm_if(certinfo == NULL, PMINFO_R_ERROR, "Malloc Failed\n");
 	*handle = (void *)certinfo;
 	return PMINFO_R_OK;
@@ -7192,6 +7195,7 @@ API int pkgmgrinfo_create_certinfo_set_handle(pkgmgrinfo_instcertinfo_h *handle)
 {
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 	pkgmgr_instcertinfo_x *certinfo = NULL;
+	*handle = NULL;
 	certinfo = calloc(1, sizeof(pkgmgr_instcertinfo_x));
 	retvm_if(certinfo == NULL, PMINFO_R_ERROR, "Malloc Failed\n");
 	*handle = (void *)certinfo;
@@ -7483,7 +7487,7 @@ API int pkgmgrinfo_create_pkgusrdbinfo(const char *pkgid, uid_t uid, pkgmgrinfo_
 
 	char *manifest = NULL;
 	manifest_x *mfx = NULL;
-
+	*handle = NULL;
 	manifest = pkgmgr_parser_get_usr_manifest_file(pkgid, uid);
 	retvm_if(manifest == NULL, PMINFO_R_EINVAL, "pkg[%s] dont have manifest file", pkgid);
 
@@ -7506,7 +7510,7 @@ API int pkgmgrinfo_create_pkgdbinfo(const char *pkgid, pkgmgrinfo_pkgdbinfo_h *h
 
 	char *manifest = NULL;
 	manifest_x *mfx = NULL;
-
+	*handle = NULL;
 	manifest = pkgmgr_parser_get_manifest_file(pkgid);
 	retvm_if(manifest == NULL, PMINFO_R_EINVAL, "pkg[%s] dont have manifest file", pkgid);
 
