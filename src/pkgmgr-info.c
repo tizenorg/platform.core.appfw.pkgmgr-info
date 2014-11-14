@@ -138,14 +138,6 @@ typedef struct _pkgmgr_certindexinfo_x {
 	int cert_ref_count;
 } pkgmgr_certindexinfo_x;
 
-typedef struct _pkgmgr_pkginfo_x {
-	manifest_x *manifest_info;
-	char *locale;
-
-	struct _pkgmgr_pkginfo_x *prev;
-	struct _pkgmgr_pkginfo_x *next;
-} pkgmgr_pkginfo_x;
-
 typedef struct _pkgmgr_cert_x {
 	char *pkgid;
 	int cert_id;
@@ -185,11 +177,6 @@ typedef struct _pkgmgr_certinfo_x {
 	char *cert_info[MAX_CERT_TYPE];	/*certificate info*/
 	int cert_id[MAX_CERT_TYPE];		/*certificate ID in index table*/
 } pkgmgr_certinfo_x;
-
-/*For filter APIs*/
-typedef struct _pkgmgrinfo_filter_x {
-	GSList *list;
-} pkgmgrinfo_filter_x;
 
 typedef struct _pkgmgrinfo_node_x {
 	int prop;
@@ -311,6 +298,7 @@ __thread sqlite3 *datacontrol_db = NULL;
 __thread sqlite3 *cert_db = NULL;
 
 static int __open_manifest_db(uid_t uid);
+static int __open_cert_db(uid_t uid);
 static int __exec_pkginfo_query(char *query, void *data);
 static int __exec_certinfo_query(char *query, void *data);
 static int __exec_certindexinfo_query(char *query, void *data);
@@ -1017,6 +1005,25 @@ static int __open_manifest_db(uid_t uid)
 	_LOGE("Manifest DB does not exists !!\n");
 	return -1;
 }
+
+static int __open_cert_db(uid_t uid)
+{
+	int ret = -1;
+	if (access(getUserPkgCertDBPathUID(uid), F_OK) == 0) {
+		ret =
+		    db_util_open_with_options(getUserPkgCertDBPathUID(uid), &cert_db,
+				 SQLITE_OPEN_READWRITE, NULL);
+		retvm_if(ret != SQLITE_OK, -1, "connect db [%s] failed!\n", getUserPkgCertDBPathUID(uid));
+
+		ret = _pkgmgr_parser_attach_create_view_certdb(cert_db,uid);
+		retvm_if(ret != SQLITE_OK, -1, "attach db [%s] failed!\n", getUserPkgCertDBPathUID(uid));
+		
+		return 0;
+	}
+	_LOGE("Cert DB does not exists !!\n");
+	return -1;
+}
+
 
 static int __open_datacontrol_db()
 {
@@ -2784,7 +2791,6 @@ API int pkgmgrinfo_pkginfo_get_usr_list(pkgmgrinfo_pkg_list_cb pkg_list_cb, void
 	pkgmgr_pkginfo_x *tmphead = (pkgmgr_pkginfo_x *)calloc(1, sizeof(pkgmgr_pkginfo_x));
 	pkgmgr_pkginfo_x *node = NULL;
 	pkgmgr_pkginfo_x *temp_node = NULL;
-
 	snprintf(query, MAX_QUERY_LEN, "select * from package_info");
 	if (SQLITE_OK !=
 	    sqlite3_exec(manifest_db, query, __pkg_list_cb, (void *)tmphead, &error_message)) {
@@ -2869,6 +2875,7 @@ API int pkgmgrinfo_pkginfo_get_usr_list(pkgmgrinfo_pkg_list_cb pkg_list_cb, void
 
 	for(node = node->next; node ; node = node->next) {
 		pkginfo = node;
+		pkginfo->uid = uid;
 		ret = pkg_list_cb( (void *)pkginfo, user_data);
 		if(ret < 0)
 			break;
@@ -4280,6 +4287,7 @@ API int pkgmgrinfo_pkginfo_usr_filter_count(pkgmgrinfo_pkginfo_filter_h handle, 
 	int ret = 0;
 
 	pkgmgrinfo_filter_x *filter = (pkgmgrinfo_filter_x*)handle;
+	filter->uid = uid;
 	/*Get current locale*/
 	syslocale = vconf_get_str(VCONFKEY_LANGSET);
 	if (syslocale == NULL) {
@@ -4427,7 +4435,7 @@ API int pkgmgrinfo_pkginfo_usr_filter_foreach_pkginfo(pkgmgrinfo_pkginfo_filter_
 		ret = PMINFO_R_ERROR;
 		goto err;
 	}
-
+	tmphead->uid = uid;
 	if (SQLITE_OK !=
 	    sqlite3_exec(manifest_db, query, __pkg_list_cb, (void *)tmphead, &error_message)) {
 		_LOGE("Don't execute query = %s error message = %s\n", query,
@@ -4501,6 +4509,7 @@ API int pkgmgrinfo_pkginfo_usr_filter_foreach_pkginfo(pkgmgrinfo_pkginfo_filter_
 
 	for(node = node->next ; node ; node = node->next) {
 		pkginfo = node;
+		pkginfo->uid = uid;
 		ret = pkg_cb( (void *)pkginfo, user_data);
 		if(ret < 0)
 			break;
@@ -4596,7 +4605,7 @@ API int pkgmgrinfo_appinfo_get_usr_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_
 		appinfo->app_component = PMINFO_ALL_APP;
 
 	/*open db */
-    ret = __open_manifest_db(uid);
+		ret = __open_manifest_db(uid);
 	tryvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "connect db [%s] failed!", getUserPkgParserDBPathUID(uid));
 
 	appinfo->package = strdup(info->manifest_info->package);
