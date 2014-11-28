@@ -270,33 +270,33 @@ typedef enum {
 
 #define QUERY_ATTACH "attach database '%s' as Global"
 #define QUERY_CREATE_VIEW_1 "CREATE temp VIEW package_app_app_category as select * " \
-    "from (select  *,0 as uid from  main.package_app_app_category union select *,1 as uid from Global.package_app_app_category)"
+    "from (select  *,0 as for_all_users from  main.package_app_app_category union select *,1 as for_all_users from Global.package_app_app_category)"
 #define QUERY_CREATE_VIEW_2 "CREATE temp VIEW package_app_info as select * "\
-    "from (select  *,0 as uid from  main.package_app_info union select *,1 as uid from Global.package_app_info)"
+    "from (select  *,0 as for_all_users from  main.package_app_info union select *,1 as for_all_users from Global.package_app_info)"
 #define QUERY_CREATE_VIEW_3 "CREATE temp VIEW package_app_app_control as select * "\
-    "from (select  *,0 as uid from  main.package_app_app_control union select *,1 as uid from Globalpackage_app_app_control)"
+    "from (select  *,0 as for_all_users from  main.package_app_app_control union select *,1 as for_all_users from Globalpackage_app_app_control)"
 #define QUERY_CREATE_VIEW_4 "CREATE temp VIEW package_app_localized_info as select * "\
-    "from (select  *,0 as uid from  main.package_app_localized_info union select *,1 as uid from Global.package_app_localized_info)"
+    "from (select  *,0 as for_all_users from  main.package_app_localized_info union select *,1 as for_all_users from Global.package_app_localized_info)"
 #define QUERY_CREATE_VIEW_5 "CREATE temp VIEW package_app_app_metadata as select * "\
-    "from (select  *,0 as uid from  main.package_app_app_metadata union select *,1 as uid from Global.package_app_app_metadata)"
+    "from (select  *,0 as for_all_users from  main.package_app_app_metadata union select *,1 as for_all_users from Global.package_app_app_metadata)"
 #define QUERY_CREATE_VIEW_6 "CREATE temp VIEW package_app_share_allowed as select * "\
-    "from (select  *,0 as uid from  main.package_app_share_allowed union select *,1 as uid from Global.package_app_share_allowed)"
+    "from (select  *,0 as for_all_users from  main.package_app_share_allowed union select *,1 as for_all_users from Global.package_app_share_allowed)"
 #define QUERY_CREATE_VIEW_7 "CREATE temp VIEW package_app_app_permission as select * "\
-    "from (select  *,0 as uid from  main.package_app_app_permission union select *,1 as uid from Global.package_app_app_permission)"
+    "from (select  *,0 as for_all_users from  main.package_app_app_permission union select *,1 as for_all_users from Global.package_app_app_permission)"
 #define QUERY_CREATE_VIEW_8 "CREATE temp VIEW package_app_share_request as select * "\
-    "from (select  *,0 as uid from  main.package_app_share_request union select *,1 as uid from Global.package_app_share_request)"
+    "from (select  *,0 as for_all_users from  main.package_app_share_request union select *,1 as for_all_users from Global.package_app_share_request)"
 #define QUERY_CREATE_VIEW_9 "CREATE temp VIEW package_app_app_svc as select * "\
-    "from (select  *,0 as uid from  main.package_app_app_svc union select *,1 as uid from Global.package_app_app_svc)"
+    "from (select  *,0 as for_all_users from  main.package_app_app_svc union select *,1 as for_all_users from Global.package_app_app_svc)"
 #define QUERY_CREATE_VIEW_10 "CREATE temp VIEW package_info as select * "\
-    "from (select  *,0 as uid from  main.package_info union select *,1 as uid from Global.package_info)"
+    "from (select  *,0 as for_all_users from  main.package_info union select *,1 as for_all_users from Global.package_info)"
 #define QUERY_CREATE_VIEW_11 "CREATE temp VIEW package_app_icon_section_info as select * "\
-    "from (select  *,0 as uid from  main.package_app_icon_section_info union select *,1 as uid from Global.package_app_icon_section_info)"
+    "from (select  *,0 as for_all_users from  main.package_app_icon_section_info union select *,1 as for_all_users from Global.package_app_icon_section_info)"
 #define QUERY_CREATE_VIEW_12 "CREATE temp VIEW package_localized_info as select * "\
-    "from (select  *,0 as uid from  main.package_localized_info union select *,1 as uid from Global.package_localized_info)"
+    "from (select  *,0 as for_all_users from  main.package_localized_info union select *,1 as for_all_users from Global.package_localized_info)"
 #define QUERY_CREATE_VIEW_13 "CREATE temp VIEW package_app_image_info as select * "\
-    "from (select  *,0 as uid from  main.package_app_image_info union select *,1 as uid from Global.package_app_image_info )"
+    "from (select  *,0 as for_all_users from  main.package_app_image_info union select *,1 as for_all_users from Global.package_app_image_info )"
 #define QUERY_CREATE_VIEW_14 "CREATE temp VIEW package_privilege_info as select  * "\
-    "from (select  *,0 as uid from  main.package_privilege_info union select *,1 as uid from Global.package_privilege_info)"
+    "from (select  *,0 as for_all_users from  main.package_privilege_info union select *,1 as for_all_users from Global.package_privilege_info)"
 
 char *pkgtype = "rpm";
 __thread sqlite3 *manifest_db = NULL;
@@ -350,7 +350,7 @@ static  int _pkgmgr_parser_attach_create_view_certdb(sqlite3 *handle, uid_t uid)
 			char *primary_key;
 		};
 
-		snprintf(query_view, MAX_QUERY_LEN - 1, "CREATE temp VIEW %s as select * from (select  *,0 as uid from  main.%s union select *,1 as uid from Global.%s )", "package_cert_index_info", "package_cert_index_info", "package_cert_index_info");
+		snprintf(query_view, MAX_QUERY_LEN - 1, "CREATE temp VIEW %s as select * from (select  *,0 as for_all_users from  main.%s union select *,1 as for_all_users from Global.%s )", "package_cert_index_info", "package_cert_index_info", "package_cert_index_info");
 		if (SQLITE_OK !=
 			sqlite3_exec(handle, query_view,
 				NULL, NULL, &error_message)) {
@@ -358,7 +358,7 @@ static  int _pkgmgr_parser_attach_create_view_certdb(sqlite3 *handle, uid_t uid)
 				query_view, error_message);
 			sqlite3_free(error_message);
 		}
-		snprintf(query_view, MAX_QUERY_LEN - 1, "CREATE temp VIEW %s as select * from (select  *,0 as uid from  main.%s  union select *,1 as uid from Global.%s)", "package_cert_info", "package_cert_info", "package_cert_info");
+		snprintf(query_view, MAX_QUERY_LEN - 1, "CREATE temp VIEW %s as select * from (select  *,0 as for_all_users from  main.%s  union select *,1 as for_all_users from Global.%s)", "package_cert_info", "package_cert_info", "package_cert_info");
 		if (SQLITE_OK !=
 			sqlite3_exec(handle, query_view,
 				NULL, NULL, &error_message)) {
@@ -1053,6 +1053,7 @@ static int __pkg_list_cb(void *data, int ncols, char **coltxt, char **colname)
 	info->manifest_info = (manifest_x *)calloc(1, sizeof(manifest_x));
 
 	LISTADD(udata, info);
+
 	for(i = 0; i < ncols; i++)
 	{
 		if (strcmp(colname[i], "package") == 0) {
@@ -1060,9 +1061,19 @@ static int __pkg_list_cb(void *data, int ncols, char **coltxt, char **colname)
 				info->manifest_info->package = strdup(coltxt[i]);
 			else
 				info->manifest_info->package = NULL;
+		} else if (strcmp(colname[i], "for_all_users") == 0) {
+			if (coltxt[i])
+				info->manifest_info->for_all_users = strdup(coltxt[i]);
+			else
+				info->manifest_info->for_all_users = NULL;	
 		} else
 			continue;
 	}
+	
+	//by default if views are not set , the column for_all_users doesn't exist,
+	// in this case we assume we retreive information about app avaible for all users
+	if (!info->manifest_info->for_all_users)
+		info->manifest_info->for_all_users = strdup("1");
 
 	return 0;
 }
@@ -4112,6 +4123,26 @@ API int pkgmgrinfo_pkginfo_is_update(pkgmgrinfo_pkginfo_h handle, bool *update)
 	}
 	return PMINFO_R_OK;
 }
+
+API int pkgmgrinfo_pkginfo_is_for_all_users(pkgmgrinfo_pkginfo_h handle, bool *for_all_users)
+{
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
+	retvm_if(for_all_users == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
+
+	char *val = NULL;
+	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
+	val = (char *)info->manifest_info->for_all_users;
+	if (val) {
+		if (strcasecmp(val, "1") == 0)
+			*for_all_users = 1;
+		else if (strcasecmp(val, "0") == 0)
+			*for_all_users = 0;
+		else
+			*for_all_users = 1;
+	}
+	return PMINFO_R_OK;
+}
+
 
 API int pkgmgrinfo_pkginfo_destroy_pkginfo(pkgmgrinfo_pkginfo_h handle)
 {

@@ -1607,6 +1607,22 @@ static int get_pkg_update(const char *pkgid)
  */
 int pkgmgrinfo_pkginfo_is_update(pkgmgrinfo_pkginfo_h handle, bool *update);
 
+
+/**
+ * @fn int pkgmgrinfo_pkginfo_is_global(uid_t uid, const char *pkgid)
+ * @brief	This API gets the package 'uid' value from the view table of user database
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in]	uid	uid of the user to determine the database
+ * @param[in]	pkgid	id of the current package
+ * @return	1 if it a global package, 0 else
+ */
+
+int pkgmgrinfo_pkginfo_is_global(uid_t uid, const char *pkgid);
+
+
 /**
  * @fn int pkgmgrinfo_pkginfo_is_accessible(pkgmgrinfo_pkginfo_h handle, bool *accessible)
  * @brief	This API gets the package 'accessible' value from the package ID

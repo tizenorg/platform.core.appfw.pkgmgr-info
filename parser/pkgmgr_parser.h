@@ -454,6 +454,7 @@ typedef struct ime_x {
 } ime_x;
 
 typedef struct manifest_x {
+	const char *for_all_users;		/**< Flag that indicates if the package is available for everyone or for current user only*/
 	const char *package;		/**< package name*/
 	const char *version;		/**< package version*/
 	const char *installlocation;		/**< package install location*/
