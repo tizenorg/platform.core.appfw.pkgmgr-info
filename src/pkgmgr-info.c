@@ -274,7 +274,7 @@ typedef enum {
 #define QUERY_CREATE_VIEW_2 "CREATE temp VIEW package_app_info as select * "\
     "from (select  *,0 as for_all_users from  main.package_app_info union select *,1 as for_all_users from Global.package_app_info)"
 #define QUERY_CREATE_VIEW_3 "CREATE temp VIEW package_app_app_control as select * "\
-    "from (select  *,0 as for_all_users from  main.package_app_app_control union select *,1 as for_all_users from Globalpackage_app_app_control)"
+    "from (select  *,0 as for_all_users from  main.package_app_app_control union select *,1 as for_all_users from Global.package_app_app_control)"
 #define QUERY_CREATE_VIEW_4 "CREATE temp VIEW package_app_localized_info as select * "\
     "from (select  *,0 as for_all_users from  main.package_app_localized_info union select *,1 as for_all_users from Global.package_app_localized_info)"
 #define QUERY_CREATE_VIEW_5 "CREATE temp VIEW package_app_app_metadata as select * "\
