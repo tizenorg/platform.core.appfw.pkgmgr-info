@@ -210,6 +210,13 @@ typedef struct _pkgmgrinfo_appcontrol_x {
 	char **subapp;
 } pkgmgrinfo_appcontrol_x;
 
+
+typedef struct _db_handle {
+	sqlite3 *dbHandle;
+	int ref;
+} db_handle;
+
+
 typedef int (*sqlite_query_callback)(void *data, int ncols, char **coltxt, char **colname);
 
 typedef int (*pkgmgr_handler)(int req_id, const char *pkg_type,
@@ -298,13 +305,16 @@ typedef enum {
 #define QUERY_CREATE_VIEW_14 "CREATE temp VIEW package_privilege_info as select  * "\
     "from (select  *,0 as for_all_users from  main.package_privilege_info union select *,1 as for_all_users from Global.package_privilege_info)"
 
+#define GET_DB(X)  (X).dbHandle
 char *pkgtype = "rpm";
-__thread sqlite3 *manifest_db = NULL;
-__thread sqlite3 *datacontrol_db = NULL;
-__thread sqlite3 *cert_db = NULL;
+__thread db_handle manifest_db;
+__thread db_handle datacontrol_db;
+__thread db_handle cert_db;
 
 static int __open_manifest_db(uid_t uid);
+static int __close_manifest_db(void);
 static int __open_cert_db(uid_t uid);
+static int __close_cert_db(void);
 static int __exec_pkginfo_query(char *query, void *data);
 static int __exec_certinfo_query(char *query, void *data);
 static int __exec_certindexinfo_query(char *query, void *data);
@@ -994,22 +1004,52 @@ static void __cleanup_appinfo(pkgmgr_appinfo_x *data)
 	return;
 }
 
+static int __close_manifest_db(void)
+{
+	int ret = -1;
+	if(manifest_db.ref) {
+		if(--manifest_db.ref == 0)
+			sqlite3_close(GET_DB(manifest_db));
+		return 0;
+	}
+	return -1;
+}
+
+
 static int __open_manifest_db(uid_t uid)
 {
 	int ret = -1;
+	if(manifest_db.ref) {
+		manifest_db.ref ++;
+		return 0;
+	}
 	const char* user_pkg_parser = getUserPkgParserDBPathUID(uid);
 	if (access(user_pkg_parser, F_OK) == 0) {
 		ret =
-		    db_util_open_with_options(user_pkg_parser, &manifest_db,
+		    db_util_open_with_options(user_pkg_parser, &GET_DB(manifest_db),
 				 SQLITE_OPEN_READONLY, NULL);
 		retvm_if(ret != SQLITE_OK, -1, "connect db [%s] failed!\n", user_pkg_parser);
-		ret = _pkgmgr_parser_attach_create_view_parserdb(manifest_db,uid);
+		manifest_db.ref ++;
+		ret = _pkgmgr_parser_attach_create_view_parserdb(GET_DB(manifest_db),uid);
 		retvm_if(ret != SQLITE_OK, -1, "attach db [%s] failed!\n", user_pkg_parser);
+
 		return 0;
 	}
 	_LOGE("Manifest DB does not exists !!\n");
 	return -1;
 }
+
+static int __close_cert_db(void)
+{
+	int ret = -1;
+	if(cert_db.ref) {
+		if(--cert_db.ref == 0)
+			sqlite3_close(GET_DB(cert_db));
+	}
+	_LOGE("Certificate DB is already closed !!\n");
+	return -1;
+}
+
 
 static int __open_cert_db(uid_t uid)
 {
@@ -1017,11 +1057,11 @@ static int __open_cert_db(uid_t uid)
 	const char* user_cert_parser = getUserPkgCertDBPathUID(uid);
 	if (access(user_cert_parser, F_OK) == 0) {
 		ret =
-		    db_util_open_with_options(user_cert_parser, &cert_db,
+		    db_util_open_with_options(user_cert_parser, &GET_DB(cert_db),
 				 SQLITE_OPEN_READWRITE, NULL);
 		retvm_if(ret != SQLITE_OK, -1, "connect db [%s] failed!\n", user_cert_parser);
 		
-		ret = _pkgmgr_parser_attach_create_view_certdb(cert_db,uid);
+		ret = _pkgmgr_parser_attach_create_view_certdb(GET_DB(cert_db),uid);
 		retvm_if(ret != SQLITE_OK, -1, "attach db [%s] failed!\n", user_cert_parser);
 
 		return 0;
@@ -1030,12 +1070,23 @@ static int __open_cert_db(uid_t uid)
 	return -1;
 }
 
+static int __close_datacontrol_db(void)
+{
+	int ret = -1;
+	if(datacontrol_db.ref) {
+		if(--datacontrol_db.ref == 0)
+			sqlite3_close(GET_DB(datacontrol_db));
+	}
+	_LOGE("Certificate DB is already closed !!\n");
+	return -1;
+}
+
 static int __open_datacontrol_db()
 {
 	int ret = -1;
 	if (access(DATACONTROL_DB, F_OK) == 0) {
 		ret =
-		    db_util_open_with_options(DATACONTROL_DB, &datacontrol_db,
+		    db_util_open_with_options(DATACONTROL_DB, &GET_DB(datacontrol_db),
 				 SQLITE_OPEN_READONLY, NULL);
 		retvm_if(ret != SQLITE_OK, -1, "connect db [%s] failed!\n", DATACONTROL_DB);
 		return 0;
@@ -2402,7 +2453,7 @@ static int __exec_pkginfo_query(char *query, void *data)
 {
 	char *error_message = NULL;
 	if (SQLITE_OK !=
-	    sqlite3_exec(manifest_db, query, __pkginfo_cb, data, &error_message)) {
+	    sqlite3_exec(GET_DB(manifest_db), query, __pkginfo_cb, data, &error_message)) {
 		_LOGE("Don't execute query = %s error message = %s\n", query,
 		       error_message);
 		sqlite3_free(error_message);
@@ -2416,7 +2467,7 @@ static int __exec_certinfo_query(char *query, void *data)
 {
 	char *error_message = NULL;
 	if (SQLITE_OK !=
-	    sqlite3_exec(cert_db, query, __certinfo_cb, data, &error_message)) {
+	    sqlite3_exec(GET_DB(cert_db), query, __certinfo_cb, data, &error_message)) {
 		_LOGE("Don't execute query = %s error message = %s\n", query,
 		       error_message);
 		sqlite3_free(error_message);
@@ -2430,7 +2481,7 @@ static int __exec_certindexinfo_query(char *query, void *data)
 {
 	char *error_message = NULL;
 	if (SQLITE_OK !=
-	    sqlite3_exec(cert_db, query, __certindexinfo_cb, data, &error_message)) {
+	    sqlite3_exec(GET_DB(cert_db), query, __certindexinfo_cb, data, &error_message)) {
 		_LOGE("Don't execute query = %s error message = %s\n", query,
 		       error_message);
 		sqlite3_free(error_message);
@@ -2443,10 +2494,10 @@ static int __exec_certindexinfo_query(char *query, void *data)
 static int __exec_db_query(sqlite3 *db, char *query, sqlite_query_callback callback, void *data)
 {
 	char *error_message = NULL;
-	if (SQLITE_OK !=
-	    sqlite3_exec(db, query, callback, data, &error_message)) {
-		_LOGE("Don't execute query = %s error message = %s\n", query,
-		       error_message);
+	int ret = sqlite3_exec(db, query, callback, data, &error_message);
+	if (SQLITE_OK != ret) {
+		_LOGE("Don't execute query = %s error message = %s   ret = %d\n", query,
+		       error_message, ret);
 		sqlite3_free(error_message);
 		return -1;
 	}
@@ -2711,7 +2762,7 @@ static int __delete_certinfo(const char *pkgid)
 				snprintf(query, MAX_QUERY_LEN, "delete from  package_cert_index_info where cert_id=%d ", (certinfo->cert_id)[i]);
 			}
 		        if (SQLITE_OK !=
-		            sqlite3_exec(cert_db, query, NULL, NULL, &error_message)) {
+		            sqlite3_exec(GET_DB(cert_db), query, NULL, NULL, &error_message)) {
 		                _LOGE("Don't execute query = %s error message = %s\n", query,
 		                       error_message);
 				sqlite3_free(error_message);
@@ -2723,7 +2774,7 @@ static int __delete_certinfo(const char *pkgid)
 	/*Now delete the entry from db*/
 	snprintf(query, MAX_QUERY_LEN, "delete from package_cert_info where package='%s'", pkgid);
         if (SQLITE_OK !=
-            sqlite3_exec(cert_db, query, NULL, NULL, &error_message)) {
+            sqlite3_exec(GET_DB(cert_db), query, NULL, NULL, &error_message)) {
                 _LOGE("Don't execute query = %s error message = %s\n", query,
                        error_message);
 		sqlite3_free(error_message);
@@ -2775,6 +2826,8 @@ API int pkgmgrinfo_pkginfo_get_usr_list(pkgmgrinfo_pkg_list_cb pkg_list_cb, void
 	retvm_if(pkg_list_cb == NULL, PMINFO_R_EINVAL, "callback function is NULL\n");
 	char *error_message = NULL;
 	int ret = PMINFO_R_OK;
+	int ret_db = 0;
+
 	char query[MAX_QUERY_LEN] = {'\0'};
 	char *syslocale = NULL;
 	char *locale = NULL;
@@ -2797,8 +2850,8 @@ API int pkgmgrinfo_pkginfo_get_usr_list(pkgmgrinfo_pkg_list_cb pkg_list_cb, void
 		return PMINFO_R_ERROR;
 	}
 
-	ret = __open_manifest_db(uid);
-	if (ret == -1) {
+	ret_db = __open_manifest_db(uid);
+	if (ret_db == -1) {
 		_LOGE("Fail to open manifest DB\n");
 		free(syslocale);
 		free(locale);
@@ -2810,11 +2863,10 @@ API int pkgmgrinfo_pkginfo_get_usr_list(pkgmgrinfo_pkg_list_cb pkg_list_cb, void
 
 	snprintf(query, MAX_QUERY_LEN, "select * from package_info");
 	if (SQLITE_OK !=
-	    sqlite3_exec(manifest_db, query, __pkg_list_cb, (void *)tmphead, &error_message)) {
+	    sqlite3_exec(GET_DB(manifest_db), query, __pkg_list_cb, (void *)tmphead, &error_message)) {
 		_LOGE("Don't execute query = %s error message = %s\n", query,
 		       error_message);
 		sqlite3_free(error_message);
-		sqlite3_close(manifest_db);
 		ret = PMINFO_R_ERROR;
 		goto err;
 	}
@@ -2901,7 +2953,7 @@ API int pkgmgrinfo_pkginfo_get_usr_list(pkgmgrinfo_pkg_list_cb pkg_list_cb, void
 	ret = PMINFO_R_OK;
 
 err:
-	sqlite3_close(manifest_db);
+	__close_manifest_db();
 	if (syslocale) {
 		free(syslocale);
 		syslocale = NULL;
@@ -2953,7 +3005,7 @@ API int pkgmgrinfo_pkginfo_get_usr_pkginfo(const char *pkgid, uid_t uid, pkgmgri
 
 	/*check pkgid exist on db*/
 	snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_info where package='%s')", pkgid);
-	ret = __exec_db_query(manifest_db, query, __validate_cb, (void *)&exist);
+	ret = __exec_db_query(GET_DB(manifest_db), query, __validate_cb, (void *)&exist);
 	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "sqlite3_exec[%s] fail", pkgid);
 	tryvm_if(exist == 0, ret = PMINFO_R_ERROR, "pkgid[%s] not found in DB", pkgid);
 
@@ -2979,26 +3031,26 @@ API int pkgmgrinfo_pkginfo_get_usr_pkginfo(const char *pkgid, uid_t uid, pkgmgri
 
 	/*populate manifest_info from DB*/
 	snprintf(query, MAX_QUERY_LEN, "select * from package_info where package='%s' ", pkgid);
-	ret = __exec_db_query(manifest_db, query, __pkginfo_cb, (void *)pkginfo);
+	ret = __exec_db_query(GET_DB(manifest_db), query, __pkginfo_cb, (void *)pkginfo);
 	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "Package Info DB Information retrieval failed");
 
 	memset(query, '\0', MAX_QUERY_LEN);
 	/*populate privilege_info from DB*/
 	snprintf(query, MAX_QUERY_LEN, "select * from package_privilege_info where package='%s' ", pkgid);
-	ret = __exec_db_query(manifest_db, query, __pkginfo_cb, (void *)pkginfo);
+	ret = __exec_db_query(GET_DB(manifest_db), query, __pkginfo_cb, (void *)pkginfo);
 	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "Package Privilege Info DB Information retrieval failed");
 
 	memset(query, '\0', MAX_QUERY_LEN);
 	snprintf(query, MAX_QUERY_LEN, "select * from package_localized_info where" \
 		" package='%s' and package_locale='%s'", pkgid, locale);
-	ret = __exec_db_query(manifest_db, query, __pkginfo_cb, (void *)pkginfo);
+	ret = __exec_db_query(GET_DB(manifest_db), query, __pkginfo_cb, (void *)pkginfo);
 	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "Package Info DB Information retrieval failed");
 
 	/*Also store the values corresponding to default locales*/
 	memset(query, '\0', MAX_QUERY_LEN);
 	snprintf(query, MAX_QUERY_LEN, "select * from package_localized_info where" \
 		" package='%s' and package_locale='%s'", pkgid, DEFAULT_LOCALE);
-	ret = __exec_db_query(manifest_db, query, __pkginfo_cb, (void *)pkginfo);
+	ret = __exec_db_query(GET_DB(manifest_db), query, __pkginfo_cb, (void *)pkginfo);
 	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "Package Info DB Information retrieval failed");
 
 	if (pkginfo->manifest_info->label) {
@@ -3029,8 +3081,7 @@ catch:
 		*handle = NULL;
 		__cleanup_pkginfo(pkginfo);
 	}
-	sqlite3_close(manifest_db);
-
+	__close_manifest_db();
 	if (syslocale) {
 		free(syslocale);
 		syslocale = NULL;
@@ -3651,10 +3702,10 @@ API int pkgmgrinfo_pkginfo_compare_usr_pkg_cert_info(const char *lhs_package_id,
 		ret = PMINFO_R_ERROR;
 		goto err;
 	}
-	_check_create_Cert_db(cert_db);
+	_check_create_Cert_db(GET_DB(cert_db));
 	snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_cert_info where package='%s')", lhs_package_id);
 	if (SQLITE_OK !=
-	    sqlite3_exec(cert_db, query, __validate_cb, (void *)&exist, &error_message)) {
+	    sqlite3_exec(GET_DB(cert_db), query, __validate_cb, (void *)&exist, &error_message)) {
 		_LOGE("Don't execute query = %s error message = %s\n", query,
 		       error_message);
 		ret = PMINFO_R_ERROR;
@@ -3666,7 +3717,7 @@ API int pkgmgrinfo_pkginfo_compare_usr_pkg_cert_info(const char *lhs_package_id,
 	} else {
 		snprintf(query, MAX_QUERY_LEN, "select author_signer_cert from package_cert_info where package='%s'", lhs_package_id);
 		if (SQLITE_OK !=
-			sqlite3_exec(cert_db, query, __cert_cb, (void *)info, &error_message)) {
+			sqlite3_exec(GET_DB(cert_db), query, __cert_cb, (void *)info, &error_message)) {
 			_LOGE("Don't execute query = %s error message = %s\n", query,
 				   error_message);
 			ret = PMINFO_R_ERROR;
@@ -3677,7 +3728,7 @@ API int pkgmgrinfo_pkginfo_compare_usr_pkg_cert_info(const char *lhs_package_id,
 
 	snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_cert_info where package='%s')", rhs_package_id);
 	if (SQLITE_OK !=
-		sqlite3_exec(cert_db, query, __validate_cb, (void *)&exist, &error_message)) {
+		sqlite3_exec(GET_DB(cert_db), query, __validate_cb, (void *)&exist, &error_message)) {
 		_LOGE("Don't execute query = %s error message = %s\n", query,
 			   error_message);
 		ret = PMINFO_R_ERROR;
@@ -3689,7 +3740,7 @@ API int pkgmgrinfo_pkginfo_compare_usr_pkg_cert_info(const char *lhs_package_id,
 	} else {
 		snprintf(query, MAX_QUERY_LEN, "select author_signer_cert from package_cert_info where package='%s'", rhs_package_id);
 		if (SQLITE_OK !=
-			sqlite3_exec(cert_db, query, __cert_cb, (void *)info, &error_message)) {
+			sqlite3_exec(GET_DB(cert_db), query, __cert_cb, (void *)info, &error_message)) {
 			_LOGE("Don't execute query = %s error message = %s\n", query,
 				   error_message);
 			ret = PMINFO_R_ERROR;
@@ -3715,7 +3766,7 @@ API int pkgmgrinfo_pkginfo_compare_usr_pkg_cert_info(const char *lhs_package_id,
 
 err:
 	sqlite3_free(error_message);
-	sqlite3_close(cert_db);
+	__close_cert_db();
 	if (info) {
 		if (info->pkgid) {
 			free(info->pkgid);
@@ -3750,7 +3801,7 @@ API int pkgmgrinfo_pkginfo_compare_app_cert_info(const char *lhs_app_id, const c
 	info = (pkgmgr_cert_x *)calloc(1, sizeof(pkgmgr_cert_x));
 	retvm_if(info == NULL, PMINFO_R_ERROR, "Out of Memory!!!");
 
-	ret = db_util_open_with_options(user_pkg_parser, &manifest_db,
+	ret = db_util_open_with_options(user_pkg_parser, &GET_DB(manifest_db),
 					SQLITE_OPEN_READONLY, NULL);
 	if (ret != SQLITE_OK) {
 		_LOGE("connect db [%s] failed!\n", user_pkg_parser);
@@ -3760,7 +3811,7 @@ API int pkgmgrinfo_pkginfo_compare_app_cert_info(const char *lhs_app_id, const c
 
 	snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_app_info where app_id='%s')", lhs_app_id);
 	if (SQLITE_OK !=
-	    sqlite3_exec(manifest_db, query, __validate_cb, (void *)&exist, &error_message)) {
+	    sqlite3_exec(GET_DB(manifest_db), query, __validate_cb, (void *)&exist, &error_message)) {
 		_LOGE("Don't execute query = %s error message = %s\n", query,
 		       error_message);
 		ret = PMINFO_R_ERROR;
@@ -3772,7 +3823,7 @@ API int pkgmgrinfo_pkginfo_compare_app_cert_info(const char *lhs_app_id, const c
 	} else {
 		snprintf(query, MAX_QUERY_LEN, "select package from package_app_info where app_id='%s' ", lhs_app_id);
 		if (SQLITE_OK !=
-			sqlite3_exec(manifest_db, query, __cert_cb, (void *)info, &error_message)) {
+			sqlite3_exec(GET_DB(manifest_db), query, __cert_cb, (void *)info, &error_message)) {
 			_LOGE("Don't execute query = %s error message = %s\n", query,
 				   error_message);
 			ret = PMINFO_R_ERROR;
@@ -3790,7 +3841,7 @@ API int pkgmgrinfo_pkginfo_compare_app_cert_info(const char *lhs_app_id, const c
 
 	snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_app_info where app_id='%s')", rhs_app_id);
 	if (SQLITE_OK !=
-	    sqlite3_exec(manifest_db, query, __validate_cb, (void *)&exist, &error_message)) {
+	    sqlite3_exec(GET_DB(manifest_db), query, __validate_cb, (void *)&exist, &error_message)) {
 		_LOGE("Don't execute query = %s error message = %s\n", query,
 		       error_message);
 		ret = PMINFO_R_ERROR;
@@ -3802,7 +3853,7 @@ API int pkgmgrinfo_pkginfo_compare_app_cert_info(const char *lhs_app_id, const c
 	} else {
 		snprintf(query, MAX_QUERY_LEN, "select package from package_app_info where app_id='%s' ", rhs_app_id);
 		if (SQLITE_OK !=
-			sqlite3_exec(manifest_db, query, __cert_cb, (void *)info, &error_message)) {
+			sqlite3_exec(GET_DB(manifest_db), query, __cert_cb, (void *)info, &error_message)) {
 			_LOGE("Don't execute query = %s error message = %s\n", query,
 				   error_message);
 			ret = PMINFO_R_ERROR;
@@ -3820,7 +3871,7 @@ API int pkgmgrinfo_pkginfo_compare_app_cert_info(const char *lhs_app_id, const c
 	ret = pkgmgrinfo_pkginfo_compare_pkg_cert_info(lpkgid, rpkgid, compare_result);
  err:
 	sqlite3_free(error_message);
-	sqlite3_close(manifest_db);
+	__close_manifest_db();
 	if (info) {
 		if (info->pkgid) {
 			free(info->pkgid);
@@ -3866,7 +3917,7 @@ API int pkgmgrinfo_pkginfo_compare_usr_app_cert_info(const char *lhs_app_id, con
 
 	snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_app_info where app_id='%s')", lhs_app_id);
 	if (SQLITE_OK !=
-	    sqlite3_exec(manifest_db, query, __validate_cb, (void *)&exist, &error_message)) {
+	    sqlite3_exec(GET_DB(manifest_db), query, __validate_cb, (void *)&exist, &error_message)) {
 		_LOGE("Don't execute query = %s error message = %s\n", query,
 		       error_message);
 		ret = PMINFO_R_ERROR;
@@ -3878,7 +3929,7 @@ API int pkgmgrinfo_pkginfo_compare_usr_app_cert_info(const char *lhs_app_id, con
 	} else {
 		snprintf(query, MAX_QUERY_LEN, "select package from package_app_info where app_id='%s' ", lhs_app_id);
 		if (SQLITE_OK !=
-			sqlite3_exec(manifest_db, query, __cert_cb, (void *)info, &error_message)) {
+			sqlite3_exec(GET_DB(manifest_db), query, __cert_cb, (void *)info, &error_message)) {
 			_LOGE("Don't execute query = %s error message = %s\n", query,
 				   error_message);
 			ret = PMINFO_R_ERROR;
@@ -3896,7 +3947,7 @@ API int pkgmgrinfo_pkginfo_compare_usr_app_cert_info(const char *lhs_app_id, con
 
 	snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_app_info where app_id='%s')", rhs_app_id);
 	if (SQLITE_OK !=
-	    sqlite3_exec(manifest_db, query, __validate_cb, (void *)&exist, &error_message)) {
+	    sqlite3_exec(GET_DB(manifest_db), query, __validate_cb, (void *)&exist, &error_message)) {
 		_LOGE("Don't execute query = %s error message = %s\n", query,
 		       error_message);
 		ret = PMINFO_R_ERROR;
@@ -3908,7 +3959,7 @@ API int pkgmgrinfo_pkginfo_compare_usr_app_cert_info(const char *lhs_app_id, con
 	} else {
 		snprintf(query, MAX_QUERY_LEN, "select package from package_app_info where app_id='%s' ", rhs_app_id);
 		if (SQLITE_OK !=
-			sqlite3_exec(manifest_db, query, __cert_cb, (void *)info, &error_message)) {
+			sqlite3_exec(GET_DB(manifest_db), query, __cert_cb, (void *)info, &error_message)) {
 			_LOGE("Don't execute query = %s error message = %s\n", query,
 				   error_message);
 			ret = PMINFO_R_ERROR;
@@ -3926,7 +3977,7 @@ API int pkgmgrinfo_pkginfo_compare_usr_app_cert_info(const char *lhs_app_id, con
 	ret = pkgmgrinfo_pkginfo_compare_usr_pkg_cert_info(lpkgid, rpkgid, uid, compare_result);
  err:
 	sqlite3_free(error_message);
-	sqlite3_close(manifest_db);
+	__close_manifest_db();
 	if (info) {
 		if (info->pkgid) {
 			free(info->pkgid);
@@ -4374,11 +4425,10 @@ API int pkgmgrinfo_pkginfo_usr_filter_count(pkgmgrinfo_pkginfo_filter_h handle, 
 
 	/*Execute Query*/
 	if (SQLITE_OK !=
-	    sqlite3_exec(manifest_db, query, __count_cb, (void *)count, &error_message)) {
+	    sqlite3_exec(GET_DB(manifest_db), query, __count_cb, (void *)count, &error_message)) {
 		_LOGE("Don't execute query = %s error message = %s\n", query,
 		       error_message);
 		sqlite3_free(error_message);
-		sqlite3_close(manifest_db);
 		ret = PMINFO_R_ERROR;
 		*count = 0;
 		goto err;
@@ -4393,7 +4443,7 @@ err:
 		free(syslocale);
 		syslocale = NULL;
 	}
-	sqlite3_close(manifest_db);
+	__close_manifest_db();
 	return ret;
 }
 
@@ -4477,7 +4527,7 @@ API int pkgmgrinfo_pkginfo_usr_filter_foreach_pkginfo(pkgmgrinfo_pkginfo_filter_
 
 	tmphead->uid = uid;
 	if (SQLITE_OK !=
-	    sqlite3_exec(manifest_db, query, __pkg_list_cb, (void *)tmphead, &error_message)) {
+	    sqlite3_exec(GET_DB(manifest_db), query, __pkg_list_cb, (void *)tmphead, &error_message)) {
 		_LOGE("Don't execute query = %s error message = %s\n", query,
 		       error_message);
 		sqlite3_free(error_message);
@@ -4565,7 +4615,7 @@ err:
 		free(syslocale);
 		syslocale = NULL;
 	}
-	sqlite3_close(manifest_db);
+	__close_manifest_db();
 	__cleanup_pkginfo(tmphead);
 	return ret;
 }
@@ -4660,7 +4710,7 @@ API int pkgmgrinfo_appinfo_get_usr_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_
 	switch(component) {
 	case PMINFO_UI_APP:
 		/*Populate ui app info */
-		ret = __exec_db_query(manifest_db, query, __uiapp_list_cb, (void *)info);
+		ret = __exec_db_query(GET_DB(manifest_db), query, __uiapp_list_cb, (void *)info);
 		tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App Info list retrieval failed");
 
 		uiapplication_x *tmp = NULL;
@@ -4678,29 +4728,29 @@ API int pkgmgrinfo_appinfo_get_usr_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_
 				if (locale) {
 					free(locale);
 				}
-				locale = __get_app_locale_by_fallback(manifest_db, appinfo->uiapp_info->appid, syslocale);
+				locale = __get_app_locale_by_fallback(GET_DB(manifest_db), appinfo->uiapp_info->appid, syslocale);
 			}
 
 			memset(query, '\0', MAX_QUERY_LEN);
 			snprintf(query, MAX_QUERY_LEN, "select * from package_app_localized_info where app_id='%s' and app_locale='%s'", appinfo->uiapp_info->appid, locale);
-			ret = __exec_db_query(manifest_db, query, __appinfo_cb, (void *)appinfo);
+			ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
 			tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App Localized Info DB Information retrieval failed");
 
 			memset(query, '\0', MAX_QUERY_LEN);
 			snprintf(query, MAX_QUERY_LEN, "select * from package_app_localized_info where app_id='%s' and app_locale='%s'", appinfo->uiapp_info->appid, DEFAULT_LOCALE);
-			ret = __exec_db_query(manifest_db, query, __appinfo_cb, (void *)appinfo);
+			ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
 			tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App Localized Info DB Information retrieval failed");
 
 			/*store setting notification icon section*/
 			memset(query, '\0', MAX_QUERY_LEN);
 			snprintf(query, MAX_QUERY_LEN, "select * from package_app_icon_section_info where app_id='%s'", appinfo->uiapp_info->appid);
-			ret = __exec_db_query(manifest_db, query, __appinfo_cb, (void *)appinfo);
+			ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
 			tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App icon section Info DB Information retrieval failed");
 			
 			/*store app preview image info*/
 			memset(query, '\0', MAX_QUERY_LEN);
 			snprintf(query, MAX_QUERY_LEN, "select app_image_section, app_image from package_app_image_info where app_id='%s'", appinfo->uiapp_info->appid);
-			ret = __exec_db_query(manifest_db, query, __appinfo_cb, (void *)appinfo);
+			ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
 			tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App image Info DB Information retrieval failed");
 
 			if (appinfo->uiapp_info->label) {
@@ -4735,7 +4785,7 @@ API int pkgmgrinfo_appinfo_get_usr_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_
 		break;
 	case PMINFO_SVC_APP:
 		/*Populate svc app info */
-		ret = __exec_db_query(manifest_db, query, __svcapp_list_cb, (void *)info);
+		ret = __exec_db_query(GET_DB(manifest_db), query, __svcapp_list_cb, (void *)info);
 		tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App Info list retrieval failed");
 
 		serviceapplication_x *tmp1 = NULL;
@@ -4751,12 +4801,12 @@ API int pkgmgrinfo_appinfo_get_usr_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_
 			appinfo->svcapp_info = tmp1;
 			memset(query, '\0', MAX_QUERY_LEN);
 			snprintf(query, MAX_QUERY_LEN, "select * from package_app_localized_info where app_id='%s' and app_locale='%s'", appinfo->svcapp_info->appid, locale);
-			ret = __exec_db_query(manifest_db, query, __appinfo_cb, (void *)appinfo);
+			ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
 			tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App Localized Info DB Information retrieval failed");
 
 			memset(query, '\0', MAX_QUERY_LEN);
 			snprintf(query, MAX_QUERY_LEN, "select * from package_app_localized_info where app_id='%s' and app_locale='%s'", appinfo->svcapp_info->appid, DEFAULT_LOCALE);
-			ret = __exec_db_query(manifest_db, query, __appinfo_cb, (void *)appinfo);
+			ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
 			tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App Localized Info DB Information retrieval failed");
 
 			if (appinfo->svcapp_info->label) {
@@ -4790,7 +4840,7 @@ API int pkgmgrinfo_appinfo_get_usr_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_
 		snprintf(query, MAX_QUERY_LEN, "select * from package_app_info where package='%s'", info->manifest_info->package);
 
 		/*Populate all app info */
-		ret = __exec_db_query(manifest_db, query, __allapp_list_cb, (void *)allinfo);
+		ret = __exec_db_query(GET_DB(manifest_db), query, __allapp_list_cb, (void *)allinfo);
 		tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App Info list retrieval failed");
 
 		/*UI Apps*/
@@ -4808,24 +4858,24 @@ API int pkgmgrinfo_appinfo_get_usr_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_
 			appinfo->uiapp_info = tmp2;
 			memset(query, '\0', MAX_QUERY_LEN);
 			snprintf(query, MAX_QUERY_LEN, "select * from package_app_localized_info where app_id='%s' and app_locale='%s'", appinfo->uiapp_info->appid, locale);
-			ret = __exec_db_query(manifest_db, query, __appinfo_cb, (void *)appinfo);
+			ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
 			tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App Localized Info DB Information retrieval failed");
 
 			memset(query, '\0', MAX_QUERY_LEN);
 			snprintf(query, MAX_QUERY_LEN, "select * from package_app_localized_info where app_id='%s' and app_locale='%s'", appinfo->uiapp_info->appid, DEFAULT_LOCALE);
-			ret = __exec_db_query(manifest_db, query, __appinfo_cb, (void *)appinfo);
+			ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
 			tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App Localized Info DB Information retrieval failed");
 
 			/*store setting notification icon section*/
 			memset(query, '\0', MAX_QUERY_LEN);
 			snprintf(query, MAX_QUERY_LEN, "select * from package_app_icon_section_info where app_id='%s'", appinfo->uiapp_info->appid);
-			ret = __exec_db_query(manifest_db, query, __appinfo_cb, (void *)appinfo);
+			ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
 			tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App icon section Info DB Information retrieval failed");
 			
 			/*store app preview image info*/
 			memset(query, '\0', MAX_QUERY_LEN);
 			snprintf(query, MAX_QUERY_LEN, "select app_image_section, app_image from package_app_image_info where app_id='%s'", appinfo->uiapp_info->appid);
-			ret = __exec_db_query(manifest_db, query, __appinfo_cb, (void *)appinfo);
+			ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
 			tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App image Info DB Information retrieval failed");
 
 			if (appinfo->uiapp_info->label) {
@@ -4873,12 +4923,12 @@ API int pkgmgrinfo_appinfo_get_usr_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_
 			appinfo->svcapp_info = tmp3;
 			memset(query, '\0', MAX_QUERY_LEN);
 			snprintf(query, MAX_QUERY_LEN, "select * from package_app_localized_info where app_id='%s' and app_locale='%s'", appinfo->svcapp_info->appid, locale);
-			ret = __exec_db_query(manifest_db, query, __appinfo_cb, (void *)appinfo);
+			ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
 			tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App Localized Info DB Information retrieval failed");
 
 			memset(query, '\0', MAX_QUERY_LEN);
 			snprintf(query, MAX_QUERY_LEN, "select * from package_app_localized_info where app_id='%s' and app_locale='%s'", appinfo->svcapp_info->appid, DEFAULT_LOCALE);
-			ret = __exec_db_query(manifest_db, query, __appinfo_cb, (void *)appinfo);
+			ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
 			tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App Localized Info DB Information retrieval failed");
 
 			if (appinfo->svcapp_info->label) {
@@ -4931,7 +4981,7 @@ catch:
 	}
 	__cleanup_pkginfo(allinfo);
 
-	sqlite3_close(manifest_db);
+	__close_manifest_db();
 	return ret;
 }
 
@@ -4971,7 +5021,7 @@ API int pkgmgrinfo_appinfo_get_usr_install_list(pkgmgrinfo_app_list_cb app_func,
 	tryvm_if(appinfo == NULL, ret = PMINFO_R_ERROR, "Out of Memory!!!");
 
 	snprintf(query, MAX_QUERY_LEN, "select * from package_app_info");
-	ret = __exec_db_query(manifest_db, query, __mini_appinfo_cb, (void *)info);
+	ret = __exec_db_query(GET_DB(manifest_db), query, __mini_appinfo_cb, (void *)info);
 	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App Info DB Information retrieval failed");
 
 	if (info->manifest_info->uiapplication) {
@@ -5012,8 +5062,7 @@ API int pkgmgrinfo_appinfo_get_usr_install_list(pkgmgrinfo_app_list_cb app_func,
 	ret = PMINFO_R_OK;
 
 catch:
-	sqlite3_close(manifest_db);
-
+	__close_manifest_db();
 	if (appinfo) {
 		free(appinfo);
 		appinfo = NULL;
@@ -5073,7 +5122,7 @@ API int pkgmgrinfo_appinfo_get_usr_installed_list(pkgmgrinfo_app_list_cb app_fun
 	tryvm_if(appinfo == NULL, ret = PMINFO_R_ERROR, "Out of Memory!!!");
 
 	snprintf(query, MAX_QUERY_LEN, "select * from package_app_info");
-	ret = __exec_db_query(manifest_db, query, __app_list_cb, (void *)info);
+	ret = __exec_db_query(GET_DB(manifest_db), query, __app_list_cb, (void *)info);
 	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App Info DB Information retrieval failed");
 
 	if (info->manifest_info->uiapplication) {
@@ -5095,14 +5144,14 @@ API int pkgmgrinfo_appinfo_get_usr_installed_list(pkgmgrinfo_app_list_cb app_fun
 		snprintf(query, MAX_QUERY_LEN, "select DISTINCT * " \
 				"from package_app_info where " \
 				"app_id='%s'", ptr1->appid);
-		ret = __exec_db_query(manifest_db, query, __appinfo_cb, (void *)appinfo);
+		ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
 		tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App Info DB Information retrieval failed");
 
 		if (strcmp(appinfo->uiapp_info->type,"c++app") == 0){
 			if (locale) {
 				free(locale);
 			}
-			locale = __get_app_locale_by_fallback(manifest_db, ptr1->appid, syslocale);
+			locale = __get_app_locale_by_fallback(GET_DB(manifest_db), ptr1->appid, syslocale);
 		}
 
 		memset(query, '\0', MAX_QUERY_LEN);
@@ -5110,7 +5159,7 @@ API int pkgmgrinfo_appinfo_get_usr_installed_list(pkgmgrinfo_app_list_cb app_fun
 				"from package_app_localized_info where " \
 				"app_id='%s' and app_locale='%s'",
 				ptr1->appid, locale);
-		ret = __exec_db_query(manifest_db, query, __appinfo_cb, (void *)appinfo);
+		ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
 		tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App Localized Info DB Information retrieval failed");
 
 		memset(query, '\0', MAX_QUERY_LEN);
@@ -5119,19 +5168,19 @@ API int pkgmgrinfo_appinfo_get_usr_installed_list(pkgmgrinfo_app_list_cb app_fun
 				"app_id='%s' and app_locale='%s'",
 				ptr1->appid, DEFAULT_LOCALE);
 
-		ret = __exec_db_query(manifest_db, query, __appinfo_cb, (void *)appinfo);
+		ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
 		tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App Localized Info DB Information retrieval failed");
 
 		/*store setting notification icon section*/
 		memset(query, '\0', MAX_QUERY_LEN);
 		snprintf(query, MAX_QUERY_LEN, "select * from package_app_icon_section_info where app_id='%s'", ptr1->appid);
-		ret = __exec_db_query(manifest_db, query, __appinfo_cb, (void *)appinfo);
+		ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
 		tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App icon section Info DB Information retrieval failed");
 		
 		/*store app preview image info*/
 		memset(query, '\0', MAX_QUERY_LEN);
 		snprintf(query, MAX_QUERY_LEN, "select app_image_section, app_image from package_app_image_info where app_id='%s'", ptr1->appid);
-		ret = __exec_db_query(manifest_db, query, __appinfo_cb, (void *)appinfo);
+		ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
 		tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App image Info DB Information retrieval failed");
 
 		if (appinfo->uiapp_info->label) {
@@ -5175,7 +5224,7 @@ API int pkgmgrinfo_appinfo_get_usr_installed_list(pkgmgrinfo_app_list_cb app_fun
 		snprintf(query, MAX_QUERY_LEN, "select DISTINCT * " \
 				"from package_app_info where " \
 				"app_id='%s'", ptr2->appid);
-		ret = __exec_db_query(manifest_db, query, __appinfo_cb, (void *)appinfo);
+		ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
 		tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App Info DB Information retrieval failed");
 
 		memset(query, '\0', MAX_QUERY_LEN);
@@ -5183,7 +5232,7 @@ API int pkgmgrinfo_appinfo_get_usr_installed_list(pkgmgrinfo_app_list_cb app_fun
 				"from package_app_localized_info where " \
 				"app_id='%s' and app_locale='%s'",
 				ptr2->appid, locale);
-		ret = __exec_db_query(manifest_db, query, __appinfo_cb, (void *)appinfo);
+		ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
 		tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App Info DB Information retrieval failed");
 
 		memset(query, '\0', MAX_QUERY_LEN);
@@ -5191,7 +5240,7 @@ API int pkgmgrinfo_appinfo_get_usr_installed_list(pkgmgrinfo_app_list_cb app_fun
 				"from package_app_localized_info where " \
 				"app_id='%s' and app_locale='%s'",
 				ptr2->appid, DEFAULT_LOCALE);
-		ret = __exec_db_query(manifest_db, query, __appinfo_cb, (void *)appinfo);
+		ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
 		tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App Info DB Information retrieval failed");
 
 		if (appinfo->svcapp_info->label) {
@@ -5231,7 +5280,7 @@ catch:
 		free(syslocale);
 		syslocale = NULL;
 	}
-	sqlite3_close(manifest_db);
+	__close_manifest_db();
 	if (appinfo) {
 		free(appinfo);
 		appinfo = NULL;
@@ -5273,7 +5322,7 @@ API int pkgmgrinfo_appinfo_get_usr_appinfo(const char *appid, uid_t uid, pkgmgri
   
 	/*check appid exist on db*/
 	snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_app_info where app_id='%s')", appid);
-	ret = __exec_db_query(manifest_db, query, __validate_cb, (void *)&exist);
+	ret = __exec_db_query(GET_DB(manifest_db), query, __validate_cb, (void *)&exist);
 	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "sqlite3_exec fail");
 	tryvm_if(exist == 0, ret = PMINFO_R_ERROR, "Appid[%s] not found in DB", appid);
 
@@ -5292,7 +5341,7 @@ API int pkgmgrinfo_appinfo_get_usr_appinfo(const char *appid, uid_t uid, pkgmgri
 	/*check app_component from DB*/
 	memset(query, '\0', MAX_QUERY_LEN);
 	snprintf(query, MAX_QUERY_LEN, "select app_component, package from package_app_info where app_id='%s' ", appid);
-	ret = __exec_db_query(manifest_db, query, __appcomponent_cb, (void *)appinfo);
+	ret = __exec_db_query(GET_DB(manifest_db), query, __appcomponent_cb, (void *)appinfo);
 	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App Info DB Information retrieval failed");
 
 	/*calloc app_component*/
@@ -5308,48 +5357,48 @@ API int pkgmgrinfo_appinfo_get_usr_appinfo(const char *appid, uid_t uid, pkgmgri
 	/*populate app_info from DB*/
 	memset(query, '\0', MAX_QUERY_LEN);
 	snprintf(query, MAX_QUERY_LEN, "select * from package_app_info where app_id='%s' ", appid);
-	ret = __exec_db_query(manifest_db, query, __appinfo_cb, (void *)appinfo);
+	ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
 	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App Info DB Information retrieval failed");
 
 	memset(query, '\0', MAX_QUERY_LEN);
 	snprintf(query, MAX_QUERY_LEN, "select * from package_app_localized_info where app_id='%s' and app_locale='%s'", appid, locale);
-	ret = __exec_db_query(manifest_db, query, __appinfo_cb, (void *)appinfo);
+	ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
 	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App Info DB Information retrieval failed");
 
 	/*Also store the values corresponding to default locales*/
 	memset(query, '\0', MAX_QUERY_LEN);
 	snprintf(query, MAX_QUERY_LEN, "select * from package_app_localized_info where app_id='%s' and app_locale='%s'", appid, DEFAULT_LOCALE);
-	ret = __exec_db_query(manifest_db, query, __appinfo_cb, (void *)appinfo);
+	ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
 	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App Localized Info DB Information retrieval failed");
 
 	/*Populate app category*/
 	memset(query, '\0', MAX_QUERY_LEN);
 	snprintf(query, MAX_QUERY_LEN, "select * from package_app_app_category where app_id='%s'", appid);
-	ret = __exec_db_query(manifest_db, query, __appinfo_cb, (void *)appinfo);
+	ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
 	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App Category Info DB Information retrieval failed");
 
 	/*Populate app metadata*/
 	memset(query, '\0', MAX_QUERY_LEN);
 	snprintf(query, MAX_QUERY_LEN, "select * from package_app_app_metadata where app_id='%s'", appid);
-	ret = __exec_db_query(manifest_db, query, __appinfo_cb, (void *)appinfo);
+	ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
 	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App Metadata Info DB Information retrieval failed");
 
 	/*Populate app permission*/
 	memset(query, '\0', MAX_QUERY_LEN);
 	snprintf(query, MAX_QUERY_LEN, "select * from package_app_app_permission where app_id='%s'", appid);
-	ret = __exec_db_query(manifest_db, query, __appinfo_cb, (void *)appinfo);
+	ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
 	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App permission Info DB Information retrieval failed");
 
 	/*store setting notification icon section*/
 	memset(query, '\0', MAX_QUERY_LEN);
 	snprintf(query, MAX_QUERY_LEN, "select * from package_app_icon_section_info where app_id='%s'", appid);
-	ret = __exec_db_query(manifest_db, query, __appinfo_cb, (void *)appinfo);
+	ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
 	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App icon section Info DB Information retrieval failed");
 
 	/*store app preview image info*/
 	memset(query, '\0', MAX_QUERY_LEN);
 	snprintf(query, MAX_QUERY_LEN, "select app_image_section, app_image from package_app_image_info where app_id='%s'", appid);
-	ret = __exec_db_query(manifest_db, query, __appinfo_cb, (void *)appinfo);
+	ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
 	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App image Info DB Information retrieval failed");
 
 	switch (appinfo->app_component) {
@@ -5415,7 +5464,7 @@ catch:
 		__cleanup_appinfo(appinfo);
 	}
 
-	sqlite3_close(manifest_db);
+	__close_manifest_db();
 	if (syslocale) {
 		free(syslocale);
 		syslocale = NULL;
@@ -6710,11 +6759,10 @@ API int pkgmgrinfo_appinfo_usr_filter_count(pkgmgrinfo_appinfo_filter_h handle, 
 
 	/*Execute Query*/
 	if (SQLITE_OK !=
-	    sqlite3_exec(manifest_db, query, __count_cb, (void *)count, &error_message)) {
+	    sqlite3_exec(GET_DB(manifest_db), query, __count_cb, (void *)count, &error_message)) {
 		_LOGE("Don't execute query = %s error message = %s\n", query,
 		       error_message);
 		sqlite3_free(error_message);
-		sqlite3_close(manifest_db);
 		ret = PMINFO_R_ERROR;
 		*count = 0;
 		goto err;
@@ -6729,7 +6777,7 @@ err:
 		free(syslocale);
 		syslocale = NULL;
 	}
-	sqlite3_close(manifest_db);
+	__close_manifest_db();
 	return ret;
 }
 
@@ -6831,11 +6879,10 @@ API int pkgmgrinfo_appinfo_usr_filter_foreach_appinfo(pkgmgrinfo_appinfo_filter_
 		goto err;
 	}
 	if (SQLITE_OK !=
-	    sqlite3_exec(manifest_db, query, __app_list_cb, (void *)info, &error_message)) {
+	    sqlite3_exec(GET_DB(manifest_db), query, __app_list_cb, (void *)info, &error_message)) {
 		_LOGE("Don't execute query = %s error message = %s\n", query,
 		       error_message);
 		sqlite3_free(error_message);
-		sqlite3_close(manifest_db);
 		ret = PMINFO_R_ERROR;
 		goto err;
 	}
@@ -6854,11 +6901,10 @@ API int pkgmgrinfo_appinfo_usr_filter_foreach_appinfo(pkgmgrinfo_appinfo_filter_
 		snprintf(query, MAX_QUERY_LEN, "select * from package_app_info where app_id='%s' and app_component='%s'",
 							ptr1->appid, "uiapp");
 		if (SQLITE_OK !=
-		sqlite3_exec(manifest_db, query, __uiapp_list_cb, (void *)filtinfo, &error_message)) {
+		sqlite3_exec(GET_DB(manifest_db), query, __uiapp_list_cb, (void *)filtinfo, &error_message)) {
 			_LOGE("Don't execute query = %s error message = %s\n", query,
 			       error_message);
 			sqlite3_free(error_message);
-			sqlite3_close(manifest_db);
 			ret = PMINFO_R_ERROR;
 			goto err;
 		}
@@ -6868,11 +6914,10 @@ API int pkgmgrinfo_appinfo_usr_filter_foreach_appinfo(pkgmgrinfo_appinfo_filter_
 		snprintf(query, MAX_QUERY_LEN, "select * from package_app_info where app_id='%s' and app_component='%s'",
 							ptr2->appid, "svcapp");
 		if (SQLITE_OK !=
-		sqlite3_exec(manifest_db, query, __svcapp_list_cb, (void *)filtinfo, &error_message)) {
+		sqlite3_exec(GET_DB(manifest_db), query, __svcapp_list_cb, (void *)filtinfo, &error_message)) {
 			_LOGE("Don't execute query = %s error message = %s\n", query,
 			       error_message);
 			sqlite3_free(error_message);
-			sqlite3_close(manifest_db);
 			ret = PMINFO_R_ERROR;
 			goto err;
 		}
@@ -6918,7 +6963,7 @@ err:
 		free(syslocale);
 		syslocale = NULL;
 	}
-	sqlite3_close(manifest_db);
+	__close_manifest_db();
 	if (appinfo) {
 		free(appinfo);
 		appinfo = NULL;
@@ -7055,7 +7100,7 @@ API int pkgmgrinfo_appinfo_usr_metadata_filter_foreach(pkgmgrinfo_appinfo_metada
 	appinfo = (pkgmgr_appinfo_x *)calloc(1, sizeof(pkgmgr_appinfo_x));
 	tryvm_if(appinfo == NULL, ret = PMINFO_R_ERROR, "Out of Memory!!!\n");
 
-	ret = sqlite3_exec(manifest_db, query, __app_list_cb, (void *)info, &error_message);
+	ret = sqlite3_exec(GET_DB(manifest_db), query, __app_list_cb, (void *)info, &error_message);
 	tryvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "Don't execute query = %s error message = %s\n", query, error_message);
 	memset(query, '\0', MAX_QUERY_LEN);
 
@@ -7073,7 +7118,7 @@ API int pkgmgrinfo_appinfo_usr_metadata_filter_foreach(pkgmgrinfo_appinfo_metada
 	{
 		snprintf(query, MAX_QUERY_LEN, "select * from package_app_info where app_id='%s' and app_component='%s'",
 							ptr1->appid, "uiapp");
-		ret = sqlite3_exec(manifest_db, query, __uiapp_list_cb, (void *)filtinfo, &error_message);
+		ret = sqlite3_exec(GET_DB(manifest_db), query, __uiapp_list_cb, (void *)filtinfo, &error_message);
 		tryvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "Don't execute query = %s error message = %s\n", query, error_message);
 		memset(query, '\0', MAX_QUERY_LEN);
 	}
@@ -7082,7 +7127,7 @@ API int pkgmgrinfo_appinfo_usr_metadata_filter_foreach(pkgmgrinfo_appinfo_metada
 	{
 		snprintf(query, MAX_QUERY_LEN, "select * from package_app_info where app_id='%s' and app_component='%s'",
 							ptr2->appid, "svcapp");
-		ret = sqlite3_exec(manifest_db, query, __svcapp_list_cb, (void *)filtinfo, &error_message);
+		ret = sqlite3_exec(GET_DB(manifest_db), query, __svcapp_list_cb, (void *)filtinfo, &error_message);
 		tryvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "Don't execute query = %s error message = %s\n", query, error_message);
 		memset(query, '\0', MAX_QUERY_LEN);
 	}
@@ -7129,7 +7174,7 @@ catch:
 		syslocale = NULL;
 	}
 	sqlite3_free(error_message);
-	sqlite3_close(manifest_db);
+	__close_manifest_db();
 	if (appinfo) {
 		free(appinfo);
 		appinfo = NULL;
@@ -7170,17 +7215,17 @@ API int pkgmgrinfo_pkginfo_load_certinfo(const char *pkgid, pkgmgrinfo_certinfo_
 
 	/*Open db.*/
 	user_pkg_cert = getUserPkgCertDBPath();
-	ret = db_util_open_with_options(user_pkg_cert, &cert_db,
+	ret = db_util_open_with_options(user_pkg_cert, &GET_DB(cert_db),
 					SQLITE_OPEN_READWRITE, NULL);
 	if (ret != SQLITE_OK) {
 		_LOGE("connect db [%s] failed!\n", user_pkg_cert);
 		return PMINFO_R_ERROR;
 	}
-	_check_create_Cert_db(cert_db);
+	_check_create_Cert_db(GET_DB(cert_db));
 	/*validate pkgid*/
 	snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_cert_info where package='%s')", pkgid);
 	if (SQLITE_OK !=
-	    sqlite3_exec(cert_db, query, __validate_cb, (void *)&exist, &error_message)) {
+	    sqlite3_exec(GET_DB(cert_db), query, __validate_cb, (void *)&exist, &error_message)) {
 		_LOGE("Don't execute query = %s error message = %s\n", query,
 		       error_message);
 		sqlite3_free(error_message);
@@ -7217,7 +7262,7 @@ API int pkgmgrinfo_pkginfo_load_certinfo(const char *pkgid, pkgmgrinfo_certinfo_
 		}
 	}
 err:
-	sqlite3_close(cert_db);
+	__close_cert_db();
 	return ret;
 }
 
@@ -7308,16 +7353,16 @@ API int pkgmgrinfo_save_certinfo(const char *pkgid, pkgmgrinfo_instcertinfo_h ha
 	info->pkgid = strdup(pkgid);
 
 	/*Open db.*/
-	ret = db_util_open_with_options(getUserPkgCertDBPath(), &cert_db,
+	ret = db_util_open_with_options(getUserPkgCertDBPath(), &GET_DB(cert_db),
 					SQLITE_OPEN_READWRITE, NULL);
 	if (ret != SQLITE_OK) {
 		_LOGE("connect db [%s] failed!\n", getUserPkgCertDBPath());
 		ret = PMINFO_R_ERROR;
 		goto err;
 	}
-	_check_create_Cert_db(cert_db);
+	_check_create_Cert_db(GET_DB(cert_db));
 	/*Begin Transaction*/
-	ret = sqlite3_exec(cert_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
+	ret = sqlite3_exec(GET_DB(cert_db), "BEGIN EXCLUSIVE", NULL, NULL, NULL);
 	if (ret != SQLITE_OK) {
 		_LOGE("Failed to begin transaction\n");
 		ret = PMINFO_R_ERROR;
@@ -7327,7 +7372,7 @@ API int pkgmgrinfo_save_certinfo(const char *pkgid, pkgmgrinfo_instcertinfo_h ha
 	/*Check if request is to insert/update*/
 	snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_cert_info where package='%s')", pkgid);
 	if (SQLITE_OK !=
-	    sqlite3_exec(cert_db, query, __validate_cb, (void *)&exist, &error_message)) {
+	    sqlite3_exec(GET_DB(cert_db), query, __validate_cb, (void *)&exist, &error_message)) {
 		_LOGE("Don't execute query = %s error message = %s\n", query,
 		       error_message);
 		sqlite3_free(error_message);
@@ -7370,7 +7415,7 @@ API int pkgmgrinfo_save_certinfo(const char *pkgid, pkgmgrinfo_instcertinfo_h ha
 				memset(query, '\0', MAX_QUERY_LEN);
 				snprintf(query, MAX_QUERY_LEN, "select MAX(cert_id) from package_cert_index_info ");
 				if (SQLITE_OK !=
-				    sqlite3_exec(cert_db, query, __maxid_cb, (void *)&newid, &error_message)) {
+				    sqlite3_exec(GET_DB(cert_db), query, __maxid_cb, (void *)&newid, &error_message)) {
 					_LOGE("Don't execute query = %s error message = %s\n", query,
 					       error_message);
 					sqlite3_free(error_message);
@@ -7413,7 +7458,7 @@ API int pkgmgrinfo_save_certinfo(const char *pkgid, pkgmgrinfo_instcertinfo_h ha
 		(info->cert_id)[PMINFO_SET_DISTRIBUTOR2_ROOT_CERT],(info->cert_id)[PMINFO_SET_DISTRIBUTOR2_INTERMEDIATE_CERT],
 		(info->cert_id)[PMINFO_SET_DISTRIBUTOR2_SIGNER_CERT]);
         if (SQLITE_OK !=
-            sqlite3_exec(cert_db, vquery, NULL, NULL, &error_message)) {
+            sqlite3_exec(GET_DB(cert_db), vquery, NULL, NULL, &error_message)) {
 		_LOGE("Don't execute query = %s error message = %s\n", vquery,
 		       error_message);
 		sqlite3_free(error_message);
@@ -7445,7 +7490,7 @@ API int pkgmgrinfo_save_certinfo(const char *pkgid, pkgmgrinfo_instcertinfo_h ha
 				"where cert_id=%d",  (info->ref_count)[i] + 1, (info->cert_id)[i]);
 			}
 		        if (SQLITE_OK !=
-		            sqlite3_exec(cert_db, vquery, NULL, NULL, &error_message)) {
+		            sqlite3_exec(GET_DB(cert_db), vquery, NULL, NULL, &error_message)) {
 				_LOGE("Don't execute query = %s error message = %s\n", vquery,
 				       error_message);
 				sqlite3_free(error_message);
@@ -7455,17 +7500,17 @@ API int pkgmgrinfo_save_certinfo(const char *pkgid, pkgmgrinfo_instcertinfo_h ha
 		}
 	}
 	/*Commit transaction*/
-	ret = sqlite3_exec(cert_db, "COMMIT", NULL, NULL, NULL);
+	ret = sqlite3_exec(GET_DB(cert_db), "COMMIT", NULL, NULL, NULL);
 	if (ret != SQLITE_OK) {
 		_LOGE("Failed to commit transaction, Rollback now\n");
-		sqlite3_exec(cert_db, "ROLLBACK", NULL, NULL, NULL);
+		sqlite3_exec(GET_DB(cert_db), "ROLLBACK", NULL, NULL, NULL);
 		ret = PMINFO_R_ERROR;
 		goto err;
 	}
 	_LOGE("Transaction Commit and End\n");
 	ret =  PMINFO_R_OK;
 err:
-	sqlite3_close(cert_db);
+	__close_cert_db();
 	if (vquery) {
 		free(vquery);
 		vquery = NULL;
@@ -7509,9 +7554,9 @@ API int pkgmgrinfo_delete_usr_certinfo(const char *pkgid, uid_t uid)
 		ret = PMINFO_R_ERROR;
 		goto err;
 	}
-	_check_create_Cert_db(cert_db);
+	_check_create_Cert_db(GET_DB(cert_db));
 	/*Begin Transaction*/
-	ret = sqlite3_exec(cert_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
+	ret = sqlite3_exec(GET_DB(cert_db), "BEGIN EXCLUSIVE", NULL, NULL, NULL);
 	if (ret != SQLITE_OK) {
 		_LOGE("Failed to begin transaction\n");
 		ret = PMINFO_R_ERROR;
@@ -7525,17 +7570,17 @@ API int pkgmgrinfo_delete_usr_certinfo(const char *pkgid, uid_t uid)
 		_LOGE("Certificate Deletion Success\n");
 	}
 	/*Commit transaction*/
-	ret = sqlite3_exec(cert_db, "COMMIT", NULL, NULL, NULL);
+	ret = sqlite3_exec(GET_DB(cert_db), "COMMIT", NULL, NULL, NULL);
 	if (ret != SQLITE_OK) {
 		_LOGE("Failed to commit transaction, Rollback now\n");
-		sqlite3_exec(cert_db, "ROLLBACK", NULL, NULL, NULL);
+		sqlite3_exec(GET_DB(cert_db), "ROLLBACK", NULL, NULL, NULL);
 		ret = PMINFO_R_ERROR;
 		goto err;
 	}
 	_LOGE("Transaction Commit and End\n");
 	ret = PMINFO_R_OK;
 err:
-	sqlite3_close(cert_db);
+	__close_cert_db();
 	return ret;
 }
 
@@ -7844,15 +7889,14 @@ API int pkgmgrinfo_appinfo_set_usr_state_enabled(const char *appid, bool enabled
 	ret = __open_manifest_db(uid);
 	if (ret != SQLITE_OK) {
 		_LOGE("connect db [%s] failed!\n", getUserPkgParserDBPathUID(uid));
-		sqlite3_close(manifest_db);
 		return PMINFO_R_ERROR;
 	}
 
 	/*Begin transaction*/
-	ret = sqlite3_exec(manifest_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
+	ret = sqlite3_exec(GET_DB(manifest_db), "BEGIN EXCLUSIVE", NULL, NULL, NULL);
 	if (ret != SQLITE_OK) {
 		_LOGE("Failed to begin transaction\n");
-		sqlite3_close(manifest_db);
+		__close_manifest_db();
 		return PMINFO_R_ERROR;
 	}
 	_LOGD("Transaction Begin\n");
@@ -7863,7 +7907,7 @@ API int pkgmgrinfo_appinfo_set_usr_state_enabled(const char *appid, bool enabled
 
 	char *error_message = NULL;
 	if (SQLITE_OK !=
-	    sqlite3_exec(manifest_db, query, NULL, NULL, &error_message)) {
+	    sqlite3_exec(GET_DB(manifest_db), query, NULL, NULL, &error_message)) {
 		_LOGE("Don't execute query = %s error message = %s\n", query,
 		       error_message);
 		sqlite3_free(error_message);
@@ -7872,16 +7916,15 @@ API int pkgmgrinfo_appinfo_set_usr_state_enabled(const char *appid, bool enabled
 	sqlite3_free(error_message);
 
 	/*Commit transaction*/
-	ret = sqlite3_exec(manifest_db, "COMMIT", NULL, NULL, NULL);
+	ret = sqlite3_exec(GET_DB(manifest_db), "COMMIT", NULL, NULL, NULL);
 	if (ret != SQLITE_OK) {
 		_LOGE("Failed to commit transaction. Rollback now\n");
-		sqlite3_exec(manifest_db, "ROLLBACK", NULL, NULL, NULL);
-		sqlite3_close(manifest_db);
+		sqlite3_exec(GET_DB(manifest_db), "ROLLBACK", NULL, NULL, NULL);
+		__close_manifest_db();
 		return PMINFO_R_ERROR;
 	}
 	_LOGD("Transaction Commit and End\n");
-	sqlite3_close(manifest_db);
-
+	__close_manifest_db();
 	return PMINFO_R_OK;
 }
 
@@ -7910,7 +7953,7 @@ API int pkgmgrinfo_datacontrol_get_info(const char *providerid, const char * typ
 	data = (pkgmgr_datacontrol_x *)calloc(1, sizeof(pkgmgr_datacontrol_x));
 	if (data == NULL) {
 		_LOGE("Failed to allocate memory for pkgmgr_datacontrol_x\n");
-		sqlite3_close(datacontrol_db);
+		__close_datacontrol_db();
 		return PMINFO_R_ERROR;
 	}
 
@@ -7919,18 +7962,18 @@ API int pkgmgrinfo_datacontrol_get_info(const char *providerid, const char * typ
 		providerid, type);
 
 	if (SQLITE_OK !=
-		sqlite3_exec(datacontrol_db, query, __datacontrol_cb, (void *)data, &error_message)) {
+		sqlite3_exec(GET_DB(datacontrol_db), query, __datacontrol_cb, (void *)data, &error_message)) {
 		_LOGE("Don't execute query = %s error message = %s\n", query,
 			   error_message);
 		sqlite3_free(error_message);
-		sqlite3_close(datacontrol_db);
+		__close_datacontrol_db();
 		return PMINFO_R_ERROR;
 	}
 
 	*appid = (char *)data->appid;
 	*access = (char *)data->access;
 	free(data);
-	sqlite3_close(datacontrol_db);
+    __close_datacontrol_db();
 
 	return PMINFO_R_OK;
 }
@@ -7945,10 +7988,10 @@ API int pkgmgrinfo_appinfo_set_usr_default_label(const char *appid, const char *
 
 
 	/*Begin transaction*/
-	ret = sqlite3_exec(manifest_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
+	ret = sqlite3_exec(GET_DB(manifest_db), "BEGIN EXCLUSIVE", NULL, NULL, NULL);
 	if (ret != SQLITE_OK) {
 		_LOGE("Failed to begin transaction\n");
-		sqlite3_close(manifest_db);
+		__close_manifest_db();
 		return PMINFO_R_ERROR;
 	}
 	_LOGD("Transaction Begin\n");
@@ -7958,7 +8001,7 @@ API int pkgmgrinfo_appinfo_set_usr_default_label(const char *appid, const char *
 		"update package_app_localized_info set app_label='%s' where app_id='%s' and app_locale='No Locale'", label, appid);
 
 	if (SQLITE_OK !=
-	    sqlite3_exec(manifest_db, query, NULL, NULL, &error_message)) {
+	    sqlite3_exec(GET_DB(manifest_db), query, NULL, NULL, &error_message)) {
 		_LOGE("Don't execute query = %s error message = %s\n", query,
 		       error_message);
 		sqlite3_free(error_message);
@@ -7966,16 +8009,15 @@ API int pkgmgrinfo_appinfo_set_usr_default_label(const char *appid, const char *
 	}
 
 	/*Commit transaction*/
-	ret = sqlite3_exec(manifest_db, "COMMIT", NULL, NULL, NULL);
+	ret = sqlite3_exec(GET_DB(manifest_db), "COMMIT", NULL, NULL, NULL);
 	if (ret != SQLITE_OK) {
 		_LOGE("Failed to commit transaction. Rollback now\n");
-		sqlite3_exec(manifest_db, "ROLLBACK", NULL, NULL, NULL);
-		sqlite3_close(manifest_db);
+		sqlite3_exec(GET_DB(manifest_db), "ROLLBACK", NULL, NULL, NULL);
+		__close_manifest_db();
 		return PMINFO_R_ERROR;
 	}
 	_LOGD("Transaction Commit and End\n");
-	sqlite3_close(manifest_db);
-
+	__close_manifest_db();
 	return PMINFO_R_OK;
 }
 
