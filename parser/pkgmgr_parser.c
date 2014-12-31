@@ -3040,7 +3040,6 @@ __get_icon_with_path(const char* icon, uid_t uid)
 
 	if (index(icon, '/') == NULL) {
 		char* theme = NULL;
-		char* iconPath = NULL;
 		char* icon_with_path = NULL;
 		char *app_path = NULL;
 		int len;
@@ -3077,7 +3076,7 @@ __get_icon_with_path(const char* icon, uid_t uid)
 			if (access (icon_with_path, F_OK)) { //If doesn't exist in case of Global app, try to get icon directly into app's directory
 				app_path = tzplatform_getenv(TZ_SYS_RW_APP);
 				if (app_path)
-					snprintf( len, icon_with_path, "%s/%q/res/icons/%q/small/%q", app_path  , package, theme, icon);
+					snprintf( len, icon_with_path, "%s/%q/res/icons/%q/small/%q", app_path, package, theme, icon);
 				if (access (icon_with_path, F_OK))
 					_LOGE("Cannot find icon path");
 			}
@@ -3962,7 +3961,6 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx, uid_t uid)
 	privileges_x *tmp14 = NULL;
 
 	depth = xmlTextReaderDepth(reader);
-	int  i =0;
 	while ((ret = __next_child_element(reader, depth))) {
 		node = xmlTextReaderConstName(reader);
 		if (!node) {

@@ -923,7 +923,6 @@ static void __cleanup_appinfo(pkgmgr_appinfo_x *data)
 
 static int __close_manifest_db(void)
 {
-	int ret = -1;
 	if(manifest_db.ref) {
 		if(--manifest_db.ref == 0)
 			sqlite3_close(GET_DB(manifest_db));
@@ -958,7 +957,6 @@ static int __open_manifest_db(uid_t uid)
 
 static int __close_cert_db(void)
 {
-	int ret = -1;
 	if(cert_db.ref) {
 		if(--cert_db.ref == 0)
 			sqlite3_close(GET_DB(cert_db));
@@ -996,7 +994,6 @@ static int __open_cert_db(uid_t uid, char* mode)
 
 static int __close_datacontrol_db(void)
 {
-	int ret = -1;
 	if(datacontrol_db.ref) {
 		if(--datacontrol_db.ref == 0)
 			sqlite3_close(GET_DB(datacontrol_db));
@@ -3101,9 +3098,7 @@ API int pkgmgrinfo_pkginfo_get_package_size(pkgmgrinfo_pkginfo_h handle, int *si
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
 	retvm_if(size == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 	char *val = NULL;
-	char *location = NULL;
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
-	location = (char *)info->manifest_info->installlocation;
 	val = (char *)info->manifest_info->package_size;
 	if (val) {
 		*size = atoi(val);

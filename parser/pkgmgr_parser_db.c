@@ -304,7 +304,6 @@ static int __pkgmgr_parser_create_parser_db(sqlite3 **db_handle, const char *db_
 {
 	int ret = -1;
 	sqlite3 *handle;
-	char *pk, key1, key2, key3, key4, key5;
 
 	if (access(db_path, F_OK) == 0) {
 		ret =
@@ -1927,7 +1926,6 @@ static int __delete_subpkg_info_from_db(char *appid)
 static int __delete_subpkg_from_db(manifest_x *mfx)
 {
 	char query[MAX_QUERY_LEN] = { '\0' };
-	int ret = -1;
 	char *error_message = NULL;
 
 	snprintf(query, MAX_QUERY_LEN, "select app_id from package_app_info where package='%s'", mfx->package);
