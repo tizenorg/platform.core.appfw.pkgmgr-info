@@ -4078,7 +4078,7 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx, uid_t uid)
 			memset(icon, '\0', sizeof(icon_x));
 			LISTADD(mfx->icon, icon);
 			ret = __ps_process_icon(reader, icon, uid);
-		} else if (!strcmp(ASCII(node), "device-profile")) {
+		} else if (!strcmp(ASCII(node), "profile")) {
 			deviceprofile_x *deviceprofile = malloc(sizeof(deviceprofile_x));
 			if (deviceprofile == NULL) {
 				_LOGD("Malloc Failed\n");
