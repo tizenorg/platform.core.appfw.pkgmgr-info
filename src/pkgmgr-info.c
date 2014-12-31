@@ -35,6 +35,7 @@
 #include <grp.h>
 #include <pwd.h>
 #include <sys/smack.h>
+#include <linux/limits.h>
 
 #include <libxml/parser.h>
 #include <libxml/xmlreader.h>
@@ -340,6 +341,29 @@ static int __delete_certinfo(const char *pkgid);
 static int _check_create_Cert_db( sqlite3 *certdb);
 static int __exec_db_query(sqlite3 *db, char *query, sqlite_query_callback callback, void *data);
 
+static int _mkdir(const char *dir, mode_t mode)
+{
+	char tmp[PATH_MAX];
+	char *p = NULL;
+	size_t len;
+	int ret;
+
+	snprintf(tmp, sizeof(tmp), "%s", dir);
+	len = strlen(tmp);
+	if(tmp[len - 1] == '/')
+		tmp[len - 1] = 0;
+	for(p = tmp + 1; *p; p++) {
+		if(*p == '/') {
+			*p = 0;
+			ret = mkdir(tmp, mode);
+			if (ret && errno != EEXIST)
+				return ret;
+			*p = '/';
+		}
+	}
+	return mkdir(tmp, mode);
+}
+
 static  int _pkgmgr_parser_attach_create_view_certdb(sqlite3 *handle, uid_t uid)
 {
 	char *error_message = NULL;
@@ -545,7 +569,7 @@ API char *getIconPath(uid_t uid)
 		result = tzplatform_mkpath(TZ_SYS_RW_ICONS, "/");
 	}
 
-		ret = mkdir(result, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
+		ret = _mkdir(result, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
 		if (ret == -1 && errno != EEXIST) {
 			_LOGE("FAIL : to create directory %s %d", result, errno);
 		} else if (getuid() == OWNER_ROOT) {
@@ -614,7 +638,7 @@ API char *getUserPkgParserDBPathUID(uid_t uid)
 	}
 	*dir = 0;
 
-	ret = mkdir(temp, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
+	ret = _mkdir(temp, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
 	if (ret == -1 && errno != EEXIST) {
 			_LOGE("FAIL : to create directory %s %d", temp, errno);
 	} else if (getuid() == OWNER_ROOT) {
@@ -676,7 +700,7 @@ API char *getUserPkgCertDBPathUID(uid_t uid)
 	}
 	*dir = 0;
 
-	int ret = mkdir(temp, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
+	int ret = _mkdir(temp, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
 	if (ret == -1 && errno != EEXIST) {
 			_LOGE("FAIL : to create directory %s %d", temp, errno);
 	} else if (getuid() == OWNER_ROOT) {
@@ -722,7 +746,7 @@ API const char* getUserDesktopPath(uid_t uid)
 			result = tzplatform_mkpath(TZ_SYS_RW_DESKTOP_APP, "/");
 	}
 
-	int ret = mkdir(result, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
+	int ret = _mkdir(result, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
 	if (ret == -1 && errno != EEXIST) {
 			_LOGE("FAIL : to create directory %s %d", result, errno);
 	} else if (getuid() == OWNER_ROOT) {
@@ -767,7 +791,7 @@ API const char* getUserManifestPath(uid_t uid)
 			result = tzplatform_mkpath(TZ_SYS_RW_PACKAGES, "/");
 	}
 
-	int ret = mkdir(result, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
+	int ret = _mkdir(result, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
 	if (ret == -1 && errno != EEXIST) {
 			_LOGE("FAIL : to create directory %s %d", result, errno);
 	} else if (getuid() == OWNER_ROOT) {
