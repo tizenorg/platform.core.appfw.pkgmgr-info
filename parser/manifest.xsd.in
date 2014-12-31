@@ -11,7 +11,7 @@
           <xs:element ref="packages:author"/>
           <xs:element ref="packages:description"/>
           <xs:element ref="packages:compatibility"/>
-          <xs:element ref="packages:device-profile"/>
+          <xs:element ref="packages:profile"/>
           <xs:element ref="packages:service-application"/>
           <xs:element ref="packages:ui-application"/>
           <xs:element ref="packages:ime-application"/>
@@ -36,6 +36,7 @@
 	  <xs:attribute name="appsetting" type="xs:boolean"/>
 	  <xs:attribute name="nodisplay-setting" type="xs:boolean"/>
 	  <xs:attribute name="url" type="xs:string"/>
+	  <xs:attribute name="api-version" type="xs:string"/>
     </xs:complexType>
   </xs:element>
 
@@ -52,7 +53,15 @@
         <xs:enumeration value="tpk"/>
         <xs:enumeration value="wgt"/>
         <xs:enumeration value="apk"/>
+        <xs:enumeration value="coretpk"/>
       </xs:restriction>
+    </xs:simpleType>
+    <xs:simpleType name="ProfileType">
+      <xs:restriction base="xs:string">
+        <xs:enumeration value="mobile"/>
+        <xs:enumeration value="wearable"/>
+        <xs:enumeration value="TV"/>
+       </xs:restriction>
     </xs:simpleType>
     <xs:simpleType name="TypeType">
       <xs:restriction base="xs:string">
@@ -99,6 +108,11 @@
   </xs:element>
   <xs:element name="device-profile">
     <xs:complexType/>
+  </xs:element>
+  <xs:element name="profile">
+    <xs:complexType>
+      <xs:attribute name="name" type="packages:ProfileType"/>
+    </xs:complexType>
   </xs:element>
   <xs:element name="service-application">
     <xs:complexType>
