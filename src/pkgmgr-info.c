@@ -2993,9 +2993,7 @@ API int pkgmgrinfo_pkginfo_get_package_size(pkgmgrinfo_pkginfo_h handle, int *si
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
 	retvm_if(size == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 	char *val = NULL;
-	char *location = NULL;
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
-	location = (char *)info->manifest_info->installlocation;
 	val = (char *)info->manifest_info->package_size;
 	if (val) {
 		*size = atoi(val);
