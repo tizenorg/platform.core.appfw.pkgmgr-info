@@ -1927,7 +1927,6 @@ static int __delete_subpkg_info_from_db(char *appid)
 static int __delete_subpkg_from_db(manifest_x *mfx)
 {
 	char query[MAX_QUERY_LEN] = { '\0' };
-	int ret = -1;
 	char *error_message = NULL;
 
 	snprintf(query, MAX_QUERY_LEN, "select app_id from package_app_info where package='%s'", mfx->package);

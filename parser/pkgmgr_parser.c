@@ -3038,7 +3038,6 @@ __get_icon_with_path(const char* icon, uid_t uid)
 
 	if (index(icon, '/') == NULL) {
 		char* theme = NULL;
-		char* iconPath = NULL;
 		char* icon_with_path = NULL;
 		char *app_path = NULL;
 		int len;
@@ -3929,7 +3928,6 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx, uid_t uid)
 	privileges_x *tmp14 = NULL;
 
 	depth = xmlTextReaderDepth(reader);
-	int  i =0;
 	while ((ret = __next_child_element(reader, depth))) {
 		node = xmlTextReaderConstName(reader);
 		if (!node) {
