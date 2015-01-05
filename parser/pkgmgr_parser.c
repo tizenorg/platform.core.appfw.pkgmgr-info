@@ -5256,9 +5256,7 @@ API int pkgmgr_parser_parse_usr_manifest_for_installation(const char *manifest, 
 	_LOGD("Parsing Finished\n");
 //	__streamFile(manifest, ACTION_INSTALL, temp, mfx->package);
 	__ps_process_tag_parser(mfx, manifest, ACTION_INSTALL);
-	__add_preload_info(mfx, manifest, uid);
 
-	_LOGD("Added preload infomation\n");
 	__ps_process_tag(mfx, tagv);
 
 	ret = pkgmgr_parser_insert_manifest_info_in_usr_db(mfx, uid);
@@ -5383,9 +5381,6 @@ API int pkgmgr_parser_parse_usr_manifest_for_upgrade(const char *manifest, uid_t
 	_LOGD("Parsing Finished\n");
 	//__streamFile(manifest, ACTION_UPGRADE, temp, mfx->package);
 	__ps_process_tag_parser(mfx, manifest, ACTION_UPGRADE);
-	__add_preload_info(mfx, manifest, uid);
-	_LOGD("Added preload infomation\n");
-	_LOGE("Added preload infomation\n");
 	__check_preload_updated(mfx, manifest, uid);
 
 	ret = pkgmgrinfo_pkginfo_get_usr_pkginfo(mfx->package, uid, &handle);
@@ -5511,9 +5506,6 @@ API int pkgmgr_parser_parse_usr_manifest_for_uninstallation(const char *manifest
 
 //	__streamFile(manifest, ACTION_UNINSTALL, temp, mfx->package);
 	__ps_process_tag_parser(mfx, manifest, ACTION_UNINSTALL);
-
-	__add_preload_info(mfx, manifest, uid);
-	_LOGD("Added preload infomation\n");
 
 	ret = __ps_process_metadata_parser(mfx, ACTION_UNINSTALL);
 	if (ret == -1)
