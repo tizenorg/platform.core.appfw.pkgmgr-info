@@ -279,8 +279,7 @@ static gint __comparefunc(gconstpointer a, gconstpointer b, gpointer userdata);
 static GList *__create_locale_list(GList *locale, label_x *lbl, license_x *lcn, icon_x *icn, description_x *dcn, author_x *ath);
 static void __preserve_guestmode_visibility_value(manifest_x *mfx);
 static int __guestmode_visibility_cb(void *data, int ncols, char **coltxt, char **colname);
-static int __pkgmgr_parser_create_parser_db(sqlite3 **db_handle, const char *db_path, uid_t uid);
-static int __pkgmgr_parser_create_cert_db(sqlite3 **db_handle, const char *db_path, uid_t uid);
+static int __pkgmgr_parser_create_db(sqlite3 **db_handle, const char *db_path);
 
 static int __delete_subpkg_list_cb(void *data, int ncols, char **coltxt, char **colname)
 {
@@ -300,60 +299,12 @@ static char *__get_str(const char *str)
 	return str;
 }
 
-static int __pkgmgr_parser_create_parser_db(sqlite3 **db_handle, const char *db_path, uid_t uid)
-{
-	int ret = -1;
-	sqlite3 *handle;
-	char *pk, key1, key2, key3, key4, key5;
-
-	if (access(db_path, F_OK) == 0) {
-		ret =
-		    db_util_open(db_path, &handle,
-				 DB_UTIL_REGISTER_HOOK_METHOD);
-		if (ret != SQLITE_OK) {
-			_LOGD("connect db [%s] failed!\n",
-			       db_path);
-			return -1;
-		}
-		*db_handle = handle;
-		return 0;
-	}
-	_LOGD("%s DB does not exists. Create one!!\n", db_path);
-
-	ret =
-	    db_util_open(db_path, &handle,
-			 DB_UTIL_REGISTER_HOOK_METHOD);
-
-	if (ret != SQLITE_OK) {
-		_LOGD("connect db [%s] failed!\n", db_path);
-		return -1;
-	}
-	*db_handle = handle;
-	
-	return 0;
-}
-
-static int __pkgmgr_parser_create_cert_db(sqlite3 **db_handle, const char *db_path, uid_t uid)
+static int __pkgmgr_parser_create_db(sqlite3 **db_handle, const char *db_path)
 {
 	int ret = -1;
 	sqlite3 *handle;
 
-	if (access(db_path, F_OK) == 0) {
-		ret =
-		    db_util_open(db_path, &handle,
-				 DB_UTIL_REGISTER_HOOK_METHOD);
-		if (ret != SQLITE_OK) {
-			_LOGD("connect db [%s] failed!\n",
-			       db_path);
-			return -1;
-		}
-		*db_handle = handle;
-		return 0;
-	}
-	_LOGD("%s DB does not exists. Create one!!\n", db_path);
-
-	ret =
-	    db_util_open(db_path, &handle,
+	ret = db_util_open(db_path, &handle,
 			 DB_UTIL_REGISTER_HOOK_METHOD);
 
 	if (ret != SQLITE_OK) {
@@ -2202,15 +2153,14 @@ int pkgmgr_parser_check_and_create_db(uid_t uid)
 {
 	int ret = -1;
 	/*Manifest DB*/
-	ret = __pkgmgr_parser_create_parser_db(&pkgmgr_parser_db, getUserPkgParserDBPathUID(uid), uid);
-	_LOGD("create db  %s", getUserPkgParserDBPathUID(uid));
+	ret = __pkgmgr_parser_create_db(&pkgmgr_parser_db, getUserPkgParserDBPathUID(uid));
 	if (ret) {
 		_LOGD("Manifest DB creation Failed\n");
 		return -1;
 	}
 
 	/*Cert DB*/
-	ret = __pkgmgr_parser_create_cert_db(&pkgmgr_cert_db, getUserPkgCertDBPathUID(uid), uid);
+	ret = __pkgmgr_parser_create_db(&pkgmgr_cert_db, getUserPkgCertDBPathUID(uid));
 	if (ret) {
 		_LOGD("Cert DB creation Failed\n");
 		return -1;
