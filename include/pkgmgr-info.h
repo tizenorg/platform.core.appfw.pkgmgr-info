@@ -2523,6 +2523,41 @@ static int get_app_label(const char *appid)
 int pkgmgrinfo_appinfo_get_label(pkgmgrinfo_appinfo_h  handle, char **label);
 
 /**
+ * @fn int pkgmgrinfo_appinfo_get_localed_label(const char *appid, const char *locale, char **label)
+ * @brief	This API gets exactly matched label by given appid and locale
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in]	appid	pointer to appid
+ * @param[in]	locale	pointer to locale
+ * @param[out] label		pointer to hold app label
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @code
+static int get_localed_label(const char *appid, const char *locale)
+{
+	int ret = 0;
+	char *label = NULL;
+
+	ret = pkgmgrinfo_appinfo_get_localed_label(appid, locale, &label);
+	if (ret != PMINFO_R_OK)
+		return -1;
+
+	printf("localed label: %s\n", label);
+
+	free(label);
+
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_appinfo_get_localed_label(const char *appid, const char *locale, char **label);
+int pkgmgrinfo_appinfo_usr_get_localed_label(const char *appid, const char *locale, uid_t uid, char **label);
+
+/**
  * @fn int pkgmgrinfo_appinfo_get_component(pkgmgrinfo_appinfo_h handle, pkgmgrinfo_app_component *component)
  * @brief	This API gets the component of the application
  *
