@@ -5648,6 +5648,71 @@ API int pkgmgrinfo_appinfo_get_label(pkgmgrinfo_appinfo_h  handle, char **label)
 	return PMINFO_R_OK;
 }
 
+static char *_get_localed_label(const char *appid, const char *locale, uid_t uid, char **label)
+{
+	char *result = NULL;
+	char *val = NULL;
+	char *query = NULL;
+	sqlite3_stmt *stmt = NULL;
+
+	if (__open_manifest_db(uid) != SQLITE_OK) {
+		_LOGE("DB open fail\n");
+		goto err;
+	}
+
+	query = sqlite3_mprintf("select app_label from package_app_localized_info where app_id=%Q and app_locale=%Q", appid, locale);
+	if (query == NULL) {
+		_LOGE("Out of memory");
+		goto err;
+	}
+
+	if (sqlite3_prepare_v2(GET_DB(manifest_db), query, -1, &stmt, NULL) != SQLITE_OK) {
+		_LOGE("prepare_v2 fail\n");
+		goto err;
+	}
+
+	if (sqlite3_step(stmt) == SQLITE_ROW) {
+		val = (char *)sqlite3_column_text(stmt, 0);
+		if (val != NULL)
+			result = strdup(val);
+	}
+
+err:
+	if (stmt)
+		sqlite3_finalize(stmt);
+	if (query)
+		sqlite3_free(query);
+
+	__close_manifest_db();
+
+	return result;
+}
+
+API int pkgmgrinfo_appinfo_usr_get_localed_label(const char *appid, const char *locale, uid_t uid, char **label)
+{
+	char *val;
+	int ret;
+
+	retvm_if(appid == NULL || locale == NULL || label == NULL, PMINFO_R_EINVAL, "Argument is NULL");
+
+	val = _get_localed_label(appid, locale, uid);
+	if (val == NULL)
+		val = _get_localed_label(appid, DEFAULT_LOCALE, uid);
+
+	if (val == NULL) {
+		ret = PMINFO_R_ERROR;
+	} else {
+		*label = val;
+		ret = PMINFO_R_OK;
+	}
+
+	return ret;
+}
+
+API int pkgmgrinfo_appinfo_get_localed_label(const char *appid, const char *locale, char **label)
+{
+	return pkgmgrinfo_appinfo_usr_get_localed_label(appid, locale, GLOBAL_USER, label);
+}
 
 API int pkgmgrinfo_appinfo_get_component(pkgmgrinfo_appinfo_h  handle, pkgmgrinfo_app_component *component)
 {
