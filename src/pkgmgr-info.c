@@ -5644,6 +5644,110 @@ API int pkgmgrinfo_appinfo_get_label(pkgmgrinfo_appinfo_h  handle, char **label)
 	return PMINFO_R_OK;
 }
 
+API int pkgmgrinfo_appinfo_get_localed_label(const char *appid, const char *locale, char **label)
+{
+	int col = 0;
+	int cols = 0;
+	int ret = -1;
+	char *val = NULL;
+	char *localed_label = NULL;
+	char *query = NULL;
+
+	retvm_if(appid == NULL || locale == NULL || label == NULL, PMINFO_R_EINVAL, "Argument is NULL");
+
+	sqlite3_stmt *stmt = NULL;
+	sqlite3 *pkgmgr_parser_db = NULL;
+
+	ret = db_util_open(MANIFEST_DB, &pkgmgr_parser_db, 0);
+	if (ret != SQLITE_OK) {
+		_LOGE("DB open fail\n");
+		return -1;
+	}
+
+	query = sqlite3_mprintf("select app_label from package_app_localized_info where app_id=%Q and app_locale=%Q", appid, locale);
+
+	ret = sqlite3_prepare_v2(pkgmgr_parser_db, query, strlen(query), &stmt, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGE("prepare_v2 fail\n");
+		sqlite3_close(pkgmgr_parser_db);
+		sqlite3_free(query);
+		return -1;
+	}
+
+	cols = sqlite3_column_count(stmt);
+	while(1)
+	{
+		ret = sqlite3_step(stmt);
+		if(ret == SQLITE_ROW) {
+			for(col = 0; col < cols; col++)
+			{
+				val = (char*)sqlite3_column_text(stmt, col);
+				if (val == NULL)
+					break;
+
+				_LOGE("success find localed_label[%s]\n", val);
+
+				localed_label = strdup(val);
+				if (localed_label == NULL)
+					break;
+
+				*label = localed_label;
+
+
+			}
+			ret = 0;
+		} else {
+			break;
+		}
+	}
+
+	/*find default label when exact matching failed*/
+	if (localed_label == NULL) {
+		sqlite3_free(query);
+		query = sqlite3_mprintf("select app_label from package_app_localized_info where app_id=%Q and app_locale=%Q", appid, DEFAULT_LOCALE);
+		ret = sqlite3_prepare_v2(pkgmgr_parser_db, query, strlen(query), &stmt, NULL);
+		if (ret != SQLITE_OK) {
+			_LOGE("prepare_v2 fail\n");
+			sqlite3_close(pkgmgr_parser_db);
+			sqlite3_free(query);
+			return -1;
+		}
+
+		cols = sqlite3_column_count(stmt);
+		while(1)
+		{
+			ret = sqlite3_step(stmt);
+			if(ret == SQLITE_ROW) {
+				for(col = 0; col < cols; col++)
+				{
+					val = (char*)sqlite3_column_text(stmt, col);
+					if (val == NULL)
+						break;
+					_LOGE("success find default localed_label[%s]\n", val);
+					localed_label = strdup(val);
+					if (localed_label == NULL)
+						break;
+					*label = localed_label;
+				}
+				ret = 0;
+			} else {
+				break;
+			}
+		}
+
+	}
+
+	sqlite3_finalize(stmt);
+	sqlite3_close(pkgmgr_parser_db);
+	sqlite3_free(query);
+
+	if (localed_label == NULL) {
+		return PMINFO_R_ERROR;
+	} else {
+		return PMINFO_R_OK;
+	}
+}
+
 
 API int pkgmgrinfo_appinfo_get_component(pkgmgrinfo_appinfo_h  handle, pkgmgrinfo_app_component *component)
 {
