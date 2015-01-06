@@ -5648,6 +5648,76 @@ API int pkgmgrinfo_appinfo_get_label(pkgmgrinfo_appinfo_h  handle, char **label)
 	return PMINFO_R_OK;
 }
 
+API int pkgmgrinfo_appinfo_get_localed_label(const char *appid, const char *locale, char **label)
+{
+	char *localed_label = NULL;
+	char *val;
+	char *query;
+	sqlite3_stmt *stmt;
+	sqlite3 *pkgmgr_parser_db;
+
+	retvm_if(appid == NULL || locale == NULL || label == NULL, PMINFO_R_EINVAL, "Argument is NULL");
+
+	if (db_util_open(MANIFEST_DB, &pkgmgr_parser_db, 0) != SQLITE_OK) {
+		_LOGE("DB open fail\n");
+		return PMINFO_R_ERROR;
+	}
+
+	query = sqlite3_mprintf("select app_label from package_app_localized_info where app_id=%Q and app_locale=%Q", appid, locale);
+
+	if (sqlite3_prepare_v2(pkgmgr_parser_db, query, strlen(query), &stmt, NULL) != SQLITE_OK) {
+		_LOGE("prepare_v2 fail\n");
+		sqlite3_close(pkgmgr_parser_db);
+		sqlite3_free(query);
+		return PMINFO_R_ERROR;
+	}
+
+	if (sqlite3_step(stmt) == SQLITE_ROW) {
+		val = (char *)sqlite3_column_text(stmt, 0);
+		if (val != NULL) {
+			localed_label = strdup(val);
+			if (localed_label == NULL) {
+				_LOGE("Out of memory");
+				return PMINFO_R_ERROR;
+			}
+			*label = localed_label;
+		}
+	}
+
+	/* find default lable when exact matching failed */
+	if (localed_label == NULL) {
+		sqlite3_free(query);
+		query = sqlite3_mprintf("select app_label from package_app_localized_info where app_id=%Q and app_locale=%Q", appid, DEFAULT_LOCALE);
+		if (sqlite3_prepare_v2(pkgmgr_parser_db, query, strlen(query), &stmt, NULL) != SQLITE_OK) {
+			_LOGE("prepare_v2 fail\n");
+			sqlite3_close(pkgmgr_parser_db);
+			sqlite3_free(query);
+			return PMINFO_R_ERROR;
+		}
+
+		if (sqlite3_step(stmt) == SQLITE_ROW) {
+			val = (char *)sqlite3_column_text(stmt, 0);
+			if (val != NULL) {
+				localed_label = strdup(val);
+				if (localed_label == NULL) {
+					_LOGE("Out of memory");
+					return PMINFO_R_ERROR;
+				}
+				*label = localed_label;
+			}
+		}
+	}
+
+	sqlite3_finalize(stmt);
+	sqlite3_close(pkgmgr_parser_db);
+	sqlite3_free(query);
+
+	if (localed_label == NULL)
+		return PMINFO_R_ERROR;
+
+	return PMINFO_R_OK;
+}
+
 
 API int pkgmgrinfo_appinfo_get_component(pkgmgrinfo_appinfo_h  handle, pkgmgrinfo_app_component *component)
 {
