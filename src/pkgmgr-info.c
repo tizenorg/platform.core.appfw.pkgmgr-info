@@ -314,7 +314,7 @@ __thread db_handle cert_db;
 
 static int __open_manifest_db(uid_t uid);
 static int __close_manifest_db(void);
-static int __open_cert_db(uid_t uid);
+static int __open_cert_db(uid_t uid, bool writable);
 static int __close_cert_db(void);
 static int __exec_pkginfo_query(char *query, void *data);
 static int __exec_certinfo_query(char *query, void *data);
@@ -1069,24 +1069,31 @@ static int __close_cert_db(void)
 	if(cert_db.ref) {
 		if(--cert_db.ref == 0)
 			sqlite3_close(GET_DB(cert_db));
+		return 0;
 	}
 	_LOGE("Certificate DB is already closed !!\n");
 	return -1;
 }
 
 
-static int __open_cert_db(uid_t uid)
+static int __open_cert_db(uid_t uid, bool writable)
 {
 	int ret = -1;
+	if (cert_db.ref) {
+		cert_db.ref++;
+		return 0;
+	}
 	const char* user_cert_parser = getUserPkgCertDBPathUID(uid);
 	if (access(user_cert_parser, F_OK) == 0) {
 		ret =
 		    db_util_open_with_options(user_cert_parser, &GET_DB(cert_db),
-				 SQLITE_OPEN_READWRITE, NULL);
+				 writable ? SQLITE_OPEN_READWRITE : SQLITE_OPEN_READONLY, NULL);
 		retvm_if(ret != SQLITE_OK, -1, "connect db [%s] failed!\n", user_cert_parser);
-		
-		ret = _pkgmgr_parser_attach_create_view_certdb(GET_DB(cert_db),uid);
-		retvm_if(ret != SQLITE_OK, -1, "attach db [%s] failed!\n", user_cert_parser);
+		cert_db.ref++;
+		if (!writable) {
+			ret = _pkgmgr_parser_attach_create_view_certdb(GET_DB(cert_db),uid);
+			retvm_if(ret != SQLITE_OK, -1, "attach db [%s] failed!\n", user_cert_parser);
+		}
 
 		return 0;
 	}
@@ -1100,8 +1107,9 @@ static int __close_datacontrol_db(void)
 	if(datacontrol_db.ref) {
 		if(--datacontrol_db.ref == 0)
 			sqlite3_close(GET_DB(datacontrol_db));
+		return 0;
 	}
-	_LOGE("Certificate DB is already closed !!\n");
+	_LOGE("Dataccontrol DB is already closed !!\n");
 	return -1;
 }
 
@@ -3721,7 +3729,7 @@ API int pkgmgrinfo_pkginfo_compare_usr_pkg_cert_info(const char *lhs_package_id,
 	info = (pkgmgr_cert_x *)calloc(1, sizeof(pkgmgr_cert_x));
 	retvm_if(info == NULL, PMINFO_R_ERROR, "Out of Memory!!!");
 
-	ret = __open_cert_db(uid);
+	ret = __open_cert_db(uid, false);
 	if (ret != 0) {
 		ret = PMINFO_R_ERROR;
 		goto err;
@@ -7572,7 +7580,7 @@ API int pkgmgrinfo_delete_usr_certinfo(const char *pkgid, uid_t uid)
 	retvm_if(pkgid == NULL, PMINFO_R_EINVAL, "Argument supplied is NULL\n");
 	int ret = -1;
 	/*Open db.*/
-	ret = __open_cert_db(uid);
+	ret = __open_cert_db(uid, true);
 	if (ret != 0) {
 		_LOGE("connect db [%s] failed!\n", getUserPkgCertDBPathUID(uid));
 		ret = PMINFO_R_ERROR;

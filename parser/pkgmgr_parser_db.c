@@ -316,7 +316,7 @@ static int __pkgmgr_parser_create_parser_db(sqlite3 **db_handle, const char *db_
 			return -1;
 		}
 		*db_handle = handle;
-
+		return 0;
 	}
 	_LOGD("%s DB does not exists. Create one!!\n", db_path);
 
@@ -348,7 +348,7 @@ static int __pkgmgr_parser_create_cert_db(sqlite3 **db_handle, const char *db_pa
 			return -1;
 		}
 		*db_handle = handle;
-
+		return 0;
 	}
 	_LOGD("%s DB does not exists. Create one!!\n", db_path);
 
