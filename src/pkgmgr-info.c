@@ -32,8 +32,6 @@
 #include <ctype.h>
 #include <assert.h>
 #include <dlfcn.h>
-#include <grp.h>
-#include <pwd.h>
 #include <sys/smack.h>
 #include <linux/limits.h>
 
@@ -76,7 +74,7 @@
 #define PKG_RO_PATH tzplatform_mkpath(TZ_SYS_RO_APP, "")
 #define BLOCK_SIZE      4096 /*in bytes*/
 #define BUFSIZE 4096
-#define OWNER_ROOT 0
+#define ROOT_UID 0
 
 #define MMC_PATH tzplatform_mkpath(TZ_SYS_STORAGE, "sdcard")
 #define PKG_SD_PATH tzplatform_mkpath3(TZ_SYS_STORAGE, "sdcard", "app2sd/")
@@ -117,7 +115,6 @@
 #define METADATA_FILTER_QUERY_UNION_CLAUSE	" UNION "METADATA_FILTER_QUERY_SELECT_CLAUSE
 
 #define LANGUAGE_LENGTH 2
-#define LIBAIL_PATH "/usr/lib/libail.so.0"
 
 #define SERVICE_NAME "org.tizen.system.deviced"
 #define PATH_NAME "/Org/Tizen/System/DeviceD/Mmc"
@@ -364,6 +361,31 @@ static int _mkdir(const char *dir, mode_t mode)
 	return mkdir(tmp, mode);
 }
 
+static void _mkdir_for_user(const char* dir, uid_t uid, gid_t gid) {
+	int ret = 0;
+
+	ret = _mkdir(dir, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
+	if (ret == -1 && errno != EEXIST) {
+		_LOGE("FAIL : to create directory %s %d", dir, errno);
+	} else if (getuid() == ROOT_UID) {
+		ret = chown(dir, uid, gid);
+		if (ret == -1)
+			_LOGE("FAIL : chown %s %d.%d, because %s", dir, uid, gid, strerror(errno));
+	}
+}
+
+static const char *_get_db_path(uid_t uid) {
+	const char *db_path = NULL;
+	if (uid != GLOBAL_USER) {
+		tzplatform_set_user(uid);
+		db_path = tzplatform_getenv(TZ_USER_DB);
+		tzplatform_reset_user();
+	} else {
+		db_path = tzplatform_getenv(TZ_SYS_DB);
+	}
+	return db_path;
+}
+
 static  int _pkgmgr_parser_attach_create_view_certdb(sqlite3 *handle, uid_t uid)
 {
 	char *error_message = NULL;
@@ -528,125 +550,65 @@ static int _check_create_Cert_db( sqlite3 *certdb)
 	return ret;
 }
 
-
-
 API char *getIconPath(uid_t uid)
 {
-	char *result = NULL;
-	struct group *grpinfo = NULL;
-	struct passwd *userinfo = getpwuid(uid);
-	int ret = 0;
-	if (uid == 0) {
+	const char *path = NULL;
+	uid_t uid_caller = getuid();
+	gid_t gid = ROOT_UID;
+
+	if (uid == ROOT_UID) {
 		_LOGE("FAIL : Root is not allowed user! please fix it replacing with DEFAULT_USER");
 		return NULL;
 	}
+
 	if (uid != GLOBAL_USER) {
-		if (userinfo == NULL) {
-			_LOGE("getpwuid(%d) returns NULL !", uid);
-			return NULL;
-		}
-		grpinfo = getgrnam("users");
-		if (grpinfo == NULL) {
-			_LOGE("getgrnam(users) returns NULL !");
-			return NULL;
-		}
-		// Compare git_t type and not group name
-		if (grpinfo->gr_gid != userinfo->pw_gid) {
-			_LOGE("UID [%d] does not belong to 'users' group!", uid);
-			return NULL;
-		}
-		ret = asprintf(&result, "%s/.applications/icons/", userinfo->pw_dir);
-		if (ret == -1) {
-			_LOGE("asprintf fails");
-			return NULL;
-		}
-			
+		tzplatform_set_user(uid);
+		path = tzplatform_mkpath(TZ_USER_ICONS, "/");
+		gid = tzplatform_getgid(TZ_SYS_USER_GROUP);
+		tzplatform_reset_user();
 	} else {
-		result = tzplatform_mkpath(TZ_SYS_RW_ICONS, "/");
+		path = tzplatform_mkpath(TZ_SYS_RW_ICONS, "/");
 	}
 
-		ret = _mkdir(result, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
-		if (ret == -1 && errno != EEXIST) {
-			_LOGE("FAIL : to create directory %s %d", result, errno);
-		} else if (getuid() == OWNER_ROOT) {
-			ret = chown(result, uid, ((grpinfo)?grpinfo->gr_gid:0));
-			if (ret == -1) {
-				char buf[BUFSIZE];
-				strerror_r(errno, buf, sizeof(buf));
-				_LOGE("FAIL : chown %s %d.%d, because %s", result, uid, ((grpinfo)?grpinfo->gr_gid:0), buf);
-			}
-		}
-	return result;
+	// just allow certain users to create the icon directory if needed.
+	if (uid_caller == ROOT_UID || uid_caller == uid)
+		_mkdir_for_user(path, uid, gid);
+
+	return path;
 }
 
 API char *getUserPkgParserDBPath(void)
 {
-		return getUserPkgParserDBPathUID(GLOBAL_USER);
+	return getUserPkgParserDBPathUID(GLOBAL_USER);
 }
 
 API char *getUserPkgParserDBPathUID(uid_t uid)
 {
-	const char *result = NULL;
-	const char *journal = NULL;
-	struct group *grpinfo = NULL;
-	char * dir = NULL;
-	struct passwd *userinfo = getpwuid(uid);
-	int ret = 0;
-	if (uid == 0) {
+	const char *pkgmgr_parser_db = NULL;
+	uid_t uid_caller = getuid();
+	gid_t gid = ROOT_UID;
+
+	if (uid == ROOT_UID) {
 		_LOGE("FAIL : Root is not allowed user! please fix it replacing with DEFAULT_USER");
 		return NULL;
 	}
-	if (uid != GLOBAL_USER) {
-		if (userinfo == NULL) {
-			_LOGE("getpwuid(%d) returns NULL !", uid);
-			return NULL;
-		}
-		grpinfo = getgrnam("users");
-		if (grpinfo == NULL) {
-			_LOGE("getgrnam(users) returns NULL !");
-			return NULL;
-		}
-		// Compare git_t type and not group name
-		if (grpinfo->gr_gid != userinfo->pw_gid) {
-			_LOGE("UID [%d] does not belong to 'users' group!", uid);
-			return NULL;
-		}
-		ret = asprintf(&result, "%s/.applications/dbspace/.pkgmgr_parser.db", userinfo->pw_dir);
-		if (ret == -1) {
-			_LOGE("asprintf fails");
-			return NULL;
-		}
-		ret = asprintf(&journal, "%s/.applications/dbspace/.pkgmgr_parser.db-journal", userinfo->pw_dir);
-		if (ret == -1) {
-			_LOGE("asprintf fails");
-			return NULL;
-		}
-	} else {
-		result = tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_parser.db");
-		journal = tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_parser.db-journal");
-	}
-	char *temp = strdup(result);
-	dir = strrchr(temp, '/');
-	if(!dir)
-	{
-		free(temp);
-		return result;
-	}
-	*dir = 0;
 
-	ret = _mkdir(temp, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
-	if (ret == -1 && errno != EEXIST) {
-			_LOGE("FAIL : to create directory %s %d", temp, errno);
-	} else if (getuid() == OWNER_ROOT) {
-		ret = chown(temp, uid, ((grpinfo)?grpinfo->gr_gid:0));
-		if (ret == -1) {
-			char buf[BUFSIZE];
-			strerror_r(errno, buf, sizeof(buf));
-			_LOGE("FAIL : chown %s %d.%d, because %s", temp, uid, ((grpinfo)?grpinfo->gr_gid:0), buf);
-		}
+	if (uid != GLOBAL_USER) {
+		tzplatform_set_user(uid);
+		pkgmgr_parser_db = tzplatform_mkpath(TZ_USER_DB, ".pkgmgr_parser.db");
+		gid = tzplatform_getgid(TZ_SYS_USER_GROUP);
+		tzplatform_reset_user();
+	} else {
+		pkgmgr_parser_db = tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_parser.db");
 	}
-	free(temp);
-	return result;
+
+	// just allow certain users to create the dbspace directory if needed.
+	if (uid_caller == ROOT_UID || uid_caller == uid) {
+		const char *db_path = _get_db_path(uid);
+		_mkdir_for_user(db_path, uid, gid);
+	}
+
+	return pkgmgr_parser_db;
 }
 
 API char *getUserPkgCertDBPath(void)
@@ -656,150 +618,85 @@ API char *getUserPkgCertDBPath(void)
 
 API char *getUserPkgCertDBPathUID(uid_t uid)
 {
-	char *result = NULL;
-	char *journal = NULL;
-	struct group *grpinfo = NULL;
-	char * dir = NULL;
-	struct passwd *userinfo = getpwuid(uid);
+	const char *pkgmgr_cert_db = NULL;
+	uid_t uid_caller = getuid();
+	gid_t gid = ROOT_UID;
 
-	if (uid == 0) {
+	if (uid == ROOT_UID) {
 		_LOGE("FAIL : Root is not allowed user! please fix it replacing with DEFAULT_USER");
 		return NULL;
 	}
-	if (uid != GLOBAL_USER) {
-		if (userinfo == NULL) {
-			_LOGE("getpwuid(%d) returns NULL !", uid);
-			return NULL;
-		}
-		grpinfo = getgrnam("users");
-		if (grpinfo == NULL) {
-			_LOGE("getgrnam(users) returns NULL !");
-			return NULL;
-		}
-		// Compare git_t type and not group name
-		if (grpinfo->gr_gid != userinfo->pw_gid) {
-			_LOGE("UID [%d] does not belong to 'users' group!", uid);
-			return NULL;
-		}
-		asprintf(&result, "%s/.applications/dbspace/.pkgmgr_cert.db", userinfo->pw_dir);
-		asprintf(&journal, "%s/.applications/dbspace/.pkgmgr_cert.db-journal", userinfo->pw_dir);
-	} else {
-		result = tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_cert.db");
-		journal = tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_cert.db-journal");
-	}
-	char *temp = strdup(result);
-	dir = strrchr(temp, '/');
-	if(!dir)
-	{
-		free(temp);
-		return result;
-	}
-	*dir = 0;
 
-	int ret = _mkdir(temp, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
-	if (ret == -1 && errno != EEXIST) {
-			_LOGE("FAIL : to create directory %s %d", temp, errno);
-	} else if (getuid() == OWNER_ROOT) {
-		ret = chown(temp, uid, ((grpinfo)?grpinfo->gr_gid:0));
-		if (ret == -1) {
-			char buf[BUFSIZE];
-			strerror_r(errno, buf, sizeof(buf));
-			_LOGE("FAIL : chown %s %d.%d, because %s", temp, uid, ((grpinfo)?grpinfo->gr_gid:0), buf);
-		}
-		}
-	free(temp);
-	return result;
+	if (uid != GLOBAL_USER) {
+		tzplatform_set_user(uid);
+		pkgmgr_cert_db = tzplatform_mkpath(TZ_USER_DB, ".pkgmgr_cert.db");
+		gid = tzplatform_getgid(TZ_SYS_USER_GROUP);
+		tzplatform_reset_user();
+	} else {
+		pkgmgr_cert_db = tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_cert.db");
+	}
+
+	// just allow certain users to create the dbspace directory if needed.
+	if (uid_caller == ROOT_UID || uid_caller == uid) {
+		const char *db_path = _get_db_path(uid);
+		_mkdir_for_user(db_path, uid, gid);
+	}
+
+	return pkgmgr_cert_db;
 }
 
 API const char* getUserDesktopPath(uid_t uid)
 {
-	char *result = NULL;
-	struct group *grpinfo = NULL;
-	char * dir = NULL;
-	struct passwd *userinfo = getpwuid(uid);
+	const char *path = NULL;
+	uid_t uid_caller = getuid();
+	gid_t gid = ROOT_UID;
 
-	if (uid == 0) {
+	if (uid == ROOT_UID) {
 		_LOGE("FAIL : Root is not allowed user! please fix it replacing with DEFAULT_USER");
 		return NULL;
 	}
+
 	if (uid != GLOBAL_USER) {
-		if (userinfo == NULL) {
-			_LOGE("getpwuid(%d) returns NULL !", uid);
-			return NULL;
-		}
-		grpinfo = getgrnam("users");
-		if (grpinfo == NULL) {
-			_LOGE("getgrnam(users) returns NULL !");
-			return NULL;
-		}
-		// Compare git_t type and not group name
-		if (grpinfo->gr_gid != userinfo->pw_gid) {
-			_LOGE("UID [%d] does not belong to 'users' group!", uid);
-			return NULL;
-		}
-		asprintf(&result, "%s/.applications/desktop/", userinfo->pw_dir);
+		tzplatform_set_user(uid);
+		path = tzplatform_mkpath(TZ_USER_DESKTOP, "/");
+		gid = tzplatform_getgid(TZ_SYS_USER_GROUP);
+		tzplatform_reset_user();
 	} else {
-			result = tzplatform_mkpath(TZ_SYS_RW_DESKTOP_APP, "/");
+		path = tzplatform_mkpath(TZ_SYS_RW_DESKTOP_APP, "/");
 	}
 
-	int ret = _mkdir(result, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
-	if (ret == -1 && errno != EEXIST) {
-			_LOGE("FAIL : to create directory %s %d", result, errno);
-	} else if (getuid() == OWNER_ROOT) {
-		ret = chown(result, uid,((grpinfo)?grpinfo->gr_gid:0));
-		if (ret == -1) {
-			char buf[BUFSIZE];
-			strerror_r(errno, buf, sizeof(buf));
-			_LOGE("FAIL : chown %s %d.%d, because %s", result, uid, ((grpinfo)?grpinfo->gr_gid:0), buf);
-		}
-		}
-	return result;
+	// just allow certain users to create the icon directory if needed.
+	if (uid_caller == ROOT_UID || uid_caller == uid)
+		_mkdir_for_user(path, uid, gid);
+
+	return path;
 }
 
 API const char* getUserManifestPath(uid_t uid)
 {
-	char *result = NULL;
-	struct group *grpinfo = NULL;
-	char * dir = NULL;
-	struct passwd *userinfo = getpwuid(uid);
+	const char *path = NULL;
+	uid_t uid_caller = getuid();
+	gid_t gid = ROOT_UID;
 
-	if (uid == 0) {
+	if (uid == ROOT_UID) {
 		_LOGE("FAIL : Root is not allowed user! please fix it replacing with DEFAULT_USER");
 		return NULL;
 	}
+
 	if (uid != GLOBAL_USER) {
-		if (userinfo == NULL) {
-			_LOGE("getpwuid(%d) returns NULL !", uid);
-			return NULL;
-		}
-		grpinfo = getgrnam("users");
-		if (grpinfo == NULL) {
-			_LOGE("getgrnam(users) returns NULL !");
-			return NULL;
-		}
-		// Compare git_t type and not group name
-		if (grpinfo->gr_gid != userinfo->pw_gid) {
-			_LOGE("UID [%d] does not belong to 'users' group!", uid);
-			return NULL;
-		}
-		asprintf(&result, "%s/.applications/manifest/", userinfo->pw_dir);
+		tzplatform_set_user(uid);
+		path = tzplatform_mkpath(TZ_USER_PACKAGES, "/");
+		gid = tzplatform_getgid(TZ_SYS_USER_GROUP);
+		tzplatform_reset_user();
 	} else {
-			result = tzplatform_mkpath(TZ_SYS_RW_PACKAGES, "/");
+		path = tzplatform_mkpath(TZ_SYS_RW_PACKAGES, "/");
 	}
 
-	int ret = _mkdir(result, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
-	if (ret == -1 && errno != EEXIST) {
-			_LOGE("FAIL : to create directory %s %d", result, errno);
-	} else if (getuid() == OWNER_ROOT) {
-		ret = chown(result, uid, ((grpinfo)?grpinfo->gr_gid:0));
-		if (ret == -1) {
-			char buf[BUFSIZE];
-			strerror_r(errno, buf, sizeof(buf));
-			_LOGE("FAIL : chown %s %d.%d, because %s", result, uid, ((grpinfo)?grpinfo->gr_gid:0), buf);
-		}
-		}
+	// just allow certain users to create the icon directory if needed.
+	if (uid_caller == ROOT_UID || uid_caller == uid)
+		_mkdir_for_user(path, uid, gid);
 
-	return result;
+	return path;
 }
 
 static gint __compare_func(gconstpointer data1, gconstpointer data2)
