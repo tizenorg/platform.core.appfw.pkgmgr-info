@@ -4746,10 +4746,10 @@ static int __ps_remove_nativeapp_desktop(manifest_x *mfx, uid_t uid)
 
 #define LIBAPPSVC_PATH LIB_PATH "/libappsvc.so.0"
 
-static int __ps_remove_appsvc_db(manifest_x *mfx)
+static int __ps_remove_appsvc_db(manifest_x *mfx, uid_t uid)
 {
 	void *lib_handle = NULL;
-	int (*appsvc_operation) (const char *);
+	int (*appsvc_operation) (const char *, uid_t);
 	int ret = 0;
 	uiapplication_x *uiapplication = mfx->uiapplication;
 
@@ -4765,7 +4765,7 @@ static int __ps_remove_appsvc_db(manifest_x *mfx)
 	}
 
 	for(; uiapplication; uiapplication=uiapplication->next) {
-		ret = appsvc_operation(uiapplication->appid);
+		ret = appsvc_operation(uiapplication->appid, uid);
 		if (ret <0)
 			_LOGE("can not operation  symbol \n");
 	}
@@ -5476,12 +5476,6 @@ API int pkgmgr_parser_parse_manifest_for_uninstallation(const char *manifest, ch
 	else
 		_LOGD("Removing desktop file Success\n");
 
-	ret = __ps_remove_appsvc_db(mfx);
-	if (ret == -1)
-		_LOGD("Removing appsvc_db failed\n");
-	else
-		_LOGD("Removing appsvc_db Success\n");
-
 	pkgmgr_parser_free_manifest_xml(mfx);
 	_LOGD("Free Done\n");
 	xmlCleanupParser();
@@ -5527,7 +5521,7 @@ API int pkgmgr_parser_parse_usr_manifest_for_uninstallation(const char *manifest
 	else
 		_LOGD("Removing desktop file Success\n");
 
-	ret = __ps_remove_appsvc_db(mfx);
+	ret = __ps_remove_appsvc_db(mfx, uid);
 	if (ret == -1)
 		_LOGD("Removing appsvc_db failed\n");
 	else

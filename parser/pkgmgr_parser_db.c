@@ -267,7 +267,7 @@ static int __insert_serviceapplication_share_request_info(manifest_x *mfx);
 static void __insert_serviceapplication_locale_info(gpointer data, gpointer userdata);
 static void __insert_uiapplication_locale_info(gpointer data, gpointer userdata);
 static void __insert_pkglocale_info(gpointer data, gpointer userdata);
-static int __insert_manifest_info_in_db(manifest_x *mfx);
+static int __insert_manifest_info_in_db(manifest_x *mfx, uid_t uid);
 static int __delete_manifest_info_from_db(manifest_x *mfx, uid_t uid);
 static int __delete_subpkg_info_from_db(char *appid);
 static int __delete_appinfo_from_db(char *db_table, const char *appid);
@@ -1559,7 +1559,7 @@ static int __insert_serviceapplication_share_allowed_info(manifest_x *mfx)
 	return 0;
 }
 
-static int __insert_manifest_info_in_db(manifest_x *mfx)
+static int __insert_manifest_info_in_db(manifest_x *mfx, uid_t uid)
 {
 	label_x *lbl = mfx->label;
 	license_x *lcn = mfx->license;
@@ -1595,6 +1595,21 @@ static int __insert_manifest_info_in_db(manifest_x *mfx)
 		if (ath->href)
 			auth_href = ath->href;
 	}
+	/*Insert in the package_cert_info CERT_DB*/
+	pkgmgrinfo_instcertinfo_h cert_handle = NULL;
+	ret = pkgmgrinfo_set_cert_value(&cert_handle, PMINFO_SET_AUTHOR_ROOT_CERT, "author root certificate");
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_destroy_certinfo_set_handle(cert_handle);
+		_LOGE("Cert Info DB create handle failed\n");
+		return -1;
+	}
+	ret = pkgmgrinfo_save_certinfo(mfx->package, &cert_handle, uid);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_destroy_certinfo_set_handle(cert_handle);
+		_LOGE("Cert Info DB Insert Failed\n");
+		return -1;
+	}
+
 	/*Insert in the package_info DB*/
 	if (mfx->type)
 		type = strdup(mfx->type);
@@ -2255,7 +2270,7 @@ API int pkgmgr_parser_insert_manifest_info_in_db(manifest_x *mfx)
 		goto err;
 	}
 	_LOGD("Transaction Begin\n");
-	ret = __insert_manifest_info_in_db(mfx);
+	ret = __insert_manifest_info_in_db(mfx, GLOBAL_USER);
 	if (ret == -1) {
 		_LOGD("Insert into DB failed. Rollback now\n");
 		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
@@ -2299,7 +2314,7 @@ API int pkgmgr_parser_insert_manifest_info_in_usr_db(manifest_x *mfx, uid_t uid)
 		goto err;
 	}
 	_LOGD("Transaction Begin\n");
-	ret = __insert_manifest_info_in_db(mfx);
+	ret = __insert_manifest_info_in_db(mfx, uid);
 	if (ret == -1) {
 		_LOGD("Insert into DB failed. Rollback now\n");
 		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
@@ -2350,7 +2365,7 @@ API int pkgmgr_parser_update_manifest_info_in_usr_db(manifest_x *mfx, uid_t uid)
 		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
 		goto err;
 	}
-	ret = __insert_manifest_info_in_db(mfx);
+	ret = __insert_manifest_info_in_db(mfx, uid);
 	if (ret == -1) {
 		_LOGD("Insert into DB failed. Rollback now\n");
 		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);

@@ -442,6 +442,7 @@ typedef enum {
 #define	PMINFO_PKGINFO_PROP_RANGE_BASIC	"PMINFO_PKGINFO_PROP_RANGE_BASIC"
 
 /* For multiuser support */
+char *getIconPath(uid_t uid);
 char *getUserPkgParserDBPath(void);
 char *getUserPkgParserDBPathUID(uid_t uid);
 char *getUserPkgCertDBPath(void);
@@ -4393,7 +4394,7 @@ static int get_cert_info(const char *pkgid)
 }
  * @endcode
  */
-int pkgmgrinfo_pkginfo_load_certinfo(const char *pkgid, pkgmgrinfo_certinfo_h handle);
+int pkgmgrinfo_pkginfo_load_certinfo(const char *pkgid, pkgmgrinfo_certinfo_h handle, uid_t uid);
 
 /**
  * @fn int pkgmgrinfo_pkginfo_get_cert_value(pkgmgrinfo_certinfo_h handle, pkgmgrinfo_cert_type cert_type, const char **cert_value)
@@ -5135,7 +5136,7 @@ static int set_cert_in_db(const char *pkgid)
 		pkgmgrinfo_destroy_certinfo_set_handle(handle);
 		return -1;
 	}
-	ret = pkgmgrinfo_save_pkgdbinfo(pkgid, handle);
+	ret = pkgmgrinfo_save_certinfo(pkgid, handle);
 	if (ret != PMINFO_R_OK) {
 		pkgmgrinfo_destroy_certinfo_set_handle(handle);
 		return -1;
@@ -5177,7 +5178,7 @@ static int set_cert_in_db(const char *pkgid)
 		pkgmgrinfo_destroy_certinfo_set_handle(handle);
 		return -1;
 	}
-	ret = pkgmgrinfo_save_pkgdbinfo(pkgid, handle);
+	ret = pkgmgrinfo_save_certinfo(pkgid, handle);
 	if (ret != PMINFO_R_OK) {
 		pkgmgrinfo_destroy_certinfo_set_handle(handle);
 		return -1;
@@ -5218,7 +5219,7 @@ static int set_cert_in_db(const char *pkgid)
 		pkgmgrinfo_destroy_certinfo_set_handle(handle);
 		return -1;
 	}
-	ret = pkgmgrinfo_save_pkgdbinfo(pkgid, handle);
+	ret = pkgmgrinfo_save_certinfo(pkgid, handle);
 	if (ret != PMINFO_R_OK) {
 		pkgmgrinfo_destroy_certinfo_set_handle(handle);
 		return -1;
@@ -5228,7 +5229,7 @@ static int set_cert_in_db(const char *pkgid)
 }
  * @endcode
  */
-int pkgmgrinfo_save_certinfo(const char *pkgid, pkgmgrinfo_instcertinfo_h handle);
+int pkgmgrinfo_save_certinfo(const char *pkgid, pkgmgrinfo_instcertinfo_h handle, uid_t uid);
 
 /**
  * @fn int pkgmgrinfo_destroy_certinfo_set_handle(pkgmgrinfo_instcertinfo_h handle)
@@ -5258,7 +5259,7 @@ static int set_cert_in_db(const char *pkgid)
 		pkgmgrinfo_destroy_certinfo_set_handle(handle);
 		return -1;
 	}
-	ret = pkgmgrinfo_save_pkgdbinfo(pkgid, handle);
+	ret = pkgmgrinfo_save_certinfo(pkgid, handle);
 	if (ret != PMINFO_R_OK) {
 		pkgmgrinfo_destroy_certinfo_set_handle(handle);
 		return -1;

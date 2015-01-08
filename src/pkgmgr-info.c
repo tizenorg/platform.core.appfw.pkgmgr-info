@@ -314,7 +314,7 @@ __thread db_handle cert_db;
 
 static int __open_manifest_db(uid_t uid);
 static int __close_manifest_db(void);
-static int __open_cert_db(uid_t uid);
+static int __open_cert_db(uid_t uid, char* mode);
 static int __close_cert_db(void);
 static int __exec_pkginfo_query(char *query, void *data);
 static int __exec_certinfo_query(char *query, void *data);
@@ -337,7 +337,7 @@ static void __destroy_each_node(gpointer data, gpointer user_data);
 static void __get_filter_condition(gpointer data, char **condition);
 static void __get_metadata_filter_condition(gpointer data, char **condition);
 static gint __compare_func(gconstpointer data1, gconstpointer data2);
-static int __delete_certinfo(const char *pkgid);
+static int __delete_certinfo(const char *pkgid, uid_t uid);
 static int _check_create_Cert_db( sqlite3 *certdb);
 static int __exec_db_query(sqlite3 *db, char *query, sqlite_query_callback callback, void *data);
 
@@ -379,10 +379,6 @@ static  int _pkgmgr_parser_attach_create_view_certdb(sqlite3 *handle, uid_t uid)
 				   query_attach, error_message);
 			sqlite3_free(error_message);
 		}
-		struct dbtable {
-			char *name_table;
-			char *primary_key;
-		};
 
 		snprintf(query_view, MAX_QUERY_LEN - 1, "CREATE temp VIEW %s as select * from (select  *,0 as for_all_users from  main.%s union select *,1 as for_all_users from Global.%s )", "package_cert_index_info", "package_cert_index_info", "package_cert_index_info");
 		if (SQLITE_OK !=
@@ -1069,25 +1065,32 @@ static int __close_cert_db(void)
 	if(cert_db.ref) {
 		if(--cert_db.ref == 0)
 			sqlite3_close(GET_DB(cert_db));
+			return 0;
 	}
 	_LOGE("Certificate DB is already closed !!\n");
 	return -1;
 }
 
 
-static int __open_cert_db(uid_t uid)
+static int __open_cert_db(uid_t uid, char* mode)
 {
 	int ret = -1;
+	if(cert_db.ref) {
+		cert_db.ref ++;
+		return 0;
+	}
+
 	const char* user_cert_parser = getUserPkgCertDBPathUID(uid);
 	if (access(user_cert_parser, F_OK) == 0) {
 		ret =
 		    db_util_open_with_options(user_cert_parser, &GET_DB(cert_db),
-				 SQLITE_OPEN_READWRITE, NULL);
+				 SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, NULL);
 		retvm_if(ret != SQLITE_OK, -1, "connect db [%s] failed!\n", user_cert_parser);
-		
-		ret = _pkgmgr_parser_attach_create_view_certdb(GET_DB(cert_db),uid);
-		retvm_if(ret != SQLITE_OK, -1, "attach db [%s] failed!\n", user_cert_parser);
-
+		cert_db.ref ++;
+		if ((strcmp(mode, "w") != 0)) {
+			ret = _pkgmgr_parser_attach_create_view_certdb(GET_DB(cert_db),uid);
+			retvm_if(ret != SQLITE_OK, -1, "attach db [%s] failed!\n", user_cert_parser);
+		}
 		return 0;
 	}
 	_LOGE("Cert DB does not exists !!\n");
@@ -1100,6 +1103,7 @@ static int __close_datacontrol_db(void)
 	if(datacontrol_db.ref) {
 		if(--datacontrol_db.ref == 0)
 			sqlite3_close(GET_DB(datacontrol_db));
+			return 0;
 	}
 	_LOGE("Certificate DB is already closed !!\n");
 	return -1;
@@ -1108,11 +1112,16 @@ static int __close_datacontrol_db(void)
 static int __open_datacontrol_db()
 {
 	int ret = -1;
+	if(datacontrol_db.ref) {
+		datacontrol_db.ref ++;
+		return 0;
+	}
 	if (access(DATACONTROL_DB, F_OK) == 0) {
 		ret =
 		    db_util_open_with_options(DATACONTROL_DB, &GET_DB(datacontrol_db),
 				 SQLITE_OPEN_READONLY, NULL);
 		retvm_if(ret != SQLITE_OK, -1, "connect db [%s] failed!\n", DATACONTROL_DB);
+		datacontrol_db.ref ++;
 		return 0;
 	}
 	_LOGE("Datacontrol DB does not exists !!\n");
@@ -2728,7 +2737,7 @@ long long _pkgmgr_calculate_dir_size(char *dirname)
 
 }
 
-static int __delete_certinfo(const char *pkgid)
+static int __delete_certinfo(const char *pkgid, uid_t uid)
 {
 	int ret = -1;
 	int i = 0;
@@ -2747,6 +2756,8 @@ static int __delete_certinfo(const char *pkgid)
 		ret = PMINFO_R_ERROR;
 		goto err;
 	}
+
+	__open_cert_db(uid, "w");
 	/*populate certinfo from DB*/
 	snprintf(query, MAX_QUERY_LEN, "select * from package_cert_info where package='%s' ", pkgid);
 	ret = __exec_certinfo_query(query, (void *)certinfo);
@@ -2821,6 +2832,7 @@ err:
 			(certinfo->cert_info)[i] = NULL;
 		}
 	}
+	__close_cert_db();
 	free(certinfo);
 	certinfo = NULL;
 	return ret;
@@ -3721,7 +3733,7 @@ API int pkgmgrinfo_pkginfo_compare_usr_pkg_cert_info(const char *lhs_package_id,
 	info = (pkgmgr_cert_x *)calloc(1, sizeof(pkgmgr_cert_x));
 	retvm_if(info == NULL, PMINFO_R_ERROR, "Out of Memory!!!");
 
-	ret = __open_cert_db(uid);
+	ret = __open_cert_db(uid, "r");
 	if (ret != 0) {
 		ret = PMINFO_R_ERROR;
 		goto err;
@@ -7225,7 +7237,7 @@ API int pkgmgrinfo_pkginfo_create_certinfo(pkgmgrinfo_certinfo_h *handle)
 	return PMINFO_R_OK;
 }
 
-API int pkgmgrinfo_pkginfo_load_certinfo(const char *pkgid, pkgmgrinfo_certinfo_h handle)
+API int pkgmgrinfo_pkginfo_load_certinfo(const char *pkgid, pkgmgrinfo_certinfo_h handle, uid_t uid)
 {
 	retvm_if(pkgid == NULL, PMINFO_R_EINVAL, "package ID is NULL\n");
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "Certinfo handle is NULL\n");
@@ -7235,15 +7247,13 @@ API int pkgmgrinfo_pkginfo_load_certinfo(const char *pkgid, pkgmgrinfo_certinfo_
 	char query[MAX_QUERY_LEN] = {'\0'};
 	int exist = 0;
 	int i = 0;
-	const char* user_pkg_cert = NULL;
 
 	/*Open db.*/
-	user_pkg_cert = getUserPkgCertDBPath();
-	ret = db_util_open_with_options(user_pkg_cert, &GET_DB(cert_db),
-					SQLITE_OPEN_READWRITE, NULL);
+	ret = __open_cert_db(uid,"r");
 	if (ret != SQLITE_OK) {
-		_LOGE("connect db [%s] failed!\n", user_pkg_cert);
-		return PMINFO_R_ERROR;
+		_LOGE("connect db [%s] failed!\n");
+		ret = PMINFO_R_ERROR;
+		goto err;
 	}
 	_check_create_Cert_db(GET_DB(cert_db));
 	/*validate pkgid*/
@@ -7349,7 +7359,7 @@ API int pkgmgrinfo_set_cert_value(pkgmgrinfo_instcertinfo_h handle, pkgmgrinfo_i
 	return PMINFO_R_OK;
 }
 
-API int pkgmgrinfo_save_certinfo(const char *pkgid, pkgmgrinfo_instcertinfo_h handle)
+API int pkgmgrinfo_save_certinfo(const char *pkgid, pkgmgrinfo_instcertinfo_h handle, uid_t uid)
 {
 	retvm_if(pkgid == NULL, PMINFO_R_EINVAL, "package ID is NULL\n");
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "Certinfo handle is NULL\n");
@@ -7377,22 +7387,21 @@ API int pkgmgrinfo_save_certinfo(const char *pkgid, pkgmgrinfo_instcertinfo_h ha
 	info->pkgid = strdup(pkgid);
 
 	/*Open db.*/
-	ret = db_util_open_with_options(getUserPkgCertDBPath(), &GET_DB(cert_db),
-					SQLITE_OPEN_READWRITE, NULL);
-	if (ret != SQLITE_OK) {
-		_LOGE("connect db [%s] failed!\n", getUserPkgCertDBPath());
+	ret =__open_cert_db(uid, "w");
+	if (ret != 0) {
 		ret = PMINFO_R_ERROR;
+		_LOGE("Failed to open cert db \n");
 		goto err;
 	}
 	_check_create_Cert_db(GET_DB(cert_db));
 	/*Begin Transaction*/
 	ret = sqlite3_exec(GET_DB(cert_db), "BEGIN EXCLUSIVE", NULL, NULL, NULL);
-	if (ret != SQLITE_OK) {
-		_LOGE("Failed to begin transaction\n");
+	if (ret == -1) {
+		_LOGE("Failed to begin transaction %s\n");
 		ret = PMINFO_R_ERROR;
 		goto err;
 	}
-	_LOGE("Transaction Begin\n");
+
 	/*Check if request is to insert/update*/
 	snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_cert_info where package='%s')", pkgid);
 	if (SQLITE_OK !=
@@ -7407,7 +7416,7 @@ API int pkgmgrinfo_save_certinfo(const char *pkgid, pkgmgrinfo_instcertinfo_h ha
 		/*Update request.
 		We cant just issue update query directly. We need to manage index table also.
 		Hence it is better to delete and insert again in case of update*/
-		ret = __delete_certinfo(pkgid);
+		ret = __delete_certinfo(pkgid, uid);
 		if (ret < 0)
 			_LOGE("Certificate Deletion Failed\n");
 	}
@@ -7459,7 +7468,6 @@ API int pkgmgrinfo_save_certinfo(const char *pkgid, pkgmgrinfo_instcertinfo_h ha
 			(info->cert_id)[i] = indexinfo->cert_id;
 			(info->is_new)[i] = is_new;
 			(info->ref_count)[i] = indexinfo->cert_ref_count;
-			_LOGE("Id:Count = %d %d\n", indexinfo->cert_id, indexinfo->cert_ref_count);
 			indexinfo->cert_id = 0;
 			indexinfo->cert_ref_count = 0;
 			is_new = 0;
@@ -7531,7 +7539,7 @@ API int pkgmgrinfo_save_certinfo(const char *pkgid, pkgmgrinfo_instcertinfo_h ha
 		ret = PMINFO_R_ERROR;
 		goto err;
 	}
-	_LOGE("Transaction Commit and End\n");
+
 	ret =  PMINFO_R_OK;
 err:
 	__close_cert_db();
@@ -7572,7 +7580,7 @@ API int pkgmgrinfo_delete_usr_certinfo(const char *pkgid, uid_t uid)
 	retvm_if(pkgid == NULL, PMINFO_R_EINVAL, "Argument supplied is NULL\n");
 	int ret = -1;
 	/*Open db.*/
-	ret = __open_cert_db(uid);
+	ret = __open_cert_db(uid, "w");
 	if (ret != 0) {
 		_LOGE("connect db [%s] failed!\n", getUserPkgCertDBPathUID(uid));
 		ret = PMINFO_R_ERROR;
@@ -7587,7 +7595,7 @@ API int pkgmgrinfo_delete_usr_certinfo(const char *pkgid, uid_t uid)
 		goto err;
 	}
 	_LOGE("Transaction Begin\n");
-	ret = __delete_certinfo(pkgid);
+	ret = __delete_certinfo(pkgid, uid);
 	if (ret < 0) {
 		_LOGE("Certificate Deletion Failed\n");
 	} else {
