@@ -249,6 +249,15 @@ sqlite3 *pkgmgr_cert_db;
 						"dist2_signer_cert integer, " \
 						"PRIMARY KEY(package)) "
 
+#define QUERY_CREATE_TABLE_PACKAGE_APP_DATA_CONTROL "create table if not exists package_app_data_control " \
+						"(app_id text not null, " \
+						"provider_id text not null, " \
+						"access text not null, " \
+						"type text not null, " \
+						"PRIMARY KEY(app_id, provider_id, access, type) " \
+						"FOREIGN KEY(app_id) " \
+						"REFERENCES package_app_info(app_id) " \
+						"ON DELETE CASCADE)"
 
 static int __insert_uiapplication_info(manifest_x *mfx);
 static int __insert_serviceapplication_info(manifest_x *mfx);
@@ -264,6 +273,7 @@ static int __insert_uiapplication_share_allowed_info(manifest_x *mfx);
 static int __insert_serviceapplication_share_allowed_info(manifest_x *mfx);
 static int __insert_uiapplication_share_request_info(manifest_x *mfx);
 static int __insert_serviceapplication_share_request_info(manifest_x *mfx);
+static int __insert_serviceapplication_datacontrol_info(manifest_x *mfx);
 static void __insert_serviceapplication_locale_info(gpointer data, gpointer userdata);
 static void __insert_uiapplication_locale_info(gpointer data, gpointer userdata);
 static void __insert_pkglocale_info(gpointer data, gpointer userdata);
@@ -1481,7 +1491,38 @@ static int __insert_serviceapplication_appsvc_info(manifest_x *mfx)
 	return 0;
 }
 
+static int __insert_serviceapplication_datacontrol_info(manifest_x *mfx)
+{
+	serviceapplication_x *sp = mfx->serviceapplication;
+	datacontrol_x *dc = NULL;
+	int ret = -1;
+	char query[MAX_QUERY_LEN] = {'\0'};
 
+	while(sp != NULL)
+	{
+		dc = sp->datacontrol;
+		while(dc != NULL)
+		{
+			snprintf(query, MAX_QUERY_LEN,
+					"insert into package_app_data_control(app_id, provider_id, access, type) " \
+					"values('%s', '%s', '%s', '%s')",\
+					mfx->serviceapplication->appid,
+					dc->providerid,
+					dc->access,
+					dc->type);
+
+			ret = __exec_query(query);
+			if (ret == -1) {
+				_LOGD("Package ServiceApp Data Control DB Insert Failed\n");
+				return -1;
+			}
+			memset(query, '\0', MAX_QUERY_LEN);
+			dc = dc->next;
+		}
+		sp = sp->next;
+	}
+	return 0;
+}
 
 static int __insert_serviceapplication_share_request_info(manifest_x *mfx)
 {
@@ -1697,9 +1738,11 @@ static int __insert_manifest_info_in_db(manifest_x *mfx)
 		pvs = pvs->next;
 	}
 
-	ret = __insert_ui_mainapp_info(mfx);
-	if (ret == -1)
-		return -1;
+	if (up != NULL) {
+		ret = __insert_ui_mainapp_info(mfx);
+		if (ret == -1)
+			return -1;
+	}
 
 	/*Insert the package locale*/
 	pkglocale = __create_locale_list(pkglocale, lbl, lcn, icn, dcn, ath);
@@ -1849,6 +1892,11 @@ static int __insert_manifest_info_in_db(manifest_x *mfx)
 	if (ret == -1)
 		return -1;
 
+	/*Insert in the package_app_data_control DB*/
+	ret = __insert_serviceapplication_datacontrol_info(mfx);
+	if (ret == -1)
+		return -1;
+
 	return 0;
 
 }
@@ -1903,6 +1951,9 @@ static int __delete_subpkg_info_from_db(char *appid)
 	if (ret < 0)
 		return ret;
 	ret = __delete_appinfo_from_db("package_app_share_request", appid);
+	if (ret < 0)
+		return ret;
+	ret = __delete_appinfo_from_db("package_app_data_control", appid);
 	if (ret < 0)
 		return ret;
 
@@ -2006,6 +2057,9 @@ static int __delete_manifest_info_from_db(manifest_x *mfx, uid_t uid)
 		ret = __delete_appinfo_from_db("package_app_share_request", up->appid);
 		if (ret < 0)
 			return ret;
+		ret = __delete_appinfo_from_db("package_app_data_control", up->appid);
+		if (ret < 0)
+			return ret;
 		up = up->next;
 	}
 
@@ -2041,6 +2095,9 @@ static int __delete_manifest_info_from_db(manifest_x *mfx, uid_t uid)
 		if (ret < 0)
 			return ret;
 		ret = __delete_appinfo_from_db("package_app_share_request", sp->appid);
+		if (ret < 0)
+			return ret;
+		ret = __delete_appinfo_from_db("package_app_data_control", sp->appid);
 		if (ret < 0)
 			return ret;
 		sp = sp->next;
@@ -2138,6 +2195,11 @@ int pkgmgr_parser_initialize_db()
 	ret = __initialize_db(pkgmgr_parser_db, QUERY_CREATE_TABLE_PACKAGE_APP_SHARE_REQUEST);
 	if (ret == -1) {
 		_LOGD("package app share request DB initialization failed\n");
+		return ret;
+	}
+	ret = __initialize_db(pkgmgr_parser_db, QUERY_CREATE_TABLE_PACKAGE_APP_DATA_CONTROL);
+	if (ret == -1) {
+		_LOGD("package app data control DB initialization failed\n");
 		return ret;
 	}
 	/*Cert DB*/
