@@ -550,7 +550,7 @@ static int _check_create_Cert_db( sqlite3 *certdb)
 	return ret;
 }
 
-API char *getIconPath(uid_t uid)
+API const char *pkgmgrinfo_get_usr_icon_path(uid_t uid)
 {
 	const char *path = NULL;
 	uid_t uid_caller = getuid();
@@ -563,11 +563,11 @@ API char *getIconPath(uid_t uid)
 
 	if (uid != GLOBAL_USER) {
 		tzplatform_set_user(uid);
-		path = tzplatform_mkpath(TZ_USER_ICONS, "/");
+		path = tzplatform_getenv(TZ_USER_ICONS);
 		gid = tzplatform_getgid(TZ_SYS_USER_GROUP);
 		tzplatform_reset_user();
 	} else {
-		path = tzplatform_mkpath(TZ_SYS_RW_ICONS, "/");
+		path = tzplatform_getenv(TZ_SYS_RW_ICONS);
 	}
 
 	// just allow certain users to create the icon directory if needed.
@@ -577,12 +577,12 @@ API char *getIconPath(uid_t uid)
 	return path;
 }
 
-API char *getUserPkgParserDBPath(void)
+API const char *pkgmgrinfo_get_pkgmgr_parser_db_path(void)
 {
-	return getUserPkgParserDBPathUID(GLOBAL_USER);
+	return pkgmgrinfo_get_usr_pkgmgr_parser_db_path(GLOBAL_USER);
 }
 
-API char *getUserPkgParserDBPathUID(uid_t uid)
+API const char *pkgmgrinfo_get_usr_pkgmgr_parser_db_path(uid_t uid)
 {
 	const char *pkgmgr_parser_db = NULL;
 	uid_t uid_caller = getuid();
@@ -611,12 +611,12 @@ API char *getUserPkgParserDBPathUID(uid_t uid)
 	return pkgmgr_parser_db;
 }
 
-API char *getUserPkgCertDBPath(void)
+API const char *pkgmgrinfo_get_pkgmgr_cert_db_path(void)
 {
-	 return getUserPkgCertDBPathUID(GLOBAL_USER);
+	 return pkgmgrinfo_get_usr_pkgmgr_cert_db_path(GLOBAL_USER);
 }
 
-API char *getUserPkgCertDBPathUID(uid_t uid)
+API const char *pkgmgrinfo_get_usr_pkgmgr_cert_db_path(uid_t uid)
 {
 	const char *pkgmgr_cert_db = NULL;
 	uid_t uid_caller = getuid();
@@ -645,7 +645,7 @@ API char *getUserPkgCertDBPathUID(uid_t uid)
 	return pkgmgr_cert_db;
 }
 
-API const char* getUserDesktopPath(uid_t uid)
+API const char *pkgmgrinfo_get_usr_desktop_path(uid_t uid)
 {
 	const char *path = NULL;
 	uid_t uid_caller = getuid();
@@ -658,11 +658,11 @@ API const char* getUserDesktopPath(uid_t uid)
 
 	if (uid != GLOBAL_USER) {
 		tzplatform_set_user(uid);
-		path = tzplatform_mkpath(TZ_USER_DESKTOP, "/");
+		path = tzplatform_getenv(TZ_USER_DESKTOP);
 		gid = tzplatform_getgid(TZ_SYS_USER_GROUP);
 		tzplatform_reset_user();
 	} else {
-		path = tzplatform_mkpath(TZ_SYS_RW_DESKTOP_APP, "/");
+		path = tzplatform_getenv(TZ_SYS_RW_DESKTOP_APP);
 	}
 
 	// just allow certain users to create the icon directory if needed.
@@ -672,7 +672,7 @@ API const char* getUserDesktopPath(uid_t uid)
 	return path;
 }
 
-API const char* getUserManifestPath(uid_t uid)
+API const char *pkgmgrinfo_get_usr_manifest_path(uid_t uid)
 {
 	const char *path = NULL;
 	uid_t uid_caller = getuid();
@@ -685,11 +685,11 @@ API const char* getUserManifestPath(uid_t uid)
 
 	if (uid != GLOBAL_USER) {
 		tzplatform_set_user(uid);
-		path = tzplatform_mkpath(TZ_USER_PACKAGES, "/");
+		path = tzplatform_getenv(TZ_USER_PACKAGES);
 		gid = tzplatform_getgid(TZ_SYS_USER_GROUP);
 		tzplatform_reset_user();
 	} else {
-		path = tzplatform_mkpath(TZ_SYS_RW_PACKAGES, "/");
+		path = tzplatform_getenv(TZ_SYS_RW_PACKAGES);
 	}
 
 	// just allow certain users to create the icon directory if needed.
@@ -940,7 +940,7 @@ static int __open_manifest_db(uid_t uid)
 		manifest_db.ref ++;
 		return 0;
 	}
-	const char* user_pkg_parser = getUserPkgParserDBPathUID(uid);
+	const char* user_pkg_parser = pkgmgrinfo_get_usr_pkgmgr_parser_db_path(uid);
 	if (access(user_pkg_parser, F_OK) == 0) {
 		ret =
 		    db_util_open_with_options(user_pkg_parser, &GET_DB(manifest_db),
@@ -977,7 +977,7 @@ static int __open_cert_db(uid_t uid, char* mode)
 		return 0;
 	}
 
-	const char* user_cert_parser = getUserPkgCertDBPathUID(uid);
+	const char* user_cert_parser = pkgmgrinfo_get_usr_pkgmgr_cert_db_path(uid);
 	if (access(user_cert_parser, F_OK) == 0) {
 		ret =
 		    db_util_open_with_options(user_cert_parser, &GET_DB(cert_db),
@@ -2932,7 +2932,7 @@ API int pkgmgrinfo_pkginfo_get_usr_pkginfo(const char *pkgid, uid_t uid, pkgmgri
 	*handle = NULL;
 
 	/*validate pkgid*/
-	user_pkg_parser = getUserPkgParserDBPathUID(uid);
+	user_pkg_parser = pkgmgrinfo_get_usr_pkgmgr_parser_db_path(uid);
 	ret = __open_manifest_db(uid);
 	  retvm_if(ret != SQLITE_OK, PMINFO_R_ERROR, "connect db [%s] failed!", user_pkg_parser);
 
@@ -3729,7 +3729,7 @@ API int pkgmgrinfo_pkginfo_compare_app_cert_info(const char *lhs_app_id, const c
  	int exist = -1;
 	char *lpkgid = NULL;
 	char *rpkgid = NULL;
-	const char* user_pkg_parser = getUserPkgParserDBPath();
+	const char* user_pkg_parser = pkgmgrinfo_get_pkgmgr_parser_db_path();
 
 	info = (pkgmgr_cert_x *)calloc(1, sizeof(pkgmgr_cert_x));
 	retvm_if(info == NULL, PMINFO_R_ERROR, "Out of Memory!!!");
@@ -3843,7 +3843,7 @@ API int pkgmgrinfo_pkginfo_compare_usr_app_cert_info(const char *lhs_app_id, con
 
 	ret = __open_manifest_db(uid);
 	if (ret != SQLITE_OK) {
-		_LOGE("connect db [%s] failed!\n", getUserPkgParserDBPathUID(uid));
+		_LOGE("connect db [%s] failed!\n", pkgmgrinfo_get_usr_pkgmgr_parser_db_path(uid));
 		ret = PMINFO_R_ERROR;
 		goto err;
 	}
@@ -4629,7 +4629,7 @@ API int pkgmgrinfo_appinfo_get_usr_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_
 		appinfo->app_component = PMINFO_ALL_APP;
 
 	/*open db */
-	user_pkg_parser = getUserPkgParserDBPathUID(uid);
+	user_pkg_parser = pkgmgrinfo_get_usr_pkgmgr_parser_db_path(uid);
 	ret = __open_manifest_db(uid);
 	tryvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "connect db [%s] failed!", user_pkg_parser);
 
@@ -4936,7 +4936,7 @@ API int pkgmgrinfo_appinfo_get_usr_install_list(pkgmgrinfo_app_list_cb app_func,
 	const char* user_pkg_parser = NULL;
 
 	/*open db*/
-	user_pkg_parser = getUserPkgParserDBPathUID(uid);
+	user_pkg_parser = pkgmgrinfo_get_usr_pkgmgr_parser_db_path(uid);
 	ret = __open_manifest_db(uid);
 	retvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "connect db [%s] failed!", user_pkg_parser);
 
@@ -5037,7 +5037,7 @@ API int pkgmgrinfo_appinfo_get_usr_installed_list(pkgmgrinfo_app_list_cb app_fun
 	tryvm_if(locale == NULL, ret = PMINFO_R_ERROR, "manifest locale is NULL");
 
 	/*open db*/
-	user_pkg_parser = getUserPkgParserDBPathUID(uid);
+	user_pkg_parser = pkgmgrinfo_get_usr_pkgmgr_parser_db_path(uid);
 	ret = __open_manifest_db(uid);
 	retvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "connect db [%s] failed!", user_pkg_parser);
 
@@ -5249,7 +5249,7 @@ API int pkgmgrinfo_appinfo_get_usr_appinfo(const char *appid, uid_t uid, pkgmgri
 	*handle = NULL;
 
 	/*open db*/
-	user_pkg_parser = getUserPkgParserDBPathUID(uid);
+	user_pkg_parser = pkgmgrinfo_get_usr_pkgmgr_parser_db_path(uid);
 	ret = __open_manifest_db(uid);
 	retvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "connect db [%s] failed!", user_pkg_parser);
   
@@ -7479,7 +7479,7 @@ API int pkgmgrinfo_delete_usr_certinfo(const char *pkgid, uid_t uid)
 	/*Open db.*/
 	ret = __open_cert_db(uid, "w");
 	if (ret != 0) {
-		_LOGE("connect db [%s] failed!\n", getUserPkgCertDBPathUID(uid));
+		_LOGE("connect db [%s] failed!\n", pkgmgrinfo_get_usr_pkgmgr_cert_db_path(uid));
 		ret = PMINFO_R_ERROR;
 		goto err;
 	}
@@ -7817,7 +7817,7 @@ API int pkgmgrinfo_appinfo_set_usr_state_enabled(const char *appid, bool enabled
 	/* Open db.*/
 	ret = __open_manifest_db(uid);
 	if (ret != SQLITE_OK) {
-		_LOGE("connect db [%s] failed!\n", getUserPkgParserDBPathUID(uid));
+		_LOGE("connect db [%s] failed!\n", pkgmgrinfo_get_usr_pkgmgr_parser_db_path(uid));
 		return PMINFO_R_ERROR;
 	}
 
@@ -7989,7 +7989,7 @@ API int pkgmgrinfo_appinfo_set_usr_guestmode_visibility(pkgmgrinfo_appinfo_h han
 	val = (char *)info->uiapp_info->guestmode_visibility;
 	if (val ) {
 		ret =
-		  db_util_open_with_options(getUserPkgParserDBPathUID(uid), &pkgmgr_parser_db,
+		  db_util_open_with_options(pkgmgrinfo_get_usr_pkgmgr_parser_db_path(uid), &pkgmgr_parser_db,
 				SQLITE_OPEN_READWRITE, NULL);
 
 		if (ret != SQLITE_OK) {

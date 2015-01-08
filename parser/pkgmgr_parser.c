@@ -644,17 +644,17 @@ static char *__pkgid_to_manifest(const char *pkgid, uid_t uid)
 		return NULL;
 	}
 
-	size = strlen(getUserManifestPath(uid)) + strlen(pkgid) + 10;
+	size = strlen(pkgmgrinfo_get_usr_manifest_path(uid)) +1 + strlen(pkgid) + 10;
 	manifest = malloc(size);
 	if (manifest == NULL) {
 		_LOGE("No memory");
 		return NULL;
 	}
 	memset(manifest, '\0', size);
-	snprintf(manifest, size, "%s%s.xml", getUserManifestPath(uid), pkgid);
+	snprintf(manifest, size, "%s/%s.xml", pkgmgrinfo_get_usr_manifest_path(uid), pkgid);
 
 	if (access(manifest, F_OK)) {
-		snprintf(manifest, size, "%s%s.xml", getUserManifestPath(uid), pkgid);
+		snprintf(manifest, size, "%s/%s.xml", pkgmgrinfo_get_usr_manifest_path(uid), pkgid);
 	}
 
 	return manifest;
@@ -3071,9 +3071,9 @@ __get_icon_with_path(const char* icon, uid_t uid)
 
 		memset(icon_with_path, 0, len);
 		if (uid != GLOBAL_USER)
-			snprintf(icon_with_path, len, "%s%s", getIconPath(uid), icon);
+			snprintf(icon_with_path, len, "%s/%s", pkgmgrinfo_get_usr_icon_path(uid), icon);
 		else {
-			snprintf(icon_with_path, len, "%s%s/small/%s", getIconPath(GLOBAL_USER), theme, icon);
+			snprintf(icon_with_path, len, "%s/%s/small/%s", pkgmgrinfo_get_usr_icon_path(GLOBAL_USER), theme, icon);
 			if (access (icon_with_path, F_OK)) { //If doesn't exist in case of Global app, try to get icon directly into app's directory
 				app_path = tzplatform_getenv(TZ_SYS_RW_APP);
 				if (app_path)
@@ -4398,7 +4398,7 @@ static int __ps_make_nativeapp_desktop(manifest_x * mfx, const char *manifest, A
 
 	for(; mfx->uiapplication; mfx->uiapplication=mfx->uiapplication->next) {
 
-		snprintf(filepath, sizeof(filepath),"%s%s.desktop", getUserDesktopPath(uid), mfx->uiapplication->appid);
+		snprintf(filepath, sizeof(filepath),"%s/%s.desktop", pkgmgrinfo_get_usr_desktop_path(uid), mfx->uiapplication->appid);
 
 		/* skip if desktop exists
 		if (access(filepath, R_OK) == 0)
@@ -4732,7 +4732,7 @@ static int __ps_remove_nativeapp_desktop(manifest_x *mfx, uid_t uid)
 	uiapplication_x *uiapplication = mfx->uiapplication;
 
 	for(; uiapplication; uiapplication=uiapplication->next) {
-	        snprintf(filepath, sizeof(filepath),"%s%s.desktop", getUserDesktopPath(uid), uiapplication->appid);
+	        snprintf(filepath, sizeof(filepath),"%s/%s.desktop", pkgmgrinfo_get_usr_desktop_path(uid), uiapplication->appid);
 
 		__ail_change_info(AIL_REMOVE, uiapplication->appid, uid);
 
@@ -4784,7 +4784,7 @@ static int __add_preload_info(manifest_x * mfx, const char *manifest, uid_t uid)
 	char buffer[1024] = { 0 };
 	int state = 0;
 
-	if(strstr(manifest, getUserManifestPath(uid))) {
+	if(strstr(manifest, pkgmgrinfo_get_usr_manifest_path(uid))) {
 		free((void *)mfx->readonly);
 		mfx->readonly = strdup("True");
 
@@ -4849,10 +4849,10 @@ static int __check_preload_updated(manifest_x * mfx, const char *manifest, uid_t
 	int ret = 0;
 	uiapplication_x *uiapplication = mfx->uiapplication;
 
-	if(strstr(manifest, getUserManifestPath(uid))) {
+	if(strstr(manifest, pkgmgrinfo_get_usr_manifest_path(uid))) {
 		/* if preload app is updated, then remove previous desktop file on RW*/
 		for(; uiapplication; uiapplication=uiapplication->next) {
-				snprintf(filepath, sizeof(filepath),"%s%s.desktop", getUserDesktopPath(uid), uiapplication->appid);
+				snprintf(filepath, sizeof(filepath),"%s/%s.desktop", pkgmgrinfo_get_usr_desktop_path(uid), uiapplication->appid);
 			ret = remove(filepath);
 			if (ret <0)
 				return -1;
