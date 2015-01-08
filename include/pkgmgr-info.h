@@ -3160,6 +3160,42 @@ static int get_app_submode_mainid(const char *appid)
 int pkgmgrinfo_appinfo_get_submode_mainid(pkgmgrinfo_appinfo_h  handle, char **submode_mainid);
 
 /**
+ * @fn int pkgmgrinfo_appinfo_get_datacontrol_info(const char *providerid, const char *type, char **appid, char **access);
+ * @brief	This API gets the datacontrol info
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in] providerid		pointer to the providerid of dataconltrol.
+ * @param[in] type			pointer to the type of dataconltrol.
+ * @param[out] appid			pointer to hold appid, need to free after using
+ * @param[out] access			pointer to hold access, need to free after using
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @endcode
+ */
+int pkgmgrinfo_appinfo_get_datacontrol_info(const char *providerid, const char *type, char **appid, char **access);
+
+/**
+ * @fn int pkgmgrinfo_appinfo_get_datacontrol_appid(const char *providerid, char **appid);
+ * @brief	This API gets the appid of datacontrol
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in] providerid		pointer to the providerid of dataconltrol.
+ * @param[out] appid			pointer to hold appid, need to free after using
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @endcode
+ */
+int pkgmgrinfo_appinfo_get_datacontrol_appid(const char *providerid, char **appid);
+
+/**
  * @fn	int pkgmgrinfo_appinfo_foreach_permission(pkgmgrinfo_appinfo_h handle,
 			pkgmgrinfo_app_permission_list_cb permission_func, void *user_data);
  * @brief	This API gets the list of permission for a particular application

@@ -1703,15 +1703,13 @@ static void __ps_free_datacontrol(datacontrol_x *datacontrol)
 		free((void *)datacontrol->providerid);
 		datacontrol->providerid = NULL;
 	}
-	/*Free Capability*/
-	if (datacontrol->capability) {
-		capability_x *capability = datacontrol->capability;
-		capability_x *tmp = NULL;
-		while(capability != NULL) {
-			tmp = capability->next;
-			__ps_free_capability(capability);
-			capability = tmp;
-		}
+	if (datacontrol->access) {
+		free((void *)datacontrol->access);
+		datacontrol->access = NULL;
+	}
+	if (datacontrol->type) {
+		free((void *)datacontrol->type);
+		datacontrol->type = NULL;
 	}
 	free((void*)datacontrol);
 	datacontrol = NULL;
@@ -3324,45 +3322,14 @@ static int __ps_process_capability(xmlTextReaderPtr reader, capability_x *capabi
 
 static int __ps_process_datacontrol(xmlTextReaderPtr reader, datacontrol_x *datacontrol)
 {
-	const xmlChar *node;
-	int ret = -1;
-	int depth = -1;
-	capability_x *tmp1 = NULL;
+	if (xmlTextReaderGetAttribute(reader, XMLCHAR("providerid")))
+		datacontrol->providerid = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("providerid")));
+	if (xmlTextReaderGetAttribute(reader, XMLCHAR("access")))
+		datacontrol->access = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("access")));
+	if (xmlTextReaderGetAttribute(reader, XMLCHAR("type")))
+		datacontrol->type = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("type")));
 
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("provider-id")))
-		datacontrol->providerid = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("provider-id")));
-
-	depth = xmlTextReaderDepth(reader);
-	while ((ret = __next_child_element(reader, depth))) {
-		node = xmlTextReaderConstName(reader);
-		if (!node) {
-			_LOGD("xmlTextReaderConstName value is NULL\n");
-			return -1;
-		}
-
-		if (!strcmp(ASCII(node), "capability")) {
-			capability_x *capability = malloc(sizeof(capability_x));
-			if (capability == NULL) {
-				_LOGD("Malloc Failed\n");
-				return -1;
-			}
-			memset(capability, '\0', sizeof(capability_x));
-			LISTADD(datacontrol->capability, capability);
-			ret = __ps_process_capability(reader, capability);
-		} else
-			return -1;
-		if (ret < 0) {
-			_LOGD("Processing datacontrol failed\n");
-			return ret;
-		}
-	}
-
-	if (datacontrol->capability) {
-		LISTHEAD(datacontrol->capability, tmp1);
-		datacontrol->capability = tmp1;
-	}
-
-	return ret;
+	return 0;
 }
 
 static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *uiapplication, uid_t uid)
@@ -3698,6 +3665,7 @@ static int __ps_process_serviceapplication(xmlTextReaderPtr reader, serviceappli
 	category_x *tmp9 = NULL;
 	metadata_x *tmp10 = NULL;
 	permission_x *tmp11 = NULL;
+	permission_x *tmp12 = NULL;
 
 	if (xmlTextReaderGetAttribute(reader, XMLCHAR("appid"))) {
 		serviceapplication->appid = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("appid")));
@@ -3845,7 +3813,7 @@ static int __ps_process_serviceapplication(xmlTextReaderPtr reader, serviceappli
 			memset(notification, '\0', sizeof(notification_x));
 			LISTADD(serviceapplication->notification, notification);
 			ret = __ps_process_notification(reader, notification);
-		} else if (!strcmp(ASCII(node), "data-control")) {
+		} else if (!strcmp(ASCII(node), "datacontrol")) {
 			datacontrol_x *datacontrol = malloc(sizeof(datacontrol_x));
 			if (datacontrol == NULL) {
 				_LOGD("Malloc Failed\n");
