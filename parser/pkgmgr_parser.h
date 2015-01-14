@@ -355,7 +355,8 @@ typedef struct capability_x {
 
 typedef struct datacontrol_x {
 	const char *providerid;
-	struct capability_x *capability;
+	const char *access;
+	const char *type;
 	struct datacontrol_x *prev;
 	struct datacontrol_x *next;
 } datacontrol_x;
@@ -397,6 +398,7 @@ typedef struct uiapplication_x {
 	struct launchconditions_x *launchconditions;
 	struct notification_x *notification;
 	struct datashare_x *datashare;
+	struct datacontrol_x *datacontrol;
 	struct uiapplication_x *prev;
 	struct uiapplication_x *next;
 } uiapplication_x;

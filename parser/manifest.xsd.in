@@ -125,6 +125,7 @@
           <xs:element ref="packages:category"/>
           <xs:element ref="packages:metadata"/>
 		  <xs:element ref="packages:permission"/>
+		  <xs:element ref="packages:datacontrol"/>
         </xs:choice>
       </xs:sequence>
       <xs:attribute name="appid" use="required" type="xs:string"/>
@@ -283,6 +284,13 @@
   </xs:element>
   <xs:element name="permission">
 	<xs:complexType>
+	  <xs:attribute name="type" type="xs:string"/>
+	</xs:complexType>
+  </xs:element>
+  <xs:element name="datacontrol">
+	<xs:complexType>
+	  <xs:attribute name="providerid" type="xs:string"/>
+	  <xs:attribute name="access" type="xs:string"/>
 	  <xs:attribute name="type" type="xs:string"/>
 	</xs:complexType>
   </xs:element>
