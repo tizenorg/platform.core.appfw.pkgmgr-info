@@ -881,6 +881,45 @@ static int get_pkg_icon(const char *pkgid)
 int pkgmgrinfo_pkginfo_get_icon(pkgmgrinfo_pkginfo_h handle, char **icon);
 
 /**
+ * @fn int pkgmgrinfo_pkginfo_get_label(pkgmgrinfo_pkginfo_h handle, char **label)
+ * @brief	This API gets the package label from the package ID
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in]	handle	pointer to package info handle
+ * @param[out] label		pointer to hold package label
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		pkgmgrinfo_pkginfo_get_pkginfo()
+ * @post		pkgmgrinfo_pkginfo_destroy_pkginfo()
+ * @see		pkgmgrinfo_pkginfo_get_pkgid()
+ * @see		pkgmgrinfo_pkginfo_is_removable()
+ * @code
+static int get_pkg_label(const char *pkgid)
+{
+	int ret = 0;
+	char *label = NULL;
+	pkgmgrinfo_pkginfo_h handle;
+	ret = pkgmgrinfo_pkginfo_get_pkginfo(pkgid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_pkginfo_get_label(handle, &label);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_pkginfo_destroy_pkginfo(handle);
+		return -1;
+	}
+	printf("pkg label: %s\n", label);
+	pkgmgrinfo_pkginfo_destroy_pkginfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_pkginfo_get_label(pkgmgrinfo_pkginfo_h handle, char **label);
+
+/**
  * @fn int pkgmgrinfo_pkginfo_get_description(pkgmgrinfo_pkginfo_h handle, char **description)
  * @brief	This API gets the package description from the package ID
  *
@@ -2068,6 +2107,15 @@ static int list_privilege(const char *package, char *privilege)
  */
 int pkgmgrinfo_pkginfo_foreach_privilege(pkgmgrinfo_pkginfo_h handle,
 			pkgmgrinfo_pkg_privilege_list_cb privilege_func, void *user_data);
+
+/* TODO: add doxygen comment here */
+int pkgmgrinfo_pkginfo_get_size_from_xml(const char *manifest, int *size);
+int pkgmgrinfo_pkginfo_get_location_from_xml(const char *manifest, pkgmgrinfo_install_location *location);
+int pkgmgrinfo_pkginfo_is_for_all_users(pkgmgrinfo_pkginfo_h handle, bool *for_all_users);
+int pkgmgrinfo_appinfo_set_state_enabled(const char *appid, bool enabled);
+int pkgmgrinfo_appinfo_set_usr_state_enabled(const char *appid, bool enabled, uid_t uid);
+int pkgmgrinfo_appinfo_set_default_label(const char *appid, const char *label);
+int pkgmgrinfo_appinfo_set_usr_default_label(const char *appid, const char *label, uid_t uid);
 
 /**
  * @fn	int pkgmgrinfo_appinfo_get_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_app_component component,
@@ -5100,7 +5148,7 @@ static int set_pkg_in_db(const char *pkgid)
  * @endcode
  */
 int pkgmgrinfo_save_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle);
-int pkgmgrinfo_save_pkgdbusrinfo(pkgmgrinfo_pkgdbinfo_h handle, uid_t uid);
+int pkgmgrinfo_save_pkgusrdbinfo(pkgmgrinfo_pkgdbinfo_h handle, uid_t uid);
 /**
  * @fn int pkgmgrinfo_destroy_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle)
  * @brief	This API destroys the package db information handle freeing up all the resources
