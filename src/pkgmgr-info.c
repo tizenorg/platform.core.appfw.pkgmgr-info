@@ -422,123 +422,37 @@ static  int _pkgmgr_parser_attach_create_view_certdb(sqlite3 *handle, uid_t uid)
 	return SQLITE_OK;
 }
 
-
-static int _pkgmgr_parser_attach_create_view_parserdb(sqlite3 *handle, uid_t uid)
+static int __attach_and_create_view_for_parserdb(sqlite3 *handle, uid_t uid)
 {
-	char *error_message = NULL;
+	int i;
+	char *error_message;
 	char query_attach[MAX_QUERY_LEN] = {'\0'};
+	char *create_query[] = {
+		QUERY_CREATE_VIEW_1, QUERY_CREATE_VIEW_2, QUERY_CREATE_VIEW_3,
+		QUERY_CREATE_VIEW_4, QUERY_CREATE_VIEW_5, QUERY_CREATE_VIEW_6,
+		QUERY_CREATE_VIEW_7, QUERY_CREATE_VIEW_8, QUERY_CREATE_VIEW_9,
+		QUERY_CREATE_VIEW_10, QUERY_CREATE_VIEW_11, QUERY_CREATE_VIEW_12,
+		QUERY_CREATE_VIEW_13, QUERY_CREATE_VIEW_14, NULL
+	};
+
 	if(uid != GLOBAL_USER){
 		snprintf(query_attach, MAX_QUERY_LEN - 1, QUERY_ATTACH, MANIFEST_DB);
-		if (SQLITE_OK !=
-			sqlite3_exec(handle, query_attach,
-				 NULL, NULL, &error_message)) {
-			_LOGD("Don't execute query = %s error message = %s\n",
-				   query_attach, error_message);
+		if (SQLITE_OK != sqlite3_exec(handle, query_attach, NULL, NULL, &error_message)) {
+			_LOGD("Don't execute query = %s error message = %s\n", query_attach, error_message);
 			sqlite3_free(error_message);
 		}
-		if (SQLITE_OK !=
-			sqlite3_exec(handle, QUERY_CREATE_VIEW_1,
-				NULL, NULL, &error_message)) {
-			_LOGD("Don't execute query = %s error message = %s\n",
-				QUERY_CREATE_VIEW_1, error_message);
-			sqlite3_free(error_message);
-		}
-		if (SQLITE_OK !=
-		sqlite3_exec(handle, QUERY_CREATE_VIEW_2,
-			NULL, NULL, &error_message)) {
-		_LOGD("Don't execute query = %s error message = %s\n",
-			QUERY_CREATE_VIEW_2, error_message);
-		sqlite3_free(error_message);
-		}
-		if (SQLITE_OK !=
-		sqlite3_exec(handle, QUERY_CREATE_VIEW_3,
-			NULL, NULL, &error_message)) {
-		_LOGD("Don't execute query = %s error message = %s\n",
-			QUERY_CREATE_VIEW_3, error_message);
-		sqlite3_free(error_message);
-		}
-		if (SQLITE_OK !=
-		sqlite3_exec(handle, QUERY_CREATE_VIEW_4,
-			NULL, NULL, &error_message)) {
-		_LOGD("Don't execute query = %s error message = %s\n",
-			QUERY_CREATE_VIEW_4, error_message);
-		sqlite3_free(error_message);
-		}
-		if (SQLITE_OK !=
-		sqlite3_exec(handle, QUERY_CREATE_VIEW_5,
-			NULL, NULL, &error_message)) {
-		_LOGD("Don't execute query = %s error message = %s\n",
-			QUERY_CREATE_VIEW_5, error_message);
-		sqlite3_free(error_message);
-		}
-		if (SQLITE_OK !=
-		sqlite3_exec(handle, QUERY_CREATE_VIEW_6,
-			NULL, NULL, &error_message)) {
-		_LOGD("Don't execute query = %s error message = %s\n",
-			QUERY_CREATE_VIEW_6, error_message);
-		sqlite3_free(error_message);
-		}
-		if (SQLITE_OK !=
-		sqlite3_exec(handle, QUERY_CREATE_VIEW_7,
-			NULL, NULL, &error_message)) {
-		_LOGD("Don't execute query = %s error message = %s\n",
-			QUERY_CREATE_VIEW_7, error_message);
-		sqlite3_free(error_message);
-		}
-		if (SQLITE_OK !=
-		sqlite3_exec(handle, QUERY_CREATE_VIEW_8,
-			NULL, NULL, &error_message)) {
-		_LOGD("Don't execute query = %s error message = %s\n",
-			QUERY_CREATE_VIEW_8, error_message);
-		sqlite3_free(error_message);
-		}
-		if (SQLITE_OK !=
-		sqlite3_exec(handle, QUERY_CREATE_VIEW_9,
-			NULL, NULL, &error_message)) {
-		_LOGD("Don't execute query = %s error message = %s\n",
-			QUERY_CREATE_VIEW_9, error_message);
-		sqlite3_free(error_message);
-		}
-		if (SQLITE_OK !=
-		sqlite3_exec(handle, QUERY_CREATE_VIEW_10,
-			NULL, NULL, &error_message)) {
-		_LOGD("Don't execute query = %s error message = %s\n",
-			QUERY_CREATE_VIEW_10, error_message);
-		sqlite3_free(error_message);
-		}
-		if (SQLITE_OK !=
-		sqlite3_exec(handle, QUERY_CREATE_VIEW_11,
-			NULL, NULL, &error_message)) {
-		_LOGD("Don't execute query = %s error message = %s\n",
-			QUERY_CREATE_VIEW_11, error_message);
-		sqlite3_free(error_message);
-		}
-		if (SQLITE_OK !=
-		sqlite3_exec(handle, QUERY_CREATE_VIEW_12,
-			NULL, NULL, &error_message)) {
-		_LOGD("Don't execute query = %s error message = %s\n",
-			QUERY_CREATE_VIEW_12, error_message);
-		sqlite3_free(error_message);
-		}
-		if (SQLITE_OK !=
-		sqlite3_exec(handle, QUERY_CREATE_VIEW_13,
-			NULL, NULL, &error_message)) {
-		_LOGD("Don't execute query = %s error message = %s\n",
-			QUERY_CREATE_VIEW_13, error_message);
-		sqlite3_free(error_message);
-		}
-		if (SQLITE_OK !=
-		sqlite3_exec(handle, QUERY_CREATE_VIEW_14,
-			NULL, NULL, &error_message)) {
-		_LOGD("Don't execute query = %s error message = %s\n",
-			QUERY_CREATE_VIEW_14, error_message);
-		sqlite3_free(error_message);
+
+		for (i = 0; create_query[i]; i++) {
+			if (SQLITE_OK != sqlite3_exec(handle, create_query[i],
+						NULL, NULL, &error_message)) {
+				_LOGD("Don't execute query = %s error message = %s\n",
+						create_query[i], error_message);
+				sqlite3_free(error_message);
+			}
 		}
 	}
 	return SQLITE_OK;
 }
-
-
 
 static int _check_create_Cert_db( sqlite3 *certdb)
 {
@@ -947,7 +861,7 @@ static int __open_manifest_db(uid_t uid)
 				 SQLITE_OPEN_READONLY, NULL);
 		retvm_if(ret != SQLITE_OK, -1, "connect db [%s] failed!\n", user_pkg_parser);
 		manifest_db.ref ++;
-		ret = _pkgmgr_parser_attach_create_view_parserdb(GET_DB(manifest_db),uid);
+		ret = __attach_and_create_view_for_parserdb(GET_DB(manifest_db),uid);
 		retvm_if(ret != SQLITE_OK, -1, "attach db [%s] failed!\n", user_pkg_parser);
 
 		return 0;
