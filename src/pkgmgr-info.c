@@ -272,37 +272,6 @@ typedef enum {
 						"dist2_signer_cert integer, " \
 						"PRIMARY KEY(package)) "
 
-
-#define QUERY_ATTACH "attach database '%s' as Global"
-#define QUERY_CREATE_VIEW_1 "CREATE temp VIEW package_app_app_category as select * " \
-    "from (select  *,0 as for_all_users from  main.package_app_app_category union select *,1 as for_all_users from Global.package_app_app_category)"
-#define QUERY_CREATE_VIEW_2 "CREATE temp VIEW package_app_info as select * "\
-    "from (select  *,0 as for_all_users from  main.package_app_info union select *,1 as for_all_users from Global.package_app_info)"
-#define QUERY_CREATE_VIEW_3 "CREATE temp VIEW package_app_app_control as select * "\
-    "from (select  *,0 as for_all_users from  main.package_app_app_control union select *,1 as for_all_users from Global.package_app_app_control)"
-#define QUERY_CREATE_VIEW_4 "CREATE temp VIEW package_app_localized_info as select * "\
-    "from (select  *,0 as for_all_users from  main.package_app_localized_info union select *,1 as for_all_users from Global.package_app_localized_info)"
-#define QUERY_CREATE_VIEW_5 "CREATE temp VIEW package_app_app_metadata as select * "\
-    "from (select  *,0 as for_all_users from  main.package_app_app_metadata union select *,1 as for_all_users from Global.package_app_app_metadata)"
-#define QUERY_CREATE_VIEW_6 "CREATE temp VIEW package_app_share_allowed as select * "\
-    "from (select  *,0 as for_all_users from  main.package_app_share_allowed union select *,1 as for_all_users from Global.package_app_share_allowed)"
-#define QUERY_CREATE_VIEW_7 "CREATE temp VIEW package_app_app_permission as select * "\
-    "from (select  *,0 as for_all_users from  main.package_app_app_permission union select *,1 as for_all_users from Global.package_app_app_permission)"
-#define QUERY_CREATE_VIEW_8 "CREATE temp VIEW package_app_share_request as select * "\
-    "from (select  *,0 as for_all_users from  main.package_app_share_request union select *,1 as for_all_users from Global.package_app_share_request)"
-#define QUERY_CREATE_VIEW_9 "CREATE temp VIEW package_app_app_svc as select * "\
-    "from (select  *,0 as for_all_users from  main.package_app_app_svc union select *,1 as for_all_users from Global.package_app_app_svc)"
-#define QUERY_CREATE_VIEW_10 "CREATE temp VIEW package_info as select * "\
-    "from (select  *,0 as for_all_users from  main.package_info union select *,1 as for_all_users from Global.package_info)"
-#define QUERY_CREATE_VIEW_11 "CREATE temp VIEW package_app_icon_section_info as select * "\
-    "from (select  *,0 as for_all_users from  main.package_app_icon_section_info union select *,1 as for_all_users from Global.package_app_icon_section_info)"
-#define QUERY_CREATE_VIEW_12 "CREATE temp VIEW package_localized_info as select * "\
-    "from (select  *,0 as for_all_users from  main.package_localized_info union select *,1 as for_all_users from Global.package_localized_info)"
-#define QUERY_CREATE_VIEW_13 "CREATE temp VIEW package_app_image_info as select * "\
-    "from (select  *,0 as for_all_users from  main.package_app_image_info union select *,1 as for_all_users from Global.package_app_image_info )"
-#define QUERY_CREATE_VIEW_14 "CREATE temp VIEW package_privilege_info as select  * "\
-    "from (select  *,0 as for_all_users from  main.package_privilege_info union select *,1 as for_all_users from Global.package_privilege_info)"
-
 #define GET_DB(X)  (X).dbHandle
 char *pkgtype = "rpm";
 __thread db_handle manifest_db;
@@ -386,159 +355,36 @@ static const char *_get_db_path(uid_t uid) {
 	return db_path;
 }
 
-static  int _pkgmgr_parser_attach_create_view_certdb(sqlite3 *handle, uid_t uid)
+static const char *query_attach = "ATTACH DATABASE '%s' AS Global";
+static const char *query_create_view = "CREATE TEMP VIEW '%s' AS SELECT * \
+	FROM (SELECT *,0 AS for_all_users FROM  main.'%s' UNION SELECT *,1 AS for_all_users FROM Global.'%s')";
+
+static int __attach_and_create_view(sqlite3 *handle, const char *db, const char *tables[], uid_t uid)
 {
-	char *error_message = NULL;
-	char query_attach[MAX_QUERY_LEN] = {'\0'};
-	char query_view[MAX_QUERY_LEN] = {'\0'};
+	int i;
+	char *err;
+	char query[MAX_QUERY_LEN];
 
-    if(uid != GLOBAL_USER){
-		snprintf(query_attach, MAX_QUERY_LEN - 1, QUERY_ATTACH, CERT_DB);
-		if (SQLITE_OK !=
-			sqlite3_exec(handle, query_attach,
-				 NULL, NULL, &error_message)) {
-			_LOGD("Don't execute query = %s error message = %s\n",
-				   query_attach, error_message);
-			sqlite3_free(error_message);
-		}
+	if (uid == GLOBAL_USER)
+		return SQLITE_OK;
 
-		snprintf(query_view, MAX_QUERY_LEN - 1, "CREATE temp VIEW %s as select * from (select  *,0 as for_all_users from  main.%s union select *,1 as for_all_users from Global.%s )", "package_cert_index_info", "package_cert_index_info", "package_cert_index_info");
-		if (SQLITE_OK !=
-			sqlite3_exec(handle, query_view,
-				NULL, NULL, &error_message)) {
-			_LOGD("Don't execute query = %s error message = %s\n",
-				query_view, error_message);
-			sqlite3_free(error_message);
-		}
-		snprintf(query_view, MAX_QUERY_LEN - 1, "CREATE temp VIEW %s as select * from (select  *,0 as for_all_users from  main.%s  union select *,1 as for_all_users from Global.%s)", "package_cert_info", "package_cert_info", "package_cert_info");
-		if (SQLITE_OK !=
-			sqlite3_exec(handle, query_view,
-				NULL, NULL, &error_message)) {
-			_LOGD("Don't execute query = %s error message = %s\n",
-				query_view, error_message);
-			sqlite3_free(error_message);
+	snprintf(query, sizeof(query), query_attach, db);
+	if (SQLITE_OK != sqlite3_exec(handle, query, NULL, NULL, &err)) {
+		_LOGD("Don't execute query = %s error message = %s\n", query, err);
+		sqlite3_free(err);
+		return SQLITE_ERROR;
+	}
+
+	for (i = 0; tables[i]; i++) {
+		snprintf(query, sizeof(query), query_create_view, tables[i], tables[i], tables[i]);
+		if (SQLITE_OK != sqlite3_exec(handle, query, NULL, NULL, &err)) {
+			_LOGD("Don't execute query = %s error message = %s\n", query, err);
+			sqlite3_free(err);
 		}
 	}
+
 	return SQLITE_OK;
 }
-
-
-static int _pkgmgr_parser_attach_create_view_parserdb(sqlite3 *handle, uid_t uid)
-{
-	char *error_message = NULL;
-	char query_attach[MAX_QUERY_LEN] = {'\0'};
-	if(uid != GLOBAL_USER){
-		snprintf(query_attach, MAX_QUERY_LEN - 1, QUERY_ATTACH, MANIFEST_DB);
-		if (SQLITE_OK !=
-			sqlite3_exec(handle, query_attach,
-				 NULL, NULL, &error_message)) {
-			_LOGD("Don't execute query = %s error message = %s\n",
-				   query_attach, error_message);
-			sqlite3_free(error_message);
-		}
-		if (SQLITE_OK !=
-			sqlite3_exec(handle, QUERY_CREATE_VIEW_1,
-				NULL, NULL, &error_message)) {
-			_LOGD("Don't execute query = %s error message = %s\n",
-				QUERY_CREATE_VIEW_1, error_message);
-			sqlite3_free(error_message);
-		}
-		if (SQLITE_OK !=
-		sqlite3_exec(handle, QUERY_CREATE_VIEW_2,
-			NULL, NULL, &error_message)) {
-		_LOGD("Don't execute query = %s error message = %s\n",
-			QUERY_CREATE_VIEW_2, error_message);
-		sqlite3_free(error_message);
-		}
-		if (SQLITE_OK !=
-		sqlite3_exec(handle, QUERY_CREATE_VIEW_3,
-			NULL, NULL, &error_message)) {
-		_LOGD("Don't execute query = %s error message = %s\n",
-			QUERY_CREATE_VIEW_3, error_message);
-		sqlite3_free(error_message);
-		}
-		if (SQLITE_OK !=
-		sqlite3_exec(handle, QUERY_CREATE_VIEW_4,
-			NULL, NULL, &error_message)) {
-		_LOGD("Don't execute query = %s error message = %s\n",
-			QUERY_CREATE_VIEW_4, error_message);
-		sqlite3_free(error_message);
-		}
-		if (SQLITE_OK !=
-		sqlite3_exec(handle, QUERY_CREATE_VIEW_5,
-			NULL, NULL, &error_message)) {
-		_LOGD("Don't execute query = %s error message = %s\n",
-			QUERY_CREATE_VIEW_5, error_message);
-		sqlite3_free(error_message);
-		}
-		if (SQLITE_OK !=
-		sqlite3_exec(handle, QUERY_CREATE_VIEW_6,
-			NULL, NULL, &error_message)) {
-		_LOGD("Don't execute query = %s error message = %s\n",
-			QUERY_CREATE_VIEW_6, error_message);
-		sqlite3_free(error_message);
-		}
-		if (SQLITE_OK !=
-		sqlite3_exec(handle, QUERY_CREATE_VIEW_7,
-			NULL, NULL, &error_message)) {
-		_LOGD("Don't execute query = %s error message = %s\n",
-			QUERY_CREATE_VIEW_7, error_message);
-		sqlite3_free(error_message);
-		}
-		if (SQLITE_OK !=
-		sqlite3_exec(handle, QUERY_CREATE_VIEW_8,
-			NULL, NULL, &error_message)) {
-		_LOGD("Don't execute query = %s error message = %s\n",
-			QUERY_CREATE_VIEW_8, error_message);
-		sqlite3_free(error_message);
-		}
-		if (SQLITE_OK !=
-		sqlite3_exec(handle, QUERY_CREATE_VIEW_9,
-			NULL, NULL, &error_message)) {
-		_LOGD("Don't execute query = %s error message = %s\n",
-			QUERY_CREATE_VIEW_9, error_message);
-		sqlite3_free(error_message);
-		}
-		if (SQLITE_OK !=
-		sqlite3_exec(handle, QUERY_CREATE_VIEW_10,
-			NULL, NULL, &error_message)) {
-		_LOGD("Don't execute query = %s error message = %s\n",
-			QUERY_CREATE_VIEW_10, error_message);
-		sqlite3_free(error_message);
-		}
-		if (SQLITE_OK !=
-		sqlite3_exec(handle, QUERY_CREATE_VIEW_11,
-			NULL, NULL, &error_message)) {
-		_LOGD("Don't execute query = %s error message = %s\n",
-			QUERY_CREATE_VIEW_11, error_message);
-		sqlite3_free(error_message);
-		}
-		if (SQLITE_OK !=
-		sqlite3_exec(handle, QUERY_CREATE_VIEW_12,
-			NULL, NULL, &error_message)) {
-		_LOGD("Don't execute query = %s error message = %s\n",
-			QUERY_CREATE_VIEW_12, error_message);
-		sqlite3_free(error_message);
-		}
-		if (SQLITE_OK !=
-		sqlite3_exec(handle, QUERY_CREATE_VIEW_13,
-			NULL, NULL, &error_message)) {
-		_LOGD("Don't execute query = %s error message = %s\n",
-			QUERY_CREATE_VIEW_13, error_message);
-		sqlite3_free(error_message);
-		}
-		if (SQLITE_OK !=
-		sqlite3_exec(handle, QUERY_CREATE_VIEW_14,
-			NULL, NULL, &error_message)) {
-		_LOGD("Don't execute query = %s error message = %s\n",
-			QUERY_CREATE_VIEW_14, error_message);
-		sqlite3_free(error_message);
-		}
-	}
-	return SQLITE_OK;
-}
-
-
 
 static int _check_create_Cert_db( sqlite3 *certdb)
 {
@@ -923,7 +769,6 @@ static void __cleanup_appinfo(pkgmgr_appinfo_x *data)
 
 static int __close_manifest_db(void)
 {
-	int ret = -1;
 	if(manifest_db.ref) {
 		if(--manifest_db.ref == 0)
 			sqlite3_close(GET_DB(manifest_db));
@@ -932,6 +777,24 @@ static int __close_manifest_db(void)
 	return -1;
 }
 
+static const char *parserdb_tables[] = {
+	"package_app_app_category",
+	"package_app_info",
+	"package_app_app_control",
+	"package_app_localized_info",
+	"package_app_app_metadata",
+	"package_app_share_allowed",
+	"package_app_app_permission",
+	"package_app_share_request",
+	"package_app_app_svc",
+	"package_info",
+	"package_app_data_control",
+	"package_localized_info",
+	"package_app_icon_section_info",
+	"package_privilege_info",
+	"package_app_image_info",
+	NULL
+};
 
 static int __open_manifest_db(uid_t uid)
 {
@@ -942,12 +805,11 @@ static int __open_manifest_db(uid_t uid)
 	}
 	const char* user_pkg_parser = getUserPkgParserDBPathUID(uid);
 	if (access(user_pkg_parser, F_OK) == 0) {
-		ret =
-		    db_util_open_with_options(user_pkg_parser, &GET_DB(manifest_db),
+		ret = db_util_open_with_options(user_pkg_parser, &GET_DB(manifest_db),
 				 SQLITE_OPEN_READONLY, NULL);
 		retvm_if(ret != SQLITE_OK, -1, "connect db [%s] failed!\n", user_pkg_parser);
 		manifest_db.ref ++;
-		ret = _pkgmgr_parser_attach_create_view_parserdb(GET_DB(manifest_db),uid);
+		ret = __attach_and_create_view(GET_DB(manifest_db), MANIFEST_DB, parserdb_tables, uid);
 		retvm_if(ret != SQLITE_OK, -1, "attach db [%s] failed!\n", user_pkg_parser);
 
 		return 0;
@@ -958,7 +820,6 @@ static int __open_manifest_db(uid_t uid)
 
 static int __close_cert_db(void)
 {
-	int ret = -1;
 	if(cert_db.ref) {
 		if(--cert_db.ref == 0)
 			sqlite3_close(GET_DB(cert_db));
@@ -968,6 +829,11 @@ static int __close_cert_db(void)
 	return -1;
 }
 
+static const char *certdb_tables[] = {
+	"package_cert_index_info",
+	"package_cert_info",
+	NULL
+};
 
 static int __open_cert_db(uid_t uid, char* mode)
 {
@@ -979,13 +845,12 @@ static int __open_cert_db(uid_t uid, char* mode)
 
 	const char* user_cert_parser = getUserPkgCertDBPathUID(uid);
 	if (access(user_cert_parser, F_OK) == 0) {
-		ret =
-		    db_util_open_with_options(user_cert_parser, &GET_DB(cert_db),
+		ret = db_util_open_with_options(user_cert_parser, &GET_DB(cert_db),
 				 SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, NULL);
 		retvm_if(ret != SQLITE_OK, -1, "connect db [%s] failed!\n", user_cert_parser);
 		cert_db.ref ++;
 		if ((strcmp(mode, "w") != 0)) {
-			ret = _pkgmgr_parser_attach_create_view_certdb(GET_DB(cert_db),uid);
+			ret = __attach_and_create_view(GET_DB(cert_db), CERT_DB, certdb_tables, uid);
 			retvm_if(ret != SQLITE_OK, -1, "attach db [%s] failed!\n", user_cert_parser);
 		}
 		return 0;
@@ -996,7 +861,6 @@ static int __open_cert_db(uid_t uid, char* mode)
 
 static int __close_datacontrol_db(void)
 {
-	int ret = -1;
 	if(datacontrol_db.ref) {
 		if(--datacontrol_db.ref == 0)
 			sqlite3_close(GET_DB(datacontrol_db));
@@ -1014,8 +878,7 @@ static int __open_datacontrol_db()
 		return 0;
 	}
 	if (access(DATACONTROL_DB, F_OK) == 0) {
-		ret =
-		    db_util_open_with_options(DATACONTROL_DB, &GET_DB(datacontrol_db),
+		ret = db_util_open_with_options(DATACONTROL_DB, &GET_DB(datacontrol_db),
 				 SQLITE_OPEN_READONLY, NULL);
 		retvm_if(ret != SQLITE_OK, -1, "connect db [%s] failed!\n", DATACONTROL_DB);
 		datacontrol_db.ref ++;
