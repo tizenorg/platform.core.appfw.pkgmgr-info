@@ -6457,6 +6457,32 @@ API int pkgmgrinfo_appinfo_is_submode(pkgmgrinfo_appinfo_h handle, bool *submode
 	return PMINFO_R_OK;
 }
 
+API int pkgmgrinfo_appinfo_is_category_exist(pkgmgrinfo_appinfo_h handle, const char *category, bool *exist)
+{
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
+	retvm_if(category == NULL, PMINFO_R_EINVAL, "category is NULL");
+	retvm_if(exist == NULL, PMINFO_R_EINVAL, "exist is NULL");
+
+	category_x *ptr = NULL;
+	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
+
+	*exist = 0;
+
+	ptr = info->uiapp_info->category;
+
+	for (; ptr; ptr = ptr->next) {
+		if (ptr->name) {
+			if (strcasecmp(ptr->name, category) == 0)
+			{
+				*exist = 1;
+				break;
+			}
+		}
+	}
+
+	return PMINFO_R_OK;
+}
+
 API int pkgmgrinfo_appinfo_destroy_appinfo(pkgmgrinfo_appinfo_h  handle)
 {
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
