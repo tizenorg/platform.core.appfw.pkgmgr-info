@@ -278,10 +278,6 @@ __thread db_handle manifest_db;
 __thread db_handle datacontrol_db;
 __thread db_handle cert_db;
 
-static int __open_manifest_db(uid_t uid);
-static int __close_manifest_db(void);
-static int __open_cert_db(uid_t uid, char* mode);
-static int __close_cert_db(void);
 static int __exec_pkginfo_query(char *query, void *data);
 static int __exec_certinfo_query(char *query, void *data);
 static int __exec_certindexinfo_query(char *query, void *data);
@@ -768,12 +764,14 @@ static void __cleanup_appinfo(pkgmgr_appinfo_x *data)
 
 static int __close_manifest_db(void)
 {
-	if(manifest_db.ref) {
-		if(--manifest_db.ref == 0)
-			sqlite3_close(GET_DB(manifest_db));
+	if (manifest_db.ref == 0) {
+		_LOGD("Certificate DB is already closed !!");
 		return 0;
 	}
-	return -1;
+
+	if(--manifest_db.ref == 0)
+		sqlite3_close(GET_DB(manifest_db));
+	return 0;
 }
 
 static const char *parserdb_tables[] = {
@@ -795,37 +793,47 @@ static const char *parserdb_tables[] = {
 	NULL
 };
 
-static int __open_manifest_db(uid_t uid)
+static int __open_manifest_db(uid_t uid, bool writable)
 {
-	int ret = -1;
-	if(manifest_db.ref) {
-		manifest_db.ref ++;
-		return 0;
-	}
-	const char* user_pkg_parser = getUserPkgParserDBPathUID(uid);
-	if (access(user_pkg_parser, F_OK) == 0) {
-		ret = db_util_open_with_options(user_pkg_parser, &GET_DB(manifest_db),
-				 SQLITE_OPEN_READONLY, NULL);
-		retvm_if(ret != SQLITE_OK, -1, "connect db [%s] failed!\n", user_pkg_parser);
-		manifest_db.ref ++;
-		ret = __attach_and_create_view(GET_DB(manifest_db), MANIFEST_DB, parserdb_tables, uid);
-		retvm_if(ret != SQLITE_OK, -1, "attach db [%s] failed!\n", user_pkg_parser);
+	int ret;
+	char *dbpath;
 
+	if (manifest_db.ref) {
+		manifest_db.ref++;
 		return 0;
 	}
-	_LOGE("Manifest DB does not exists !!\n");
-	return -1;
+
+	dbpath = getUserPkgParserDBPathUID(uid);
+	if (access(user_pkg_parser, F_OK) != 0) {
+		_LOGE("Manifest DB does not exists");
+		return -1;
+	}
+
+	ret = db_util_open_with_options(user_pkg_parser, &GET_DB(manifest_db),
+			writable ? SQLITE_OPEN_READWRITE : SQLITE_OPEN_READONLY,
+			NULL);
+	retvm_if(ret != SQLITE_OK, -1, "connect db [%s] failed", dbpath);
+	manifest_db.ref++;
+
+	if (!writable) {
+		ret = __attach_and_create_view(GET_DB(manifest_db), MANIFEST_DB,
+				parserdb_tables, uid);
+		retvm_if(ret != SQLITE_OK, -1, "attach db [%s] failed", dbpath);
+	}
+
+	return 0;
 }
 
 static int __close_cert_db(void)
 {
-	if(cert_db.ref) {
-		if(--cert_db.ref == 0)
-			sqlite3_close(GET_DB(cert_db));
-			return 0;
+	if (cert_db.ref == 0) {
+		_LOGD("Certificate DB is already closed !!");
+		return 0;
 	}
-	_LOGE("Certificate DB is already closed !!\n");
-	return -1;
+
+	if (--cert_db.ref == 0)
+		sqlite3_close(GET_DB(cert_db));
+	return 0;
 }
 
 static const char *certdb_tables[] = {
@@ -834,57 +842,70 @@ static const char *certdb_tables[] = {
 	NULL
 };
 
-static int __open_cert_db(uid_t uid, char* mode)
+static int __open_cert_db(uid_t uid, bool writable)
 {
-	int ret = -1;
-	if(cert_db.ref) {
-		cert_db.ref ++;
+	int ret;
+	char *dbpath;
+
+	if (cert_db.ref) {
+		cert_db.ref++;
 		return 0;
 	}
 
-	const char* user_cert_parser = getUserPkgCertDBPathUID(uid);
+	dbpath = getUserPkgCertDBPathUID(uid);
 	if (access(user_cert_parser, F_OK) == 0) {
-		ret = db_util_open_with_options(user_cert_parser, &GET_DB(cert_db),
-				 SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, NULL);
-		retvm_if(ret != SQLITE_OK, -1, "connect db [%s] failed!\n", user_cert_parser);
-		cert_db.ref ++;
-		if ((strcmp(mode, "w") != 0)) {
-			ret = __attach_and_create_view(GET_DB(cert_db), CERT_DB, certdb_tables, uid);
-			retvm_if(ret != SQLITE_OK, -1, "attach db [%s] failed!\n", user_cert_parser);
-		}
-		return 0;
+		_LOGE("Cert DB does not exists");
+		return -1;
 	}
-	_LOGE("Cert DB does not exists !!\n");
-	return -1;
+
+	ret = db_util_open_with_options(user_cert_parser, &GET_DB(cert_db),
+			writable ? SQLITE_OPEN_READWRITE : SQLITE_OPEN_READONLY,
+			NULL);
+	retvm_if(ret != SQLITE_OK, -1, "connect db [%s] failed", dbpath);
+	cert_db.ref++;
+
+	if (!writable) {
+		ret = __attach_and_create_view(GET_DB(cert_db), CERT_DB,
+				certdb_tables, uid);
+		retvm_if(ret != SQLITE_OK, -1, "attach db [%s] failed", dbpath);
+	}
+
+	return 0;
 }
 
 static int __close_datacontrol_db(void)
 {
-	if(datacontrol_db.ref) {
-		if(--datacontrol_db.ref == 0)
-			sqlite3_close(GET_DB(datacontrol_db));
-			return 0;
+	if (datacontrol_db.ref) {
+		_LOGD("Certificate DB is already closed !!");
+		return 0;
 	}
-	_LOGE("Certificate DB is already closed !!\n");
-	return -1;
+
+	if (--datacontrol_db.ref == 0)
+		sqlite3_close(GET_DB(datacontrol_db));
+	return 0;
 }
 
-static int __open_datacontrol_db()
+static int __open_datacontrol_db(void)
 {
-	int ret = -1;
-	if(datacontrol_db.ref) {
-		datacontrol_db.ref ++;
+	int ret;
+
+	if (datacontrol_db.ref) {
+		datacontrol_db.ref++;
 		return 0;
 	}
+
 	if (access(DATACONTROL_DB, F_OK) == 0) {
-		ret = db_util_open_with_options(DATACONTROL_DB, &GET_DB(datacontrol_db),
-				 SQLITE_OPEN_READONLY, NULL);
-		retvm_if(ret != SQLITE_OK, -1, "connect db [%s] failed!\n", DATACONTROL_DB);
-		datacontrol_db.ref ++;
-		return 0;
+		_LOGE("Datacontrol DB does not exists !!");
+		return -1;
 	}
-	_LOGE("Datacontrol DB does not exists !!\n");
-	return -1;
+
+	ret = db_util_open_with_options(DATACONTROL_DB, &GET_DB(datacontrol_db),
+			 SQLITE_OPEN_READONLY, NULL);
+	retvm_if(ret != SQLITE_OK, -1, "connect db [%s] failed",
+			DATACONTROL_DB);
+	datacontrol_db.ref++;
+
+	return 0;
 }
 
 static int __pkg_list_cb(void *data, int ncols, char **coltxt, char **colname)
@@ -2645,7 +2666,7 @@ API int pkgmgrinfo_pkginfo_get_usr_list(pkgmgrinfo_pkg_list_cb pkg_list_cb, void
 		return PMINFO_R_ERROR;
 	}
 
-	ret_db = __open_manifest_db(uid);
+	ret_db = __open_manifest_db(uid, false);
 	if (ret_db == -1) {
 		_LOGE("Fail to open manifest DB\n");
 		free(syslocale);
@@ -2795,7 +2816,7 @@ API int pkgmgrinfo_pkginfo_get_usr_pkginfo(const char *pkgid, uid_t uid, pkgmgri
 
 	/*validate pkgid*/
 	user_pkg_parser = getUserPkgParserDBPathUID(uid);
-	ret = __open_manifest_db(uid);
+	ret = __open_manifest_db(uid, false);
 	  retvm_if(ret != SQLITE_OK, PMINFO_R_ERROR, "connect db [%s] failed!", user_pkg_parser);
 
 	/*check pkgid exist on db*/
@@ -3703,7 +3724,7 @@ API int pkgmgrinfo_pkginfo_compare_usr_app_cert_info(const char *lhs_app_id, con
 	info = (pkgmgr_cert_x *)calloc(1, sizeof(pkgmgr_cert_x));
 	retvm_if(info == NULL, PMINFO_R_ERROR, "Out of Memory!!!");
 
-	ret = __open_manifest_db(uid);
+	ret = __open_manifest_db(uid, false);
 	if (ret != SQLITE_OK) {
 		_LOGE("connect db [%s] failed!\n", getUserPkgParserDBPathUID(uid));
 		ret = PMINFO_R_ERROR;
@@ -4186,7 +4207,7 @@ API int pkgmgrinfo_pkginfo_usr_filter_count(pkgmgrinfo_pkginfo_filter_h handle, 
 		return PMINFO_R_ERROR;
 	}
 
-	ret = __open_manifest_db(uid);
+	ret = __open_manifest_db(uid, false);
 	if (ret == -1) {
 		_LOGE("Fail to open manifest DB\n");
 		free(syslocale);
@@ -4283,7 +4304,7 @@ API int pkgmgrinfo_pkginfo_usr_filter_foreach_pkginfo(pkgmgrinfo_pkginfo_filter_
 		return PMINFO_R_ERROR;
 	}
 
-	ret = __open_manifest_db(uid);
+	ret = __open_manifest_db(uid, false);
 	if (ret == -1) {
 		_LOGE("Fail to open manifest DB\n");
 		free(syslocale);
@@ -4492,7 +4513,7 @@ API int pkgmgrinfo_appinfo_get_usr_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_
 
 	/*open db */
 	user_pkg_parser = getUserPkgParserDBPathUID(uid);
-	ret = __open_manifest_db(uid);
+	ret = __open_manifest_db(uid, false);
 	tryvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "connect db [%s] failed!", user_pkg_parser);
 
 	appinfo->package = strdup(info->manifest_info->package);
@@ -4799,7 +4820,7 @@ API int pkgmgrinfo_appinfo_get_usr_install_list(pkgmgrinfo_app_list_cb app_func,
 
 	/*open db*/
 	user_pkg_parser = getUserPkgParserDBPathUID(uid);
-	ret = __open_manifest_db(uid);
+	ret = __open_manifest_db(uid, false);
 	retvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "connect db [%s] failed!", user_pkg_parser);
 
 	/*calloc pkginfo*/
@@ -4900,7 +4921,7 @@ API int pkgmgrinfo_appinfo_get_usr_installed_list(pkgmgrinfo_app_list_cb app_fun
 
 	/*open db*/
 	user_pkg_parser = getUserPkgParserDBPathUID(uid);
-	ret = __open_manifest_db(uid);
+	ret = __open_manifest_db(uid, false);
 	retvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "connect db [%s] failed!", user_pkg_parser);
 
 	/*calloc pkginfo*/
@@ -5112,9 +5133,9 @@ API int pkgmgrinfo_appinfo_get_usr_appinfo(const char *appid, uid_t uid, pkgmgri
 
 	/*open db*/
 	user_pkg_parser = getUserPkgParserDBPathUID(uid);
-	ret = __open_manifest_db(uid);
+	ret = __open_manifest_db(uid, false);
 	retvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "connect db [%s] failed!", user_pkg_parser);
-  
+
 	/*check appid exist on db*/
 	snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_app_info where app_id='%s')", appid);
 	ret = __exec_db_query(GET_DB(manifest_db), query, __validate_cb, (void *)&exist);
@@ -6691,7 +6712,7 @@ API int pkgmgrinfo_appinfo_usr_filter_count(pkgmgrinfo_appinfo_filter_h handle, 
 		return PMINFO_R_ERROR;
 	}
 
-	ret = __open_manifest_db(uid);
+	ret = __open_manifest_db(uid, false);
 	if (ret == -1) {
 		_LOGE("Fail to open manifest DB\n");
 		free(syslocale);
@@ -6781,7 +6802,7 @@ API int pkgmgrinfo_appinfo_usr_filter_foreach_appinfo(pkgmgrinfo_appinfo_filter_
 		return PMINFO_R_ERROR;
 	}
 
-	ret = __open_manifest_db(uid);
+	ret = __open_manifest_db(uid, false);
 	if (ret == -1) {
 		_LOGE("Fail to open manifest DB\n");
 		free(syslocale);
@@ -7021,7 +7042,7 @@ API int pkgmgrinfo_appinfo_usr_metadata_filter_foreach(pkgmgrinfo_appinfo_metada
 	locale = __convert_system_locale_to_manifest_locale(syslocale);
 	tryvm_if(locale == NULL, ret = PMINFO_R_ERROR, "manifest locale is NULL\n");
 
-	ret = __open_manifest_db(uid);
+	ret = __open_manifest_db(uid, false);
 	if (ret == -1) {
 		_LOGE("Fail to open manifest DB\n");
 		free(syslocale);
@@ -7848,7 +7869,7 @@ API int pkgmgrinfo_appinfo_set_usr_state_enabled(const char *appid, bool enabled
 	char query[MAX_QUERY_LEN] = {'\0'};
 
 	/* Open db.*/
-	ret = __open_manifest_db(uid);
+	ret = __open_manifest_db(uid, true);
 	if (ret != SQLITE_OK) {
 		_LOGE("connect db [%s] failed!\n", getUserPkgParserDBPathUID(uid));
 		return PMINFO_R_ERROR;
@@ -7946,7 +7967,7 @@ API int pkgmgrinfo_appinfo_set_usr_default_label(const char *appid, const char *
 	int ret = -1;
 	char query[MAX_QUERY_LEN] = {'\0'};
 	char *error_message = NULL;
-	ret = __open_manifest_db(uid);
+	ret = __open_manifest_db(uid, true);
 
 
 	/*Begin transaction*/
