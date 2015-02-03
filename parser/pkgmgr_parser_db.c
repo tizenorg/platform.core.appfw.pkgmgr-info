@@ -2087,7 +2087,7 @@ static int __update_preload_condition_in_db()
 	return ret;
 }
 
-int pkgmgr_parser_initialize_db()
+static int pkgmgr_parser_initialize_db(void)
 {
 	int ret = -1;
 	/*Manifest DB*/
@@ -2177,7 +2177,7 @@ int pkgmgr_parser_initialize_db()
 		_LOGD("package cert index info DB initialization failed\n");
 		return ret;
 	}
-  
+
 	return 0;
 }
 
@@ -2224,7 +2224,7 @@ static int parserdb_change_perm(const char *db_file, uid_t uid)
 	return 0;
 }
 
-int pkgmgr_parser_check_and_create_db(uid_t uid)
+static int pkgmgr_parser_check_and_create_db(uid_t uid)
 {
 	int ret = -1;
 	/*Manifest DB*/

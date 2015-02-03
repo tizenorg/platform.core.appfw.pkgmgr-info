@@ -541,6 +541,7 @@ static int get_manifest_file(const char *pkgid)
  * @endcode
  */
 char *pkgmgr_parser_get_manifest_file(const char *pkgid);
+char *pkgmgr_parser_get_usr_manifest_file(const char *pkgid, uid_t uid);
 
 /**
  * @fn int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char *const tagv[])
@@ -741,38 +742,6 @@ static int parse_manifest_file(const char *manifest)
  */
 manifest_x *pkgmgr_parser_process_manifest_xml(const char *manifest);
 manifest_x *pkgmgr_parser_usr_process_manifest_xml(const char *manifest, uid_t uid);
-
-/**
- * @fn manifest_x *pkgmgr_parser_get_manifest_info(const char *pkigid)
- * @brief	This API gets the manifest info from DB and stores all the data in the manifest structure.
- *
- * @par		This API is for package-manager installer backends.
- * @par Sync (or) Async : Synchronous API
- *
- * @param[in]	pkgid	package id for package
- * @return	manifest pointer on success, NULL on failure
- * @pre		None
- * @post		pkgmgr_parser_free_manifest_xml()
- * @code
-static int get_manifest_info(const char *pkgid)
-{
-	manifest_x *mfx = NULL
-	mfx = pkgmgr_parser_get_manifest_info(pkgid);
-	if (mfx == NULL)
-		return -1;
-	printf("Parsing Manifest Success\n");
-	pkgmgr_parser_free_manifest_xml(mfx);
-	return 0;
-}
- * @endcode
- */
-manifest_x *pkgmgr_parser_get_manifest_info(const char *pkigid);
-
-/* These APIs are intended to call parser directly */
-typedef int (*ps_iter_fn) (const char *tag, int type, void *userdata);
-
-int pkgmgr_parser_has_parser(const char *tag, int *type);
-int pkgmgr_parser_get_list(ps_iter_fn iter_fn, void *data);
 
 /**
  * @fn int pkgmgr_parser_run_parser_for_installation(xmlDocPtr docPtr, const char *tag, const char *pkgid)
