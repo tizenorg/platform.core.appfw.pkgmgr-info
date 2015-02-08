@@ -808,7 +808,7 @@ static int __open_manifest_db(uid_t uid)
 				 SQLITE_OPEN_READONLY, NULL);
 		retvm_if(ret != SQLITE_OK, -1, "connect db [%s] failed!\n", user_pkg_parser);
 		manifest_db.ref ++;
-		ret = __attach_and_create_view(GET_DB(manifest_db), MANIFEST_DB, parserdb_tables, uid);
+		ret = __attach_and_create_view(GET_DB(manifest_db), user_pkg_parser, parserdb_tables, uid);
 		retvm_if(ret != SQLITE_OK, -1, "attach db [%s] failed!\n", user_pkg_parser);
 
 		return 0;
