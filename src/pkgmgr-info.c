@@ -50,6 +50,7 @@
 #include "pkgmgr-info-debug.h"
 #include "pkgmgr-info.h"
 #include "pkgmgr_parser_db.h"
+#include "pkgmgr_parser_internal.h"
 #include <dirent.h>
 #include <sys/stat.h>
 
@@ -803,18 +804,28 @@ static int __open_manifest_db(uid_t uid)
 		return 0;
 	}
 	const char* user_pkg_parser = getUserPkgParserDBPathUID(uid);
-	if (access(user_pkg_parser, F_OK) == 0) {
-		ret = db_util_open_with_options(user_pkg_parser, &GET_DB(manifest_db),
-				 SQLITE_OPEN_READONLY, NULL);
-		retvm_if(ret != SQLITE_OK, -1, "connect db [%s] failed!\n", user_pkg_parser);
-		manifest_db.ref ++;
-		ret = __attach_and_create_view(GET_DB(manifest_db), MANIFEST_DB, parserdb_tables, uid);
-		retvm_if(ret != SQLITE_OK, -1, "attach db [%s] failed!\n", user_pkg_parser);
+	if (access(user_pkg_parser, F_OK) != 0) {
+		_LOGE("Manifest DB does not exists !! try to create\n");
 
-		return 0;
+		if (pkgmgr_parser_check_and_create_db(uid)) {
+			_LOGE("create db failed");
+			return -1;
+		}
+
+		if (pkgmgr_parser_initialize_db()) {
+			_LOGE("initialize db failed");
+			return -1;
+		}
 	}
-	_LOGE("Manifest DB does not exists !!\n");
-	return -1;
+
+	ret = db_util_open_with_options(user_pkg_parser, &GET_DB(manifest_db),
+			SQLITE_OPEN_READONLY, NULL);
+	retvm_if(ret != SQLITE_OK, -1, "connect db [%s] failed!\n", user_pkg_parser);
+	manifest_db.ref ++;
+	ret = __attach_and_create_view(GET_DB(manifest_db), MANIFEST_DB, parserdb_tables, uid);
+	retvm_if(ret != SQLITE_OK, -1, "attach db [%s] failed!\n", user_pkg_parser);
+
+	return 0;
 }
 
 static int __close_cert_db(void)
