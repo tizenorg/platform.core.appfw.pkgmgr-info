@@ -34,6 +34,7 @@
 #include <dlfcn.h>
 #include <sys/smack.h>
 #include <linux/limits.h>
+#include <libgen.h>
 
 #include <libxml/parser.h>
 #include <libxml/xmlreader.h>
@@ -308,40 +309,37 @@ static int __delete_certinfo(const char *pkgid, uid_t uid);
 static int _check_create_Cert_db( sqlite3 *certdb);
 static int __exec_db_query(sqlite3 *db, char *query, sqlite_query_callback callback, void *data);
 
-static int _mkdir(const char *dir, mode_t mode)
+static int _mkdir_for_user(const char* dir, uid_t uid, gid_t gid)
 {
-	char tmp[PATH_MAX];
-	char *p = NULL;
-	size_t len;
 	int ret;
+	char *fullpath;
+	char *subpath;
 
-	snprintf(tmp, sizeof(tmp), "%s", dir);
-	len = strlen(tmp);
-	if(tmp[len - 1] == '/')
-		tmp[len - 1] = 0;
-	for(p = tmp + 1; *p; p++) {
-		if(*p == '/') {
-			*p = 0;
-			ret = mkdir(tmp, mode);
-			if (ret && errno != EEXIST)
-				return ret;
-			*p = '/';
-		}
+	_LOGD("uid:%d gid:%d", uid, gid);
+	fullpath = strdup(dir);
+	subpath = dirname(fullpath);
+	if (strlen(subpath) > 1) {
+		ret = _mkdir_for_user(fullpath, uid, gid);
+		if (ret == -1)
+			return ret;
 	}
-	return mkdir(tmp, mode);
-}
 
-static void _mkdir_for_user(const char* dir, uid_t uid, gid_t gid) {
-	int ret = 0;
+	ret = mkdir(dir, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
+	if (ret && errno != EEXIST)
+		return ret;
+	else if (ret && errno == EEXIST)
+		return 0;
 
-	ret = _mkdir(dir, S_IRWXU | S_IRGRP | S_IXGRP | S_IXOTH);
-	if (ret == -1 && errno != EEXIST) {
-		_LOGE("FAIL : to create directory %s %d", dir, errno);
-	} else if (getuid() == ROOT_UID) {
+	if (getuid() == ROOT_UID) {
 		ret = chown(dir, uid, gid);
 		if (ret == -1)
-			_LOGE("FAIL : chown %s %d.%d, because %s", dir, uid, gid, strerror(errno));
+			_LOGE("FAIL : chown %s %d.%d, because %s", dir, uid,
+					gid, strerror(errno));
 	}
+
+	free(fullpath);
+
+	return 0;
 }
 
 static const char *_get_db_path(uid_t uid) {
