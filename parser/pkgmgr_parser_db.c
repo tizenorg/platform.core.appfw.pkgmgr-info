@@ -2087,7 +2087,7 @@ static int __update_preload_condition_in_db()
 	return ret;
 }
 
-static int pkgmgr_parser_initialize_db(void)
+API int pkgmgr_parser_initialize_db(void)
 {
 	int ret = -1;
 	/*Manifest DB*/
@@ -2224,7 +2224,7 @@ static int parserdb_change_perm(const char *db_file, uid_t uid)
 	return 0;
 }
 
-static int pkgmgr_parser_check_and_create_db(uid_t uid)
+API int pkgmgr_parser_check_and_create_db(uid_t uid)
 {
 	int ret = -1;
 	/*Manifest DB*/

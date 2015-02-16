@@ -31,5 +31,7 @@
 #define API __attribute__ ((visibility("default")))
 #endif
 
+int pkgmgr_parser_check_and_create_db(uid_t uid);
+int pkgmgr_parser_initialize_db(void);
 
 #endif				/* __PKGMGR_PARSER_INTERNAL_H__ */
