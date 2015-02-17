@@ -35,6 +35,7 @@
 #include <sys/smack.h>
 #include <linux/limits.h>
 #include <libgen.h>
+#include <grp.h>
 
 #include <libxml/parser.h>
 #include <libxml/xmlreader.h>
@@ -315,7 +316,6 @@ static int _mkdir_for_user(const char* dir, uid_t uid, gid_t gid)
 	char *fullpath;
 	char *subpath;
 
-	_LOGD("uid:%d gid:%d", uid, gid);
 	fullpath = strdup(dir);
 	subpath = dirname(fullpath);
 	if (strlen(subpath) > 1) {
@@ -399,6 +399,22 @@ static int _check_create_Cert_db( sqlite3 *certdb)
 	return ret;
 }
 
+static gid_t _get_gid(const char *name)
+{
+	char buf[BUFSIZE];
+	struct group entry;
+	struct group *ge;
+	int ret;
+
+	ret = getgrnam_r(name, &entry, buf, sizeof(buf), &ge);
+	if (ret || ge == NULL) {
+		_LOGE("fail to get gid of %s", name);
+		return -1;
+	}
+
+	return entry.gr_gid;
+}
+
 API char *getIconPath(uid_t uid)
 {
 	const char *path = NULL;
@@ -413,7 +429,7 @@ API char *getIconPath(uid_t uid)
 	if (uid != GLOBAL_USER) {
 		tzplatform_set_user(uid);
 		path = tzplatform_mkpath(TZ_USER_ICONS, "/");
-		gid = tzplatform_getgid(TZ_SYS_USER_GROUP);
+		gid = _get_gid(tzplatform_getenv(TZ_SYS_USER_GROUP));
 		tzplatform_reset_user();
 	} else {
 		path = tzplatform_mkpath(TZ_SYS_RW_ICONS, "/");
@@ -445,7 +461,7 @@ API char *getUserPkgParserDBPathUID(uid_t uid)
 	if (uid != GLOBAL_USER) {
 		tzplatform_set_user(uid);
 		pkgmgr_parser_db = tzplatform_mkpath(TZ_USER_DB, ".pkgmgr_parser.db");
-		gid = tzplatform_getgid(TZ_SYS_USER_GROUP);
+		gid = _get_gid(tzplatform_getenv(TZ_SYS_USER_GROUP));
 		tzplatform_reset_user();
 	} else {
 		pkgmgr_parser_db = tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_parser.db");
@@ -479,7 +495,7 @@ API char *getUserPkgCertDBPathUID(uid_t uid)
 	if (uid != GLOBAL_USER) {
 		tzplatform_set_user(uid);
 		pkgmgr_cert_db = tzplatform_mkpath(TZ_USER_DB, ".pkgmgr_cert.db");
-		gid = tzplatform_getgid(TZ_SYS_USER_GROUP);
+		gid = _get_gid(tzplatform_getenv(TZ_SYS_USER_GROUP));
 		tzplatform_reset_user();
 	} else {
 		pkgmgr_cert_db = tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_cert.db");
@@ -508,7 +524,7 @@ API const char* getUserDesktopPath(uid_t uid)
 	if (uid != GLOBAL_USER) {
 		tzplatform_set_user(uid);
 		path = tzplatform_mkpath(TZ_USER_DESKTOP, "/");
-		gid = tzplatform_getgid(TZ_SYS_USER_GROUP);
+		gid = _get_gid(tzplatform_getenv(TZ_SYS_USER_GROUP));
 		tzplatform_reset_user();
 	} else {
 		path = tzplatform_mkpath(TZ_SYS_RW_DESKTOP_APP, "/");
@@ -535,7 +551,7 @@ API const char* getUserManifestPath(uid_t uid)
 	if (uid != GLOBAL_USER) {
 		tzplatform_set_user(uid);
 		path = tzplatform_mkpath(TZ_USER_PACKAGES, "/");
-		gid = tzplatform_getgid(TZ_SYS_USER_GROUP);
+		gid = _get_gid(tzplatform_getenv(TZ_SYS_USER_GROUP));
 		tzplatform_reset_user();
 	} else {
 		path = tzplatform_mkpath(TZ_SYS_RW_PACKAGES, "/");
