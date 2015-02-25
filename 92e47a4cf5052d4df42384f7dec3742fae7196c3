@@ -1,0 +1,8 @@
+Code-Review-1: Pawel Sikorski <p.sikorski@samsung.com>
+Code-Review+2: Suchang Woo <suchang.woo@samsung.com>
+Verified+1: Sangyoon Jang <s89.jang@samsung.com>
+Submitted-by: Suchang Woo <suchang.woo@samsung.com>
+Submitted-at: Tue, 24 Feb 2015 18:42:04 -0800
+Reviewed-on: https://review.tizen.org/gerrit/35506
+Project: platform/core/appfw/pkgmgr-info
+Branch: refs/heads/tizen
