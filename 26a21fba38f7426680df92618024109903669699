@@ -1,6 +1,14 @@
 Code-Review+2: Suchang Woo <suchang.woo@samsung.com>
 Verified+1: Suchang Woo <suchang.woo@samsung.com>
 Submitted-by: Suchang Woo <suchang.woo@samsung.com>
+Submitted-at: Wed, 25 Feb 2015 05:37:40 -0700
+Reviewed-on: https://review.tizen.org/gerrit/35880
+Project: platform/core/appfw/pkgmgr-info
+Branch: refs/heads/tizen
+
+Code-Review+2: Suchang Woo <suchang.woo@samsung.com>
+Verified+1: Suchang Woo <suchang.woo@samsung.com>
+Submitted-by: Suchang Woo <suchang.woo@samsung.com>
 Submitted-at: Wed, 25 Feb 2015 04:37:40 -0800
 Reviewed-on: https://review.tizen.org/gerrit/35880
 Project: platform/core/appfw/pkgmgr-info
