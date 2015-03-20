@@ -3075,7 +3075,7 @@ __get_icon_with_path(const char* icon, uid_t uid)
 			if (access (icon_with_path, F_OK)) { //If doesn't exist in case of Global app, try to get icon directly into app's directory
 				app_path = tzplatform_getenv(TZ_SYS_RW_APP);
 				if (app_path)
-					snprintf( len, icon_with_path, "%s/%q/res/icons/%q/small/%q", app_path  , package, theme, icon);
+					snprintf(icon_with_path, len, "%s/%q/res/icons/%q/small/%q", app_path, package, theme, icon);
 				if (access (icon_with_path, F_OK))
 					_LOGE("Cannot find icon path");
 			}
