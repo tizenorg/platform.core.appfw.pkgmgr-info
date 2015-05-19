@@ -167,11 +167,8 @@ sqlite3 *pkgmgr_cert_db;
 
 #define QUERY_CREATE_TABLE_PACKAGE_APP_APP_CONTROL "create table if not exists package_app_app_control " \
 						"(app_id text not null, " \
-						"operation text not null, " \
-						"uri_scheme text, " \
-						"mime_type text, " \
-						"subapp_name text, " \
-						"PRIMARY KEY(app_id,operation,uri_scheme,mime_type,subapp_name) " \
+						"app_control text not null, " \
+						"PRIMARY KEY(app_id,app_control) " \
 						"FOREIGN KEY(app_id) " \
 						"REFERENCES package_app_info(app_id) " \
 						"ON DELETE CASCADE)"
@@ -966,41 +963,40 @@ static int __insert_uiapplication_appcontrol_info(manifest_x *mfx)
 	subapp_x *sub = NULL;
 	int ret = -1;
 	char query[MAX_QUERY_LEN] = {'\0'};
+	char buf[BUFSIZE] = {'\0'};
 	const char *operation = NULL;
 	const char *mime = NULL;
 	const char *uri = NULL;
 	const char *subapp = NULL;
-	while(up != NULL)
-	{
+	while (up != NULL) {
 		acontrol = up->appcontrol;
-		while(acontrol != NULL)
-		{
+		while (acontrol != NULL) {
 			op = acontrol->operation;
-			while(op != NULL)
-			{
+			while (op != NULL) {
 				if (op)
 					operation = op->name;
 				mi = acontrol->mime;
 
-				do
-				{
+				do {
 					if (mi)
 						mime = mi->name;
 					sub = acontrol->subapp;
-					do
-					{
+					do {
 						if (sub)
 							subapp = sub->name;
 						ui = acontrol->uri;
-						do
-						{
+						do {
 							if (ui)
 								uri = ui->name;
+							snprintf(buf, BUFSIZE, "%s|%s|%s|%s",
+									operation ? operation : "NULL",
+									uri ? uri : "NULL",
+									mime ? mime : "NULL",
+									subapp ? subapp : "NULL");
 							snprintf(query, MAX_QUERY_LEN,
-								 "insert into package_app_app_control(app_id, operation, uri_scheme, mime_type, subapp_name) " \
-								"values('%s', '%s', '%s', '%s', '%s')",\
-								 up->appid, operation, uri, mime, subapp);
-
+									"insert into package_app_app_control(app_id, app_control) " \
+									"values('%s', '%s')",\
+									up->appid, buf);
 							ret = __exec_query(query);
 							if (ret == -1) {
 								_LOGD("Package UiApp AppSvc DB Insert Failed\n");
@@ -1010,15 +1006,15 @@ static int __insert_uiapplication_appcontrol_info(manifest_x *mfx)
 							if (ui)
 								ui = ui->next;
 							uri = NULL;
-						} while(ui != NULL);
+						} while (ui != NULL);
 						if (sub)
 							sub = sub->next;
 						subapp = NULL;
-					}while(sub != NULL);
+					} while (sub != NULL);
 					if (mi)
 						mi = mi->next;
 					mime = NULL;
-				}while(mi != NULL);
+				} while (mi != NULL);
 				if (op)
 					op = op->next;
 				operation = NULL;
@@ -1298,6 +1294,7 @@ static int __insert_serviceapplication_appcontrol_info(manifest_x *mfx)
 	appcontrol_x *acontrol = NULL;
 	int ret = -1;
 	char query[MAX_QUERY_LEN] = {'\0'};
+	char buf[BUFSIZE] = {'\0'};
 	operation_x *op = NULL;
 	mime_x *mi = NULL;
 	uri_x *ui = NULL;
@@ -1306,35 +1303,34 @@ static int __insert_serviceapplication_appcontrol_info(manifest_x *mfx)
 	const char *mime = NULL;
 	const char *uri = NULL;
 	const char *subapp = NULL;
-	while(sp != NULL)
-	{
+	while (sp != NULL) {
 		acontrol = sp->appcontrol;
-		while(acontrol != NULL)
-		{
+		while (acontrol != NULL) {
 			op = acontrol->operation;
-			while(op != NULL)
-			{
-			if (op)
-				operation = op->name;
-			mi = acontrol->mime;
-				do
-				{
-				if (mi)
-					mime = mi->name;
-				sub = acontrol->subapp;
-					do
-					{
-					if (sub)
-						subapp = sub->name;
-					ui = acontrol->uri;
-						do
-						{
+			while (op != NULL) {
+				if (op)
+					operation = op->name;
+				mi = acontrol->mime;
+				do {
+					if (mi)
+						mime = mi->name;
+					sub = acontrol->subapp;
+					do {
+						if (sub)
+							subapp = sub->name;
+						ui = acontrol->uri;
+						do {
 							if (ui)
 								uri = ui->name;
+							snprintf(buf, BUFSIZE, "%s|%s|%s|%s",
+									operation ? operation : "NULL",
+									uri ? uri : "NULL",
+									mime ? mime : "NULL",
+									subapp ? subapp : "NULL");
 							snprintf(query, MAX_QUERY_LEN,
-								 "insert into package_app_app_control(app_id, operation, uri_scheme, mime_type,subapp_name) " \
-								"values('%s', '%s', '%s', '%s', '%s')",\
-								 sp->appid, operation, uri, mime, subapp);
+									"insert into package_app_app_control(app_id, app_control) " \
+									"values('%s', '%s')",\
+									sp->appid, buf);
 							ret = __exec_query(query);
 							if (ret == -1) {
 								_LOGD("Package UiApp AppSvc DB Insert Failed\n");
@@ -1344,15 +1340,15 @@ static int __insert_serviceapplication_appcontrol_info(manifest_x *mfx)
 							if (ui)
 								ui = ui->next;
 							uri = NULL;
-						} while(ui != NULL);
+						} while (ui != NULL);
 						if (sub)
 							sub = sub->next;
 						subapp = NULL;
-						}while(sub != NULL);
+					} while (sub != NULL);
 					if (mi)
 						mi = mi->next;
 					mime = NULL;
-				}while(mi != NULL);
+				} while (mi != NULL);
 				if (op)
 					op = op->next;
 				operation = NULL;
