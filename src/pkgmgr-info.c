@@ -318,7 +318,7 @@ static int _mkdir_for_user(const char* dir, uid_t uid, gid_t gid)
 
 	fullpath = strdup(dir);
 	subpath = dirname(fullpath);
-	if (strlen(subpath) > 1) {
+	if (strlen(subpath) > 1 && strcmp(subpath, fullpath) != 0) {
 		ret = _mkdir_for_user(fullpath, uid, gid);
 		if (ret == -1) {
 			free(fullpath);
