@@ -15,7 +15,7 @@ BuildRequires: pkgconfig(libxml-2.0)
 BuildRequires: pkgconfig(dbus-1)
 BuildRequires: pkgconfig(dbus-glib-1)
 BuildRequires: pkgconfig(libtzplatform-config)
-BuildRequires:  pkgconfig(libsmack)
+BuildRequires: pkgconfig(libsmack)
 
 %description
 Packager Manager infomation api for packaging

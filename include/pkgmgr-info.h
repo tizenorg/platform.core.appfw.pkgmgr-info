@@ -48,6 +48,7 @@
 
 #include <errno.h>
 #include <stdbool.h>
+#include <glib.h>
 #include <unistd.h>
 #include <sys/types.h>
 
@@ -310,6 +311,11 @@ typedef int (*pkgmgrinfo_app_metadata_list_cb ) (const char *metadata_key,
  */
 typedef int (*pkgmgrinfo_app_control_list_cb ) (pkgmgrinfo_appcontrol_h handle,
 							void *user_data);
+
+typedef struct eventsystem_info {
+	char *appid;
+	char *event_name;
+} eventsystem_info_s;
 
 /**
  * @brief Install Location Types
@@ -5562,6 +5568,13 @@ int pkgmgrinfo_client_set_status_type(pkgmgrinfo_client *pc, int status_type);
 int pkgmgrinfo_client_listen_status(pkgmgrinfo_client *pc, pkgmgrinfo_handler event_cb, void *data);
 int pkgmgrinfo_client_free(pkgmgrinfo_client *pc);
 int pkgmgrinfo_client_request_enable_external_pkg(char *pkgid);
+
+
+int pkgmgrinfo_appinfo_get_event_launch_list(GList **es_info);
+int pkgmgrinfo_appinfo_get_usr_event_launch_list(GList **es_info, uid_t uid);
+int pkgmgrinfo_appinfo_get_event_launch_list_by_appid(const char *appid, GList **es_info);
+int pkgmgrinfo_appinfo_get_usr_event_launch_list_by_appid(const char *appid, GList **es_info, uid_t uid);
+
 
 /**
  * @pkgmgrinfo client API end

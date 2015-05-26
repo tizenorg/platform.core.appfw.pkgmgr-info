@@ -5855,6 +5855,153 @@ catch:
 	return ret;
 }
 
+#define OPERATION_LAUNCH_ON_EVENT "http://tizen.org/appcontrol/operation/launch_on_event"
+
+API int pkgmgrinfo_appinfo_get_event_launch_list(GList **es_info)
+{
+	pkgmgrinfo_appinfo_get_usr_event_launch_list(es_info, GLOBAL_USER);
+}
+
+API int pkgmgrinfo_appinfo_get_usr_event_launch_list(GList **es_info, uid_t uid)
+{
+	int ret = PMINFO_R_OK;
+	char *query = NULL;
+	sqlite3_stmt *stmt = NULL;
+	const char* user_pkg_parser = NULL;
+
+	/*open db*/
+	user_pkg_parser = getUserPkgParserDBPathUID(uid);
+	ret = __open_manifest_db(uid);
+	retvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR,
+			"connect db [%s] failed!", user_pkg_parser);
+
+	/*Start constructing query*/
+	query = sqlite3_mprintf("select * from package_app_app_control");
+
+	/*prepare query*/
+	ret = sqlite3_prepare_v2(GET_DB(manifest_db), query, strlen(query), &stmt, NULL);
+	tryvm_if(ret != PMINFO_R_OK, ret = PMINFO_R_ERROR,
+		"sqlite3_prepare_v2 failed[%s] : %s\n", query, sqlite3_errmsg(GET_DB(manifest_db)));
+
+	/*step query*/
+	while (sqlite3_step(stmt) == SQLITE_ROW) {
+		char *app_ctrl;
+		app_ctrl = (char *)sqlite3_column_text(stmt, 1);
+		if (app_ctrl == NULL) {
+			continue;
+		}
+
+		gchar **appctrlv;
+		int len_acv, cnt_acv;
+		appctrlv = g_strsplit(app_ctrl, ";", 0);
+		for (len_acv = 0; appctrlv[len_acv] != NULL; len_acv++);
+		for (cnt_acv = 0; cnt_acv < len_acv; cnt_acv++) {
+			if (strncmp(OPERATION_LAUNCH_ON_EVENT,
+				(char *)appctrlv[cnt_acv],
+				strlen(OPERATION_LAUNCH_ON_EVENT)) != 0) {
+				continue;
+			}
+
+			gchar **launch_onevt;
+			int len_lo;
+			launch_onevt = g_strsplit(appctrlv[cnt_acv], "|", 3);
+			for (len_lo = 0; launch_onevt[len_lo] != NULL; len_lo++);
+			if (len_lo > 2 && g_str_has_prefix(launch_onevt[1], "event://") &&
+				strlen(launch_onevt[1]) > 8) {
+				eventsystem_info_s *esi =
+					(eventsystem_info_s *)calloc(1,
+						sizeof(eventsystem_info_s));
+				esi->appid =
+					strdup((const char *)sqlite3_column_text(stmt, 0));
+				esi->event_name = strdup((const char*)&launch_onevt[1][8]);
+				*es_info = g_list_append(*es_info, esi);
+			}
+			g_strfreev(launch_onevt);
+		}
+		g_strfreev(appctrlv);
+	}
+
+	ret = PMINFO_R_OK;
+catch:
+	sqlite3_free(query);
+	sqlite3_finalize(stmt);
+	__close_manifest_db();
+	return ret;
+}
+
+API int pkgmgrinfo_appinfo_get_event_launch_list_by_appid(const char *appid, GList **es_info)
+{
+	pkgmgrinfo_appinfo_get_usr_event_launch_list_by_appid(appid,
+			es_info, GLOBAL_USER);
+}
+
+API int pkgmgrinfo_appinfo_get_usr_event_launch_list_by_appid(const char *appid, GList **es_info, uid_t uid)
+{
+	int ret = PMINFO_R_OK;
+	char *query = NULL;
+	sqlite3_stmt *stmt = NULL;
+	const char* user_pkg_parser = NULL;
+
+	/*open db*/
+	user_pkg_parser = getUserPkgParserDBPathUID(uid);
+	ret = __open_manifest_db(uid);
+	retvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR,
+			"connect db [%s] failed!", user_pkg_parser);
+
+	/*Start constructing query*/
+	query = sqlite3_mprintf("select * from package_app_app_control where app_id=%Q",
+		appid);
+
+	/*prepare query*/
+	ret = sqlite3_prepare_v2(GET_DB(manifest_db), query, strlen(query), &stmt, NULL);
+	tryvm_if(ret != PMINFO_R_OK, ret = PMINFO_R_ERROR,
+		"sqlite3_prepare_v2 failed[%s] : %s\n", query, sqlite3_errmsg(GET_DB(manifest_db)));
+
+	/*step query*/
+	while (sqlite3_step(stmt) == SQLITE_ROW) {
+		char *app_ctrl;
+		app_ctrl = (char *)sqlite3_column_text(stmt, 1);
+		if (app_ctrl == NULL) {
+			continue;
+		}
+
+		gchar **appctrlv;
+		int len_acv, cnt_acv;
+		appctrlv = g_strsplit(app_ctrl, ";", 0);
+		for (len_acv = 0; appctrlv[len_acv] != NULL; len_acv++);
+		for (cnt_acv = 0; cnt_acv < len_acv; cnt_acv++) {
+			if (strncmp(OPERATION_LAUNCH_ON_EVENT,
+				(char *)appctrlv[cnt_acv],
+				strlen(OPERATION_LAUNCH_ON_EVENT)) != 0) {
+				continue;
+			}
+
+			gchar **launch_onevt;
+			int len_lo;
+			launch_onevt = g_strsplit(appctrlv[cnt_acv], "|", 3);
+			for (len_lo = 0; launch_onevt[len_lo] != NULL; len_lo++);
+			if (len_lo > 2 && g_str_has_prefix(launch_onevt[1], "event://") &&
+				strlen(launch_onevt[1]) > 8) {
+				eventsystem_info_s *esi =
+					(eventsystem_info_s *)calloc(1,
+						sizeof(eventsystem_info_s));
+				esi->appid = strdup(appid);
+				esi->event_name = strdup((const char*)&launch_onevt[1][8]);
+				*es_info = g_list_append(*es_info, esi);
+			}
+			g_strfreev(launch_onevt);
+		}
+		g_strfreev(appctrlv);
+	}
+
+	ret = PMINFO_R_OK;
+catch:
+	sqlite3_free(query);
+	sqlite3_finalize(stmt);
+	__close_manifest_db();
+	return ret;
+}
+
 API int pkgmgrinfo_appinfo_foreach_permission(pkgmgrinfo_appinfo_h handle,
 			pkgmgrinfo_app_permission_list_cb permission_func, void *user_data)
 {
