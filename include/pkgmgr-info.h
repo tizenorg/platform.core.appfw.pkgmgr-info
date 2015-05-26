@@ -3263,6 +3263,7 @@ int pkgmgrinfo_appinfo_get_submode_mainid(pkgmgrinfo_appinfo_h  handle, char **s
  * @endcode
  */
 int pkgmgrinfo_appinfo_get_datacontrol_info(const char *providerid, const char *type, char **appid, char **access);
+int pkgmgrinfo_appinfo_usr_get_datacontrol_info(const char *providerid, const char *type, uid_t uid, char **appid, char **access);
 
 /**
  * @fn int pkgmgrinfo_appinfo_get_datacontrol_appid(const char *providerid, char **appid);
@@ -3280,6 +3281,7 @@ int pkgmgrinfo_appinfo_get_datacontrol_info(const char *providerid, const char *
  * @endcode
  */
 int pkgmgrinfo_appinfo_get_datacontrol_appid(const char *providerid, char **appid);
+int pkgmgrinfo_appinfo_usr_get_datacontrol_appid(const char *providerid, uid_t uid, char **appid);
 
 /**
  * @fn	int pkgmgrinfo_appinfo_foreach_permission(pkgmgrinfo_appinfo_h handle,

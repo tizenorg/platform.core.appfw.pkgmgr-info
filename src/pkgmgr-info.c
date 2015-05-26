@@ -5780,7 +5780,7 @@ API int pkgmgrinfo_appinfo_get_submode_mainid(pkgmgrinfo_appinfo_h  handle, char
 	return PMINFO_R_OK;
 }
 
-API int pkgmgrinfo_appinfo_get_datacontrol_info(const char *providerid, const char *type, char **appid, char **access)
+API int pkgmgrinfo_appinfo_usr_get_datacontrol_info(const char *providerid, const char *type, uid_t uid, char **appid, char **access)
 {
 	retvm_if(providerid == NULL, PMINFO_R_EINVAL, "Argument supplied is NULL\n");
 	retvm_if(type == NULL, PMINFO_R_EINVAL, "Argument supplied is NULL\n");
@@ -5793,7 +5793,7 @@ API int pkgmgrinfo_appinfo_get_datacontrol_info(const char *providerid, const ch
 	sqlite3_stmt *stmt = NULL;
 
 	/*open db*/
-	ret = db_util_open(MANIFEST_DB, &appinfo_db, 0);
+	ret = db_util_open(MANIFEST_DB, &appinfo_db, uid);
 	retvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "connect db [%s] failed!", MANIFEST_DB);
 
 	/*Start constructing query*/
@@ -5819,7 +5819,12 @@ catch:
 	return ret;
 }
 
-API int pkgmgrinfo_appinfo_get_datacontrol_appid(const char *providerid, char **appid)
+API int pkgmgrinfo_appinfo_get_datacontrol_info(const char *providerid, const char *type, char **appid, char **access)
+{
+	return pkgmgrinfo_appinfo_usr_get_datacontrol_info(providerid, type, GLOBAL_USER, appid, access);
+}
+
+API int pkgmgrinfo_appinfo_usr_get_datacontrol_appid(const char *providerid, uid_t uid, char **appid)
 {
 	retvm_if(providerid == NULL, PMINFO_R_EINVAL, "Argument supplied is NULL\n");
 	retvm_if(appid == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
@@ -5830,7 +5835,7 @@ API int pkgmgrinfo_appinfo_get_datacontrol_appid(const char *providerid, char **
 	sqlite3_stmt *stmt = NULL;
 
 	/*open db*/
-	ret = db_util_open(MANIFEST_DB, &appinfo_db, 0);
+	ret = db_util_open(MANIFEST_DB, &appinfo_db, uid);
 	retvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "connect db [%s] failed!", MANIFEST_DB);
 
 	/*Start constructing query*/
@@ -5853,6 +5858,11 @@ catch:
 	sqlite3_finalize(stmt);
 	sqlite3_close(appinfo_db);
 	return ret;
+}
+
+API int pkgmgrinfo_appinfo_get_datacontrol_appid(const char *providerid, char **appid)
+{
+	return pkgmgrinfo_appinfo_usr_get_datacontrol_appid(providerid, GLOBAL_USER, appid);
 }
 
 API int pkgmgrinfo_appinfo_foreach_permission(pkgmgrinfo_appinfo_h handle,
