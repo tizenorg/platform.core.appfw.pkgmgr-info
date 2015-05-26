@@ -5780,7 +5780,7 @@ API int pkgmgrinfo_appinfo_get_submode_mainid(pkgmgrinfo_appinfo_h  handle, char
 	return PMINFO_R_OK;
 }
 
-API int pkgmgrinfo_appinfo_get_datacontrol_info(const char *providerid, const char *type, char **appid, char **access)
+API int pkgmgrinfo_appinfo_usr_get_datacontrol_info(const char *providerid, const char *type, uid_t uid, char **appid, char **access)
 {
 	retvm_if(providerid == NULL, PMINFO_R_EINVAL, "Argument supplied is NULL\n");
 	retvm_if(type == NULL, PMINFO_R_EINVAL, "Argument supplied is NULL\n");
@@ -5789,18 +5789,17 @@ API int pkgmgrinfo_appinfo_get_datacontrol_info(const char *providerid, const ch
 
 	int ret = PMINFO_R_OK;
 	char *query = NULL;
-	sqlite3 *appinfo_db = NULL;
 	sqlite3_stmt *stmt = NULL;
 
 	/*open db*/
-	ret = db_util_open(MANIFEST_DB, &appinfo_db, 0);
+	ret = __open_manifest_db(uid);
 	retvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "connect db [%s] failed!", MANIFEST_DB);
 
 	/*Start constructing query*/
 	query = sqlite3_mprintf("select * from package_app_data_control where providerid=%Q and type=%Q", providerid, type);
 
 	/*prepare query*/
-	ret = sqlite3_prepare_v2(appinfo_db, query, strlen(query), &stmt, NULL);
+	ret = sqlite3_prepare_v2(GET_DB(manifest_db), query, strlen(query), &stmt, NULL);
 	tryvm_if(ret != PMINFO_R_OK, ret = PMINFO_R_ERROR, "sqlite3_prepare_v2 failed[%s]\n", query);
 
 	/*step query*/
@@ -5815,29 +5814,33 @@ API int pkgmgrinfo_appinfo_get_datacontrol_info(const char *providerid, const ch
 catch:
 	sqlite3_free(query);
 	sqlite3_finalize(stmt);
-	sqlite3_close(appinfo_db);
+	__close_manifest_db();
 	return ret;
 }
 
-API int pkgmgrinfo_appinfo_get_datacontrol_appid(const char *providerid, char **appid)
+API int pkgmgrinfo_appinfo_get_datacontrol_info(const char *providerid, const char *type, char **appid, char **access)
+{
+	return pkgmgrinfo_appinfo_usr_get_datacontrol_info(providerid, type, GLOBAL_USER, appid, access);
+}
+
+API int pkgmgrinfo_appinfo_usr_get_datacontrol_appid(const char *providerid, uid_t uid, char **appid)
 {
 	retvm_if(providerid == NULL, PMINFO_R_EINVAL, "Argument supplied is NULL\n");
 	retvm_if(appid == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 
 	int ret = PMINFO_R_OK;
 	char *query = NULL;
-	sqlite3 *appinfo_db = NULL;
 	sqlite3_stmt *stmt = NULL;
 
 	/*open db*/
-	ret = db_util_open(MANIFEST_DB, &appinfo_db, 0);
+	ret = __open_manifest_db(uid);
 	retvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "connect db [%s] failed!", MANIFEST_DB);
 
 	/*Start constructing query*/
 	query = sqlite3_mprintf("select * from package_app_data_control where providerid=%Q", providerid);
 
 	/*prepare query*/
-	ret = sqlite3_prepare_v2(appinfo_db, query, strlen(query), &stmt, NULL);
+	ret = sqlite3_prepare_v2(GET_DB(manifest_db), query, strlen(query), &stmt, NULL);
 	tryvm_if(ret != PMINFO_R_OK, ret = PMINFO_R_ERROR, "sqlite3_prepare_v2 failed[%s]\n", query);
 
 	/*step query*/
@@ -5851,8 +5854,13 @@ API int pkgmgrinfo_appinfo_get_datacontrol_appid(const char *providerid, char **
 catch:
 	sqlite3_free(query);
 	sqlite3_finalize(stmt);
-	sqlite3_close(appinfo_db);
+	__close_manifest_db();
 	return ret;
+}
+
+API int pkgmgrinfo_appinfo_get_datacontrol_appid(const char *providerid, char **appid)
+{
+	return pkgmgrinfo_appinfo_usr_get_datacontrol_appid(providerid, GLOBAL_USER, appid);
 }
 
 API int pkgmgrinfo_appinfo_foreach_permission(pkgmgrinfo_appinfo_h handle,
@@ -7948,7 +7956,7 @@ API int pkgmgrinfo_datacontrol_get_info(const char *providerid, const char * typ
 	}
 
 	snprintf(query, MAX_QUERY_LEN, 
-		"select appinfo.package_name, datacontrol.access from appinfo, datacontrol where datacontrol.id=appinfo.unique_id and datacontrol.provider_id = '%s' and datacontrol.type='%s' COLLATE NOCASE",
+		"select appinfo.package_name, datacontrol.access from appinfo, datacontrol where datacontrol.id=appinfo.unique_id and datacontrol.providerid = '%s' and datacontrol.type='%s' COLLATE NOCASE",
 		providerid, type);
 
 	if (SQLITE_OK !=
