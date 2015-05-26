@@ -251,10 +251,10 @@ sqlite3 *pkgmgr_cert_db;
 
 #define QUERY_CREATE_TABLE_PACKAGE_APP_DATA_CONTROL "create table if not exists package_app_data_control " \
 						"(app_id text not null, " \
-						"provider_id text not null, " \
+						"providerid text not null, " \
 						"access text not null, " \
 						"type text not null, " \
-						"PRIMARY KEY(app_id, provider_id, access, type) " \
+						"PRIMARY KEY(app_id, providerid, access, type) " \
 						"FOREIGN KEY(app_id) " \
 						"REFERENCES package_app_info(app_id) " \
 						"ON DELETE CASCADE)"
@@ -1453,7 +1453,7 @@ static int __insert_serviceapplication_datacontrol_info(manifest_x *mfx)
 		while(dc != NULL)
 		{
 			snprintf(query, MAX_QUERY_LEN,
-					"insert into package_app_data_control(app_id, provider_id, access, type) " \
+					"insert into package_app_data_control(app_id, providerid, access, type) " \
 					"values('%s', '%s', '%s', '%s')",\
 					mfx->serviceapplication->appid,
 					dc->providerid,
