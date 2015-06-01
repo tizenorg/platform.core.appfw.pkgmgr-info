@@ -387,6 +387,7 @@ typedef struct uiapplication_x {
 	const char *preload;
 	const char *submode;
 	const char *submode_mainid;
+	const char *launch_mode;
 	struct label_x *label;
 	struct icon_x *icon;
 	struct image_x *image;
@@ -401,6 +402,7 @@ typedef struct uiapplication_x {
 	struct datacontrol_x *datacontrol;
 	struct uiapplication_x *prev;
 	struct uiapplication_x *next;
+
 } uiapplication_x;
 
 typedef struct serviceapplication_x {
