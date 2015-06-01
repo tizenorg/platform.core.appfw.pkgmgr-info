@@ -59,6 +59,14 @@ extern "C" {
 #define PKGMGR_PARSER_EMPTY_STR		""
 #define GLOBAL_USER tzplatform_getuid(TZ_SYS_GLOBALAPP_USER)
 
+/**
+ * @brief API return values
+ */
+enum {
+	PM_PARSER_R_EINVAL = -2,		/**< Invalid argument */
+	PM_PARSER_R_ERROR = -1,		/**< General error */
+	PM_PARSER_R_OK = 0			/**< General success */
+};
 
 /**
  * @brief List definitions.

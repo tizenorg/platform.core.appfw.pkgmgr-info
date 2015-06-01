@@ -26,7 +26,7 @@ message(STATUS "version/major : ${VERSION} / ${VERSION_MAJOR}")
 ### Get required CFLAGS, LDFLAGS from pkg-config
 
 include(FindPkgConfig)
-pkg_check_modules(parser_pkgs REQUIRED dlog libxml-2.0 glib-2.0 sqlite3 db-util vconf)
+pkg_check_modules(parser_pkgs REQUIRED dlog libxml-2.0 glib-2.0 sqlite3 db-util vconf bundle)
 
 foreach(flag ${parser_pkgs_CFLAGS})
 	set(parser_pkgs_CFLAGS_str "${parser_pkgs_CFLAGS_str} ${flag}")
@@ -45,7 +45,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
 ## pkgmgr_parser object (by sewook.park)
 # This library is for installer backend
-add_library(pkgmgr_parser SHARED pkgmgr_parser.c pkgmgr_parser_db.c pkgmgr_parser_signature.c)
+add_library(pkgmgr_parser SHARED pkgmgr_parser.c pkgmgr_parser_db.c pkgmgr_parser_signature.c pkgmgr_parser_resource_db.c pkgmgr_parser_resource.c)
 #add_library(pkgmgr_parser SHARED pkgmgr_parser.c)
 set_target_properties(pkgmgr_parser PROPERTIES SOVERSION ${VERSION_MAJOR})
 set_target_properties(pkgmgr_parser PROPERTIES VERSION ${VERSION})
@@ -57,6 +57,7 @@ configure_file(pkgmgr-parser.pc.in ${CMAKE_CURRENT_BINARY_DIR}/pkgmgr-parser.pc 
 configure_file(preload_list.txt.in preload_list.txt @ONLY)
 configure_file(manifest.xsd.in manifest.xsd @ONLY)
 configure_file(xml.xsd.in xml.xsd @ONLY)
+configure_file(res.xsd.in res.xsd @ONLY)
 
 ## Install
 INSTALL(TARGETS
@@ -69,7 +70,9 @@ INSTALL(FILES
 INSTALL(FILES
 			pkgmgr_parser_db.h
 		DESTINATION include/pkgmgr)
-
+INSTALL(FILES
+			pkgmgr_parser_resource.h
+		DESTINATION include/pkgmgr)
 INSTALL(FILES
 		${CMAKE_CURRENT_BINARY_DIR}/pkgmgr-parser.pc
 		DESTINATION ${LIB_INSTALL_DIR}/pkgconfig)
@@ -77,3 +80,4 @@ INSTALL(FILES
 INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/preload_list.txt DESTINATION ${SYSCONFDIR}/package-manager/preload/)
 INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/manifest.xsd DESTINATION ${SYSCONFDIR}/package-manager/preload/)
 INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/xml.xsd DESTINATION ${SYSCONFDIR}/package-manager/preload/)
+INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/res.xsd DESTINATION ${SYSCONFDIR}/package-manager/preload/)
