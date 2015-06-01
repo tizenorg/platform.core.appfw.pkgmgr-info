@@ -18,14 +18,14 @@ INCLUDE_DIRECTORIES(${CMAKE_SOURCE_DIR}/include ${CMAKE_SOURCE_DIR}/src ${CMAKE_
 
 ### Required packages
 INCLUDE(FindPkgConfig)
-pkg_check_modules(pkgs REQUIRED glib-2.0 dlog vconf sqlite3 db-util libxml-2.0 dbus-1 dbus-glib-1 libtzplatform-config libsmack)
+pkg_check_modules(pkgs REQUIRED glib-2.0 dlog vconf sqlite3 db-util libxml-2.0 dbus-1 dbus-glib-1 libtzplatform-config libsmack bundle)
 
 FOREACH(flag ${pkgs_CFLAGS})
 	SET(EXTRA_CFLAGS "${EXTRA_CFLAGS} ${flag}")
 ENDFOREACH(flag)
 
 
-pkg_check_modules(libpkgs REQUIRED glib-2.0 dlog vconf sqlite3 db-util libxml-2.0 dbus-1 dbus-glib-1 libtzplatform-config libsmack)
+pkg_check_modules(libpkgs REQUIRED glib-2.0 dlog vconf sqlite3 db-util libxml-2.0 dbus-1 dbus-glib-1 libtzplatform-config libsmack bundle)
 
 FOREACH(flag ${libpkgs_CFLAGS})
 	SET(EXTRA_CFLAGS "${EXTRA_CFLAGS} ${flag}")
@@ -46,7 +46,7 @@ SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_CFLAGS}")
 add_subdirectory(parser)
 
 ## build pkgmgr-info library
-add_library(pkgmgr-info SHARED src/pkgmgr-info.c src/pkgmgr-info-internal.c)
+add_library(pkgmgr-info SHARED src/pkgmgr-info.c src/pkgmgr-info-internal.c src/pkgmgrinfo_resource.c)
 
 
 SET_TARGET_PROPERTIES(pkgmgr-info PROPERTIES SOVERSION ${VERSION_MAJOR})
@@ -62,6 +62,7 @@ configure_file(tag_parser_list.txt.in tag_parser_list.txt @ONLY)
 INSTALL(TARGETS pkgmgr-info DESTINATION ${LIB_INSTALL_DIR} COMPONENT RuntimeLibraries)
 INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/pkgmgr-info.pc DESTINATION ${LIB_INSTALL_DIR}/pkgconfig)
 INSTALL(FILES ${CMAKE_CURRENT_SOURCE_DIR}/include/pkgmgr-info.h DESTINATION include)
+INSTALL(FILES ${CMAKE_CURRENT_SOURCE_DIR}/include/pkgmgrinfo_resource.h DESTINATION include)
 INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/parser_path.conf DESTINATION ${SYSCONFDIR}/package-manager/)
 INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/mdparser_list.txt DESTINATION ${SYSCONFDIR}/package-manager/parserlib/metadata)
 INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/category_parser_list.txt DESTINATION ${SYSCONFDIR}/package-manager/parserlib/category)

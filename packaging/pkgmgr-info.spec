@@ -16,6 +16,7 @@ BuildRequires: pkgconfig(dbus-1)
 BuildRequires: pkgconfig(dbus-glib-1)
 BuildRequires: pkgconfig(libtzplatform-config)
 BuildRequires: pkgconfig(libsmack)
+BuildRequires:	pkgconfig(bundle)
 
 %description
 Packager Manager infomation api for packaging
@@ -76,6 +77,7 @@ chsmack -a '*' %{TZ_SYS_RW_PACKAGES}
 %manifest %{name}.manifest
 %defattr(-,root,root,-)
 %{_includedir}/pkgmgr-info.h
+%{_includedir}/pkgmgrinfo_resource.h
 %{_libdir}/pkgconfig/pkgmgr-info.pc
 %{_libdir}/libpkgmgr-info.so
 
@@ -86,6 +88,7 @@ chsmack -a '*' %{TZ_SYS_RW_PACKAGES}
 %config %{_sysconfdir}/package-manager/preload/preload_list.txt
 %config %{_sysconfdir}/package-manager/preload/manifest.xsd
 %config %{_sysconfdir}/package-manager/preload/xml.xsd
+%config %{_sysconfdir}/package-manager/preload/res.xsd
 %config %{_sysconfdir}/package-manager/parser_path.conf
 %config %{_sysconfdir}/package-manager/parserlib/metadata/mdparser_list.txt
 %config %{_sysconfdir}/package-manager/parserlib/category/category_parser_list.txt
@@ -96,5 +99,6 @@ chsmack -a '*' %{TZ_SYS_RW_PACKAGES}
 %defattr(-,root,root,-)
 %{_includedir}/pkgmgr/pkgmgr_parser.h
 %{_includedir}/pkgmgr/pkgmgr_parser_db.h
+%{_includedir}/pkgmgr/pkgmgr_parser_resource.h
 %{_libdir}/pkgconfig/pkgmgr-parser.pc
 %{_libdir}/libpkgmgr_parser.so
