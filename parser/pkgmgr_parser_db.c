@@ -129,6 +129,7 @@ sqlite3 *pkgmgr_cert_db;
 						"app_preload text DEFAULT 'false', " \
 						"app_submode text DEFAULT 'false', " \
 						"app_submode_mainid text, " \
+						"app_launch_mode text NOT NULL DEFAULT 'caller', " \
 						"component_type text, " \
 						"package text not null, " \
 						"FOREIGN KEY(package) " \
@@ -828,8 +829,8 @@ static int __insert_uiapplication_info(manifest_x *mfx)
 			 "insert into package_app_info(app_id, app_component, app_exec, app_nodisplay, app_type, app_onboot, " \
 			"app_multiple, app_autorestart, app_taskmanage, app_enabled, app_hwacceleration, app_screenreader, app_mainapp , app_recentimage, " \
 			"app_launchcondition, app_indicatordisplay, app_portraitimg, app_landscapeimg, app_guestmodevisibility, app_permissiontype, "\
-			"app_preload, app_submode, app_submode_mainid, component_type, package) " \
-			"values('%s', '%s', '%s', '%s', '%s', '%s','%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
+			"app_preload, app_submode, app_submode_mainid, component_type, package, app_launch_mode) " \
+			"values('%s', '%s', '%s', '%s', '%s', '%s','%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
 			 up->appid,
 			 "uiapp",
 			 up->exec,
@@ -854,7 +855,8 @@ static int __insert_uiapplication_info(manifest_x *mfx)
 			 up->submode,
 			 __get_str(up->submode_mainid),
 			 up->component_type,
-			 mfx->package);
+			 mfx->package,
+			 up->launch_mode);
 
 		ret = __exec_query(query);
 		if (ret == -1) {

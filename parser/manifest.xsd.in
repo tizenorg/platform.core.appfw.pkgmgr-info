@@ -172,6 +172,7 @@
 	  <xs:attribute name="component-type" type="xs:string"/>
 	  <xs:attribute name="submode" type="xs:boolean"/>
 	  <xs:attribute name="submode-mainid" type="xs:string"/>
+     <xs:attribute name="launch_mode" type="packages:LaunchType"/>
     </xs:complexType>
   </xs:element>
   <xs:element name="ime-application">
@@ -234,6 +235,13 @@
 	<xs:restriction base="xs:string">
 	  <xs:enumeration value="notification"/>
 	  <xs:enumeration value="setting"/>
+	 </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="LaunchType">
+	<xs:restriction base="xs:string">
+	  <xs:enumeration value="caller"/>
+	  <xs:enumeration value="single"/>
+	  <xs:enumeration value="group"/>
 	 </xs:restriction>
   </xs:simpleType>
   <xs:simpleType name="ResolutionType">

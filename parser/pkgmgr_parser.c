@@ -3484,6 +3484,13 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 	}
 	if (xmlTextReaderGetAttribute(reader, XMLCHAR("submode-mainid")))
 		uiapplication->submode_mainid = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("submode-mainid")));
+	if (xmlTextReaderGetAttribute(reader, XMLCHAR("launch_mode"))) {
+		uiapplication->launch_mode = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("launch_mode")));
+		if (uiapplication->launch_mode == NULL)
+			uiapplication->launch_mode = strdup("caller");
+	} else {
+		uiapplication->launch_mode = strdup("caller");
+	}
 
 	depth = xmlTextReaderDepth(reader);
 	while ((ret = __next_child_element(reader, depth))) {

@@ -1152,6 +1152,11 @@ static int __uiapp_list_cb(void *data, int ncols, char **coltxt, char **colname)
 				info->manifest_info->uiapplication->submode_mainid = strdup(coltxt[i]);
 			else
 				info->manifest_info->uiapplication->submode_mainid = NULL;
+		} else if (strcmp(colname, "app_launch_mode") == 0 ) {
+			if (coltxt[i])
+				info->manifest_info->uiapplication->launch_mode = strdup(coltxt[i]);
+			else
+				info->manifest_info->uiapplication->launch_mode = NULL;
 		} else
 			continue;
 	}
@@ -1835,6 +1840,11 @@ static int __mini_appinfo_cb(void *data, int ncols, char **coltxt, char **colnam
 								info->manifest_info->uiapplication->submode_mainid = strdup(coltxt[j]);
 							else
 								info->manifest_info->uiapplication->submode_mainid = NULL;
+						} else if (strcmp(colname[j], "app_launch_mode") == 0 ) {
+							if (coltxt[j])
+								info->manifest_info->uiapplication->launch_mode = strdup(coltxt[j]);
+							else
+								info->manifest_info->uiapplication->launch_mode = NULL;
 						} else
 							continue;
 					}
@@ -2084,6 +2094,11 @@ static int __appinfo_cb(void *data, int ncols, char **coltxt, char **colname)
 					info->uiapp_info->submode_mainid = strdup(coltxt[i]);
 				else
 					info->uiapp_info->submode_mainid = NULL;
+			} else if (strcmp(colname[i], "app_launch_mode") == 0 ) {
+				if (coltxt[i])
+					info->uiapp_info->launch_mode = strdup(coltxt[i]);
+				else
+					info->uiapp_info->launch_mode = NULL;
 			} else
 				continue;
 		}
@@ -5776,6 +5791,19 @@ API int pkgmgrinfo_appinfo_get_submode_mainid(pkgmgrinfo_appinfo_h  handle, char
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 
 	*submode_mainid = (char *)info->uiapp_info->submode_mainid;
+
+	return PMINFO_R_OK;
+}
+
+API int pkgmgrinfo_appinfo_get_launch_mode(pkgmgrinfo_appinfo_h handle, char **mode)
+{
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL\n");
+	retvm_if(mode == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
+	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
+	if (info->uiapp_info->launch_mode)
+		*mode = (char *)(info->uiapp_info->launch_mode);
+	else
+		return PMINFO_R_ERROR;
 
 	return PMINFO_R_OK;
 }
