@@ -256,6 +256,18 @@ sqlite3 *pkgmgr_cert_db;
 						"FOREIGN KEY(app_id) " \
 						"REFERENCES package_app_info(app_id) " \
 						"ON DELETE CASCADE)"
+#define QUERY_CREATE_TABLE_PACKAGE_RESOURCE_INFO "CREATE TABLE IF NOT EXISTS package_resource_info" \
+						"(pkg_id text NOT NULL," \
+						"group_folder text NOT NULL," \
+						"group_type text NOT NULL," \
+						"PRIMARY KEY(pkg_id, group_type))"
+
+#define QUERY_CREATE_TABLE_PACKAGE_RESOURCE_DATA "CREATE TABLE IF NOT EXISTS package_resource_data" \
+						"(id integer REFERENCES package_resource_info(rowid)," \
+						"node_folder text NOT NULL," \
+						"attr_name text NOT NULL," \
+						"attr_value test NOT NULL," \
+						"PRIMARY KEY(id, node_folder, attr_name))"
 
 static int __insert_uiapplication_info(manifest_x *mfx);
 static int __insert_serviceapplication_info(manifest_x *mfx);
@@ -2172,6 +2184,17 @@ API int pkgmgr_parser_initialize_db(void)
 	ret = __initialize_db(pkgmgr_cert_db, QUERY_CREATE_TABLE_PACKAGE_CERT_INDEX_INFO);
 	if (ret == -1) {
 		_LOGD("package cert index info DB initialization failed\n");
+		return ret;
+	}
+	/*resource DB*/
+	ret = __initialize_db(pkgmgr_parser_db, QUERY_CREATE_TABLE_PACKAGE_RESOURCE_INFO);
+	if (ret == -1) {
+		_LOGD("package resource info DB initialization failed\n");
+		return ret;
+	}
+	ret = __initialize_db(pkgmgr_parser_db, QUERY_CREATE_TABLE_PACKAGE_RESOURCE_DATA);
+	if (ret == -1) {
+		_LOGD("package resource data DB initialization failed\n");
 		return ret;
 	}
 
