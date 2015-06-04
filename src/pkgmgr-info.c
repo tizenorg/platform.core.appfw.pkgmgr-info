@@ -1902,6 +1902,34 @@ static int __mini_appinfo_cb(void *data, int ncols, char **coltxt, char **colnam
 	return 0;
 }
 
+static void __parse_appcontrol(appcontrol_x **appcontrol, char *appcontrol_str)
+{
+	char *dup;
+	char *token;
+	char *ptr;
+	appcontrol_x *ac;
+
+	if (appcontrol_str == NULL)
+		return;
+
+	dup = strdup(appcontrol_str);
+	do {
+		ac = calloc(1, sizeof(appcontrol_x));
+		token = strtok_r(dup, "|", &ptr);
+		if (strcmp(token, "NULL"))
+			ac->operation = strdup(token);
+		token = strtok_r(NULL, "|", &ptr);
+		if (strcmp(token, "NULL"))
+			ac->uri = strdup(token);
+		token = strtok_r(NULL, "|", &ptr);
+		if (strcmp(token, "NULL"))
+			ac->mime = strdup(token);
+		LISTADD(*appcontrol, ac);
+	} while (token = strtok_r(NULL, ";", &ptr));
+
+	free(dup);
+}
+
 static int __appinfo_cb(void *data, int ncols, char **coltxt, char **colname)
 {
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)data;
@@ -1912,6 +1940,7 @@ static int __appinfo_cb(void *data, int ncols, char **coltxt, char **colname)
 	metadata_x *metadata = NULL;
 	permission_x *permission = NULL;
 	image_x *image = NULL;
+	appcontrol_x *appcontrol = NULL;
 
 	switch (info->app_component) {
 	case PMINFO_UI_APP:
@@ -2099,6 +2128,8 @@ static int __appinfo_cb(void *data, int ncols, char **coltxt, char **colname)
 					info->uiapp_info->launch_mode = strdup(coltxt[i]);
 				else
 					info->uiapp_info->launch_mode = NULL;
+			} else if (strcmp(colname[i], "app_control") == 0 ) {
+				__parse_appcontrol(&info->uiapp_info->appcontrol, coltxt[i]);
 			} else
 				continue;
 		}
@@ -2200,6 +2231,8 @@ static int __appinfo_cb(void *data, int ncols, char **coltxt, char **colname)
 					info->svcapp_info->permission_type = strdup(coltxt[i]);
 				else
 					info->svcapp_info->permission_type = NULL;
+			} else if (strcmp(colname[i], "app_control") == 0 ) {
+				__parse_appcontrol(&info->svcapp_info->appcontrol, coltxt[i]);
 			} else
 				continue;
 		}
@@ -4503,6 +4536,7 @@ API int pkgmgrinfo_appinfo_get_usr_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_
 	metadata_x *ptr4 = NULL;
 	permission_x *ptr5 = NULL;
 	image_x *ptr6 = NULL;
+	appcontrol_x *ptr7 = NULL;
 	const char* user_pkg_parser = NULL;
 
 	/*get system locale*/
@@ -4591,6 +4625,12 @@ API int pkgmgrinfo_appinfo_get_usr_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_
 			ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
 			tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App image Info DB Information retrieval failed");
 
+			/*store app control info*/
+			snprintf(query, MAX_QUERY_LEN, "select app_control from package_app_app_control where app_id='%s'", appinfo->uiapp_info->appid);
+			ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
+			tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App control Info DB Information retrieval failed");
+
+			memset(query, '\0', MAX_QUERY_LEN);
 			if (appinfo->uiapp_info->label) {
 				LISTHEAD(appinfo->uiapp_info->label, ptr2);
 				appinfo->uiapp_info->label = ptr2;
@@ -4614,6 +4654,10 @@ API int pkgmgrinfo_appinfo_get_usr_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_
 			if (appinfo->uiapp_info->image) {
 				LISTHEAD(appinfo->uiapp_info->image, ptr6);
 				appinfo->uiapp_info->image = ptr6;
+			}
+			if (appinfo->uiapp_info->appcontrol) {
+				LISTHEAD(appinfo->uiapp_info->appcontrol, ptr7);
+				appinfo->uiapp_info->appcontrol = ptr7;
 			}
 			ret = app_func((void *)appinfo, user_data);
 			if (ret < 0)
@@ -4647,6 +4691,10 @@ API int pkgmgrinfo_appinfo_get_usr_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_
 			ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
 			tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App Localized Info DB Information retrieval failed");
 
+			snprintf(query, MAX_QUERY_LEN, "select app_control from package_app_app_control where app_id='%s'", appinfo->svcapp_info->appid);
+			ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
+			tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App control Info DB Information retrieval failed");
+
 			if (appinfo->svcapp_info->label) {
 				LISTHEAD(appinfo->svcapp_info->label, ptr2);
 				appinfo->svcapp_info->label = ptr2;
@@ -4666,6 +4714,10 @@ API int pkgmgrinfo_appinfo_get_usr_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_
 			if (appinfo->svcapp_info->permission) {
 				LISTHEAD(appinfo->svcapp_info->permission, ptr5);
 				appinfo->svcapp_info->permission = ptr5;
+			}
+			if (appinfo->svcapp_info->appcontrol) {
+				LISTHEAD(appinfo->svcapp_info->appcontrol, ptr7);
+				appinfo->svcapp_info->appcontrol = ptr7;
 			}
 			ret = app_func((void *)appinfo, user_data);
 			if (ret < 0)
@@ -4716,6 +4768,11 @@ API int pkgmgrinfo_appinfo_get_usr_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_
 			ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
 			tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App image Info DB Information retrieval failed");
 
+			/*store app control info*/
+			snprintf(query, MAX_QUERY_LEN, "select app_control from package_app_app_control where app_id='%s'", appinfo->uiapp_info->appid);
+			ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
+			tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App control Info DB Information retrieval failed");
+
 			if (appinfo->uiapp_info->label) {
 				LISTHEAD(appinfo->uiapp_info->label, ptr2);
 				appinfo->uiapp_info->label = ptr2;
@@ -4739,6 +4796,10 @@ API int pkgmgrinfo_appinfo_get_usr_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_
 			if (appinfo->uiapp_info->image) {
 				LISTHEAD(appinfo->uiapp_info->image, ptr6);
 				appinfo->uiapp_info->image = ptr6;
+			}
+			if (appinfo->uiapp_info->appcontrol) {
+				LISTHEAD(appinfo->uiapp_info->appcontrol, ptr7);
+				appinfo->uiapp_info->appcontrol = ptr7;
 			}
 			ret = app_func((void *)appinfo, user_data);
 			if (ret < 0)
@@ -4769,6 +4830,10 @@ API int pkgmgrinfo_appinfo_get_usr_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_
 			ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
 			tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App Localized Info DB Information retrieval failed");
 
+			snprintf(query, MAX_QUERY_LEN, "select app_control from package_app_app_control where app_id='%s'", appinfo->svcapp_info->appid);
+			ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
+			tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App control Info DB Information retrieval failed");
+
 			if (appinfo->svcapp_info->label) {
 				LISTHEAD(appinfo->svcapp_info->label, ptr2);
 				appinfo->svcapp_info->label = ptr2;
@@ -4788,6 +4853,10 @@ API int pkgmgrinfo_appinfo_get_usr_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_
 			if (appinfo->svcapp_info->permission) {
 				LISTHEAD(appinfo->svcapp_info->permission, ptr5);
 				appinfo->svcapp_info->permission = ptr5;
+			}
+			if (appinfo->svcapp_info->appcontrol) {
+				LISTHEAD(appinfo->svcapp_info->appcontrol, ptr7);
+				appinfo->svcapp_info->appcontrol = ptr7;
 			}
 			ret = app_func((void *)appinfo, user_data);
 			if (ret < 0)
@@ -4826,7 +4895,7 @@ catch:
 API int pkgmgrinfo_appinfo_get_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_app_component component,
 						pkgmgrinfo_app_list_cb app_func, void *user_data)
 {
-	return pkgmgrinfo_appinfo_get_usr_list(handle, component, app_func, user_data, GLOBAL_USER);
+	return pkgmgrin*fo_appinfo_get_usr_list(handle, component, app_func, user_data, GLOBAL_USER);
 }
 
 API int pkgmgrinfo_appinfo_get_usr_install_list(pkgmgrinfo_app_list_cb app_func, uid_t uid, void *user_data)
@@ -4931,6 +5000,7 @@ API int pkgmgrinfo_appinfo_get_usr_installed_list(pkgmgrinfo_app_list_cb app_fun
 	metadata_x *tmp4 = NULL;
 	permission_x *tmp5 = NULL;
 	image_x *tmp6 = NULL;
+	appcontrol_x *tmp7 = NULL;
 	const char *user_pkg_parser = NULL;
 
 	/*get system locale*/
@@ -5014,12 +5084,17 @@ API int pkgmgrinfo_appinfo_get_usr_installed_list(pkgmgrinfo_app_list_cb app_fun
 		snprintf(query, MAX_QUERY_LEN, "select * from package_app_icon_section_info where app_id='%s'", ptr1->appid);
 		ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
 		tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App icon section Info DB Information retrieval failed");
-		
+
 		/*store app preview image info*/
 		memset(query, '\0', MAX_QUERY_LEN);
 		snprintf(query, MAX_QUERY_LEN, "select app_image_section, app_image from package_app_image_info where app_id='%s'", ptr1->appid);
 		ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
 		tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App image Info DB Information retrieval failed");
+
+		/*store app control info*/
+		snprintf(query, MAX_QUERY_LEN, "select app_control from package_app_app_control where app_id='%s'", ptr1->appid);
+		ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
+		tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App control Info DB Information retrieval failed");
 
 		if (appinfo->uiapp_info->label) {
 			LISTHEAD(appinfo->uiapp_info->label, tmp1);
@@ -5044,6 +5119,10 @@ API int pkgmgrinfo_appinfo_get_usr_installed_list(pkgmgrinfo_app_list_cb app_fun
 		if (appinfo->uiapp_info->image) {
 			LISTHEAD(appinfo->uiapp_info->image, tmp6);
 			appinfo->uiapp_info->image = tmp6;
+		}
+		if (appinfo->uiapp_info->appcontrol) {
+			LISTHEAD(appinfo->uiapp_info->appcontrol, tmp7);
+			appinfo->auiapp_info->appcontrol = tmp7;
 		}
 		ret = app_func((void *)appinfo, user_data);
 		if (ret < 0)
@@ -5081,6 +5160,10 @@ API int pkgmgrinfo_appinfo_get_usr_installed_list(pkgmgrinfo_app_list_cb app_fun
 		ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
 		tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App Info DB Information retrieval failed");
 
+		snprintf(query, MAX_QUERY_LEN, "select app_control from package_app_app_control where app_id='%s'", ptr2->appid);
+		ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
+		tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App control Info DB Information retrieval failed");
+
 		if (appinfo->svcapp_info->label) {
 			LISTHEAD(appinfo->svcapp_info->label, tmp1);
 			appinfo->svcapp_info->label = tmp1;
@@ -5100,6 +5183,10 @@ API int pkgmgrinfo_appinfo_get_usr_installed_list(pkgmgrinfo_app_list_cb app_fun
 		if (appinfo->svcapp_info->permission) {
 			LISTHEAD(appinfo->svcapp_info->permission, tmp5);
 			appinfo->svcapp_info->permission = tmp5;
+		}
+		if (appinfo->svcapp_info->appcontrol) {
+			LISTHEAD(appinfo->svcapp_info->appcontrol, tmp7);
+			appinfo->svcapp_info->appcontrol = tmp7;
 		}
 		ret = app_func((void *)appinfo, user_data);
 		if (ret < 0)
@@ -5148,6 +5235,7 @@ API int pkgmgrinfo_appinfo_get_usr_appinfo(const char *appid, uid_t uid, pkgmgri
 	metadata_x *tmp4 = NULL;
 	permission_x *tmp5 = NULL;
 	image_x *tmp6 = NULL;
+	appcontrol_x *tmp7 = NULL;
 	char query[MAX_QUERY_LEN] = {'\0'};
 	const char* user_pkg_parser = NULL;
 
@@ -5239,6 +5327,11 @@ API int pkgmgrinfo_appinfo_get_usr_appinfo(const char *appid, uid_t uid, pkgmgri
 	ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
 	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App image Info DB Information retrieval failed");
 
+	/*store app control info*/
+	snprintf(query, MAX_QUERY_LEN, "select app_control from package_app_app_control where app_id='%s'", appinfo->uiapp_info->appid);
+	ret = __exec_db_query(GET_DB(manifest_db), query, __appinfo_cb, (void *)appinfo);
+	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "App control Info DB Information retrieval failed");
+
 	switch (appinfo->app_component) {
 	case PMINFO_UI_APP:
 		if (appinfo->uiapp_info->label) {
@@ -5265,6 +5358,10 @@ API int pkgmgrinfo_appinfo_get_usr_appinfo(const char *appid, uid_t uid, pkgmgri
 			LISTHEAD(appinfo->uiapp_info->image, tmp6);
 			appinfo->uiapp_info->image = tmp6;
 		}
+		if (appinfo->uiapp_info->appcontrol) {
+			LISTHEAD(appinfo->uiapp_info->appcontrol, tmp7);
+			appinfo->uiapp_info->appcontrol = tmp7;
+		}
 		break;
 	case PMINFO_SVC_APP:
 		if (appinfo->svcapp_info->label) {
@@ -5286,6 +5383,10 @@ API int pkgmgrinfo_appinfo_get_usr_appinfo(const char *appid, uid_t uid, pkgmgri
 		if (appinfo->svcapp_info->permission) {
 			LISTHEAD(appinfo->svcapp_info->permission, tmp5);
 			appinfo->svcapp_info->permission = tmp5;
+		}
+		if (appinfo->svcapp_info->appcontrol) {
+			LISTHEAD(appinfo->svcapp_info->appcontrol, tmp7);
+			appinfo->svcapp_info->appcontrol = tmp7;
 		}
 		break;
 	default:
@@ -5963,371 +6064,40 @@ API int pkgmgrinfo_appinfo_foreach_metadata(pkgmgrinfo_appinfo_h handle,
 	return PMINFO_R_OK;
 }
 
-API int pkgmgrinfo_usr_appinfo_foreach_appcontrol(pkgmgrinfo_appinfo_h handle,
-			pkgmgrinfo_app_control_list_cb appcontrol_func, void *user_data, uid_t uid)
-{
-	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
-	retvm_if(appcontrol_func == NULL, PMINFO_R_EINVAL, "Callback function is NULL");
-	int i = 0;
-	int ret = -1;
-	int oc = 0;
-	int mc = 0;
-	int uc = 0;
-	int sc = 0;
-	char *pkgid = NULL;
-	char *manifest = NULL;
-	char **operation = NULL;
-	char **uri = NULL;
-	char **mime = NULL;
-	char **subapp = NULL;
-	appcontrol_x *appcontrol = NULL;
-	manifest_x *mfx = NULL;
-	operation_x *op = NULL;
-	uri_x *ui = NULL;
-	mime_x *mi = NULL;
-	subapp_x *sa = NULL;
-	pkgmgrinfo_app_component component;
-	pkgmgrinfo_appcontrol_x *ptr = NULL;
-	ret = pkgmgrinfo_appinfo_get_pkgid(handle, &pkgid);
-	if (ret < 0) {
-		_LOGE("Failed to get package name\n");
-		return PMINFO_R_ERROR;
-	}
-	ret = pkgmgrinfo_appinfo_get_component(handle, &component);
-	if (ret < 0) {
-		_LOGE("Failed to get app component name\n");
-		return PMINFO_R_ERROR;
-	}
-	manifest = pkgmgr_parser_get_usr_manifest_file(pkgid, uid);
-	if (manifest == NULL) {
-		_LOGE("Failed to fetch package manifest file\n");
-		return PMINFO_R_ERROR;
-	}
-	mfx = pkgmgr_parser_usr_process_manifest_xml(manifest, uid);
-	if (mfx == NULL) {
-		_LOGE("Failed to parse package manifest file\n");
-		free(manifest);
-		manifest = NULL;
-		return PMINFO_R_ERROR;
-	}
-	free(manifest);
-	ptr  = calloc(1, sizeof(pkgmgrinfo_appcontrol_x));
-	if (ptr == NULL) {
-		_LOGE("Out of Memory!!!\n");
-		pkgmgr_parser_free_manifest_xml(mfx);
-		return PMINFO_R_ERROR;
-	}
-	/*Get Operation, Uri, Mime*/
-	switch (component) {
-	case PMINFO_UI_APP:
-		if (mfx->uiapplication) {
-			if (mfx->uiapplication->appsvc) {
-				appcontrol = mfx->uiapplication->appsvc;
-			}
-		}
-		break;
-	case PMINFO_SVC_APP:
-		if (mfx->serviceapplication) {
-			if (mfx->serviceapplication->appsvc) {
-				appcontrol = mfx->serviceapplication->appsvc;
-			}
-		}
-		break;
-	default:
-		break;
-	}
-	for (; appcontrol; appcontrol = appcontrol->next) {
-		op = appcontrol->operation;
-		for (; op; op = op->next)
-			oc = oc + 1;
-		op = appcontrol->operation;
-
-		ui = appcontrol->uri;
-		for (; ui; ui = ui->next)
-			uc = uc + 1;
-		ui = appcontrol->uri;
-
-		mi = appcontrol->mime;
-		for (; mi; mi = mi->next)
-			mc = mc + 1;
-		mi = appcontrol->mime;
-
-		sa = appcontrol->subapp;
-		for (; sa; sa = sa->next)
-			sc = sc + 1;
-		sa = appcontrol->subapp;
-
-		operation = (char **)calloc(oc, sizeof(char *));
-		for (i = 0; i < oc; i++) {
-			operation[i] = strndup(op->name, PKG_STRING_LEN_MAX - 1);
-			op = op->next;
-		}
-
-		uri = (char **)calloc(uc, sizeof(char *));
-		for (i = 0; i < uc; i++) {
-			uri[i] = strndup(ui->name, PKG_STRING_LEN_MAX - 1);
-			ui = ui->next;
-		}
-
-		mime = (char **)calloc(mc, sizeof(char *));
-		for (i = 0; i < mc; i++) {
-			mime[i] = strndup(mi->name, PKG_STRING_LEN_MAX - 1);
-			mi = mi->next;
-		}
-
-		subapp = (char **)calloc(sc, sizeof(char *));
-		for (i = 0; i < sc; i++) {
-			subapp[i] = strndup(sa->name, PKG_STRING_LEN_MAX - 1);
-			sa = sa->next;
-		}
-
-		/*populate appcontrol handle*/
-		ptr->operation_count = oc;
-		ptr->uri_count = uc;
-		ptr->mime_count = mc;
-		ptr->subapp_count = sc;
-		ptr->operation = operation;
-		ptr->uri = uri;
-		ptr->mime = mime;
-		ptr->subapp = subapp;
-
-		ret = appcontrol_func((void *)ptr, user_data);
-		for (i = 0; i < oc; i++) {
-			if (operation[i]) {
-				free(operation[i]);
-				operation[i] = NULL;
-			}
-		}
-		if (operation) {
-			free(operation);
-			operation = NULL;
-		}
-		for (i = 0; i < uc; i++) {
-			if (uri[i]) {
-				free(uri[i]);
-				uri[i] = NULL;
-			}
-		}
-		if (uri) {
-			free(uri);
-			uri = NULL;
-		}
-		for (i = 0; i < mc; i++) {
-			if (mime[i]) {
-				free(mime[i]);
-				mime[i] = NULL;
-			}
-		}
-		if (mime) {
-			free(mime);
-			mime = NULL;
-		}
-		for (i = 0; i < sc; i++) {
-			if (subapp[i]) {
-				free(subapp[i]);
-				subapp[i] = NULL;
-			}
-		}
-		if (subapp) {
-			free(subapp);
-			subapp = NULL;
-		}
-		if (ret < 0)
-			break;
-		uc = 0;
-		mc = 0;
-		oc = 0;
-		sc = 0;
-	}
-	pkgmgr_parser_free_manifest_xml(mfx);
-	if (ptr) {
-		free(ptr);
-		ptr = NULL;
-	}
-	return PMINFO_R_OK;
-}
-
 API int pkgmgrinfo_appinfo_foreach_appcontrol(pkgmgrinfo_appinfo_h handle,
 			pkgmgrinfo_app_control_list_cb appcontrol_func, void *user_data)
 {
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
 	retvm_if(appcontrol_func == NULL, PMINFO_R_EINVAL, "Callback function is NULL");
-	int i = 0;
-	int ret = -1;
-	int oc = 0;
-	int mc = 0;
-	int uc = 0;
-	int sc = 0;
-	char *pkgid = NULL;
-	char *manifest = NULL;
-	char **operation = NULL;
-	char **uri = NULL;
-	char **mime = NULL;
-	char **subapp = NULL;
-	appcontrol_x *appcontrol = NULL;
-	manifest_x *mfx = NULL;
-	operation_x *op = NULL;
-	uri_x *ui = NULL;
-	mime_x *mi = NULL;
-	subapp_x *sa = NULL;
+	int ret;
+	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
+	appcontrol_x *appcontrol;
 	pkgmgrinfo_app_component component;
-	pkgmgrinfo_appcontrol_x *ptr = NULL;
-	ret = pkgmgrinfo_appinfo_get_pkgid(handle, &pkgid);
-	if (ret < 0) {
-		_LOGE("Failed to get package name\n");
-		return PMINFO_R_ERROR;
-	}
 	ret = pkgmgrinfo_appinfo_get_component(handle, &component);
 	if (ret < 0) {
 		_LOGE("Failed to get app component name\n");
 		return PMINFO_R_ERROR;
 	}
-	manifest = pkgmgr_parser_get_manifest_file(pkgid);
-	if (manifest == NULL) {
-		_LOGE("Failed to fetch package manifest file\n");
-		return PMINFO_R_ERROR;
-	}
-	mfx = pkgmgr_parser_process_manifest_xml(manifest);
-	if (mfx == NULL) {
-		_LOGE("Failed to parse package manifest file\n");
-		free(manifest);
-		manifest = NULL;
-		return PMINFO_R_ERROR;
-	}
-	free(manifest);
-	ptr  = calloc(1, sizeof(pkgmgrinfo_appcontrol_x));
-	if (ptr == NULL) {
-		_LOGE("Out of Memory!!!\n");
-		pkgmgr_parser_free_manifest_xml(mfx);
-		return PMINFO_R_ERROR;
-	}
-	/*Get Operation, Uri, Mime*/
 	switch (component) {
 	case PMINFO_UI_APP:
-		if (mfx->uiapplication) {
-			if (mfx->uiapplication->appsvc) {
-				appcontrol = mfx->uiapplication->appsvc;
-			}
-		}
+		if (info->uiapp_info == NULL)
+			return PMINFO_R_EINVAL;
+		appcontrol = info->uiapp_info->appcontrol;
 		break;
 	case PMINFO_SVC_APP:
-		if (mfx->serviceapplication) {
-			if (mfx->serviceapplication->appsvc) {
-				appcontrol = mfx->serviceapplication->appsvc;
-			}
-		}
+		if (info->svcapp_info == NULL)
+			return PMINFO_R_EINVAL;
+		appcontrol = info->svcapp_info->appcontrol;
 		break;
 	default:
 		break;
 	}
 	for (; appcontrol; appcontrol = appcontrol->next) {
-		op = appcontrol->operation;
-		for (; op; op = op->next)
-			oc = oc + 1;
-		op = appcontrol->operation;
-
-		ui = appcontrol->uri;
-		for (; ui; ui = ui->next)
-			uc = uc + 1;
-		ui = appcontrol->uri;
-
-		mi = appcontrol->mime;
-		for (; mi; mi = mi->next)
-			mc = mc + 1;
-		mi = appcontrol->mime;
-
-		sa = appcontrol->subapp;
-		for (; sa; sa = sa->next)
-			sc = sc + 1;
-		sa = appcontrol->subapp;
-
-		operation = (char **)calloc(oc, sizeof(char *));
-		for (i = 0; i < oc; i++) {
-			operation[i] = strndup(op->name, PKG_STRING_LEN_MAX - 1);
-			op = op->next;
-		}
-
-		uri = (char **)calloc(uc, sizeof(char *));
-		for (i = 0; i < uc; i++) {
-			uri[i] = strndup(ui->name, PKG_STRING_LEN_MAX - 1);
-			ui = ui->next;
-		}
-
-		mime = (char **)calloc(mc, sizeof(char *));
-		for (i = 0; i < mc; i++) {
-			mime[i] = strndup(mi->name, PKG_STRING_LEN_MAX - 1);
-			mi = mi->next;
-		}
-
-		subapp = (char **)calloc(sc, sizeof(char *));
-		for (i = 0; i < sc; i++) {
-			subapp[i] = strndup(sa->name, PKG_STRING_LEN_MAX - 1);
-			sa = sa->next;
-		}
-
-		/*populate appcontrol handle*/
-		ptr->operation_count = oc;
-		ptr->uri_count = uc;
-		ptr->mime_count = mc;
-		ptr->subapp_count = sc;
-		ptr->operation = operation;
-		ptr->uri = uri;
-		ptr->mime = mime;
-		ptr->subapp = subapp;
-
-		ret = appcontrol_func((void *)ptr, user_data);
-		for (i = 0; i < oc; i++) {
-			if (operation[i]) {
-				free(operation[i]);
-				operation[i] = NULL;
-			}
-		}
-		if (operation) {
-			free(operation);
-			operation = NULL;
-		}
-		for (i = 0; i < uc; i++) {
-			if (uri[i]) {
-				free(uri[i]);
-				uri[i] = NULL;
-			}
-		}
-		if (uri) {
-			free(uri);
-			uri = NULL;
-		}
-		for (i = 0; i < mc; i++) {
-			if (mime[i]) {
-				free(mime[i]);
-				mime[i] = NULL;
-			}
-		}
-		if (mime) {
-			free(mime);
-			mime = NULL;
-		}
-		for (i = 0; i < sc; i++) {
-			if (subapp[i]) {
-				free(subapp[i]);
-				subapp[i] = NULL;
-			}
-		}
-		if (subapp) {
-			free(subapp);
-			subapp = NULL;
-		}
+		ret = appcontrol_func(appcontrol->operation, appcontrol->uri, appcontrol->mime, user_data);
 		if (ret < 0)
 			break;
-		uc = 0;
-		mc = 0;
-		oc = 0;
-		sc = 0;
 	}
-	pkgmgr_parser_free_manifest_xml(mfx);
-	if (ptr) {
-		free(ptr);
-		ptr = NULL;
-	}
+
 	return PMINFO_R_OK;
 }
 
