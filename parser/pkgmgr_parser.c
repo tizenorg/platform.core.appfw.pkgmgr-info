@@ -1741,50 +1741,15 @@ static void __ps_free_appcontrol(appcontrol_x *appcontrol)
 {
 	if (appcontrol == NULL)
 		return;
-	if (appcontrol->text) {
-		free((void *)appcontrol->text);
-		appcontrol->text = NULL;
-	}
 	/*Free Operation*/
-	if (appcontrol->operation) {
-		operation_x *operation = appcontrol->operation;
-		operation_x *tmp = NULL;
-		while(operation != NULL) {
-			tmp = operation->next;
-			__ps_free_operation(operation);
-			operation = tmp;
-		}
-	}
+	if (appcontrol->operation)
+		free(appcontrol->operation);
 	/*Free Uri*/
-	if (appcontrol->uri) {
-		uri_x *uri = appcontrol->uri;
-		uri_x *tmp = NULL;
-		while(uri != NULL) {
-			tmp = uri->next;
-			__ps_free_uri(uri);
-			uri = tmp;
-		}
-	}
+	if (appcontrol->uri)
+		free(appcontrol->uri);
 	/*Free Mime*/
-	if (appcontrol->mime) {
-		mime_x *mime = appcontrol->mime;
-		mime_x *tmp = NULL;
-		while(mime != NULL) {
-			tmp = mime->next;
-			__ps_free_mime(mime);
-			mime = tmp;
-		}
-	}
-	/*Free subapp*/
-	if (appcontrol->subapp) {
-		subapp_x *subapp = appcontrol->subapp;
-		subapp_x *tmp = NULL;
-		while(subapp != NULL) {
-			tmp = subapp->next;
-			__ps_free_subapp(subapp);
-			subapp = tmp;
-		}
-	}
+	if (appcontrol->mime)
+		free(appcontrol->mime);
 	free((void*)appcontrol);
 	appcontrol = NULL;
 }
@@ -2724,10 +2689,6 @@ static int __ps_process_appcontrol(xmlTextReaderPtr reader, appcontrol_x *appcon
 	const xmlChar *node;
 	int ret = -1;
 	int depth = -1;
-	operation_x *tmp1 = NULL;
-	uri_x *tmp2 = NULL;
-	mime_x *tmp3 = NULL;
-	subapp_x *tmp4 = NULL;
 
 	depth = xmlTextReaderDepth(reader);
 	while ((ret = __next_child_element(reader, depth))) {
@@ -2738,45 +2699,14 @@ static int __ps_process_appcontrol(xmlTextReaderPtr reader, appcontrol_x *appcon
 		}
 
 		if (!strcmp(ASCII(node), "operation")) {
-			operation_x *operation = malloc(sizeof(operation_x));
-			if (operation == NULL) {
-				_LOGD("Malloc Failed\n");
-				return -1;
-			}
-			memset(operation, '\0', sizeof(operation_x));
-			LISTADD(appcontrol->operation, operation);
-			ret = __ps_process_operation(reader, operation);
+			appcontrol->operation = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("name")));
 			_LOGD("operation processing\n");
 		} else if (!strcmp(ASCII(node), "uri")) {
-			uri_x *uri= malloc(sizeof(uri_x));
-			if (uri == NULL) {
-				_LOGD("Malloc Failed\n");
-				return -1;
-			}
-			memset(uri, '\0', sizeof(uri_x));
-			LISTADD(appcontrol->uri, uri);
-			ret = __ps_process_uri(reader, uri);
+			appcontrol->uri = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("name")));
 			_LOGD("uri processing\n");
 		} else if (!strcmp(ASCII(node), "mime")) {
-			mime_x *mime = malloc(sizeof(mime_x));
-			if (mime == NULL) {
-				_LOGD("Malloc Failed\n");
-				return -1;
-			}
-			memset(mime, '\0', sizeof(mime_x));
-			LISTADD(appcontrol->mime, mime);
-			ret = __ps_process_mime(reader, mime);
+			appcontrol->mime = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("name")));
 			_LOGD("mime processing\n");
-		} else if (!strcmp(ASCII(node), "subapp")) {
-			subapp_x *subapp = malloc(sizeof(subapp_x));
-			if (subapp == NULL) {
-				_LOGD("Malloc Failed\n");
-				return -1;
-			}
-			memset(subapp, '\0', sizeof(subapp_x));
-			LISTADD(appcontrol->subapp, subapp);
-			ret = __ps_process_subapp(reader, subapp);
-			_LOGD("subapp processing\n");
 		} else
 			return -1;
 		if (ret < 0) {
@@ -2784,26 +2714,6 @@ static int __ps_process_appcontrol(xmlTextReaderPtr reader, appcontrol_x *appcon
 			return ret;
 		}
 	}
-	if (appcontrol->operation) {
-		LISTHEAD(appcontrol->operation, tmp1);
-		appcontrol->operation = tmp1;
-	}
-	if (appcontrol->uri) {
-		LISTHEAD(appcontrol->uri, tmp2);
-		appcontrol->uri = tmp2;
-	}
-	if (appcontrol->mime) {
-		LISTHEAD(appcontrol->mime, tmp3);
-		appcontrol->mime = tmp3;
-	}
-	if (appcontrol->subapp) {
-		LISTHEAD(appcontrol->subapp, tmp4);
-		appcontrol->subapp = tmp4;
-	}
-
-	xmlTextReaderRead(reader);
-	if (xmlTextReaderValue(reader))
-		appcontrol->text = ASCII(xmlTextReaderValue(reader));
 
 	return ret;
 }
@@ -4619,67 +4529,15 @@ static int __ps_make_nativeapp_desktop(manifest_x * mfx, const char *manifest, A
 
 			uiapplication_x *up = mfx->uiapplication;
 			appcontrol_x *acontrol = NULL;
-			operation_x *op = NULL;
-			mime_x *mi = NULL;
-			uri_x *ui = NULL;
-			subapp_x *sub = NULL;
-			const char *operation = NULL;
-			const char *mime = NULL;
-			const char *uri = NULL;
-			const char *subapp = NULL;
-			int i = 0;
-
 			acontrol = up->appcontrol;
 			while(acontrol != NULL) {
-				op = acontrol->operation;
-				while(op != NULL) {
-					if (op)
-						operation = op->name;
-					mi = acontrol->mime;
-
-					do
-					{
-						if (mi)
-							mime = mi->name;
-						sub = acontrol->subapp;
-						do
-						{
-							if (sub)
-								subapp = sub->name;
-							ui = acontrol->uri;
-							do
-							{
-								if (ui)
-									uri = ui->name;
-
-								if(i++ > 0) {
-									strncpy(buftemp, buf, BUFMAX);
-									snprintf(buf, BUFMAX, "%s;", buftemp);
-								}
-
-								strncpy(buftemp, buf, BUFMAX);
-								snprintf(buf, BUFMAX, "%s%s|%s|%s|%s", buftemp, operation?operation:"NULL", uri?uri:"NULL", mime?mime:"NULL", subapp?subapp:"NULL");
-								_LOGD("buf[%s]\n", buf);
-
-								if (ui)
-									ui = ui->next;
-								uri = NULL;
-							} while(ui != NULL);
-						if (sub)
-								sub = sub->next;
-							subapp = NULL;
-						}while(sub != NULL);
-						if (mi)
-							mi = mi->next;
-						mime = NULL;
-					}while(mi != NULL);
-					if (op)
-						op = op->next;
-					operation = NULL;
-				}
+				snprintf(buf, BUFMAX, "%s|%s|%s",
+						acontrol->operation ? acontrol->operation : "NULL",
+						acontrol->uri ? acontrol->uri : "NULL",
+						acontrol->mime ? acontrol->mime : "NULL");
+				_LOGD("buf[%s]\n", buf);
 				acontrol = acontrol->next;
 			}
-
 
 			fwrite(buf, 1, strlen(buf), file);
 

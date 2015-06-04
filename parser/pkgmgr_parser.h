@@ -310,11 +310,9 @@ typedef struct appsvc_x {
 } appsvc_x;
 
 typedef struct appcontrol_x {
-	const char *text;
-	struct operation_x *operation;
-	struct uri_x *uri;
-	struct mime_x *mime;
-	struct subapp_x *subapp;
+	const char *operation;
+	const char *uri;
+	const char *mime;
 	struct appcontrol_x *prev;
 	struct appcontrol_x *next;
 } appcontrol_x;
