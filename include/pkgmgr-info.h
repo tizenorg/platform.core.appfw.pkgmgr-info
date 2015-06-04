@@ -308,7 +308,7 @@ typedef int (*pkgmgrinfo_app_metadata_list_cb ) (const char *metadata_key,
  *
  * @see  pkgmgrinfo_appinfo_foreach_appcontrol()
  */
-typedef int (*pkgmgrinfo_app_control_list_cb ) (pkgmgrinfo_appcontrol_h handle,
+typedef int (*pkgmgrinfo_app_control_list_cb ) (const char *operation, const char *uri, const char *mime,
 							void *user_data);
 
 /**
@@ -3513,8 +3513,6 @@ static int check_operation(const char *appid, char *operation)
  */
 int pkgmgrinfo_appinfo_foreach_appcontrol(pkgmgrinfo_appinfo_h handle,
 			pkgmgrinfo_app_control_list_cb appcontrol_func, void *user_data);
-int pkgmgrinfo_usr_appinfo_foreach_appcontrol(pkgmgrinfo_appinfo_h handle,
-			pkgmgrinfo_app_control_list_cb appcontrol_func, void *user_data, uid_t uid);
 
 /**
  * @fn int pkgmgrinfo_appinfo_is_nodisplay(pkgmgrinfo_appinfo_h handle, bool *nodisplay)
