@@ -2125,6 +2125,16 @@ static void __ps_free_uiapplication(uiapplication_x *uiapplication)
 			permission = tmp;
 		}
 	}
+	/*Free DataControl*/
+	if (uiapplication->datacontrol) {
+		datacontrol_x *datacontrol = uiapplication->datacontrol;
+		datacontrol_x *tmp = NULL;
+		while(datacontrol != NULL) {
+			tmp = datacontrol->next;
+			__ps_free_datacontrol(datacontrol);
+			datacontrol = tmp;
+		}
+	}
 	/* _PRODUCT_LAUNCHING_ENHANCED_ START */
 	if (uiapplication->indicatordisplay) {
 		free((void *)uiapplication->indicatordisplay);
@@ -3258,6 +3268,7 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 	metadata_x *tmp9 = NULL;
 	image_x *tmp10 = NULL;
 	permission_x *tmp11 = NULL;
+	datacontrol_x *tmp12 = NULL;
 
 	if (xmlTextReaderGetAttribute(reader, XMLCHAR("appid"))) {
 		uiapplication->appid = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("appid")));
@@ -3508,6 +3519,15 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 			memset(notification, '\0', sizeof(notification_x));
 			LISTADD(uiapplication->notification, notification);
 			ret = __ps_process_notification(reader, notification);
+		} else if (!strcmp(ASCII(node), "datacontrol")) {
+			datacontrol_x *datacontrol = malloc(sizeof(datacontrol_x));
+			if (datacontrol == NULL) {
+				_LOGD("Malloc Failed\n");
+				return -1;
+			}
+			memset(datacontrol, '\0', sizeof(datacontrol_x));
+			LISTADD(uiapplication->datacontrol, datacontrol);
+			ret = __ps_process_datacontrol(reader, datacontrol);
 		} else
 			return -1;
 		if (ret < 0) {
@@ -3559,6 +3579,10 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 	if (uiapplication->permission) {
 		LISTHEAD(uiapplication->permission, tmp11);
 		uiapplication->permission = tmp11;
+	}
+	if (uiapplication->datacontrol) {
+		LISTHEAD(uiapplication->datacontrol, tmp12);
+		uiapplication->datacontrol = tmp12;
 	}
 
 	return ret;

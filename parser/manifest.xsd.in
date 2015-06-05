@@ -148,6 +148,7 @@
           <xs:element ref="packages:category"/>
           <xs:element ref="packages:metadata"/>
 		  <xs:element ref="packages:permission"/>
+		  <xs:element ref="packages:datacontrol"/>
         </xs:choice>
       </xs:sequence>
       <xs:attribute name="appid" use="required" type="xs:string"/>
