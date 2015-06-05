@@ -283,6 +283,7 @@ static int __insert_uiapplication_share_allowed_info(manifest_x *mfx);
 static int __insert_serviceapplication_share_allowed_info(manifest_x *mfx);
 static int __insert_uiapplication_share_request_info(manifest_x *mfx);
 static int __insert_serviceapplication_share_request_info(manifest_x *mfx);
+static int __insert_uiapplication_datacontrol_info(manifest_x *mfx);
 static int __insert_serviceapplication_datacontrol_info(manifest_x *mfx);
 static void __insert_serviceapplication_locale_info(gpointer data, gpointer userdata);
 static void __insert_uiapplication_locale_info(gpointer data, gpointer userdata);
@@ -1076,6 +1077,39 @@ static int __insert_uiapplication_appsvc_info(manifest_x *mfx)
 	return 0;
 }
 
+static int __insert_uiapplication_datacontrol_info(manifest_x *mfx)
+{
+	uiapplication_x *up = mfx->uiapplication;
+	datacontrol_x *dc = NULL;
+	int ret = -1;
+	char query[MAX_QUERY_LEN] = {'\0'};
+
+	while(up != NULL)
+	{
+		dc = up->datacontrol;
+		while(dc != NULL)
+		{
+			snprintf(query, MAX_QUERY_LEN,
+					"insert into package_app_data_control(app_id, providerid, access, type) " \
+					"values('%s', '%s', '%s', '%s')",\
+					mfx->uiapplication->appid,
+					dc->providerid,
+					dc->access,
+					dc->type);
+
+			ret = __exec_query(query);
+			if (ret == -1) {
+				_LOGD("Package UiApp Data Control DB Insert Failed\n");
+				return -1;
+			}
+			memset(query, '\0', MAX_QUERY_LEN);
+			dc = dc->next;
+		}
+		up = up->next;
+	}
+	return 0;
+}
+
 static int __insert_uiapplication_share_request_info(manifest_x *mfx)
 {
 	uiapplication_x *up = mfx->uiapplication;
@@ -1784,6 +1818,9 @@ static int __insert_manifest_info_in_db(manifest_x *mfx, uid_t uid)
 		return -1;
 
 	/*Insert in the package_app_data_control DB*/
+	ret = __insert_uiapplication_datacontrol_info(mfx);
+	if (ret == -1)
+		return -1;
 	ret = __insert_serviceapplication_datacontrol_info(mfx);
 	if (ret == -1)
 		return -1;
