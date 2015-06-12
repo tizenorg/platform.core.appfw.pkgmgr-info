@@ -6729,6 +6729,7 @@ API int pkgmgrinfo_appinfo_usr_filter_foreach_appinfo(pkgmgrinfo_appinfo_filter_
 	/*If the callback func return < 0 we break and no more call back is called*/
 	while(ptr1 != NULL)
 	{
+		appinfo->package = strdup(ptr1->package);
 		appinfo->locale = strdup(locale);
 		appinfo->uiapp_info = ptr1;
 		appinfo->app_component = PMINFO_UI_APP;
@@ -6745,6 +6746,7 @@ API int pkgmgrinfo_appinfo_usr_filter_foreach_appinfo(pkgmgrinfo_appinfo_filter_
 	/*If the callback func return < 0 we break and no more call back is called*/
 	while(ptr2 != NULL)
 	{
+		appinfo->package = strdup(ptr2->package);
 		appinfo->locale = strdup(locale);
 		appinfo->svcapp_info = ptr2;
 		appinfo->app_component = PMINFO_SVC_APP;
