@@ -979,9 +979,9 @@ static int __insert_uiapplication_appcontrol_info(manifest_x *mfx)
 		acontrol = up->appcontrol;
 		while (acontrol != NULL) {
 			snprintf(buf, BUFSIZE, "%s|%s|%s",\
-					acontrol->operation ? acontrol->operation : "NULL",
-					acontrol->uri ? acontrol->uri : "NULL",
-					acontrol->mime ? acontrol->mime : "NULL");
+					acontrol->operation ? (strlen(acontrol->operation) > 0 ? acontrol->operation : "NULL") : "NULL",
+					acontrol->uri ? (strlen(acontrol->uri) > 0 ? acontrol->uri : "NULL") : "NULL",
+					acontrol->mime ? (strlen(acontrol->mime) > 0 ? acontrol->mime : "NULL") : "NULL");
 			snprintf(query, MAX_QUERY_LEN,
 					"insert into package_app_app_control(app_id, app_control) " \
 					"values('%s', '%s')",\
@@ -1305,9 +1305,9 @@ static int __insert_serviceapplication_appcontrol_info(manifest_x *mfx)
 		acontrol = sp->appcontrol;
 		while (acontrol != NULL) {
 			snprintf(buf, BUFSIZE, "%s|%s|%s",
-					acontrol->operation ? acontrol->operation : "NULL",
-					acontrol->uri ? acontrol->uri : "NULL",
-					acontrol->mime ? acontrol->mime : "NULL");
+					acontrol->operation ? (strlen(acontrol->operation) > 0 ? acontrol->operation : "NULL") : "NULL",
+					acontrol->uri ? (strlen(acontrol->uri) > 0 ? acontrol->uri : "NULL") : "NULL",
+					acontrol->mime ? (strlen(acontrol->mime) > 0 ? acontrol->mime : "NULL") : "NULL");
 			snprintf(query, MAX_QUERY_LEN,
 					"insert into package_app_app_control(app_id, app_control) " \
 					"values('%s', '%s')",\
