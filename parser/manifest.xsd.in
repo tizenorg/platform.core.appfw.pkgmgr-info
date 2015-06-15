@@ -129,9 +129,9 @@
         </xs:choice>
       </xs:sequence>
       <xs:attribute name="appid" use="required" type="xs:string"/>
-      <xs:attribute name="auto-restart" use="required" type="xs:boolean"/>
+      <xs:attribute name="auto-restart" type="xs:boolean"/>
       <xs:attribute name="exec" use="required"/>
-      <xs:attribute name="on-boot" use="required" type="xs:boolean"/>
+      <xs:attribute name="on-boot" type="xs:boolean"/>
       <xs:attribute name="type" use="required" type="packages:TypeType"/>
       <xs:attribute name="multiple" type="xs:boolean"/>
       <xs:attribute name="taskmanage" type="xs:boolean"/>
@@ -177,7 +177,7 @@
       <xs:attribute name="submode-mainid" type="xs:string"/>
       <xs:attribute name="launch_mode" type="packages:LaunchType"/>
       <xs:attribute name="on-boot" type="xs:boolean"/>
-      <xs:attribute name="auto-restart" use="required" type="xs:boolean"/>
+      <xs:attribute name="auto-restart" type="xs:boolean"/>
     </xs:complexType>
   </xs:element>
   <xs:element name="ime-application">
