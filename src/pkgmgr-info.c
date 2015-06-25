@@ -349,7 +349,7 @@ static int _mkdir_for_user(const char* dir, uid_t uid, gid_t gid)
 
 static const char *_get_db_path(uid_t uid) {
 	const char *db_path = NULL;
-	if (uid != GLOBAL_USER) {
+	if (uid != GLOBAL_USER && uid != ROOT_UID) {
 		tzplatform_set_user(uid);
 		db_path = tzplatform_getenv(TZ_USER_DB);
 		tzplatform_reset_user();
@@ -365,7 +365,7 @@ static int __attach_and_create_view(sqlite3 *handle, const char *db, const char 
 	char *err;
 	char query[MAX_QUERY_LEN];
 
-	if (uid == GLOBAL_USER)
+	if (uid == GLOBAL_USER || uid == ROOT_UID)
 		return SQLITE_OK;
 
 	snprintf(query, sizeof(query), "ATTACH DATABASE '%s' AS Global", db);
@@ -421,12 +421,7 @@ API char *getIconPath(uid_t uid)
 	uid_t uid_caller = getuid();
 	gid_t gid = ROOT_UID;
 
-	if (uid == ROOT_UID) {
-		_LOGE("FAIL : Root is not allowed user! please fix it replacing with DEFAULT_USER");
-		return NULL;
-	}
-
-	if (uid != GLOBAL_USER) {
+	if (uid != GLOBAL_USER && uid != ROOT_UID) {
 		tzplatform_set_user(uid);
 		path = tzplatform_mkpath(TZ_USER_ICONS, "/");
 		gid = _get_gid(tzplatform_getenv(TZ_SYS_USER_GROUP));
@@ -453,12 +448,7 @@ API char *getUserPkgParserDBPathUID(uid_t uid)
 	uid_t uid_caller = getuid();
 	gid_t gid = ROOT_UID;
 
-	if (uid == ROOT_UID) {
-		_LOGE("FAIL : Root is not allowed user! please fix it replacing with DEFAULT_USER");
-		return NULL;
-	}
-
-	if (uid != GLOBAL_USER) {
+	if (uid != GLOBAL_USER && uid != ROOT_UID) {
 		tzplatform_set_user(uid);
 		pkgmgr_parser_db = tzplatform_mkpath(TZ_USER_DB, ".pkgmgr_parser.db");
 		gid = _get_gid(tzplatform_getenv(TZ_SYS_USER_GROUP));
@@ -487,12 +477,7 @@ API char *getUserPkgCertDBPathUID(uid_t uid)
 	uid_t uid_caller = getuid();
 	gid_t gid = ROOT_UID;
 
-	if (uid == ROOT_UID) {
-		_LOGE("FAIL : Root is not allowed user! please fix it replacing with DEFAULT_USER");
-		return NULL;
-	}
-
-	if (uid != GLOBAL_USER) {
+	if (uid != GLOBAL_USER && uid != ROOT_UID) {
 		tzplatform_set_user(uid);
 		pkgmgr_cert_db = tzplatform_mkpath(TZ_USER_DB, ".pkgmgr_cert.db");
 		gid = _get_gid(tzplatform_getenv(TZ_SYS_USER_GROUP));
@@ -516,12 +501,7 @@ API const char* getUserDesktopPath(uid_t uid)
 	uid_t uid_caller = getuid();
 	gid_t gid = ROOT_UID;
 
-	if (uid == ROOT_UID) {
-		_LOGE("FAIL : Root is not allowed user! please fix it replacing with DEFAULT_USER");
-		return NULL;
-	}
-
-	if (uid != GLOBAL_USER) {
+	if (uid != GLOBAL_USER && uid != ROOT_UID) {
 		tzplatform_set_user(uid);
 		path = tzplatform_mkpath(TZ_USER_DESKTOP, "/");
 		gid = _get_gid(tzplatform_getenv(TZ_SYS_USER_GROUP));
@@ -543,12 +523,7 @@ API const char* getUserManifestPath(uid_t uid)
 	uid_t uid_caller = getuid();
 	gid_t gid = ROOT_UID;
 
-	if (uid == ROOT_UID) {
-		_LOGE("FAIL : Root is not allowed user! please fix it replacing with DEFAULT_USER");
-		return NULL;
-	}
-
-	if (uid != GLOBAL_USER) {
+	if (uid != GLOBAL_USER && uid != ROOT_UID) {
 		tzplatform_set_user(uid);
 		path = tzplatform_mkpath(TZ_USER_PACKAGES, "/");
 		gid = _get_gid(tzplatform_getenv(TZ_SYS_USER_GROUP));
