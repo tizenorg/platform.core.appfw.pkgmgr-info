@@ -4181,430 +4181,6 @@ static char* __convert_to_system_locale(const char *mlocale)
 	return locale;
 }
 
-#define LIBAIL_PATH LIB_PATH "/libail.so.0"
-
-/* operation_type */
-typedef enum {
-	AIL_INSTALL = 0,
-	AIL_UPDATE,
-	AIL_REMOVE,
-	AIL_CLEAN,
-	AIL_FOTA,
-	AIL_MAX
-} AIL_TYPE;
-
-static int __ail_change_info(int op, const char *appid, uid_t uid)
-{
-	void *lib_handle = NULL;
-	char *aop = NULL;
-	int ret = 0;
-
-	if ((lib_handle = dlopen(LIBAIL_PATH, RTLD_LAZY)) == NULL) {
-		_LOGE("dlopen is failed LIBAIL_PATH[%s]\n", LIBAIL_PATH);
-		goto END;
-	}
-//is_admin
-	if(uid != GLOBAL_USER)
-	{
-		int (*ail_desktop_operation) (const char *, uid_t uid);
-		switch (op) {
-			case 0:
-				aop  = "ail_usr_desktop_add";
-				break;
-			case 1:
-				aop  = "ail_usr_desktop_update";
-				break;
-			case 2:
-				aop  = "ail_usr_desktop_remove";
-				break;
-			case 3:
-				aop  = "ail_usr_desktop_clean";
-				break;
-			case 4:
-				aop  = "ail_usr_desktop_fota";
-				break;
-			default:
-				goto END;
-				break;
-		}
-
-		if ((ail_desktop_operation =
-			dlsym(lib_handle, aop)) == NULL || dlerror() != NULL) {
-			_LOGE("can not find symbol \n");
-			goto END;
-		}
-
-		ret = ail_desktop_operation(appid, uid);
-	}else{
-		int (*ail_desktop_operation) (const char *);
-		switch (op) {
-			case 0:
-				aop  = "ail_desktop_add";
-				break;
-			case 1:
-				aop  = "ail_desktop_update";
-				break;
-			case 2:
-				aop  = "ail_desktop_remove";
-				break;
-			case 3:
-				aop  = "ail_desktop_clean";
-				break;
-			case 4:
-				aop  = "ail_desktop_fota";
-				break;
-			default:
-				goto END;
-				break;
-		}
-
-		if ((ail_desktop_operation =
-			dlsym(lib_handle, aop)) == NULL || dlerror() != NULL) {
-			_LOGE("can not find symbol \n");
-			goto END;
-		}
-
-		ret = ail_desktop_operation(appid);
-
-	}
-END:
-	if (lib_handle)
-		dlclose(lib_handle);
-
-	return ret;
-}
-
-/* desktop shoud be generated automatically based on manifest */
-/* Currently removable, taskmanage, etc fields are not considerd. it will be decided soon.*/
-#define BUFMAX 1024*128
-static int __ps_make_nativeapp_desktop(manifest_x * mfx, const char *manifest, ACTION_TYPE action, uid_t uid)
-{
-        FILE* file = NULL;
-        int fd = 0;
-        char filepath[PKG_STRING_LEN_MAX] = "";
-        char *buf = NULL;
-	char *buftemp = NULL;
-	char *locale = NULL;
-
-	buf = (char *)calloc(1, BUFMAX);
-	if (!buf) {
-		_LOGE("Malloc Failed\n");
-		return -1;
-	}
-
-	buftemp = (char *)calloc(1, BUFMAX);
-	if (!buftemp) {
-		_LOGE("Malloc Failed\n");
-		free(buf);
-		return -1;
-	}
-
-	if (action == ACTION_UPGRADE)
-		__ail_change_info(AIL_CLEAN, mfx->package, uid);
-
-	for(; mfx->uiapplication; mfx->uiapplication=mfx->uiapplication->next) {
-
-		snprintf(filepath, sizeof(filepath),"%s%s.desktop", getUserDesktopPath(uid), mfx->uiapplication->appid);
-
-		/* skip if desktop exists
-		if (access(filepath, R_OK) == 0)
-			continue;
-		*/
-
-	        file = fopen(filepath, "w");
-	        if(file == NULL)
-	        {
-	            _LOGD("Can't open %s", filepath);
-		    free(buf);
-		    free(buftemp);
-	            return -1;
-	        }
-
-	        snprintf(buf, BUFMAX, "[Desktop Entry]\n");
-	        fwrite(buf, 1, strlen(buf), file);
-
-		for( ; mfx->uiapplication->label ; mfx->uiapplication->label = mfx->uiapplication->label->next) {
-			if(!strcmp(mfx->uiapplication->label->lang, DEFAULT_LOCALE)) {
-				snprintf(buf, BUFMAX, "Name=%s\n",	mfx->uiapplication->label->text);
-			} else {
-				locale = __convert_to_system_locale(mfx->uiapplication->label->lang);
-				snprintf(buf, BUFMAX, "Name[%s]=%s\n", locale,
-					mfx->uiapplication->label->text);
-				free(locale);
-			}
-	        	fwrite(buf, 1, strlen(buf), file);
-		}
-
-		if(mfx->uiapplication->label && mfx->uiapplication->label->text) {
-		        snprintf(buf, BUFMAX, "Name=%s\n", mfx->uiapplication->label->text);
-	        	fwrite(buf, 1, strlen(buf), file);
-		}
-/*
-		else if(mfx->label && mfx->label->text) {
-			snprintf(buf, BUFMAX, "Name=%s\n", mfx->label->text);
-	        	fwrite(buf, 1, strlen(buf), file);
-		} else {
-			snprintf(buf, BUFMAX, "Name=%s\n", mfx->package);
-			fwrite(buf, 1, strlen(buf), file);
-		}
-*/
-
-
-	        snprintf(buf, BUFMAX, "Type=Application\n");
-	        fwrite(buf, 1, strlen(buf), file);
-
-		if(mfx->uiapplication->exec) {
-		        snprintf(buf, BUFMAX, "Exec=%s\n", mfx->uiapplication->exec);
-		        fwrite(buf, 1, strlen(buf), file);
-		}
-
-		if(mfx->uiapplication->icon && mfx->uiapplication->icon->text) {
-		        snprintf(buf, BUFMAX, "Icon=%s\n", mfx->uiapplication->icon->text);
-		        fwrite(buf, 1, strlen(buf), file);
-		} else if(mfx->icon && mfx->icon->text) {
-		        snprintf(buf, BUFMAX, "Icon=%s\n", mfx->icon->text);
-		        fwrite(buf, 1, strlen(buf), file);
-		}
-
-		// MIME types
-		if(mfx->uiapplication && mfx->uiapplication->appsvc) {
-			appsvc_x *asvc = mfx->uiapplication->appsvc;
-			mime_x *mi = NULL;
-			const char *mime = NULL;
-			const char *mime_delim = "; ";
-			int mime_count = 0;
-
-			strncpy(buf, "MimeType=", BUFMAX-1);
-			while (asvc) {
-				mi = asvc->mime;
-				while (mi) {
-					mime_count++;
-					mime = mi->name;
-					_LOGD("MIME type: %s\n", mime);
-					strncat(buf, mime, BUFMAX-strlen(buf)-1);
-					if(mi->next) {
-						strncat(buf, mime_delim, BUFMAX-strlen(buf)-1);
-					}
-
-					mi = mi->next;
-					mime = NULL;
-				}
-				asvc = asvc->next;
-			}
-			_LOGD("MIME types: buf[%s]\n", buf);
-			_LOGD("MIME count: %d\n", mime_count);
-			if(mime_count)
-				fwrite(buf, 1, strlen(buf), file);
-		}
-
-		if(mfx->version) {
-		        snprintf(buf, BUFMAX, "Version=%s\n", mfx->version);
-		        fwrite(buf, 1, strlen(buf), file);
-		}
-
-		if(mfx->uiapplication->nodisplay) {
-			snprintf(buf, BUFMAX, "NoDisplay=%s\n", mfx->uiapplication->nodisplay);
-			fwrite(buf, 1, strlen(buf), file);
-		}
-
-		if(mfx->uiapplication->categories) {
-			snprintf(buf, BUFMAX, "Categories=%s\n", mfx->uiapplication->categories);
-			fwrite(buf, 1, strlen(buf), file);
-		}
-
-		if(mfx->uiapplication->taskmanage && !strcasecmp(mfx->uiapplication->taskmanage, "False")) {
-		        snprintf(buf, BUFMAX, "X-TIZEN-TaskManage=False\n");
-		        fwrite(buf, 1, strlen(buf), file);
-		}
-
-		if(mfx->uiapplication->enabled && !strcasecmp(mfx->uiapplication->enabled, "False")) {
-		        snprintf(buf, BUFMAX, "X-TIZEN-Enabled=False\n");
-		        fwrite(buf, 1, strlen(buf), file);
-		}
-
-		if(mfx->uiapplication->hwacceleration) {
-			snprintf(buf, BUFMAX, "Hw-Acceleration=%s\n", mfx->uiapplication->hwacceleration);
-			fwrite(buf, 1, strlen(buf), file);
-		}
-
-		if(mfx->uiapplication->multiple && !strcasecmp(mfx->uiapplication->multiple, "True")) {
-			snprintf(buf, BUFMAX, "X-TIZEN-Multiple=True\n");
-			fwrite(buf, 1, strlen(buf), file);
-		}
-
-		if(mfx->uiapplication->extraid) {
-			snprintf(buf, BUFMAX, "X-TIZEN-PackageID=%s\n", mfx->uiapplication->extraid);
-			fwrite(buf, 1, strlen(buf), file);
-		}
-
-		if(mfx->removable && !strcasecmp(mfx->removable, "False")) {
-			snprintf(buf, BUFMAX, "X-TIZEN-Removable=False\n");
-			fwrite(buf, 1, strlen(buf), file);
-		}
-
-		if(mfx->type) {
-			snprintf(buf, BUFMAX, "X-TIZEN-PackageType=%s\n", mfx->type);
-			fwrite(buf, 1, strlen(buf), file);
-		}
-
-		if(mfx->uiapplication->submode && !strcasecmp(mfx->uiapplication->submode, "True")) {
-			snprintf(buf, BUFMAX, "X-TIZEN-Submode=%s\n", mfx->uiapplication->submode);
-			fwrite(buf, 1, strlen(buf), file);
-			snprintf(buf, BUFMAX, "X-TIZEN-SubmodeMainid=%s\n", mfx->uiapplication->submode_mainid);
-			fwrite(buf, 1, strlen(buf), file);
-		}
-
-		if(mfx->type) {
-			snprintf(buf, BUFMAX, "X-TIZEN-PkgID=%s\n", mfx->package);
-			fwrite(buf, 1, strlen(buf), file);
-		}
-		if(mfx->uiapplication->appid) {
-			snprintf(buf, BUFMAX, "X-TIZEN-AppID=%s\n", mfx->uiapplication->appid);
-			fwrite(buf, 1, strlen(buf), file);
-		}
-
-
-
-//		snprintf(buf, BUFMAX, "X-TIZEN-PackageType=rpm\n");
-//		fwrite(buf, 1, strlen(buf), file);
-
-
-		if(mfx->uiapplication->appsvc) {
-			snprintf(buf, BUFMAX, "X-TIZEN-Svc=");
-			_LOGD("buf[%s]\n", buf);
-
-
-			uiapplication_x *up = mfx->uiapplication;
-			appsvc_x *asvc = NULL;
-			operation_x *op = NULL;
-			mime_x *mi = NULL;
-			uri_x *ui = NULL;
-			subapp_x *sub = NULL;
-			const char *operation = NULL;
-			const char *mime = NULL;
-			const char *uri = NULL;
-			const char *subapp = NULL;
-			int i = 0;
-
-
-			asvc = up->appsvc;
-			while(asvc != NULL) {
-				op = asvc->operation;
-				while(op != NULL) {
-					if (op)
-						operation = op->name;
-					mi = asvc->mime;
-
-					do
-					{
-						if (mi)
-							mime = mi->name;
-						sub = asvc->subapp;
-						do
-						{
-							if (sub)
-								subapp = sub->name;
-							ui = asvc->uri;
-							do
-							{
-								if (ui)
-									uri = ui->name;
-
-								if(i++ > 0) {
-									strncpy(buftemp, buf, BUFMAX);
-									snprintf(buf, BUFMAX, "%s;", buftemp);
-								}
-
-
-								strncpy(buftemp, buf, BUFMAX);
-								snprintf(buf, BUFMAX, "%s%s|%s|%s|%s", buftemp, operation?operation:"NULL", uri?uri:"NULL", mime?mime:"NULL", subapp?subapp:"NULL");
-								_LOGD("buf[%s]\n", buf);
-
-								if (ui)
-									ui = ui->next;
-								uri = NULL;
-							} while(ui != NULL);
-						if (sub)
-								sub = sub->next;
-							subapp = NULL;
-						}while(sub != NULL);
-						if (mi)
-							mi = mi->next;
-						mime = NULL;
-					}while(mi != NULL);
-					if (op)
-						op = op->next;
-					operation = NULL;
-				}
-				asvc = asvc->next;
-			}
-
-
-			fwrite(buf, 1, strlen(buf), file);
-
-//			strncpy(buftemp, buf, BUFMAX);
-//			snprintf(buf, BUFMAX, "%s\n", buftemp);
-//			fwrite(buf, 1, strlen(buf), file);
-		}
-
-		if(mfx->uiapplication->appcontrol) {
-			snprintf(buf, BUFMAX, "X-TIZEN-Svc=");
-			_LOGD("buf[%s]\n", buf);
-
-			uiapplication_x *up = mfx->uiapplication;
-			appcontrol_x *acontrol = NULL;
-			acontrol = up->appcontrol;
-			while(acontrol != NULL) {
-				snprintf(buf, BUFMAX, "%s|%s|%s",
-						acontrol->operation ? acontrol->operation : "NULL",
-						acontrol->uri ? acontrol->uri : "NULL",
-						acontrol->mime ? acontrol->mime : "NULL");
-				_LOGD("buf[%s]\n", buf);
-				acontrol = acontrol->next;
-			}
-
-			fwrite(buf, 1, strlen(buf), file);
-
-//			strncpy(buftemp, buf, BUFMAX);
-//			snprintf(buf, BUFMAX, "%s\n", buftemp);
-//			fwrite(buf, 1, strlen(buf), file);
-		}
-
-		fflush(file);
-	        fd = fileno(file);
-	        fsync(fd);
-	        fclose(file);
-		if (action == ACTION_FOTA)
-			__ail_change_info(AIL_FOTA, mfx->uiapplication->appid, uid);
-		else
-			__ail_change_info(AIL_INSTALL, mfx->uiapplication->appid, uid);
-	}
-
-	free(buf);
-	free(buftemp);
-
-        return 0;
-}
-
-static int __ps_remove_nativeapp_desktop(manifest_x *mfx, uid_t uid)
-{
-	char filepath[PKG_STRING_LEN_MAX] = "";
-	int ret = 0;
-	uiapplication_x *uiapplication = mfx->uiapplication;
-
-	for(; uiapplication; uiapplication=uiapplication->next) {
-	        snprintf(filepath, sizeof(filepath),"%s%s.desktop", getUserDesktopPath(uid), uiapplication->appid);
-
-		__ail_change_info(AIL_REMOVE, uiapplication->appid, uid);
-
-		ret = remove(filepath);
-		if (ret <0)
-			return -1;
-	}
-
-        return 0;
-}
-
 #define LIBAPPSVC_PATH LIB_PATH "/libappsvc.so.0"
 
 static int __ps_remove_appsvc_db(manifest_x *mfx, uid_t uid)
@@ -4615,7 +4191,7 @@ static int __ps_remove_appsvc_db(manifest_x *mfx, uid_t uid)
 	uiapplication_x *uiapplication = mfx->uiapplication;
 
 	if ((lib_handle = dlopen(LIBAPPSVC_PATH, RTLD_LAZY)) == NULL) {
-		_LOGE("dlopen is failed LIBAIL_PATH[%s]\n", LIBAPPSVC_PATH);
+		_LOGE("dlopen is failed LIBAPPSVC_PATH[%s]\n", LIBAPPSVC_PATH);
 		goto END;
 	}
 
@@ -4706,21 +4282,10 @@ static int __add_preload_info(manifest_x * mfx, const char *manifest, uid_t uid)
 
 static int __check_preload_updated(manifest_x * mfx, const char *manifest, uid_t uid)
 {
-	char filepath[PKG_STRING_LEN_MAX] = "";
-	int ret = 0;
-	uiapplication_x *uiapplication = mfx->uiapplication;
-
-	if(strstr(manifest, getUserManifestPath(uid))) {
-		/* if preload app is updated, then remove previous desktop file on RW*/
-		for(; uiapplication; uiapplication=uiapplication->next) {
-				snprintf(filepath, sizeof(filepath),"%s%s.desktop", getUserDesktopPath(uid), uiapplication->appid);
-			ret = remove(filepath);
-			if (ret <0)
-				return -1;
-		}
-	} else {
+	if (!strstr(manifest, getUserManifestPath(uid))) {
 		/* if downloaded app is updated, then update tag set true*/
-		free((void *)mfx->update);
+		if (mfx->update)
+			free((void *)mfx->update);
 		mfx->update = strdup("true");
 	}
 
@@ -4730,32 +4295,14 @@ static int __check_preload_updated(manifest_x * mfx, const char *manifest, uid_t
 
 API int pkgmgr_parser_create_desktop_file(manifest_x *mfx)
 {
-        int ret = 0;
-	if (mfx == NULL) {
-		_LOGD("Manifest pointer is NULL\n");
-		return -1;
-	}
-        ret = __ps_make_nativeapp_desktop(mfx, NULL, ACTION_INSTALL, GLOBAL_USER);
-        if (ret == -1)
-                _LOGD("Creating desktop file failed\n");
-        else
-                _LOGD("Creating desktop file Success\n");
-        return ret;
+	/* desktop file is no longer used */
+        return 0;
 }
 
 API int pkgmgr_parser_create_usr_desktop_file(manifest_x *mfx, uid_t uid)
 {
-        int ret = 0;
-	if (mfx == NULL) {
-		_LOGD("Manifest pointer is NULL\n");
-		return -1;
-	}
-        ret = __ps_make_nativeapp_desktop(mfx, NULL, ACTION_INSTALL, uid);
-        if (ret == -1)
-                _LOGD("Creating desktop file failed\n");
-        else
-                _LOGD("Creating desktop file Success\n");
-        return ret;
+	/* desktop file is no longer used */
+        return 0;
 }
 
 
@@ -5086,16 +4633,6 @@ API int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char
 	if (ret == -1)
 		_LOGD("Creating category parser failed\n");
 
-	if (__check_action_fota(tagv))
-		ret = __ps_make_nativeapp_desktop(mfx, NULL, ACTION_FOTA, GLOBAL_USER);
-	else
-		ret = __ps_make_nativeapp_desktop(mfx, NULL, ACTION_INSTALL, GLOBAL_USER);
-
-	if (ret == -1)
-		_LOGD("Creating desktop file failed\n");
-	else
-		_LOGD("Creating desktop file Success\n");
-
 	pkgmgr_parser_free_manifest_xml(mfx);
 	_LOGD("Free Done\n");
 	xmlCleanupParser();
@@ -5131,15 +4668,6 @@ API int pkgmgr_parser_parse_usr_manifest_for_installation(const char *manifest, 
 	if (ret == -1)
 		_LOGD("Creating category parser failed\n");
 
-	if (__check_action_fota(tagv))
-		ret = __ps_make_nativeapp_desktop(mfx, NULL, ACTION_FOTA, uid);
-	else
-		ret = __ps_make_nativeapp_desktop(mfx, NULL, ACTION_INSTALL, uid);
-
-	if (ret == -1)
-		_LOGD("Creating desktop file failed\n");
-	else
-		_LOGD("Creating desktop file Success\n");
 	pkgmgr_parser_free_manifest_xml(mfx);
 	_LOGD("Free Done\n");
 	xmlCleanupParser();
@@ -5210,11 +4738,6 @@ API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *con
 	ret = __ps_process_category_parser(mfx, ACTION_UPGRADE);
 	if (ret == -1)
 		_LOGD("Creating category parser failed\n");
-	ret = __ps_make_nativeapp_desktop(mfx, manifest, ACTION_UPGRADE, GLOBAL_USER);
-	if (ret == -1)
-		_LOGD("Creating desktop file failed\n");
-	else
-		_LOGD("Creating desktop file Success\n");
 	pkgmgrinfo_pkginfo_destroy_pkginfo(handle);
 	pkgmgr_parser_free_manifest_xml(mfx);
 	_LOGD("Free Done\n");
@@ -5284,11 +4807,6 @@ API int pkgmgr_parser_parse_usr_manifest_for_upgrade(const char *manifest, uid_t
 	ret = __ps_process_category_parser(mfx, ACTION_UPGRADE);
 	if (ret == -1)
 		_LOGD("Creating category parser failed\n");
-	ret = __ps_make_nativeapp_desktop(mfx, manifest, ACTION_UPGRADE, uid);
-	if (ret == -1)
-		_LOGD("Creating desktop file failed\n");
-	else
-		_LOGD("Creating desktop file Success\n");
 	pkgmgrinfo_pkginfo_destroy_pkginfo(handle);
 	pkgmgr_parser_free_manifest_xml(mfx);
 	_LOGD("Free Done\n");
@@ -5331,12 +4849,6 @@ API int pkgmgr_parser_parse_manifest_for_uninstallation(const char *manifest, ch
 	else
 		_LOGD("DB Delete Success\n");
 
-	ret = __ps_remove_nativeapp_desktop(mfx, GLOBAL_USER);
-	if (ret == -1)
-		_LOGD("Removing desktop file failed\n");
-	else
-		_LOGD("Removing desktop file Success\n");
-
 	pkgmgr_parser_free_manifest_xml(mfx);
 	_LOGD("Free Done\n");
 	xmlCleanupParser();
@@ -5375,12 +4887,6 @@ API int pkgmgr_parser_parse_usr_manifest_for_uninstallation(const char *manifest
 		_LOGD("DB Delete failed\n");
 	else
 		_LOGD("DB Delete Success\n");
-
-	ret = __ps_remove_nativeapp_desktop(mfx, uid);
-	if (ret == -1)
-		_LOGD("Removing desktop file failed\n");
-	else
-		_LOGD("Removing desktop file Success\n");
 
 	ret = __ps_remove_appsvc_db(mfx, uid);
 	if (ret == -1)
