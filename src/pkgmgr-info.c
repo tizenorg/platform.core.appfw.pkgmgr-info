@@ -4262,12 +4262,10 @@ API int pkgmgrinfo_pkginfo_usr_filter_count(pkgmgrinfo_pkginfo_filter_h handle, 
 			where[sizeof(where) - 1] = '\0';
 		}
 	}
-	_LOGE("where = %s\n", where);
 	if (strlen(where) > 0) {
 		strncat(query, where, sizeof(query) - strlen(query) - 1);
 		query[sizeof(query) - 1] = '\0';
 	}
-	_LOGE("query = %s\n", query);
 
 	/*Execute Query*/
 	if (SQLITE_OK !=
@@ -4358,12 +4356,10 @@ API int pkgmgrinfo_pkginfo_usr_filter_foreach_pkginfo(pkgmgrinfo_pkginfo_filter_
 			where[sizeof(where) - 1] = '\0';
 		}
 	}
-	_LOGE("where = %s\n", where);
 	if (strlen(where) > 0) {
 		strncat(query, where, sizeof(query) - strlen(query) - 1);
 		query[sizeof(query) - 1] = '\0';
 	}
-	_LOGE("query = %s\n", query);
 	tmphead = calloc(1, sizeof(pkgmgr_pkginfo_x));
 	if (tmphead == NULL) {
 		_LOGE("Out of Memory!!!\n");
@@ -6525,12 +6521,10 @@ API int pkgmgrinfo_appinfo_usr_filter_count(pkgmgrinfo_appinfo_filter_h handle, 
 			where[sizeof(where) - 1] = '\0';
 		}
 	}
-	_LOGE("where = %s\n", where);
 	if (strlen(where) > 0) {
 		strncat(query, where, sizeof(query) - strlen(query) - 1);
 		query[sizeof(query) - 1] = '\0';
 	}
-	_LOGE("query = %s\n", query);
 
 	/*Execute Query*/
 	if (SQLITE_OK !=
@@ -6613,12 +6607,10 @@ API int pkgmgrinfo_appinfo_usr_filter_foreach_appinfo(pkgmgrinfo_appinfo_filter_
 			where[sizeof(where) - 1] = '\0';
 		}
 	}
-	_LOGE("where = %s\n", where);
 	if (strlen(where) > 0) {
 		strncat(query, where, sizeof(query) - strlen(query) - 1);
 		query[sizeof(query) - 1] = '\0';
 	}
-	_LOGE("query = %s\n", query);
 	/*To get filtered list*/
 	pkgmgr_pkginfo_x *info = NULL;
 	pkgmgr_pkginfo_x *filtinfo = NULL;
@@ -6855,11 +6847,9 @@ API int pkgmgrinfo_appinfo_usr_metadata_filter_foreach(pkgmgrinfo_appinfo_metada
 			strncat(where, METADATA_FILTER_QUERY_UNION_CLAUSE, sizeof(where) - strlen(where) - 1);
 		}
 	}
-	_LOGE("where = %s (%d)\n", where, strlen(where));
 	if (strlen(where) > 0) {
 		strncat(query, where, sizeof(query) - strlen(query) - 1);
 	}
-	_LOGE("query = %s (%d)\n", query, strlen(query));
 	/*To get filtered list*/
 	info = (pkgmgr_pkginfo_x *)calloc(1, sizeof(pkgmgr_pkginfo_x));
 	tryvm_if(info == NULL, ret = PMINFO_R_ERROR, "Out of Memory!!!\n");
