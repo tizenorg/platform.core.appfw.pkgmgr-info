@@ -5872,10 +5872,14 @@ API int pkgmgrinfo_appinfo_get_launch_mode(pkgmgrinfo_appinfo_h handle, char **m
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL\n");
 	retvm_if(mode == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
-	if (info->uiapp_info->launch_mode)
-		*mode = (char *)(info->uiapp_info->launch_mode);
-	else
+
+	if (info->app_component != PMINFO_UI_APP)
+		return PMINFO_R_EINVAL;
+
+	if (info->uiapp_info->launch_mode == NULL)
 		return PMINFO_R_ERROR;
+
+	*mode = (char *)(info->uiapp_info->launch_mode);
 
 	return PMINFO_R_OK;
 }
