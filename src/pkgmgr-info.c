@@ -7817,7 +7817,6 @@ API int pkgmgrinfo_appinfo_set_usr_guestmode_visibility(pkgmgrinfo_appinfo_h han
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL\n");
 	char *val = NULL;
 	int ret = 0;
-	char *noti_string = NULL;
 	int len = 0;
 	char query[MAX_QUERY_LEN] = {'\0'};
 	char *errmsg = NULL;
@@ -7841,22 +7840,12 @@ API int pkgmgrinfo_appinfo_set_usr_guestmode_visibility(pkgmgrinfo_appinfo_h han
 		else
 			snprintf(query, MAX_QUERY_LEN, "update package_app_info set app_guestmodevisibility = 'false' where app_id = '%s'", (char *)info->uiapp_info->appid);
 
-		if (SQLITE_OK != sqlite3_exec(pkgmgr_parser_db, query, NULL, NULL, &errmsg)) {
+		ret = sqlite3_exec(pkgmgr_parser_db, query, NULL, NULL, &errmsg);
+		sqlite3_close(pkgmgr_parser_db);
+		if (ret != SQLITE_OK) {
 			_LOGE("DB update [%s] failed, error message = %s\n", query, errmsg);
 			free(errmsg);
-			sqlite3_close(pkgmgr_parser_db);
-	                return PMINFO_R_ERROR;
-		}else{
-			sqlite3_close(pkgmgr_parser_db);
-			len = strlen((char *)info->uiapp_info->appid) + 8;
-		        noti_string = calloc(1, len);
-			if (noti_string == NULL){
-				return PMINFO_R_ERROR;
-			}
-			snprintf(noti_string, len, "update:%s", (char *)info->uiapp_info->appid);
-        	vconf_set_str(VCONFKEY_AIL_INFO_STATE, noti_string);
-			vconf_set_str(VCONFKEY_MENUSCREEN_DESKTOP, noti_string); // duplicate, will be removed
-			free(noti_string);
+			return PMINFO_R_ERROR;
 		}
 	}
 	return PMINFO_R_OK;
