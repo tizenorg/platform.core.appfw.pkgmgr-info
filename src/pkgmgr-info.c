@@ -3541,13 +3541,14 @@ API int pkgmgrinfo_pkginfo_compare_usr_pkg_cert_info(const char *lhs_package_id,
 	int ret = PMINFO_R_OK;
 	char query[MAX_QUERY_LEN] = {'\0'};
 	char *error_message = NULL;
-	pkgmgr_cert_x *info= NULL;
+	sqlite3_stmt *stmt = NULL;
+	char *lhs_certinfo = NULL;
+	char *rhs_certinfo = NULL;
 	int lcert = 0;
 	int rcert = 0;
 	int exist = -1;
+	int i;
 	*compare_result = PMINFO_CERT_COMPARE_ERROR;
-	info = (pkgmgr_cert_x *)calloc(1, sizeof(pkgmgr_cert_x));
-	retvm_if(info == NULL, PMINFO_R_ERROR, "Out of Memory!!!");
 
 	ret = __open_cert_db(uid, "r");
 	if (ret != 0) {
@@ -3563,20 +3564,7 @@ API int pkgmgrinfo_pkginfo_compare_usr_pkg_cert_info(const char *lhs_package_id,
 		ret = PMINFO_R_ERROR;
 		goto err;
 	}
-
-	if (exist == 0) {
-		lcert = 0;
-	} else {
-		snprintf(query, MAX_QUERY_LEN, "select author_signer_cert from package_cert_info where package='%s'", lhs_package_id);
-		if (SQLITE_OK !=
-			sqlite3_exec(GET_DB(cert_db), query, __cert_cb, (void *)info, &error_message)) {
-			_LOGE("Don't execute query = %s error message = %s\n", query,
-				   error_message);
-			ret = PMINFO_R_ERROR;
-			goto err;
-		}
-		lcert = info->cert_id;
-	}
+	lcert = exist;
 
 	snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_cert_info where package='%s')", rhs_package_id);
 	if (SQLITE_OK !=
@@ -3586,20 +3574,46 @@ API int pkgmgrinfo_pkginfo_compare_usr_pkg_cert_info(const char *lhs_package_id,
 		ret = PMINFO_R_ERROR;
 		goto err;
 	}
+	rcert = exist;
 
-	if (exist == 0) {
-		rcert = 0;
-	} else {
-		snprintf(query, MAX_QUERY_LEN, "select author_signer_cert from package_cert_info where package='%s'", rhs_package_id);
-		if (SQLITE_OK !=
-			sqlite3_exec(GET_DB(cert_db), query, __cert_cb, (void *)info, &error_message)) {
-			_LOGE("Don't execute query = %s error message = %s\n", query,
-				   error_message);
+	snprintf(query, MAX_QUERY_LEN, "select cert_info from package_cert_index_info where cert_id=(select author_signer_cert from package_cert_info where package=?) and for_all_users=(select for_all_users from package_cert_info where package=?)");
+	if (SQLITE_OK != sqlite3_prepare_v2(GET_DB(cert_db), query, strlen(query), &stmt, NULL)) {
+		_LOGE("sqlite3_prepare_v2 error: %s", sqlite3_errmsg(GET_DB(cert_db)));
+		ret = PMINFO_R_ERROR;
+		goto err;
+	}
+
+	for (i = 1; i <= 2; i++) {
+		if (SQLITE_OK != sqlite3_bind_text(stmt, i, lhs_package_id, -1, SQLITE_STATIC)) {
+			_LOGE("sqlite3_bind_text error: %s", sqlite3_errmsg(GET_DB(cert_db)));
 			ret = PMINFO_R_ERROR;
 			goto err;
 		}
-		rcert = info->cert_id;
 	}
+	if (SQLITE_ROW != sqlite3_step(stmt) || sqlite3_column_text(stmt, 0) == NULL) {
+		_LOGE("sqlite3_step error: %s", sqlite3_errmsg(GET_DB(cert_db)));
+		ret = PMINFO_R_ERROR;
+		goto err;
+	}
+
+	lhs_certinfo = strdup((const char *)sqlite3_column_text(stmt, 0));
+	sqlite3_reset(stmt);
+	sqlite3_clear_bindings(stmt);
+
+	for (i = 1; i <= 2; i++) {
+		if (SQLITE_OK != sqlite3_bind_text(stmt, i, rhs_package_id, -1, SQLITE_STATIC)) {
+			_LOGE("sqlite3_bind_text error: %s", sqlite3_errmsg(GET_DB(cert_db)));
+			ret = PMINFO_R_ERROR;
+			goto err;
+		}
+	}
+	if (SQLITE_ROW != sqlite3_step(stmt) || sqlite3_column_text(stmt, 0) == NULL) {
+		_LOGE("sqlite3_step error: %s", sqlite3_errmsg(GET_DB(cert_db)));
+		ret = PMINFO_R_ERROR;
+		goto err;
+	}
+
+	rhs_certinfo = strdup((const char *)sqlite3_column_text(stmt, 0));
 
 	if ((lcert == 0) || (rcert == 0))
 	{
@@ -3610,23 +3624,22 @@ API int pkgmgrinfo_pkginfo_compare_usr_pkg_cert_info(const char *lhs_package_id,
 		else if (rcert == 0)
 			*compare_result = PMINFO_CERT_COMPARE_RHS_NO_CERT;
 	} else {
-		if (lcert == rcert)
+		if (!strcmp(lhs_certinfo, rhs_certinfo))
 			*compare_result = PMINFO_CERT_COMPARE_MATCH;
 		else
 			*compare_result = PMINFO_CERT_COMPARE_MISMATCH;
 	}
 
 err:
+	if (stmt)
+		sqlite3_finalize(stmt);
+	if (lhs_certinfo)
+		free(lhs_certinfo);
+	if (rhs_certinfo)
+		free(rhs_certinfo);
 	sqlite3_free(error_message);
 	__close_cert_db();
-	if (info) {
-		if (info->pkgid) {
-			free(info->pkgid);
-			info->pkgid = NULL;
-		}
-		free(info);
-		info = NULL;
-	}
+
 	return ret;
 }
 
