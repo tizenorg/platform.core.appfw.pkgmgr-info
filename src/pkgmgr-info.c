@@ -182,6 +182,7 @@ typedef struct _pkgmgr_appinfo_x {
 } pkgmgr_appinfo_x;
 
 typedef struct _pkgmgr_certinfo_x {
+	int for_all_users;
 	char *pkgid;
 	char *cert_value;
 	char *cert_info[MAX_CERT_TYPE];	/*certificate info*/
@@ -1681,6 +1682,11 @@ static int __certinfo_cb(void *data, int ncols, char **coltxt, char **colname)
 				info->cert_value = strdup(coltxt[i]);
 			else
 				info->cert_value = NULL;
+		} else if (strcmp(colname[i], "for_all_users") == 0 ){
+			if (coltxt[i])
+				info->for_all_users = atoi(coltxt[i]);
+			else
+				info->for_all_users = 0;
 		} else
 			continue;
 	}
@@ -7017,7 +7023,7 @@ API int pkgmgrinfo_pkginfo_load_certinfo(const char *pkgid, pkgmgrinfo_certinfo_
 	}
 	for (i = 0; i < MAX_CERT_TYPE; i++) {
 		memset(query, '\0', MAX_QUERY_LEN);
-		snprintf(query, MAX_QUERY_LEN, "select cert_info from package_cert_index_info where cert_id=%d ", (certinfo->cert_id)[i]);
+		snprintf(query, MAX_QUERY_LEN, "select cert_info from package_cert_index_info where cert_id=%d and for_all_users=%d", (certinfo->cert_id)[i], certinfo->for_all_users);
 		ret = __exec_certinfo_query(query, (void *)certinfo);
 		if (ret == -1) {
 			_LOGE("Cert Info DB Information retrieval failed\n");
