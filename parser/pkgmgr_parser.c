@@ -4613,7 +4613,6 @@ API int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char
 	_LOGD("Parsing Finished\n");
 
 //	__streamFile(manifest, ACTION_INSTALL, temp, mfx->package);
-	__ps_process_tag_parser(mfx, manifest, ACTION_INSTALL);
 	__add_preload_info(mfx, manifest, GLOBAL_USER);
 
 	_LOGD("Added preload infomation\n");
@@ -4625,6 +4624,7 @@ API int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char
 
 	_LOGD("DB Insert Success\n");
 
+	__ps_process_tag_parser(mfx, manifest, ACTION_INSTALL);
 	ret = __ps_process_metadata_parser(mfx, ACTION_INSTALL);
 	if (ret == -1)
 		_LOGD("Creating metadata parser failed\n");
@@ -4653,7 +4653,6 @@ API int pkgmgr_parser_parse_usr_manifest_for_installation(const char *manifest, 
 
 	_LOGD("Parsing Finished\n");
 //	__streamFile(manifest, ACTION_INSTALL, temp, mfx->package);
-	__ps_process_tag_parser(mfx, manifest, ACTION_INSTALL);
 
 	__ps_process_tag(mfx, tagv);
 
@@ -4661,6 +4660,8 @@ API int pkgmgr_parser_parse_usr_manifest_for_installation(const char *manifest, 
 	retvm_if(ret == PMINFO_R_ERROR, PMINFO_R_ERROR, "DB Insert failed");
 
 	_LOGD("DB Insert Success\n");
+
+	__ps_process_tag_parser(mfx, manifest, ACTION_INSTALL);
 	ret = __ps_process_metadata_parser(mfx, ACTION_INSTALL);
 	if (ret == -1)
 		_LOGD("Creating metadata parser failed\n");
@@ -4693,7 +4694,6 @@ API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *con
 
 	_LOGD("Parsing Finished\n");
 //	__streamFile(manifest, ACTION_UPGRADE, temp, mfx->package);
-	__ps_process_tag_parser(mfx, manifest, ACTION_UPGRADE);
 	__add_preload_info(mfx, manifest, GLOBAL_USER);
 	_LOGD("Added preload infomation\n");
 	__check_preload_updated(mfx, manifest, GLOBAL_USER);
@@ -4730,7 +4730,10 @@ API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *con
 
 	ret = pkgmgr_parser_update_manifest_info_in_db(mfx);
 	retvm_if(ret == PMINFO_R_ERROR, PMINFO_R_ERROR, "DB Insert failed");
+
 	_LOGD("DB Update Success\n");
+
+	__ps_process_tag_parser(mfx, manifest, ACTION_UPGRADE);
 	ret = __ps_process_metadata_parser(mfx, ACTION_UPGRADE);
 	if (ret == -1){
 		_LOGD("Upgrade metadata parser failed\n");
@@ -4764,7 +4767,6 @@ API int pkgmgr_parser_parse_usr_manifest_for_upgrade(const char *manifest, uid_t
 
 	_LOGD("Parsing Finished\n");
 	//__streamFile(manifest, ACTION_UPGRADE, temp, mfx->package);
-	__ps_process_tag_parser(mfx, manifest, ACTION_UPGRADE);
 	__check_preload_updated(mfx, manifest, uid);
 
 	ret = pkgmgrinfo_pkginfo_get_usr_pkginfo(mfx->package, uid, &handle);
@@ -4800,7 +4802,8 @@ API int pkgmgr_parser_parse_usr_manifest_for_upgrade(const char *manifest, uid_t
 	ret = pkgmgr_parser_update_manifest_info_in_usr_db(mfx, uid);
 	retvm_if(ret == PMINFO_R_ERROR, PMINFO_R_ERROR, "DB Insert failed");
 	_LOGD("DB Update Success\n");
-	_LOGE("DB Update Success\n" );
+
+	__ps_process_tag_parser(mfx, manifest, ACTION_UPGRADE);
 	ret = __ps_process_metadata_parser(mfx, ACTION_UPGRADE);
 	if (ret == -1)
 		_LOGD("Upgrade metadata parser failed\n");
