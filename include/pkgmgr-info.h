@@ -5583,7 +5583,7 @@ static int set_app_guestmode_visibility(const char *appid, bool value)
  * @brief type definition.
  */
 typedef void pkgmgrinfo_client;
-typedef int (*pkgmgrinfo_handler)(int req_id, const char *pkg_type,
+typedef int (*pkgmgrinfo_handler)(uid_t target_uid, int req_id, const char *pkg_type,
 				const char *pkgid, const char *key,
 				const char *val, const void *pmsg, void *data);
 
