@@ -22,6 +22,7 @@
           <xs:element ref="packages:privileges"/>
           <xs:element ref="packages:font"/>
           <xs:element ref="packages:ime"/>
+          <xs:element ref="packages:feature"/>
         </xs:choice>
       </xs:sequence>
       <xs:attribute name="storeclient-id" type="xs:string"/>
@@ -204,6 +205,8 @@
   <xs:element name="notifications">
   </xs:element>
   <xs:element name="ime">
+  </xs:element>
+  <xs:element name="feature">
   </xs:element>
   <xs:element name="privileges">
     <xs:complexType>

@@ -4012,8 +4012,12 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx, uid_t uid)
 			continue;
 		} else if (!strcmp(ASCII(node), "ime")) {
 			continue;
-		} else
+		} else if (!strcmp(ASCII(node), "feature")) {
+			continue;
+		} else {
+			_LOGE("Unknown element: %s", ASCII(node));
 			return -1;
+		}
 
 		if (ret < 0) {
 			_LOGD("Processing manifest failed\n");
