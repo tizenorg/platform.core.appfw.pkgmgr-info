@@ -3548,6 +3548,7 @@ API int pkgmgrinfo_pkginfo_compare_usr_pkg_cert_info(const char *lhs_package_id,
 	int rcert = 0;
 	int exist = -1;
 	int i;
+	int is_grobal = 0;
 	*compare_result = PMINFO_CERT_COMPARE_ERROR;
 
 	ret = __open_cert_db(uid, "r");
@@ -3576,7 +3577,11 @@ API int pkgmgrinfo_pkginfo_compare_usr_pkg_cert_info(const char *lhs_package_id,
 	}
 	rcert = exist;
 
-	snprintf(query, MAX_QUERY_LEN, "select cert_info from package_cert_index_info where cert_id=(select author_signer_cert from package_cert_info where package=?) and for_all_users=(select for_all_users from package_cert_info where package=?)");
+	if (uid == GLOBAL_USER || uid == ROOT_UID) {
+		snprintf(query, MAX_QUERY_LEN, "select cert_info from package_cert_index_info where cert_id=(select author_signer_cert from package_cert_info where package=?)");
+		is_grobal = 1;
+	} else
+		snprintf(query, MAX_QUERY_LEN, "select cert_info from package_cert_index_info where cert_id=(select author_signer_cert from package_cert_info where package=?) and for_all_users=(select for_all_users from package_cert_info where package=?)");
 	if (SQLITE_OK != sqlite3_prepare_v2(GET_DB(cert_db), query, strlen(query), &stmt, NULL)) {
 		_LOGE("sqlite3_prepare_v2 error: %s", sqlite3_errmsg(GET_DB(cert_db)));
 		ret = PMINFO_R_ERROR;
@@ -3589,6 +3594,8 @@ API int pkgmgrinfo_pkginfo_compare_usr_pkg_cert_info(const char *lhs_package_id,
 			ret = PMINFO_R_ERROR;
 			goto err;
 		}
+		if (is_grobal)
+			break;
 	}
 	if (SQLITE_ROW != sqlite3_step(stmt) || sqlite3_column_text(stmt, 0) == NULL) {
 		_LOGE("sqlite3_step error: %s", sqlite3_errmsg(GET_DB(cert_db)));
@@ -3606,6 +3613,8 @@ API int pkgmgrinfo_pkginfo_compare_usr_pkg_cert_info(const char *lhs_package_id,
 			ret = PMINFO_R_ERROR;
 			goto err;
 		}
+		if (is_grobal)
+			break;
 	}
 	if (SQLITE_ROW != sqlite3_step(stmt) || sqlite3_column_text(stmt, 0) == NULL) {
 		_LOGE("sqlite3_step error: %s", sqlite3_errmsg(GET_DB(cert_db)));
@@ -7036,7 +7045,10 @@ API int pkgmgrinfo_pkginfo_load_certinfo(const char *pkgid, pkgmgrinfo_certinfo_
 	}
 	for (i = 0; i < MAX_CERT_TYPE; i++) {
 		memset(query, '\0', MAX_QUERY_LEN);
-		snprintf(query, MAX_QUERY_LEN, "select cert_info from package_cert_index_info where cert_id=%d and for_all_users=%d", (certinfo->cert_id)[i], certinfo->for_all_users);
+		if (uid == GLOBAL_USER || uid == ROOT_UID)
+			snprintf(query, MAX_QUERY_LEN, "select cert_info from package_cert_index_info where cert_id=%d", (certinfo->cert_id)[i]);
+		else
+			snprintf(query, MAX_QUERY_LEN, "select cert_info from package_cert_index_info where cert_id=%d and for_all_users=%d", (certinfo->cert_id)[i], certinfo->for_all_users);
 		ret = __exec_certinfo_query(query, (void *)certinfo);
 		if (ret == -1) {
 			_LOGE("Cert Info DB Information retrieval failed\n");
