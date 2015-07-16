@@ -243,7 +243,7 @@ int pkgmgr_parser_resource_db_save(const char *package, resource_data_t *data)
 
 	ret = pkgmgr_parser_check_and_create_db(getuid());
 	if (ret == 0)
-		ret = pkgmgr_parser_initialize_db();
+		ret = pkgmgr_parser_initialize_db(getuid());
 	if (ret < 0) {
 		_LOGE("db initialization failed");
 		goto catch;

@@ -807,7 +807,7 @@ static int __open_manifest_db(uid_t uid)
 			return -1;
 		}
 
-		if (pkgmgr_parser_initialize_db()) {
+		if (pkgmgr_parser_initialize_db(uid)) {
 			_LOGE("initialize db failed");
 			return -1;
 		}
