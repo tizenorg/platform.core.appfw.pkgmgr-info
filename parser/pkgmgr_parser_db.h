@@ -136,6 +136,7 @@ int pkgmgr_parser_delete_manifest_info_from_usr_db(manifest_x *mfx, uid_t uid);
 int pkgmgr_parser_update_preload_info_in_db();
 int pkgmgr_parser_update_preload_info_in_usr_db(uid_t uid);
 
+int pkgmgr_parser_create_and_initialize_db(uid_t uid);
 
 
 /** @} */

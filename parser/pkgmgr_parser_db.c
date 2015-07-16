@@ -52,9 +52,13 @@
 #define BUFSIZE 4096
 #define OWNER_ROOT 0
 
-#define SET_SMACK_LABEL(x,uid) \
-	if(smack_setlabel((x), (((uid) == GLOBAL_USER)?"*":"User"), SMACK_LABEL_ACCESS)) _LOGE("failed chsmack -a \"User/*\" %s", x); \
-	else _LOGD("chsmack -a \"User/*\" %s", x);
+#define SET_SMACK_LABEL(x) \
+do { \
+	if (smack_setlabel((x), "System::Shared", SMACK_LABEL_ACCESS)) \
+		_LOGE("failed chsmack -a \"System::Shared\" %s", x); \
+	else \
+		_LOGD("chsmack -a \"System::Shared\" %s", x); \
+} while (0)
 
 sqlite3 *pkgmgr_parser_db;
 sqlite3 *pkgmgr_cert_db;
@@ -2155,7 +2159,7 @@ API int pkgmgr_parser_initialize_db(void)
 	return 0;
 }
 
-static int parserdb_change_perm(const char *db_file, uid_t uid)
+static int __parserdb_change_perm(const char *db_file, uid_t uid)
 {
 	char buf[BUFSIZE];
 	char journal_file[BUFSIZE];
@@ -2166,14 +2170,16 @@ static int parserdb_change_perm(const char *db_file, uid_t uid)
 	files[1] = journal_file;
 	files[2] = NULL;
 
-	if(db_file == NULL)
+	if (db_file == NULL)
 		return -1;
 
-	if(getuid() != OWNER_ROOT) //At this time we should be root to apply this
-			return 0;
+	if (getuid() != OWNER_ROOT) //At this time we should be root to apply this
+		return 0;
 	snprintf(journal_file, sizeof(journal_file), "%s%s", db_file, "-journal");
-    userinfo = getpwuid(uid);
-    if (!userinfo) {
+	if (uid == OWNER_ROOT)
+		uid = GLOBAL_USER;
+	userinfo = getpwuid(uid);
+	if (!userinfo) {
 		_LOGE("FAIL: user %d doesn't exist", uid);
 		return -1;
 	}
@@ -2181,20 +2187,53 @@ static int parserdb_change_perm(const char *db_file, uid_t uid)
 
 	for (i = 0; files[i]; i++) {
 		ret = chown(files[i], uid, userinfo->pw_gid);
-		SET_SMACK_LABEL(files[i],uid)
+		SET_SMACK_LABEL(files[i]);
 		if (ret == -1) {
-			strerror_r(errno, buf, sizeof(buf));
-			_LOGD("FAIL : chown %s %d.%d, because %s", db_file, uid, userinfo->pw_gid, buf);
+			_LOGD("FAIL : chown %s %d.%d : %s", db_file, uid,
+					userinfo->pw_gid,
+					strerror_r(errno, buf, sizeof(buf)));
 			return -1;
 		}
 
 		ret = chmod(files[i], S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
 		if (ret == -1) {
-			strerror_r(errno, buf, sizeof(buf));
-			_LOGD("FAIL : chmod %s 0664, because %s", db_file, buf);
+			_LOGD("FAIL : chmod %s 0664 : %s", db_file,
+					strerror_r(errno, buf, sizeof(buf)));
 			return -1;
 		}
 	}
+	return 0;
+}
+
+API int pkgmgr_parser_create_and_initialize_db(uid_t uid)
+{
+	int ret;
+
+	if (getuid() != OWNER_ROOT) {
+		_LOGE("Only root user is allowed");
+		return -1;
+	}
+
+	if (access(getUserPkgParserDBPathUID(uid), F_OK) != -1) {
+		_LOGE("Manifest db for user %d is already exists", uid);
+		return -1;
+	}
+
+	if (access(getUserPkgCertDBPathUID(uid), F_OK) != -1) {
+		_LOGE("Cert db for user %d is already exists", uid);
+		return -1;
+	}
+
+	ret = pkgmgr_parser_check_and_create_db(uid);
+	if (ret < 0)
+		return -1;
+	ret = pkgmgr_parser_initialize_db();
+	if (ret < 0) {
+		pkgmgr_parser_close_db();
+		return -1;
+	}
+	pkgmgr_parser_close_db();
+
 	return 0;
 }
 
@@ -2214,10 +2253,10 @@ API int pkgmgr_parser_check_and_create_db(uid_t uid)
 		_LOGD("Cert DB creation Failed\n");
 		return -1;
 	}
-	if( 0 != parserdb_change_perm(getUserPkgCertDBPathUID(uid), uid)) {
+	if( 0 != __parserdb_change_perm(getUserPkgCertDBPathUID(uid), uid)) {
 		_LOGD("Failed to change cert db permission\n");
 	}
-	if( 0 != parserdb_change_perm(getUserPkgParserDBPathUID(uid), uid)) {
+	if( 0 != __parserdb_change_perm(getUserPkgParserDBPathUID(uid), uid)) {
 		_LOGD("Failed to change parser db permission\n");
 	}
 	return 0;
