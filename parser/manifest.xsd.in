@@ -28,7 +28,6 @@
       <xs:attribute name="storeclient-id" type="xs:string"/>
       <xs:attribute name="install-location" type="packages:InstallLocationType"/>
       <xs:attribute name="package" use="required" type="xs:string"/>
-      <xs:attribute name="main_package" type="xs:string"/>
       <xs:attribute name="type" type="packages:PackageType"/>
       <xs:attribute name="version" use="required" type="xs:string"/>
       <xs:attribute name="size" type="xs:NMTOKEN"/>
