@@ -2861,7 +2861,7 @@ API int pkgmgrinfo_pkginfo_get_usr_pkginfo(const char *pkgid, uid_t uid, pkgmgri
 	snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_info where package='%s')", pkgid);
 	ret = __exec_db_query(GET_DB(manifest_db), query, __validate_cb, (void *)&exist);
 	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "sqlite3_exec[%s] fail", pkgid);
-	tryvm_if(exist == 0, ret = PMINFO_R_ERROR, "pkgid[%s] not found in DB", pkgid);
+	tryvm_if(exist == 0, ret = PMINFO_R_ERROR, "pkgid[%s] for user[%d] is not found in DB", pkgid, uid);
 
 	/*get system locale*/
 	syslocale = vconf_get_str(VCONFKEY_LANGSET);
@@ -5336,7 +5336,7 @@ API int pkgmgrinfo_appinfo_get_usr_appinfo(const char *appid, uid_t uid, pkgmgri
 	snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_app_info where app_id='%s')", appid);
 	ret = __exec_db_query(GET_DB(manifest_db), query, __validate_cb, (void *)&exist);
 	tryvm_if(ret == -1, ret = PMINFO_R_ERROR, "sqlite3_exec fail");
-	tryvm_if(exist == 0, ret = PMINFO_R_ERROR, "Appid[%s] not found in DB", appid);
+	tryvm_if(exist == 0, ret = PMINFO_R_ERROR, "Appid[%s] for user[%d] is not found in DB", appid, uid);
 
 	/*get system locale*/
 	syslocale = vconf_get_str(VCONFKEY_LANGSET);
@@ -7172,7 +7172,7 @@ API int pkgmgrinfo_pkginfo_load_certinfo(const char *pkgid, pkgmgrinfo_certinfo_
 		goto err;
 	}
 	if (exist == 0) {
-		_LOGE("Package not found in DB\n");
+		_LOGE("Package for user[%d] is not found in DB\n", uid);
 		ret = PMINFO_R_ERROR;
 		goto err;
 	}
