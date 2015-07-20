@@ -68,6 +68,7 @@ sqlite3 *pkgmgr_cert_db;
 						"(package text primary key not null, " \
 						"package_type text DEFAULT 'rpm', " \
 						"package_version text, " \
+						"package_api_version text, " \
 						"install_location text, " \
 						"package_size text, " \
 						"package_removable text DEFAULT 'true', " \
@@ -1531,8 +1532,6 @@ static int __insert_manifest_info_in_db(manifest_x *mfx, uid_t uid)
 	char query[MAX_QUERY_LEN] = { '\0' };
 	char root[MAX_QUERY_LEN] = { '\0' };
 	int ret = -1;
-	char *type = NULL;
-	char *path = NULL;
 	const char *auth_name = NULL;
 	const char *auth_email = NULL;
 	const char *auth_href = NULL;
@@ -1567,31 +1566,15 @@ static int __insert_manifest_info_in_db(manifest_x *mfx, uid_t uid)
 	}
 
 	/*Insert in the package_info DB*/
-	if (mfx->type)
-		type = strdup(mfx->type);
-	else
-		type = strdup("rpm");
-	/*Insert in the package_info DB*/
-	if (mfx->root_path)
-		path = strdup(mfx->root_path);
-	else{
-		if (strcmp(type,"rpm")==0) {
-			apps_path = tzplatform_getenv(TZ_SYS_RO_APP);
-			snprintf(root, MAX_QUERY_LEN - 1, "%s/%s", apps_path, mfx->package);
-		} else {
-			apps_path = tzplatform_getenv(TZ_USER_APP);
-			snprintf(root, MAX_QUERY_LEN - 1, "%s/%s", apps_path, mfx->package);
-		}
-		path = strdup(root);
-	}
 	snprintf(query, MAX_QUERY_LEN,
-		 "insert into package_info(package, package_type, package_version, install_location, package_size, " \
+		 "insert into package_info(package, package_type, package_version, package_api_version, install_location, package_size, " \
 		"package_removable, package_preload, package_readonly, package_update, package_appsetting, package_nodisplay, package_system," \
 		"author_name, author_email, author_href, installed_time, installed_storage, storeclient_id, mainapp_id, package_url, root_path, csc_path) " \
-		"values('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
+		"values('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
 		 mfx->package,
-		 type,
+		 mfx->type,
 		 mfx->version,
+		 __get_str(mfx->api_version),
 		 __get_str(mfx->installlocation),
 		 __get_str(mfx->package_size),
 		 mfx->removable,
@@ -1609,43 +1592,13 @@ static int __insert_manifest_info_in_db(manifest_x *mfx, uid_t uid)
 		 __get_str(mfx->storeclient_id),
 		 mfx->mainapp_id,
 		 __get_str(mfx->package_url),
-		 path,
+		 mfx->root_path,
 		 __get_str(mfx->csc_path));
-	/*If package dont have main_package tag, this package is main package.*/
-	if (mfx->main_package == NULL) {
-		ret = __exec_query(query);
-		if (ret == -1) {
-			_LOGD("Package Info DB Insert Failed\n");
-			if (type) {
-				free(type);
-				type = NULL;
-			}
-			if (path) {
-				free(path);
-				path = NULL;
-			}
-			return -1;
-		}
-	} else {
-		/*If package has main_package tag, this package is sub package(ug, efl).
-		skip __exec_query for package_info and change pkgid with main_package*/
-		memset(root, '\0', MAX_QUERY_LEN);
-		snprintf(root, MAX_QUERY_LEN - 1, "/usr/apps/%s", mfx->main_package);
-		if (access(root, F_OK) == 0) {
-			free((void *)mfx->package);
-			mfx->package = strdup(mfx->main_package);
-		} else {
-			_LOGE("main package[%s] is not installed\n", root);
-			return -1;
-		}
-	}
-	if (type) {
-		free(type);
-		type = NULL;
-	}
-	if (path) {
-		free(path);
-		path = NULL;
+
+	ret = __exec_query(query);
+	if (ret == -1) {
+		_LOGD("Package Info DB Insert Failed\n");
+		return -1;
 	}
 
 	/*Insert in the package_privilege_info DB*/
@@ -1715,9 +1668,7 @@ static int __insert_manifest_info_in_db(manifest_x *mfx, uid_t uid)
 	/*_LOGD("\n");*/
 	/*g_list_foreach(applocale, __printfunc, NULL);*/
 
-	/*package locale info, it is only for main package.*/
-	if (mfx->main_package == NULL)
-		g_list_foreach(pkglocale, __insert_pkglocale_info, (gpointer)mfx);
+	g_list_foreach(pkglocale, __insert_pkglocale_info, (gpointer)mfx);
 
 	/*native app locale info*/
 	up = mfx->uiapplication;
