@@ -28,7 +28,6 @@
       <xs:attribute name="storeclient-id" type="xs:string"/>
       <xs:attribute name="install-location" type="packages:InstallLocationType"/>
       <xs:attribute name="package" use="required" type="xs:string"/>
-      <xs:attribute name="main_package" type="xs:string"/>
       <xs:attribute name="type" type="packages:PackageType"/>
       <xs:attribute name="version" use="required" type="xs:string"/>
       <xs:attribute name="size" type="xs:NMTOKEN"/>
@@ -125,8 +124,8 @@
           <xs:element ref="packages:app-control"/>
           <xs:element ref="packages:category"/>
           <xs:element ref="packages:metadata"/>
-      <xs:element ref="packages:permission"/>
-      <xs:element ref="packages:datacontrol"/>
+          <xs:element ref="packages:permission"/>
+          <xs:element ref="packages:datacontrol"/>
         </xs:choice>
       </xs:sequence>
       <xs:attribute name="appid" use="required" type="xs:string"/>
@@ -179,6 +178,8 @@
       <xs:attribute name="launch_mode" type="packages:LaunchType"/>
       <xs:attribute name="on-boot" type="xs:boolean"/>
       <xs:attribute name="auto-restart" type="xs:boolean"/>
+      <xs:attribute name="process-pool" type="xs:boolean"/>
+      <xs:attribute name="ui-gadget" type="xs:boolean"/>
     </xs:complexType>
   </xs:element>
   <xs:element name="ime-application">
