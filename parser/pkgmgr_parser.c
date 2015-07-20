@@ -106,7 +106,6 @@ static int __ps_process_category(xmlTextReaderPtr reader, category_x *category);
 static int __ps_process_metadata(xmlTextReaderPtr reader, metadata_x *metadata);
 static int __ps_process_permission(xmlTextReaderPtr reader, permission_x *permission);
 static int __ps_process_compatibility(xmlTextReaderPtr reader, compatibility_x *compatibility);
-static int __ps_process_resolution(xmlTextReaderPtr reader, resolution_x *resolution);
 static int __ps_process_request(xmlTextReaderPtr reader, request_x *request);
 static int __ps_process_define(xmlTextReaderPtr reader, define_x *define);
 static int __ps_process_appsvc(xmlTextReaderPtr reader, appsvc_x *appsvc);
@@ -115,7 +114,6 @@ static int __ps_process_datashare(xmlTextReaderPtr reader, datashare_x *datashar
 static int __ps_process_icon(xmlTextReaderPtr reader, icon_x *icon, uid_t uid);
 static int __ps_process_author(xmlTextReaderPtr reader, author_x *author);
 static int __ps_process_description(xmlTextReaderPtr reader, description_x *description);
-static int __ps_process_capability(xmlTextReaderPtr reader, capability_x *capability);
 static int __ps_process_license(xmlTextReaderPtr reader, license_x *license);
 static int __ps_process_appcontrol(xmlTextReaderPtr reader, appcontrol_x *appcontrol);
 static int __ps_process_datacontrol(xmlTextReaderPtr reader, datacontrol_x *datacontrol);
@@ -169,8 +167,77 @@ static int __ps_run_parser(xmlDocPtr docPtr, const char *tag, ACTION_TYPE action
 static int __run_parser_prestep(xmlTextReaderPtr reader, ACTION_TYPE action, const char *pkgid);
 static void __processNode(xmlTextReaderPtr reader, ACTION_TYPE action, char *const tagv[], const char *pkgid);
 static void __streamFile(const char *filename, ACTION_TYPE action, char *const tagv[], const char *pkgid);
-static int __validate_appid(const char *pkgid, const char *appid, char **newappid);
 API int __is_admin();
+
+static void __save_xml_attribute(xmlTextReaderPtr reader, char *attribute, const char **xml_attribute, char *default_value)
+{
+	xmlChar *attrib_val = xmlTextReaderGetAttribute(reader, XMLCHAR(attribute));
+	if (attrib_val) {
+		*xml_attribute = strdup((const char *)attrib_val);
+		xmlFree(attrib_val);
+	} else {
+		if (default_value != NULL) {
+			*xml_attribute = strdup(default_value);
+		}
+	}
+}
+
+static void __save_xml_lang(xmlTextReaderPtr reader, const char **xml_attribute)
+{
+	const xmlChar *attrib_val = xmlTextReaderConstXmlLang(reader);
+	if (attrib_val != NULL)
+		*xml_attribute = strdup(ASCII(attrib_val));
+	else
+		*xml_attribute = strdup(DEFAULT_LOCALE);
+}
+
+static void __save_xml_value(xmlTextReaderPtr reader, const char **xml_attribute)
+{
+	xmlTextReaderRead(reader);
+	const xmlChar *attrib_val = xmlTextReaderConstValue(reader);
+
+	if (attrib_val)
+		*xml_attribute = strdup((const char *)attrib_val);
+}
+
+static void __save_xml_installed_time(manifest_x *mfx)
+{
+	char buf[PKG_STRING_LEN_MAX] = {'\0'};
+	char *val = NULL;
+	time_t current_time;
+	time(&current_time);
+	snprintf(buf, PKG_STRING_LEN_MAX - 1, "%d", (int)current_time);
+	val = strndup(buf, PKG_STRING_LEN_MAX - 1);
+	mfx->installed_time = val;
+}
+
+static void __save_xml_root_path(manifest_x *mfx, uid_t uid)
+{
+	char root[PKG_STRING_LEN_MAX] = { '\0' };
+	const char *path;
+
+	if (mfx->root_path)
+		return;
+
+	tzplatform_set_user(uid);
+	path = tzplatform_getenv((uid == OWNER_ROOT || uid == GLOBAL_USER) ? TZ_SYS_RO_APP : TZ_USER_APP);
+	snprintf(root, PKG_STRING_LEN_MAX - 1, "%s/%s", path, mfx->package);
+
+	mfx->root_path = strdup(root);
+
+	tzplatform_reset_user();
+}
+
+static void __save_xml_default_value(manifest_x * mfx)
+{
+	mfx->preload = strdup("False");
+	mfx->removable = strdup("True");
+	mfx->readonly = strdup("False");
+	mfx->update = strdup("False");
+	mfx->system = strdup("False");
+	mfx->installed_storage= strdup("installed_internal");
+	package = mfx->package;
+}
 
 void *__open_lib_handle(char *tag)
 {
@@ -220,73 +287,6 @@ API int __is_admin()
 }
 
 
-
-static int __validate_appid(const char *pkgid, const char *appid, char **newappid)
-{
-	if (!pkgid || !appid || !newappid) {
-		_LOGD("Arg supplied is NULL\n");
-		return -1;
-	}
-	int pkglen = strlen(pkgid);
-	int applen = strlen(appid);
-	char *ptr = NULL;
-	char *newapp = NULL;
-	int len = 0;
-	if (strncmp(appid, ".", 1) == 0) {
-		len = pkglen + applen + 1;
-		newapp = calloc(1,len);
-		if (newapp == NULL) {
-			_LOGD("Malloc failed\n");
-			return -1;
-		}
-		strncpy(newapp, pkgid, pkglen);
-		strncat(newapp, appid, applen);
-		_LOGD("new appid is %s\n", newapp);
-		*newappid = newapp;
-		return 0;
-	}
-	if (applen < pkglen) {
-		_LOGD("app id is not proper\n");
-		*newappid = NULL;
-#ifdef _VALIDATE_APPID_
-		return -1;
-#else
-		return 0;
-#endif
-	}
-	if (!strcmp(appid, pkgid)) {
-		_LOGD("appid is proper\n");
-		*newappid = NULL;
-		return 0;
-	}
-	else if (strncmp(appid, pkgid, pkglen) == 0) {
-		ptr = strstr(appid, pkgid);
-		ptr = ptr + pkglen;
-		if (strncmp(ptr, ".", 1) == 0) {
-			_LOGD("appid is proper\n");
-			*newappid = NULL;
-			return 0;
-		}
-		else {
-			_LOGD("appid is not proper\n");
-			*newappid = NULL;
-#ifdef _VALIDATE_APPID_
-			return -1;
-#else
-			return 0;
-#endif
-		}
-	} else {
-		_LOGD("appid is not proper\n");
-		*newappid = NULL;
-#ifdef _VALIDATE_APPID_
-		return -1;
-#else
-		return 0;
-#endif
-	}
-	return 0;
-}
 
 static char * __get_tag_by_key(char *md_key)
 {
@@ -2502,140 +2502,83 @@ int __ps_process_category_parser(manifest_x *mfx, ACTION_TYPE action)
 
 static int __ps_process_allowed(xmlTextReaderPtr reader, allowed_x *allowed)
 {
-	xmlTextReaderRead(reader);
-	if (xmlTextReaderValue(reader))
-		allowed->text = ASCII(xmlTextReaderValue(reader));
+	__save_xml_value(reader, &allowed->text);
 	return 0;
 }
 
 static int __ps_process_operation(xmlTextReaderPtr reader, operation_x *operation)
 {
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("name")))
-		operation->name = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("name")));
-/* Text does not exist. Only attribute exists
-	xmlTextReaderRead(reader);
-	if (xmlTextReaderValue(reader))
-		operation->text = ASCII(xmlTextReaderValue(reader));
-*/
+	__save_xml_attribute(reader, "name", &operation->name, NULL);
 	return 0;
 }
 
 static int __ps_process_uri(xmlTextReaderPtr reader, uri_x *uri)
 {
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("name")))
-		uri->name = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("name")));
-/* Text does not exist. Only attribute exists
-	xmlTextReaderRead(reader);
-	if (xmlTextReaderValue(reader))
-		uri->text = ASCII(xmlTextReaderValue(reader));
-*/
+	__save_xml_attribute(reader, "name", &uri->name, NULL);
 	return 0;
 }
 
 static int __ps_process_mime(xmlTextReaderPtr reader, mime_x *mime)
 {
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("name")))
-		mime->name = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("name")));
-/* Text does not exist. Only attribute exists
-	xmlTextReaderRead(reader);
-	if (xmlTextReaderValue(reader))
-		mime->text = ASCII(xmlTextReaderValue(reader));
-*/
+	__save_xml_attribute(reader, "name", &mime->name, NULL);
 	return 0;
 }
 
 static int __ps_process_subapp(xmlTextReaderPtr reader, subapp_x *subapp)
 {
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("name")))
-		subapp->name = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("name")));
-/* Text does not exist. Only attribute exists
-	xmlTextReaderRead(reader);
-	if (xmlTextReaderValue(reader))
-		mime->text = ASCII(xmlTextReaderValue(reader));
-*/
+	__save_xml_attribute(reader, "name", &subapp->name, NULL);
 	return 0;
 }
 
 static int __ps_process_condition(xmlTextReaderPtr reader, condition_x *condition)
 {
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("name")))
-		condition->name = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("name")));
-	xmlTextReaderRead(reader);
-	if (xmlTextReaderValue(reader))
-		condition->text = ASCII(xmlTextReaderValue(reader));
+	__save_xml_attribute(reader, "name", &condition->name, NULL);
 	return 0;
 }
 
 static int __ps_process_notification(xmlTextReaderPtr reader, notification_x *notification)
 {
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("name")))
-		notification->name = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("name")));
-	xmlTextReaderRead(reader);
-	if (xmlTextReaderValue(reader))
-		notification->text = ASCII(xmlTextReaderValue(reader));
+	__save_xml_attribute(reader, "name", &notification->name, NULL);
+	__save_xml_value(reader, &notification->text);
 	return 0;
 }
 
 static int __ps_process_category(xmlTextReaderPtr reader, category_x *category)
 {
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("name")))
-		category->name = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("name")));
+	__save_xml_attribute(reader, "name", &category->name, NULL);
 	return 0;
 }
 
 static int __ps_process_privilege(xmlTextReaderPtr reader, privilege_x *privilege)
 {
-	xmlTextReaderRead(reader);
-	if (xmlTextReaderValue(reader)) {
-		privilege->text = ASCII(xmlTextReaderValue(reader));
-	}
+	__save_xml_value(reader, &privilege->text);
 	return 0;
 }
 
 static int __ps_process_metadata(xmlTextReaderPtr reader, metadata_x *metadata)
 {
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("key")))
-		metadata->key = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("key")));
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("value")))
-		metadata->value = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("value")));
+	__save_xml_attribute(reader, "key", &metadata->key, NULL);
+	__save_xml_attribute(reader, "value", &metadata->value, NULL);
 	return 0;
 }
 
 static int __ps_process_permission(xmlTextReaderPtr reader, permission_x *permission)
 {
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("type")))
-		permission->type = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("type")));
-
-	xmlTextReaderRead(reader);
-	if (xmlTextReaderValue(reader))
-		permission->value = ASCII(xmlTextReaderValue(reader));
+	__save_xml_attribute(reader, "type", &permission->type, NULL);
+	__save_xml_value(reader, &permission->value);
 	return 0;
 }
 
 static int __ps_process_compatibility(xmlTextReaderPtr reader, compatibility_x *compatibility)
 {
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("name")))
-		compatibility->name = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("name")));
-	xmlTextReaderRead(reader);
-	if (xmlTextReaderValue(reader))
-		compatibility->text = ASCII(xmlTextReaderValue(reader));
-	return 0;
-}
-
-static int __ps_process_resolution(xmlTextReaderPtr reader, resolution_x *resolution)
-{
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("mime-type")))
-		resolution->mimetype = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("mime-type")));
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("uri-scheme")))
-		resolution->urischeme = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("uri-scheme")));
+	__save_xml_attribute(reader, "name", &compatibility->name, NULL);
+	__save_xml_value(reader, &compatibility->text);
 	return 0;
 }
 
 static int __ps_process_request(xmlTextReaderPtr reader, request_x *request)
 {
-	xmlTextReaderRead(reader);
-	if (xmlTextReaderValue(reader))
-		request->text = ASCII(xmlTextReaderValue(reader));
+	__save_xml_value(reader, &request->text);
 	return 0;
 }
 
@@ -2647,8 +2590,7 @@ static int __ps_process_define(xmlTextReaderPtr reader, define_x *define)
 	allowed_x *tmp1 = NULL;
 	request_x *tmp2 = NULL;
 
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("path")))
-		define->path = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("path")));
+	__save_xml_attribute(reader, "path", &define->path, NULL);
 
 	depth = xmlTextReaderDepth(reader);
 	while ((ret = __next_child_element(reader, depth))) {
@@ -2709,13 +2651,13 @@ static int __ps_process_appcontrol(xmlTextReaderPtr reader, appcontrol_x *appcon
 		}
 
 		if (!strcmp(ASCII(node), "operation")) {
-			appcontrol->operation = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("name")));
+			__save_xml_attribute(reader, "name", &appcontrol->operation, NULL);
 			_LOGD("operation processing\n");
 		} else if (!strcmp(ASCII(node), "uri")) {
-			appcontrol->uri = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("name")));
+			__save_xml_attribute(reader, "name", &appcontrol->uri, NULL);
 			_LOGD("uri processing\n");
 		} else if (!strcmp(ASCII(node), "mime")) {
-			appcontrol->mime = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("name")));
+			__save_xml_attribute(reader, "name", &appcontrol->mime, NULL);
 			_LOGD("mime processing\n");
 		} else
 			return -1;
@@ -2892,9 +2834,7 @@ static int __ps_process_launchconditions(xmlTextReaderPtr reader, launchconditio
 		launchconditions->condition = tmp1;
 	}
 
-	xmlTextReaderRead(reader);
-	if (xmlTextReaderValue(reader))
-		launchconditions->text = ASCII(xmlTextReaderValue(reader));
+	__save_xml_value(reader, &launchconditions->text);
 
 	return ret;
 }
@@ -3063,28 +3003,17 @@ static void __ps_process_tag(manifest_x * mfx, char *const tagv[])
 
 static int __ps_process_icon(xmlTextReaderPtr reader, icon_x *icon, uid_t uid)
 {
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("name")))
-		icon->name = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("name")));
-	if (xmlTextReaderConstXmlLang(reader)) {
-		icon->lang = strdup(ASCII(xmlTextReaderConstXmlLang(reader)));
-		if (icon->lang == NULL)
-			icon->lang = strdup(DEFAULT_LOCALE);
-	} else {
-		icon->lang = strdup(DEFAULT_LOCALE);
-	}
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("section")))
-		icon->section = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("section")));
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("size")))
-		icon->size = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("size")));
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("resolution")))
-		icon->resolution = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("resolution")));
+	__save_xml_attribute(reader, "name", &icon->name, NULL);
+	__save_xml_attribute(reader, "section", &icon->section, NULL);
+	__save_xml_attribute(reader, "size", &icon->size, NULL);
+	__save_xml_attribute(reader, "resolution", &icon->resolution, NULL);
+	__save_xml_lang(reader, &icon->lang);
+
 	xmlTextReaderRead(reader);
-	if (xmlTextReaderValue(reader)) {
-		const char *text  = ASCII(xmlTextReaderValue(reader));
-		if(text) {
-			icon->text = (const char *)__get_icon_with_path(text, uid);
-			free((void *)text);
-		}
+	const char *text  = ASCII(xmlTextReaderValue(reader));
+	if (text) {
+		icon->text = (const char *)__get_icon_with_path(text, uid);
+		free((void *)text);
 	}
 
 	return 0;
@@ -3092,162 +3021,50 @@ static int __ps_process_icon(xmlTextReaderPtr reader, icon_x *icon, uid_t uid)
 
 static int __ps_process_image(xmlTextReaderPtr reader, image_x *image)
 {
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("name")))
-		image->name = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("name")));
-	if (xmlTextReaderConstXmlLang(reader)) {
-		image->lang = strdup(ASCII(xmlTextReaderConstXmlLang(reader)));
-		if (image->lang == NULL)
-			image->lang = strdup(DEFAULT_LOCALE);
-	} else {
-		image->lang = strdup(DEFAULT_LOCALE);
-	}
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("section")))
-		image->section = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("section")));
-	xmlTextReaderRead(reader);
-	if (xmlTextReaderValue(reader))
-		image->text = ASCII(xmlTextReaderValue(reader));
-
+	__save_xml_attribute(reader, "name", &image->name, NULL);
+	__save_xml_attribute(reader, "section", &image->section, NULL);
+	__save_xml_lang(reader, &image->lang);
+	__save_xml_value(reader, &image->text);
 	return 0;
 }
 
 static int __ps_process_label(xmlTextReaderPtr reader, label_x *label)
 {
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("name")))
-		label->name = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("name")));
-	if (xmlTextReaderConstXmlLang(reader)) {
-		label->lang = strdup(ASCII(xmlTextReaderConstXmlLang(reader)));
-		if (label->lang == NULL)
-			label->lang = strdup(DEFAULT_LOCALE);
-	} else 
-		label->lang = strdup(DEFAULT_LOCALE);
-	xmlTextReaderRead(reader);
-	if (xmlTextReaderValue(reader))
-		label->text = ASCII(xmlTextReaderValue(reader));
-
-
-/*	_LOGD("lable name %s\n", label->name);
-	_LOGD("lable lang %s\n", label->lang);
-	_LOGD("lable text %s\n", label->text);
-*/
+	__save_xml_attribute(reader, "name", &label->name, NULL);
+	__save_xml_lang(reader, &label->lang);
+	__save_xml_value(reader, &label->text);
 	return 0;
 
 }
 
 static int __ps_process_author(xmlTextReaderPtr reader, author_x *author)
 {
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("email")))
-		author->email = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("email")));
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("href")))
-		author->href = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("href")));
-	if (xmlTextReaderConstXmlLang(reader)) {
-		author->lang = strdup(ASCII(xmlTextReaderConstXmlLang(reader)));
-		if (author->lang == NULL)
-			author->lang = strdup(DEFAULT_LOCALE);
-	} else {
-		author->lang = strdup(DEFAULT_LOCALE);
-	}
-	xmlTextReaderRead(reader);
-	if (xmlTextReaderValue(reader)) {
-		const char *text  = ASCII(xmlTextReaderValue(reader));
-		if (*text == '\n') {
-			author->text = NULL;
-			free((void *)text);
-			return 0;
-		}
-		author->text = ASCII(xmlTextReaderValue(reader));
-	}
+	__save_xml_attribute(reader, "email", &author->email, NULL);
+	__save_xml_attribute(reader, "href", &author->href, NULL);
+	__save_xml_lang(reader, &author->lang);
+	__save_xml_value(reader, &author->text);
 	return 0;
 }
 
 static int __ps_process_description(xmlTextReaderPtr reader, description_x *description)
 {
-	if (xmlTextReaderConstXmlLang(reader)) {
-		description->lang = strdup(ASCII(xmlTextReaderConstXmlLang(reader)));
-		if (description->lang == NULL)
-			description->lang = strdup(DEFAULT_LOCALE);
-	} else {
-		description->lang = strdup(DEFAULT_LOCALE);
-	}
-	xmlTextReaderRead(reader);
-	if (xmlTextReaderValue(reader)) {
-		const char *text  = ASCII(xmlTextReaderValue(reader));
-		if (*text == '\n') {
-			description->text = NULL;
-			free((void *)text);
-			return 0;
-		}
-		description->text = ASCII(xmlTextReaderValue(reader));
-	}
+	__save_xml_lang(reader, &description->lang);
+	__save_xml_value(reader, &description->text);
 	return 0;
 }
 
 static int __ps_process_license(xmlTextReaderPtr reader, license_x *license)
 {
-	if (xmlTextReaderConstXmlLang(reader)) {
-		license->lang = strdup(ASCII(xmlTextReaderConstXmlLang(reader)));
-		if (license->lang == NULL)
-			license->lang = strdup(DEFAULT_LOCALE);
-	} else {
-		license->lang = strdup(DEFAULT_LOCALE);
-	}
-	xmlTextReaderRead(reader);
-	if (xmlTextReaderValue(reader))
-		license->text = ASCII(xmlTextReaderValue(reader));
+	__save_xml_lang(reader, &license->lang);
+	__save_xml_value(reader, &license->text);
 	return 0;
-}
-
-static int __ps_process_capability(xmlTextReaderPtr reader, capability_x *capability)
-{
-	const xmlChar *node;
-	int ret = -1;
-	int depth = -1;
-	resolution_x *tmp1 = NULL;
-
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("operation-id")))
-		capability->operationid = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("operation-id")));
-
-	depth = xmlTextReaderDepth(reader);
-	while ((ret = __next_child_element(reader, depth))) {
-		node = xmlTextReaderConstName(reader);
-		if (!node) {
-			_LOGD("xmlTextReaderConstName value is NULL\n");
-			return -1;
-		}
-
-		if (!strcmp(ASCII(node), "resolution")) {
-			resolution_x *resolution = malloc(sizeof(resolution_x));
-			if (resolution == NULL) {
-				_LOGD("Malloc Failed\n");
-				return -1;
-			}
-			memset(resolution, '\0', sizeof(resolution_x));
-			LISTADD(capability->resolution, resolution);
-			ret = __ps_process_resolution(reader, resolution);
-		} else
-			return -1;
-		if (ret < 0) {
-			_LOGD("Processing capability failed\n");
-			return ret;
-		}
-	}
-
-	if (capability->resolution) {
-		LISTHEAD(capability->resolution, tmp1);
-		capability->resolution = tmp1;
-	}
-
-	return ret;
 }
 
 static int __ps_process_datacontrol(xmlTextReaderPtr reader, datacontrol_x *datacontrol)
 {
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("providerid")))
-		datacontrol->providerid = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("providerid")));
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("access")))
-		datacontrol->access = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("access")));
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("type")))
-		datacontrol->type = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("type")));
-
+	__save_xml_attribute(reader, "providerid", &datacontrol->providerid, NULL);
+	__save_xml_attribute(reader, "access", &datacontrol->access, NULL);
+	__save_xml_attribute(reader, "type", &datacontrol->type, NULL);
 	return 0;
 }
 
@@ -3256,7 +3073,6 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 	const xmlChar *node;
 	int ret = -1;
 	int depth = -1;
-	char *newappid = NULL;
 	label_x *tmp1 = NULL;
 	icon_x *tmp2 = NULL;
 	appsvc_x *tmp3 = NULL;
@@ -3270,148 +3086,34 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 	permission_x *tmp11 = NULL;
 	datacontrol_x *tmp12 = NULL;
 
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("appid"))) {
-		uiapplication->appid = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("appid")));
-		if (uiapplication->appid == NULL) {
-			_LOGD("appid cant be NULL\n");
-			return -1;
-		}
-	} else {
-		_LOGD("appid is mandatory\n");
-		return -1;
-	}
-	/*check appid*/
-	ret = __validate_appid(package, uiapplication->appid, &newappid);
-	if (ret == -1) {
-		_LOGD("appid is not proper\n");
-		return -1;
-	} else {
-		if (newappid) {
-			if (uiapplication->appid)
-				free((void *)uiapplication->appid);
-			uiapplication->appid = newappid;
-		}
-		uiapplication->package= strdup(package);
-	}
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("exec")))
-		uiapplication->exec = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("exec")));
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("nodisplay"))) {
-		uiapplication->nodisplay = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("nodisplay")));
-		if (uiapplication->nodisplay == NULL)
-			uiapplication->nodisplay = strdup("false");
-	} else {
-		uiapplication->nodisplay = strdup("false");
-	}
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("multiple"))) {
-		uiapplication->multiple = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("multiple")));
-		if (uiapplication->multiple == NULL)
-			uiapplication->multiple = strdup("false");
-	} else {
-		uiapplication->multiple = strdup("false");
-	}
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("type")))
-		uiapplication->type = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("type")));
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("categories")))
-		uiapplication->categories = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("categories")));
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("extraid")))
-		uiapplication->extraid = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("extraid")));
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("taskmanage"))) {
-		uiapplication->taskmanage = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("taskmanage")));
-		if (uiapplication->taskmanage == NULL)
-			uiapplication->taskmanage = strdup("true");
-	} else {
-		uiapplication->taskmanage = strdup("true");
-	}
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("enabled"))) {
-		uiapplication->enabled = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("enabled")));
-		if (uiapplication->enabled == NULL)
-			uiapplication->enabled = strdup("true");
-	} else {
-		uiapplication->enabled = strdup("true");
-	}
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("hw-acceleration"))) {
-		uiapplication->hwacceleration = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("hw-acceleration")));
-		if (uiapplication->hwacceleration == NULL)
-			uiapplication->hwacceleration = strdup("use-system-setting");
-	} else {
-		uiapplication->hwacceleration = strdup("use-system-setting");
-	}
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("screen-reader"))) {
-		uiapplication->screenreader = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("screen-reader")));
-		if (uiapplication->screenreader == NULL)
-			uiapplication->screenreader = strdup("use-system-setting");
-	} else {
-		uiapplication->screenreader = strdup("use-system-setting");
-	}
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("recentimage")))
-		uiapplication->recentimage = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("recentimage")));
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("mainapp"))) {
-		uiapplication->mainapp = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("mainapp")));
-		if (uiapplication->mainapp == NULL)
-			uiapplication->mainapp = strdup("false");
-	} else {
-		uiapplication->mainapp = strdup("false");
-	}
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("launchcondition"))) {
-		uiapplication->launchcondition = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("launchcondition")));
-		if (uiapplication->launchcondition == NULL)
-			uiapplication->launchcondition = strdup("false");
-	} else {
-		uiapplication->launchcondition = strdup("false");
-	}
+	__save_xml_attribute(reader, "appid", &uiapplication->appid, NULL);
+	retvm_if(uiapplication->appid == NULL, PM_PARSER_R_ERROR, "appid cant be NULL, appid field is mandatory\n");
+	__save_xml_attribute(reader, "exec", &uiapplication->exec, NULL);
+	__save_xml_attribute(reader, "nodisplay", &uiapplication->nodisplay, "false");
+	__save_xml_attribute(reader, "multiple", &uiapplication->multiple, "false");
+	__save_xml_attribute(reader, "type", &uiapplication->type, NULL);
+	__save_xml_attribute(reader, "categories", &uiapplication->categories, NULL);
+	__save_xml_attribute(reader, "extraid", &uiapplication->extraid, NULL);
+	__save_xml_attribute(reader, "taskmanage", &uiapplication->taskmanage, "true");
+	__save_xml_attribute(reader, "enabled", &uiapplication->enabled, "true");
+	__save_xml_attribute(reader, "hw-acceleration", &uiapplication->hwacceleration, "default");
+	__save_xml_attribute(reader, "screen-reader", &uiapplication->screenreader, "use-system-setting");
+	__save_xml_attribute(reader, "mainapp", &uiapplication->mainapp, "false");
+	__save_xml_attribute(reader, "recentimage", &uiapplication->recentimage, "false");
+	__save_xml_attribute(reader, "launchcondition", &uiapplication->launchcondition, "false");
+	__save_xml_attribute(reader, "indicatordisplay", &uiapplication->indicatordisplay, "true");
+	__save_xml_attribute(reader, "portrait-effectimage", &uiapplication->portraitimg, NULL);
+	__save_xml_attribute(reader, "landscape-effectimage", &uiapplication->landscapeimg, NULL);
+	__save_xml_attribute(reader, "guestmode-visibility", &uiapplication->guestmode_visibility, "true");
+	__save_xml_attribute(reader, "permission-type", &uiapplication->permission_type, "normal");
+	__save_xml_attribute(reader, "component-type", &uiapplication->component_type, "uiapp");
+	/*component_type has "svcapp" or "uiapp", if it is not, parsing manifest is fail*/
+	retvm_if(((strcmp(uiapplication->component_type, "svcapp") != 0) && (strcmp(uiapplication->component_type, "uiapp") != 0) && (strcmp(uiapplication->component_type, "widgetapp") != 0)), PM_PARSER_R_ERROR, "invalid component_type[%s]\n", uiapplication->component_type);
+	__save_xml_attribute(reader, "submode", &uiapplication->submode, "false");
+	__save_xml_attribute(reader, "submode-mainid", &uiapplication->submode_mainid, NULL);
+	__save_xml_attribute(reader, "launch_mode", &uiapplication->launch_mode, "caller");
 
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("indicatordisplay"))) {
-		uiapplication->indicatordisplay = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("indicatordisplay")));
-		if (uiapplication->indicatordisplay == NULL)
-			uiapplication->indicatordisplay = strdup("true");
-	} else {
-		uiapplication->indicatordisplay = strdup("true");
-	}
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("portrait-effectimage")))
-		uiapplication->portraitimg = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("portrait-effectimage")));
-	else
-		uiapplication->portraitimg = NULL;
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("landscape-effectimage")))
-		uiapplication->landscapeimg = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("landscape-effectimage")));
-	else
-		uiapplication->landscapeimg = NULL;
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("guestmode-visibility"))) {
-		uiapplication->guestmode_visibility = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("guestmode-visibility")));
-		if (uiapplication->guestmode_visibility == NULL)
-			uiapplication->guestmode_visibility = strdup("true");
-	} else {
-		uiapplication->guestmode_visibility = strdup("true");
-	}
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("permission-type"))) {
-		uiapplication->permission_type = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("permission-type")));
-		if (uiapplication->permission_type == NULL)
-			uiapplication->permission_type = strdup("normal");
-	} else {
-		uiapplication->permission_type = strdup("normal");
-	}
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("component-type"))) {
-		uiapplication->component_type = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("component-type")));
-		if (uiapplication->component_type == NULL)
-			uiapplication->component_type = strdup("uiapp");
-	} else {
-		uiapplication->component_type = strdup("uiapp");
-	}
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("submode"))) {
-		uiapplication->submode = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("submode")));
-		if (uiapplication->submode == NULL)
-			uiapplication->submode = strdup("false");
-	} else {
-		uiapplication->submode = strdup("false");
-	}
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("submode-mainid")))
-		uiapplication->submode_mainid = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("submode-mainid")));
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("launch_mode"))) {
-		uiapplication->launch_mode = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("launch_mode")));
-		if (uiapplication->launch_mode == NULL)
-			uiapplication->launch_mode = strdup("caller");
-	} else {
-		uiapplication->launch_mode = strdup("caller");
-	}
+	uiapplication->package= strdup(package);
 
 	depth = xmlTextReaderDepth(reader);
 	while ((ret = __next_child_element(reader, depth))) {
@@ -3593,7 +3295,6 @@ static int __ps_process_serviceapplication(xmlTextReaderPtr reader, serviceappli
 	const xmlChar *node;
 	int ret = -1;
 	int depth = -1;
-	char *newappid = NULL;
 	label_x *tmp1 = NULL;
 	icon_x *tmp2 = NULL;
 	appsvc_x *tmp3 = NULL;
@@ -3606,53 +3307,16 @@ static int __ps_process_serviceapplication(xmlTextReaderPtr reader, serviceappli
 	metadata_x *tmp10 = NULL;
 	permission_x *tmp11 = NULL;
 
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("appid"))) {
-		serviceapplication->appid = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("appid")));
-		if (serviceapplication->appid == NULL) {
-			_LOGD("appid cant be NULL\n");
-			return -1;
-		}
-	} else {
-		_LOGD("appid is mandatory\n");
-		return -1;
-	}
-	/*check appid*/
-	ret = __validate_appid(package, serviceapplication->appid, &newappid);
-	if (ret == -1) {
-		_LOGD("appid is not proper\n");
-		return -1;
-	} else {
-		if (newappid) {
-			if (serviceapplication->appid)
-				free((void *)serviceapplication->appid);
-			serviceapplication->appid = newappid;
-		}
-	}
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("exec")))
-		serviceapplication->exec = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("exec")));
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("type")))
-		serviceapplication->type = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("type")));
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("on-boot"))) {
-		serviceapplication->onboot = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("on-boot")));
-		if (serviceapplication->onboot == NULL)
-			serviceapplication->onboot = strdup("false");
-	} else {
-		serviceapplication->onboot = strdup("false");
-	}
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("auto-restart"))) {
-		serviceapplication->autorestart = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("auto-restart")));
-		if (serviceapplication->autorestart == NULL)
-			serviceapplication->autorestart = strdup("false");
-	} else {
-		serviceapplication->autorestart = strdup("false");
-	}
-	if (xmlTextReaderGetAttribute(reader, XMLCHAR("permission-type"))) {
-		serviceapplication->permission_type = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("permission-type")));
-		if (serviceapplication->permission_type == NULL)
-			serviceapplication->permission_type = strdup("normal");
-	} else {
-		serviceapplication->permission_type = strdup("normal");
-	}
+	__save_xml_attribute(reader, "appid", &serviceapplication->appid, NULL);
+	retvm_if(serviceapplication->appid == NULL, PM_PARSER_R_ERROR, "appid cant be NULL, appid field is mandatory\n");
+	__save_xml_attribute(reader, "exec", &serviceapplication->exec, NULL);
+	__save_xml_attribute(reader, "type", &serviceapplication->type, NULL);
+	__save_xml_attribute(reader, "enabled", &serviceapplication->enabled, "true");
+	__save_xml_attribute(reader, "permission-type", &serviceapplication->permission_type, "normal");
+	__save_xml_attribute(reader, "auto-restart", &serviceapplication->autorestart, "false");
+	__save_xml_attribute(reader, "on-boot", &serviceapplication->onboot, "false");
+
+	serviceapplication->package= strdup(package);
 
 	depth = xmlTextReaderDepth(reader);
 	while ((ret = __next_child_element(reader, depth))) {
@@ -4083,7 +3747,7 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx, uid_t uid)
 	return ret;
 }
 
-static int __process_manifest(xmlTextReaderPtr reader, manifest_x * mfx, uid_t uid)
+static int __process_manifest(xmlTextReaderPtr reader, manifest_x *mfx, uid_t uid)
 {
 	const xmlChar *node;
 	int ret = -1;
@@ -4096,67 +3760,25 @@ static int __process_manifest(xmlTextReaderPtr reader, manifest_x * mfx, uid_t u
 		}
 
 		if (!strcmp(ASCII(node), "manifest")) {
-			if (xmlTextReaderGetAttribute(reader, XMLCHAR("xmlns"))){
-				mfx->ns = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("xmlns")));
-			}
-			if (xmlTextReaderGetAttribute(reader, XMLCHAR("package"))) {
-				mfx->package= ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("package")));
-				if (mfx->package == NULL) {
-					_LOGD("package cant be NULL\n");
-					return -1;
-				}
-			} else {
-				_LOGD("package field is mandatory\n");
-				return -1;
-			}
-			package = mfx->package;
-			if (xmlTextReaderGetAttribute(reader, XMLCHAR("version")))
-				mfx->version= ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("version")));
-			/*app2ext needs package size for external installation*/
-			if (xmlTextReaderGetAttribute(reader, XMLCHAR("size")))
-				mfx->package_size = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("size")));
-			if (xmlTextReaderGetAttribute(reader, XMLCHAR("install-location")))
-				mfx->installlocation = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("install-location")));
-			if (xmlTextReaderGetAttribute(reader, XMLCHAR("type")))
-				mfx->type = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("type")));
-			if (xmlTextReaderGetAttribute(reader, XMLCHAR("root_path")))
-				mfx->root_path = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("root_path")));
-			if (xmlTextReaderGetAttribute(reader, XMLCHAR("csc_path")))
-				mfx->csc_path = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("csc_path")));
-			if (xmlTextReaderGetAttribute(reader, XMLCHAR("main_package")))
-				mfx->main_package = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("main_package")));
-			if (xmlTextReaderGetAttribute(reader, XMLCHAR("appsetting"))) {
-				mfx->appsetting = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("appsetting")));
-				if (mfx->appsetting == NULL)
-					mfx->appsetting = strdup("false");
-			} else {
-				mfx->appsetting = strdup("false");
-			}
-			if (xmlTextReaderGetAttribute(reader, XMLCHAR("storeclient-id")))
-				mfx->storeclient_id= ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("storeclient-id")));
-			if (xmlTextReaderGetAttribute(reader, XMLCHAR("nodisplay-setting"))) {
-				mfx->nodisplay_setting = ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("nodisplay-setting")));
-				if (mfx->nodisplay_setting == NULL)
-					mfx->nodisplay_setting = strdup("false");
-			} else {
-				mfx->nodisplay_setting = strdup("false");
-			}
-			if (xmlTextReaderGetAttribute(reader, XMLCHAR("url")))
-				mfx->package_url= ASCII(xmlTextReaderGetAttribute(reader, XMLCHAR("url")));
+			__save_xml_attribute(reader, "xmlns", &mfx->ns, NULL);
+			__save_xml_attribute(reader, "package", &mfx->package, NULL);
+			retvm_if(mfx->package == NULL, PM_PARSER_R_ERROR, "package cant be NULL, package field is mandatory\n");
+			__save_xml_attribute(reader, "version", &mfx->version, NULL);
+			__save_xml_attribute(reader, "size", &mfx->package_size, NULL);
+			__save_xml_attribute(reader, "install-location", &mfx->installlocation, "internal-only");
+			__save_xml_attribute(reader, "type", &mfx->type, "rpm");
+			__save_xml_attribute(reader, "root_path", &mfx->root_path, NULL);
+			__save_xml_attribute(reader, "csc_path", &mfx->csc_path, NULL);
+			__save_xml_attribute(reader, "appsetting", &mfx->appsetting, "false");
+			__save_xml_attribute(reader, "storeclient-id", &mfx->storeclient_id, NULL);
+			__save_xml_attribute(reader, "nodisplay-setting", &mfx->nodisplay_setting, "false");
+			__save_xml_attribute(reader, "url", &mfx->package_url, NULL);
+			__save_xml_attribute(reader, "api-version", &mfx->api_version, NULL);
+
+			__save_xml_installed_time(mfx);
+			__save_xml_root_path(mfx, uid);
 			/*Assign default values. If required it will be overwritten in __add_preload_info()*/
-			mfx->preload = strdup("False");
-			mfx->removable = strdup("True");
-			mfx->readonly = strdup("False");
-			mfx->update = strdup("False");
-			mfx->system = strdup("False");
-			char buf[PKG_STRING_LEN_MAX] = {'\0'};
-			char *val = NULL;
-			time_t current_time;
-			time(&current_time);
-			snprintf(buf, PKG_STRING_LEN_MAX - 1, "%d", current_time);
-			val = strndup(buf, PKG_STRING_LEN_MAX - 1);
-			mfx->installed_time = val;
-			mfx->installed_storage= strdup("installed_internal");
+			__save_xml_default_value(mfx);
 
 			ret = __start_process(reader, mfx, uid);
 		} else {
@@ -4394,9 +4016,9 @@ API void pkgmgr_parser_free_manifest_xml(manifest_x *mfx)
 		free((void *)mfx->nodisplay_setting);
 		mfx->nodisplay_setting = NULL;
 	}
-	if (mfx->main_package) {
-		free((void *)mfx->main_package);
-		mfx->main_package = NULL;
+	if (mfx->api_version) {
+		free((void *)mfx->api_version);
+		mfx->api_version = NULL;
 	}
 
 	/*Free Icon*/
