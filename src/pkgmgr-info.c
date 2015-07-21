@@ -416,7 +416,7 @@ static gid_t _get_gid(const char *name)
 	return entry.gr_gid;
 }
 
-API char *getIconPath(uid_t uid)
+API const char *getIconPath(uid_t uid)
 {
 	const char *path = NULL;
 	uid_t uid_caller = getuid();
@@ -438,12 +438,12 @@ API char *getIconPath(uid_t uid)
 	return path;
 }
 
-API char *getUserPkgParserDBPath(void)
+API const char *getUserPkgParserDBPath(void)
 {
 	return getUserPkgParserDBPathUID(GLOBAL_USER);
 }
 
-API char *getUserPkgParserDBPathUID(uid_t uid)
+API const char *getUserPkgParserDBPathUID(uid_t uid)
 {
 	const char *pkgmgr_parser_db = NULL;
 	uid_t uid_caller = getuid();
@@ -467,12 +467,12 @@ API char *getUserPkgParserDBPathUID(uid_t uid)
 	return pkgmgr_parser_db;
 }
 
-API char *getUserPkgCertDBPath(void)
+API const char *getUserPkgCertDBPath(void)
 {
 	 return getUserPkgCertDBPathUID(GLOBAL_USER);
 }
 
-API char *getUserPkgCertDBPathUID(uid_t uid)
+API const char *getUserPkgCertDBPathUID(uid_t uid)
 {
 	const char *pkgmgr_cert_db = NULL;
 	uid_t uid_caller = getuid();
@@ -496,7 +496,7 @@ API char *getUserPkgCertDBPathUID(uid_t uid)
 	return pkgmgr_cert_db;
 }
 
-API const char* getUserDesktopPath(uid_t uid)
+API const char *getUserDesktopPath(uid_t uid)
 {
 	const char *path = NULL;
 	uid_t uid_caller = getuid();
@@ -518,7 +518,7 @@ API const char* getUserDesktopPath(uid_t uid)
 	return path;
 }
 
-API const char* getUserManifestPath(uid_t uid)
+API const char *getUserManifestPath(uid_t uid)
 {
 	const char *path = NULL;
 	uid_t uid_caller = getuid();
@@ -1128,7 +1128,7 @@ static int __uiapp_list_cb(void *data, int ncols, char **coltxt, char **colname)
 				info->manifest_info->uiapplication->submode_mainid = strdup(coltxt[i]);
 			else
 				info->manifest_info->uiapplication->submode_mainid = NULL;
-		} else if (strcmp(colname, "app_launch_mode") == 0 ) {
+		} else if (strcmp(colname[i], "app_launch_mode") == 0 ) {
 			if (coltxt[i])
 				info->manifest_info->uiapplication->launch_mode = strdup(coltxt[i]);
 			else
@@ -1887,7 +1887,7 @@ static void __parse_appcontrol(appcontrol_x **appcontrol, char *appcontrol_str)
 {
 	char *dup;
 	char *token;
-	char *ptr;
+	char *ptr = NULL;
 	appcontrol_x *ac;
 
 	if (appcontrol_str == NULL)
@@ -1906,7 +1906,7 @@ static void __parse_appcontrol(appcontrol_x **appcontrol, char *appcontrol_str)
 		if (strcmp(token, "NULL"))
 			ac->mime = strdup(token);
 		LISTADD(*appcontrol, ac);
-	} while (token = strtok_r(NULL, ";", &ptr));
+	} while ((token = strtok_r(NULL, ";", &ptr)));
 
 	free(dup);
 }
@@ -1921,7 +1921,6 @@ static int __appinfo_cb(void *data, int ncols, char **coltxt, char **colname)
 	metadata_x *metadata = NULL;
 	permission_x *permission = NULL;
 	image_x *image = NULL;
-	appcontrol_x *appcontrol = NULL;
 
 	switch (info->app_component) {
 	case PMINFO_UI_APP:
@@ -2441,7 +2440,7 @@ static char* __get_app_locale_from_app_localized_info_by_fallback(sqlite3 *db, c
 	strncpy(lang, locale, 2);
 	snprintf(query, MAX_QUERY_LEN, "select app_locale from package_app_localized_info where app_id='%s' and app_locale like '%s%s'", appid, lang, wildcard);
 	ret = __exec_db_query(db, query, __fallback_locale_cb, (void *)info);
-	tryvm_if(ret == -1, PMINFO_R_ERROR, "Exec DB query failed");
+	trym_if(ret == -1, "Exec DB query failed");
 	locale_new = info->locale;
 	free(info);
 	return locale_new;
@@ -5088,6 +5087,7 @@ API int pkgmgrinfo_appinfo_get_usr_installed_list(pkgmgrinfo_app_list_cb app_fun
 	image_x *tmp6 = NULL;
 	appcontrol_x *tmp7 = NULL;
 	const char *user_pkg_parser = NULL;
+	pkgmgr_pkginfo_x *info = NULL;
 
 	/*get system locale*/
 	syslocale = vconf_get_str(VCONFKEY_LANGSET);
@@ -5103,7 +5103,6 @@ API int pkgmgrinfo_appinfo_get_usr_installed_list(pkgmgrinfo_app_list_cb app_fun
 	retvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "connect db [%s] failed!", user_pkg_parser);
 
 	/*calloc pkginfo*/
-	pkgmgr_pkginfo_x *info = NULL;
 	info = (pkgmgr_pkginfo_x *)calloc(1, sizeof(pkgmgr_pkginfo_x));
 	tryvm_if(info == NULL, ret = PMINFO_R_ERROR, "Out of Memory!!!");
 
@@ -5602,8 +5601,10 @@ API int pkgmgrinfo_appinfo_get_icon(pkgmgrinfo_appinfo_h handle, char **icon)
 
         if (info->app_component == PMINFO_UI_APP)
                 start = info->uiapp_info->icon;
-        if (info->app_component == PMINFO_SVC_APP)
+	else if (info->app_component == PMINFO_SVC_APP)
                 start = info->svcapp_info->icon;
+	else
+		return PMINFO_R_EINVAL;
 
 	for (ptr = start; ptr != NULL; ptr = ptr->next) {
 		if (ptr->lang == NULL)
@@ -5642,8 +5643,10 @@ API int pkgmgrinfo_appinfo_get_label(pkgmgrinfo_appinfo_h handle, char **label)
 
 	if (info->app_component == PMINFO_UI_APP)
 		start = info->uiapp_info->label;
-	if (info->app_component == PMINFO_SVC_APP)
+	else if (info->app_component == PMINFO_SVC_APP)
 		start = info->svcapp_info->label;
+	else
+		return PMINFO_R_EINVAL;
 
 	for (ptr = start; ptr != NULL; ptr = ptr->next) {
 		if (ptr->lang == NULL)
@@ -5673,7 +5676,7 @@ static char *_get_localed_label(const char *appid, const char *locale, uid_t uid
 	sqlite3_stmt *stmt = NULL;
 	sqlite3 *db = NULL;
 	char *val;
-	char *manifest_db;
+	const char *manifest_db;
 
 	manifest_db = getUserPkgParserDBPathUID(uid);
 	if (manifest_db == NULL) {
@@ -5714,7 +5717,6 @@ err:
 API int pkgmgrinfo_appinfo_usr_get_localed_label(const char *appid, const char *locale, uid_t uid, char **label)
 {
 	char *val;
-	int ret;
 
 	retvm_if(appid == NULL || locale == NULL || label == NULL, PMINFO_R_EINVAL, "Argument is NULL");
 
@@ -5919,7 +5921,7 @@ API int pkgmgrinfo_appinfo_get_preview_image(pkgmgrinfo_appinfo_h handle, char *
 
 API int pkgmgrinfo_appinfo_get_permission_type(pkgmgrinfo_appinfo_h handle, pkgmgrinfo_permission_type *permission)
 {
-	char *val;
+	const char *val;
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL\n");
@@ -6236,7 +6238,7 @@ API int pkgmgrinfo_appinfo_foreach_appcontrol(pkgmgrinfo_appinfo_h handle,
 		appcontrol = info->svcapp_info->appcontrol;
 		break;
 	default:
-		break;
+		return PMINFO_R_EINVAL;
 	}
 	for (; appcontrol; appcontrol = appcontrol->next) {
 		ret = appcontrol_func(appcontrol->operation, appcontrol->uri, appcontrol->mime, user_data);
@@ -6733,19 +6735,24 @@ API int pkgmgrinfo_appinfo_filter_count(pkgmgrinfo_appinfo_filter_h handle, int 
 API int pkgmgrinfo_appinfo_usr_filter_foreach_appinfo(pkgmgrinfo_appinfo_filter_h handle,
 				pkgmgrinfo_app_list_cb app_cb, void * user_data, uid_t uid)
 {
-	retvm_if(handle == NULL, PMINFO_R_EINVAL, "Filter handle input parameter is NULL\n");
-	retvm_if(app_cb == NULL, PMINFO_R_EINVAL, "Filter handle input parameter is NULL\n");
-	char *syslocale = NULL;
-	char *locale = NULL;
-	char *condition = NULL;
-	char *error_message = NULL;
+	char *syslocale;
+	char *locale;
+	char *condition;
+	char *error_message;
 	char query[MAX_QUERY_LEN] = {'\0'};
 	char where[MAX_QUERY_LEN] = {'\0'};
 	GSList *list;
-	int ret = 0;
-	uiapplication_x *ptr1 = NULL;
-	serviceapplication_x *ptr2 = NULL;
+	int ret;
+	uiapplication_x *ptr1;
+	serviceapplication_x *ptr2;
 	pkgmgrinfo_filter_x *filter = (pkgmgrinfo_filter_x*)handle;
+	pkgmgr_pkginfo_x *info;
+	pkgmgr_pkginfo_x *filtinfo = NULL;
+	pkgmgr_appinfo_x *appinfo = NULL;
+
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "Filter handle input parameter is NULL\n");
+	retvm_if(app_cb == NULL, PMINFO_R_EINVAL, "Filter handle input parameter is NULL\n");
+
 	/*Get current locale*/
 	syslocale = vconf_get_str(VCONFKEY_LANGSET);
 	if (syslocale == NULL) {
@@ -6787,8 +6794,6 @@ API int pkgmgrinfo_appinfo_usr_filter_foreach_appinfo(pkgmgrinfo_appinfo_filter_
 		query[sizeof(query) - 1] = '\0';
 	}
 	/*To get filtered list*/
-	pkgmgr_pkginfo_x *info = NULL;
-	pkgmgr_pkginfo_x *filtinfo = NULL;
 	info = (pkgmgr_pkginfo_x *)calloc(1, sizeof(pkgmgr_pkginfo_x));
 	if (info == NULL) {
 		_LOGE("Out of Memory!!!\n");
@@ -6814,7 +6819,7 @@ API int pkgmgrinfo_appinfo_usr_filter_foreach_appinfo(pkgmgrinfo_appinfo_filter_
 		ret = PMINFO_R_ERROR;
 		goto err;
 	}
-	pkgmgr_appinfo_x *appinfo = (pkgmgr_appinfo_x *)calloc(1, sizeof(pkgmgr_appinfo_x));
+	appinfo = (pkgmgr_appinfo_x *)calloc(1, sizeof(pkgmgr_appinfo_x));
 	if (appinfo == NULL) {
 		_LOGE("Out of Memory!!!\n");
 		ret = PMINFO_R_ERROR;
@@ -7579,27 +7584,36 @@ API int pkgmgrinfo_create_pkgdbinfo(const char *pkgid, pkgmgrinfo_pkgdbinfo_h *h
 
 API int pkgmgrinfo_set_type_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, const char *type)
 {
+	int len;
+	manifest_x *mfx = (manifest_x *)handle;
+
 	retvm_if(!type, PMINFO_R_EINVAL, "Argument supplied is NULL");
 	retvm_if(!handle, PMINFO_R_EINVAL, "Argument supplied is NULL");
 
-	int len = strlen(type);
+	len = strlen(type);
 	retvm_if(len > PKG_TYPE_STRING_LEN_MAX, PMINFO_R_EINVAL, "pkg type length exceeds the max limit");
 
-	manifest_x *mfx = (manifest_x *)handle;
+	if (mfx->type)
+		free((void *)mfx->type);
 
 	mfx->type = strndup(type, PKG_TYPE_STRING_LEN_MAX);
+
 	return PMINFO_R_OK;
 }
 
 API int pkgmgrinfo_set_version_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, const char *version)
 {
+	int len;
+	manifest_x *mfx = (manifest_x *)handle;
+
 	retvm_if(!version, PMINFO_R_EINVAL, "Argument supplied is NULL");
 	retvm_if(!handle, PMINFO_R_EINVAL, "Argument supplied is NULL");
 
-	int len = strlen(version);
+	len = strlen(version);
 	retvm_if(len > PKG_TYPE_STRING_LEN_MAX, PMINFO_R_EINVAL, "pkg type length exceeds the max limit");
 
-	manifest_x *mfx = (manifest_x *)handle;
+	if (mfx->version)
+		free((void *)mfx->version);
 
 	mfx->version = strndup(version, PKG_VERSION_STRING_LEN_MAX);
 	return PMINFO_R_OK;
@@ -7607,25 +7621,31 @@ API int pkgmgrinfo_set_version_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, const
 
 API int pkgmgrinfo_set_install_location_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, INSTALL_LOCATION location)
 {
+	manifest_x *mfx = (manifest_x *)handle;
+
 	retvm_if(!handle, PMINFO_R_EINVAL, "Argument supplied is NULL");
 	retvm_if((location < 0) || (location > 1), PMINFO_R_EINVAL, "Argument supplied is NULL");
 
-	manifest_x *mfx = (manifest_x *)handle;
+	if (mfx->installlocation)
+		free((void *)mfx->installlocation);
 
 	if (location == INSTALL_INTERNAL)
-		strcpy(mfx->installlocation, "internal-only");
+		mfx->installlocation = strdup("internal-only");
 	else if (location == INSTALL_EXTERNAL)
-		strcpy(mfx->installlocation, "prefer-external");
+		mfx->installlocation = strdup("prefer-external");
 
 	return PMINFO_R_OK;
 }
 
 API int pkgmgrinfo_set_size_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, const char *size)
 {
+	manifest_x *mfx = (manifest_x *)handle;
+
 	retvm_if(!handle, PMINFO_R_EINVAL, "Argument supplied is NULL");
 	retvm_if(size == NULL, PMINFO_R_EINVAL, "Argument supplied is NULL");
 
-	manifest_x *mfx = (manifest_x *)handle;
+	if (mfx->package_size)
+		free((void *)mfx->package_size);
 
 	mfx->package_size = strdup(size);
 
@@ -7634,15 +7654,17 @@ API int pkgmgrinfo_set_size_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, const ch
 
 API int pkgmgrinfo_set_label_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, const char *label_txt, const char *locale)
 {
+	int len;
+	manifest_x *mfx = (manifest_x *)handle;
+	label_x *label;
+
 	retvm_if(!handle, PMINFO_R_EINVAL, "Argument supplied is NULL");
 	retvm_if(!label_txt, PMINFO_R_EINVAL, "Argument supplied is NULL");
 
-	int len = strlen(label_txt);
+	len = strlen(label_txt);
 	retvm_if(len > PKG_TYPE_STRING_LEN_MAX, PMINFO_R_EINVAL, "pkg type length exceeds the max limit");
 
-	manifest_x *mfx = (manifest_x *)handle;
-
-	label_x *label = calloc(1, sizeof(label_x));
+	label = calloc(1, sizeof(label_x));
 	retvm_if(label == NULL, PMINFO_R_EINVAL, "Malloc Failed");
 
 	LISTADD(mfx->label, label);
@@ -7657,15 +7679,17 @@ API int pkgmgrinfo_set_label_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, const c
 
 API int pkgmgrinfo_set_icon_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, const char *icon_txt, const char *locale)
 {
+	int len;
+	manifest_x *mfx = (manifest_x *)handle;
+	icon_x *icon;
+
 	retvm_if(!handle, PMINFO_R_EINVAL, "Argument supplied is NULL");
 	retvm_if(!icon_txt, PMINFO_R_EINVAL, "Argument supplied is NULL");
 
-	int len = strlen(icon_txt);
+	len = strlen(icon_txt);
 	retvm_if(len > PKG_TYPE_STRING_LEN_MAX, PMINFO_R_EINVAL, "pkg type length exceeds the max limit");
 
-	manifest_x *mfx = (manifest_x *)handle;
-
-	icon_x *icon = calloc(1, sizeof(icon_x));
+	icon = calloc(1, sizeof(icon_x));
 	retvm_if(icon == NULL, PMINFO_R_EINVAL, "Malloc Failed");
 
 	LISTADD(mfx->icon, icon);
@@ -7680,15 +7704,17 @@ API int pkgmgrinfo_set_icon_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, const ch
 
 API int pkgmgrinfo_set_description_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, const char *desc_txt, const char *locale)
 {
+	int len = strlen(desc_txt);
+	manifest_x *mfx = (manifest_x *)handle;
+	description_x *description;
+
 	retvm_if(!handle, PMINFO_R_EINVAL, "Argument supplied is NULL");
 	retvm_if(!desc_txt, PMINFO_R_EINVAL, "Argument supplied is NULL");
 
-	int len = strlen(desc_txt);
+	len = strlen(desc_txt);
 	retvm_if(len > PKG_TYPE_STRING_LEN_MAX, PMINFO_R_EINVAL, "pkg type length exceeds the max limit");
 
-	manifest_x *mfx = (manifest_x *)handle;
-
-	description_x *description = calloc(1, sizeof(description_x));
+	description = calloc(1, sizeof(description_x));
 	retvm_if(description == NULL, PMINFO_R_EINVAL, "Malloc Failed");
 
 	LISTADD(mfx->description, description);
@@ -7704,9 +7730,12 @@ API int pkgmgrinfo_set_description_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, c
 API int pkgmgrinfo_set_author_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, const char *author_name,
 		const char *author_email, const char *author_href, const char *locale)
 {
-	retvm_if(!handle, PMINFO_R_EINVAL, "Argument supplied is NULL");
 	manifest_x *mfx = (manifest_x *)handle;
-	author_x *author = calloc(1, sizeof(author_x));
+	author_x *author;
+
+	retvm_if(!handle, PMINFO_R_EINVAL, "Argument supplied is NULL");
+
+	author = calloc(1, sizeof(author_x));
 	retvm_if(author == NULL, PMINFO_R_EINVAL, "Argument supplied is NULL");
 
 	LISTADD(mfx->author, author);
@@ -7725,56 +7754,65 @@ API int pkgmgrinfo_set_author_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, const 
 
 API int pkgmgrinfo_set_removable_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, int removable)
 {
+	manifest_x *mfx = (manifest_x *)handle;
+
 	retvm_if(!handle, PMINFO_R_EINVAL, "Argument supplied is NULL");
 	retvm_if((removable < 0) || (removable > 1), PMINFO_R_EINVAL, "Argument supplied is NULL");
 
-	manifest_x *mfx = (manifest_x *)handle;
+	if (mfx->removable)
+		free((void *)mfx->removable);
 
 	if (removable == 0)
-		strcpy(mfx->removable, "false");
+		mfx->removable = strdup("false");
 	else if (removable == 1)
-		strcpy(mfx->removable, "true");
+		mfx->removable = strdup("true");
 
 	return PMINFO_R_OK;
 }
 
 API int pkgmgrinfo_set_preload_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, int preload)
 {
+	manifest_x *mfx = (manifest_x *)handle;
+
 	retvm_if(!handle, PMINFO_R_EINVAL, "Argument supplied is NULL");
 	retvm_if((preload < 0) || (preload > 1), PMINFO_R_EINVAL, "Argument supplied is NULL");
 
-	manifest_x *mfx = (manifest_x *)handle;
+	if (mfx->preload)
+		free((void *)mfx->preload);
 
 	if (preload == 0)
-		strcpy(mfx->preload, "false");
+		mfx->preload = strdup("false");
 	else if (preload == 1)
-		strcpy(mfx->preload, "true");
+		mfx->preload = strdup("true");
 
 	return PMINFO_R_OK;
 }
 
 API int pkgmgrinfo_set_installed_storage_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, INSTALL_LOCATION location)
 {
+	manifest_x *mfx = (manifest_x *)handle;
+
 	retvm_if(!handle, PMINFO_R_EINVAL, "Argument supplied is NULL");
 	retvm_if((location < 0) || (location > 1), PMINFO_R_EINVAL, "Argument supplied is NULL");
 
-	manifest_x *mfx = (manifest_x *)handle;
+	if (mfx->installed_storage)
+		free((void *)mfx->installed_storage);
 
 	if (location == INSTALL_INTERNAL)
-		strcpy(mfx->installed_storage, "installed_internal");
+		mfx->installed_storage = strdup("installed_internal");
 	else if (location == INSTALL_EXTERNAL)
-		strcpy(mfx->installed_storage, "installed_external");
+		mfx->installed_storage = strdup("installed_external");
 
 	return PMINFO_R_OK;
 }
 
 API int pkgmgrinfo_save_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle)
 {
-	retvm_if(!handle, PMINFO_R_EINVAL, "Argument supplied is NULL");
-
-	int ret = 0;
-	manifest_x *mfx = NULL;
+	int ret;
+	manifest_x *mfx = (manifest_x *)handle;
 	mfx = (manifest_x *)handle;
+
+	retvm_if(!handle, PMINFO_R_EINVAL, "Argument supplied is NULL");
 
 	ret = pkgmgr_parser_update_manifest_info_in_db(mfx);
 	if (ret == 0) {
@@ -7788,11 +7826,10 @@ API int pkgmgrinfo_save_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle)
 
 API int pkgmgrinfo_save_pkgusrdbinfo(pkgmgrinfo_pkgdbinfo_h handle, uid_t uid)
 {
-	retvm_if(!handle, PMINFO_R_EINVAL, "Argument supplied is NULL");
+	int ret;
+	manifest_x *mfx = (manifest_x *)handle;
 
-	int ret = 0;
-	manifest_x *mfx = NULL;
-	mfx = (manifest_x *)handle;
+	retvm_if(!handle, PMINFO_R_EINVAL, "Argument supplied is NULL");
 
 	ret = pkgmgr_parser_update_manifest_info_in_usr_db(mfx, uid);
 	if (ret == 0) {
@@ -7806,11 +7843,12 @@ API int pkgmgrinfo_save_pkgusrdbinfo(pkgmgrinfo_pkgdbinfo_h handle, uid_t uid)
 
 API int pkgmgrinfo_destroy_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle)
 {
+	manifest_x *mfx = (manifest_x *)handle;
+
 	retvm_if(!handle, PMINFO_R_EINVAL, "Argument supplied is NULL");
 
-	manifest_x *mfx = NULL;
-	mfx = (manifest_x *)handle;
 	pkgmgr_parser_free_manifest_xml(mfx);
+
 	return PMINFO_R_OK;
 }
 
@@ -7822,9 +7860,11 @@ API int pkgmgrinfo_pkginfo_set_state_enabled(const char *pkgid, bool enabled)
 
 API int pkgmgrinfo_appinfo_set_usr_state_enabled(const char *appid, bool enabled, uid_t uid)
 {
-	retvm_if(appid == NULL, PMINFO_R_EINVAL, "appid is NULL\n");
-	int ret = -1;
+	int ret;
 	char query[MAX_QUERY_LEN] = {'\0'};
+	char *error_message;
+
+	retvm_if(appid == NULL, PMINFO_R_EINVAL, "appid is NULL\n");
 
 	/* Open db.*/
 	ret = __open_manifest_db(uid);
@@ -7846,7 +7886,6 @@ API int pkgmgrinfo_appinfo_set_usr_state_enabled(const char *appid, bool enabled
 	snprintf(query, MAX_QUERY_LEN,
 		"update package_app_info set app_enabled='%s' where app_id='%s'", enabled?"true":"false", appid);
 
-	char *error_message = NULL;
 	if (SQLITE_OK !=
 	    sqlite3_exec(GET_DB(manifest_db), query, NULL, NULL, &error_message)) {
 		_LOGE("Don't execute query = %s error message = %s\n", query,
@@ -7876,14 +7915,15 @@ API int pkgmgrinfo_appinfo_set_state_enabled(const char *appid, bool enabled)
 
 API int pkgmgrinfo_datacontrol_get_info(const char *providerid, const char * type, char **appid, char **access)
 {
+	int ret;
+	char query[MAX_QUERY_LEN] = {'\0'};
+	char *error_message;
+	pkgmgr_datacontrol_x *data;
+
 	retvm_if(providerid == NULL, PMINFO_R_EINVAL, "Argument supplied is NULL\n");
 	retvm_if(type == NULL, PMINFO_R_EINVAL, "Argument supplied is NULL\n");
 	retvm_if(appid == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 	retvm_if(access == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
-	int ret = PMINFO_R_OK;
-	char query[MAX_QUERY_LEN] = {'\0'};
-	char *error_message = NULL;
-	pkgmgr_datacontrol_x *data = NULL;
 
 	ret = __open_datacontrol_db();
 	if (ret == -1) {
@@ -7914,19 +7954,24 @@ API int pkgmgrinfo_datacontrol_get_info(const char *providerid, const char * typ
 	*appid = (char *)data->appid;
 	*access = (char *)data->access;
 	free(data);
-    __close_datacontrol_db();
+	__close_datacontrol_db();
 
 	return PMINFO_R_OK;
 }
 
 API int pkgmgrinfo_appinfo_set_usr_default_label(const char *appid, const char *label, uid_t uid)
 {
-	retvm_if(appid == NULL, PMINFO_R_EINVAL, "appid is NULL\n");
-	int ret = -1;
+	int ret;
 	char query[MAX_QUERY_LEN] = {'\0'};
-	char *error_message = NULL;
-	ret = __open_manifest_db(uid);
+	char *error_message;
 
+	retvm_if(appid == NULL, PMINFO_R_EINVAL, "appid is NULL\n");
+
+	ret = __open_manifest_db(uid);
+	if (ret == -1) {
+		_LOGE("Fail to open manifest DB\n");
+		return PMINFO_R_ERROR;
+	}
 
 	/*Begin transaction*/
 	ret = sqlite3_exec(GET_DB(manifest_db), "BEGIN EXCLUSIVE", NULL, NULL, NULL);
@@ -7969,11 +8014,13 @@ API int pkgmgrinfo_appinfo_set_default_label(const char *appid, const char *labe
 
 API int pkgmgrinfo_appinfo_is_guestmode_visibility(pkgmgrinfo_appinfo_h handle, bool *status)
 {
+	const char *val;
+	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
+
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL\n");
 	retvm_if(status == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
-	char *val = NULL;
-	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
-	val = (char *)info->uiapp_info->guestmode_visibility;
+
+	val = info->uiapp_info->guestmode_visibility;
 	if (val) {
 		if (strcasecmp(val, "true") == 0){
 			*status = 1;
@@ -7988,21 +8035,19 @@ API int pkgmgrinfo_appinfo_is_guestmode_visibility(pkgmgrinfo_appinfo_h handle, 
 
 API int pkgmgrinfo_appinfo_set_usr_guestmode_visibility(pkgmgrinfo_appinfo_h handle, uid_t uid, bool status)
 {
-	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL\n");
-	char *val = NULL;
-	int ret = 0;
-	int len = 0;
+	const char *val;
+	int ret;
 	char query[MAX_QUERY_LEN] = {'\0'};
-	char *errmsg = NULL;
+	char *errmsg;
 	sqlite3 *pkgmgr_parser_db;
 
-	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
-	val = (char *)info->uiapp_info->guestmode_visibility;
-	if (val ) {
-		ret =
-		  db_util_open_with_options(getUserPkgParserDBPathUID(uid), &pkgmgr_parser_db,
-				SQLITE_OPEN_READWRITE, NULL);
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL\n");
 
+	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
+	val = info->uiapp_info->guestmode_visibility;
+	if (val) {
+		ret = db_util_open_with_options(getUserPkgParserDBPathUID(uid), &pkgmgr_parser_db,
+				SQLITE_OPEN_READWRITE, NULL);
 		if (ret != SQLITE_OK) {
 			_LOGE("DB Open Failed\n");
 			return PMINFO_R_ERROR;
@@ -8033,21 +8078,20 @@ API int pkgmgrinfo_appinfo_set_guestmode_visibility(pkgmgrinfo_appinfo_h handle,
 /* pkgmgrinfo client start*/
 API pkgmgrinfo_client *pkgmgrinfo_client_new(pkgmgrinfo_client_type ctype)
 {
-	int ret = 0;
-	char *errmsg = NULL;
+	char *errmsg;
 	void *pc = NULL;
-	void *handle = NULL;
+	void *handle;
 	pkgmgrinfo_client *(*__pkgmgr_client_new)(pkgmgrinfo_client_type ctype) = NULL;
 
 	handle = dlopen("libpkgmgr-client.so.0", RTLD_LAZY | RTLD_GLOBAL);
-	retvm_if(!handle, PMINFO_R_ERROR, "dlopen() failed. [%s]", dlerror());
+	retvm_if(!handle, NULL, "dlopen() failed. [%s]", dlerror());
 
 	__pkgmgr_client_new = dlsym(handle, "pkgmgr_client_new");
 	errmsg = dlerror();
-	tryvm_if((errmsg != NULL) || (__pkgmgr_client_new == NULL), ret = PMINFO_R_ERROR, "dlsym() failed. [%s]", errmsg);
+	trym_if((errmsg != NULL) || (__pkgmgr_client_new == NULL), "dlsym() failed. [%s]", errmsg);
 
 	pc = __pkgmgr_client_new(ctype);
-	tryvm_if(pc == NULL, ret = PMINFO_R_ERROR, "pkgmgr_client_new failed.");
+	trym_if(pc == NULL, "pkgmgr_client_new failed.");
 
 catch:
 	dlclose(handle);
@@ -8056,9 +8100,9 @@ catch:
 
 API int pkgmgrinfo_client_set_status_type(pkgmgrinfo_client *pc, int status_type)
 {
-	int ret = 0;
-	char *errmsg = NULL;
-	void *handle = NULL;
+	int ret;
+	char *errmsg;
+	void *handle;
 	int (*__pkgmgr_client_set_status_type)(pkgmgrinfo_client *pc, int status_type) = NULL;
 
 	handle = dlopen("libpkgmgr-client.so.0", RTLD_LAZY | RTLD_GLOBAL);
@@ -8143,9 +8187,9 @@ catch:
 
 API int pkgmgrinfo_client_request_enable_external_pkg(char *pkgid)
 {
-	int ret = 0;
 	DBusConnection *bus;
-	DBusMessage *message;
+	DBusMessage *message = NULL;
+	DBusMessage *reply = NULL;
 
 	retvm_if(pkgid == NULL, PMINFO_R_EINVAL, "pkgid is NULL\n");
 
@@ -8156,15 +8200,19 @@ API int pkgmgrinfo_client_request_enable_external_pkg(char *pkgid)
 	retvm_if(bus == NULL, PMINFO_R_EINVAL, "dbus_bus_get() failed.");
 
 	message = dbus_message_new_method_call (SERVICE_NAME, PATH_NAME, INTERFACE_NAME, METHOD_NAME);
-	retvm_if(message == NULL, PMINFO_R_EINVAL, "dbus_message_new_method_call() failed.");
+	trym_if(message == NULL, "dbus_message_new_method_call() failed.");
 
 	dbus_message_append_args(message, DBUS_TYPE_STRING, &pkgid, DBUS_TYPE_INVALID);
 
-	ret = dbus_connection_send_with_reply_and_block(bus, message, -1, NULL);
-	retvm_if(!ret, ret = PMINFO_R_EINVAL, "connection_send dbus fail");
+	reply = dbus_connection_send_with_reply_and_block(bus, message, -1, NULL);
+	trym_if(reply == NULL, "connection_send dbus fail");
 
+catch:
 	dbus_connection_flush(bus);
-	dbus_message_unref(message);
+	if (message)
+		dbus_message_unref(message);
+	if (reply)
+		dbus_message_unref(reply);
 
 	return PMINFO_R_OK;
 }

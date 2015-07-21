@@ -316,7 +316,7 @@ static int __delete_subpkg_list_cb(void *data, int ncols, char **coltxt, char **
 	return 0;
 }
 
-static char *__get_str(const char *str)
+static const char *__get_str(const char *str)
 {
 	if (str == NULL)
 	{
@@ -496,11 +496,6 @@ static GList *__create_image_list(GList *locale, image_x *image)
 		image = image->next;
 	}
 	return locale;
-}
-
-static void __printfunc(gpointer data, gpointer userdata)
-{
-	_LOGD("%s  ", (char*)data);
 }
 
 static void __trimfunc(GList* trim_list)
@@ -1530,12 +1525,10 @@ static int __insert_manifest_info_in_db(manifest_x *mfx, uid_t uid)
 	privileges_x *pvs = NULL;
 	privilege_x *pv = NULL;
 	char query[MAX_QUERY_LEN] = { '\0' };
-	char root[MAX_QUERY_LEN] = { '\0' };
 	int ret = -1;
 	const char *auth_name = NULL;
 	const char *auth_email = NULL;
 	const char *auth_href = NULL;
-	const char *apps_path = NULL;
 
 	GList *pkglocale = NULL;
 	GList *applocale = NULL;
@@ -1663,10 +1656,6 @@ static int __insert_manifest_info_in_db(manifest_x *mfx, uid_t uid)
 	}
 	/*remove duplicated data in appimage*/
 	__trimfunc(appimage);
-
-	/*g_list_foreach(pkglocale, __printfunc, NULL);*/
-	/*_LOGD("\n");*/
-	/*g_list_foreach(applocale, __printfunc, NULL);*/
 
 	g_list_foreach(pkglocale, __insert_pkglocale_info, (gpointer)mfx);
 
@@ -2217,7 +2206,7 @@ API int pkgmgr_parser_check_and_create_db(uid_t uid)
 	return 0;
 }
 
-void pkgmgr_parser_close_db()
+void pkgmgr_parser_close_db(void)
 {
 	sqlite3_close(pkgmgr_parser_db);
 	sqlite3_close(pkgmgr_cert_db);

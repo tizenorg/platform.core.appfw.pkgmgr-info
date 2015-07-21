@@ -19,7 +19,11 @@
  * limitations under the License.
  *
  */
-#include <pkgmgr_parser.h>
+#include <stdlib.h>
+#include <string.h>
+
+
+#include "pkgmgr_parser.h"
 #include "pkgmgr_parser_signature.h"
 
 #define ASCII(s) (const char *)s

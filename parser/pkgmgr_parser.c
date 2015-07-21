@@ -138,7 +138,6 @@ static void __ps_free_category(category_x *category);
 static void __ps_free_metadata(metadata_x *metadata);
 static void __ps_free_permission(permission_x *permission);
 static void __ps_free_compatibility(compatibility_x *compatibility);
-static void __ps_free_resolution(resolution_x *resolution);
 static void __ps_free_request(request_x *request);
 static void __ps_free_define(define_x *define);
 static void __ps_free_appsvc(appsvc_x *appsvc);
@@ -147,7 +146,6 @@ static void __ps_free_datashare(datashare_x *datashare);
 static void __ps_free_icon(icon_x *icon);
 static void __ps_free_author(author_x *author);
 static void __ps_free_description(description_x *description);
-static void __ps_free_capability(capability_x *capability);
 static void __ps_free_license(license_x *license);
 static void __ps_free_appcontrol(appcontrol_x *appcontrol);
 static void __ps_free_datacontrol(datacontrol_x *datacontrol);
@@ -164,9 +162,6 @@ static int __process_manifest(xmlTextReaderPtr reader, manifest_x * mfx, uid_t u
 static void __str_trim(char *input);
 static char *__get_parser_plugin(const char *type);
 static int __ps_run_parser(xmlDocPtr docPtr, const char *tag, ACTION_TYPE action, const char *pkgid);
-static int __run_parser_prestep(xmlTextReaderPtr reader, ACTION_TYPE action, const char *pkgid);
-static void __processNode(xmlTextReaderPtr reader, ACTION_TYPE action, char *const tagv[], const char *pkgid);
-static void __streamFile(const char *filename, ACTION_TYPE action, char *const tagv[], const char *pkgid);
 API int __is_admin();
 
 static void __save_xml_attribute(xmlTextReaderPtr reader, char *attribute, const char **xml_attribute, char *default_value)
@@ -671,9 +666,9 @@ static void __metadata_parser_clear_dir_list(GList* dir_list)
 			detail = (__metadata_t *)list->data;
 			if (detail) {
 				if (detail->key)
-					free(detail->key);
+					free((void *)detail->key);
 				if (detail->value)
-					free(detail->value);
+					free((void *)detail->value);
 				free(detail);
 			}
 			list = g_list_next(list);
@@ -693,7 +688,7 @@ static void __category_parser_clear_dir_list(GList* dir_list)
 			detail = (__category_t *)list->data;
 			if (detail) {
 				if (detail->name)
-					free(detail->name);
+					free((void *)detail->name);
 
 				free(detail);
 			}
@@ -802,11 +797,9 @@ static int __run_metadata_parser_prestep (manifest_x *mfx, char *md_key, ACTION_
 		return -1;
 	}
 
-	while(up != NULL)
-	{
+	while(up != NULL) {
 		md = up->metadata;
-		while (md != NULL)
-		{
+		while (md != NULL) {
 			//get glist of metadata key and value combination
 			memset(buffer, 0x00, 1024);
 			snprintf(buffer, 1024, "%s/", md_key);
@@ -817,22 +810,20 @@ static int __run_metadata_parser_prestep (manifest_x *mfx, char *md_key, ACTION_
 					goto END;
 				}
 
-				md_detail->key = (char*) calloc(1, sizeof(char)*(strlen(md->key)+2));
+				md_detail->key = strdup(md->key);
 				if (md_detail->key == NULL) {
 					_LOGD("Memory allocation failed\n");
 					free(md_detail);
 					goto END;
 				}
-				snprintf(md_detail->key, (strlen(md->key)+1), "%s", md->key);
 
-				md_detail->value = (char*) calloc(1, sizeof(char)*(strlen(md->value)+2));
+				md_detail->value = strdup(md->value);
 				if (md_detail->value == NULL) {
 					_LOGD("Memory allocation failed\n");
-					free(md_detail->key);
+					free((void *)md_detail->key);
 					free(md_detail);
 					goto END;
 				}
-				snprintf(md_detail->value, (strlen(md->value)+1), "%s", md->value);
 
 				md_list = g_list_append(md_list, (gpointer)md_detail);
 				tag_exist = 1;
@@ -884,11 +875,9 @@ static int __run_category_parser_prestep (manifest_x *mfx, char *category_key, A
 		return -1;
 	}
 
-	while(up != NULL)
-	{
+	while(up != NULL) {
 		category = up->category;
-		while (category != NULL)
-		{
+		while (category != NULL) {
 			//get glist of category key and value combination
 			memset(buffer, 0x00, 1024);
 			snprintf(buffer, 1024, "%s/", category_key);
@@ -899,13 +888,12 @@ static int __run_category_parser_prestep (manifest_x *mfx, char *category_key, A
 					goto END;
 				}
 
-				category_detail->name = (char*) calloc(1, sizeof(char)*(strlen(category->name)+2));
+				category_detail->name = strdup(category->name);
 				if (category_detail->name == NULL) {
 					_LOGD("Memory allocation failed\n");
 					free(category_detail);
 					goto END;
 				}
-				snprintf(category_detail->name, (strlen(category->name)+1), "%s", category->name);
 
 				category_list = g_list_append(category_list, (gpointer)category_detail);
 				tag_exist = 1;
@@ -937,191 +925,7 @@ END:
 	return ret;
 }
 
-static int __run_parser_prestep(xmlTextReaderPtr reader, ACTION_TYPE action, const char *pkgid)
-{
-	int ret = -1;
-	const xmlChar *name;
-
-//	_LOGD("__run_parser_prestep");
-
-	if (xmlTextReaderDepth(reader) != 1) {
-		_LOGE("Node depth is not 1");
-		goto END;
-	}
-
-	if (xmlTextReaderNodeType(reader) != 1) {
-		_LOGE("Node type is not 1");
-		goto END;
-	}
-
-	const xmlChar *value;
-	name = xmlTextReaderConstName(reader);
-	if (name == NULL) {
-		_LOGE("TEST TEST TES\n");
-		name = BAD_CAST "--";
-	}
-
-	value = xmlTextReaderConstValue(reader);
-	_LOGD("%d %d %s %d %d",
-	    xmlTextReaderDepth(reader),
-	    xmlTextReaderNodeType(reader),
-	    name,
-	    xmlTextReaderIsEmptyElement(reader), xmlTextReaderHasValue(reader));
-
-	if (value != NULL) {
-		if (xmlStrlen(value) > 40) {
-			_LOGD(" %.40s...", value);
-		} else {
-			_LOGD(" %s", value);
-		}
-	}
-
-	name = xmlTextReaderConstName(reader);
-	if (name == NULL) {
-		_LOGE("TEST TEST TES\n");
-		name = BAD_CAST "--";
-	}
-
-	xmlDocPtr docPtr = xmlTextReaderCurrentDoc(reader);
-	_LOGD("docPtr->URL %s\n", (char *)docPtr->URL);
-	xmlDocPtr copyDocPtr = xmlCopyDoc(docPtr, 1);
-	if (copyDocPtr == NULL)
-		return -1;
-	xmlNode *rootElement = xmlDocGetRootElement(copyDocPtr);
-	if (rootElement == NULL)
-		return -1;
-	xmlNode *cur_node = xmlFirstElementChild(rootElement);
-	if (cur_node == NULL)
-		return -1;
-	xmlNode *temp = xmlTextReaderExpand(reader);
-	if (temp == NULL)
-		return -1;
-	xmlNode *next_node = NULL;
-	while(cur_node != NULL) {
-		if ( (strcmp(ASCII(temp->name), ASCII(cur_node->name)) == 0) &&
-			(temp->line == cur_node->line) ) {
-			break;
-		}
-		else {
-			next_node = xmlNextElementSibling(cur_node);
-			xmlUnlinkNode(cur_node);
-			xmlFreeNode(cur_node);
-			cur_node = next_node;
-		}
-	}
-	if (cur_node == NULL)
-		return -1;
-	next_node = xmlNextElementSibling(cur_node);
-	if (next_node) {
-		cur_node->next = NULL;
-		next_node->prev = NULL;
-		xmlFreeNodeList(next_node);
-		xmlSetTreeDoc(cur_node, copyDocPtr);
-	} else {
-		xmlSetTreeDoc(cur_node, copyDocPtr);
-	}
-
-#ifdef __DEBUG__
-
-//#else
-	_LOGD("node type: %d, name: %s children->name: %s last->name: %s\n"
-	    "parent->name: %s next->name: %s prev->name: %s\n",
-	    cur_node->type, cur_node->name,
-	    cur_node->children ? cur_node->children->name : "NULL",
-	    cur_node->last ? cur_node->last->name : "NULL",
-	    cur_node->parent ? cur_node->parent->name : "NULL",
-	    cur_node->next ? cur_node->next->name : "NULL",
-	    cur_node->prev ? cur_node->prev->name : "NULL");
-
-	FILE *fp = fopen(tzplatform_mkpath(TZ_SYS_SHARE, "test.xml"), "a");
-	xmlDocDump(fp, copyDocPtr);
-	fclose(fp);
-#endif
-
-	ret = __ps_run_parser(copyDocPtr, ASCII(name), action, pkgid);
- END:
-
-	return ret;
-}
-
-static void
-__processNode(xmlTextReaderPtr reader, ACTION_TYPE action, char *const tagv[], const char *pkgid)
-{
-	char *tag = NULL;
-	int i = 0;
-
-	switch (xmlTextReaderNodeType(reader)) {
-	case XML_READER_TYPE_END_ELEMENT:
-		{
-			//            _LOGD("XML_READER_TYPE_END_ELEMENT");
-			break;
-		}
-
-	case XML_READER_TYPE_ELEMENT:
-		{
-			// Elements without closing tag don't receive
-			// XML_READER_TYPE_END_ELEMENT event.
-
-			const xmlChar *elementName =
-			    xmlTextReaderLocalName(reader);
-			if (elementName == NULL) {
-//				_LOGD("elementName %s\n", (char *)elementName);
-				break;
-			}
-
-			const xmlChar *nameSpace =
-			    xmlTextReaderConstNamespaceUri(reader);
-			if (nameSpace) {
-//				_LOGD("nameSpace %s\n", (char *)nameSpace);
-			}
-/*
-			_LOGD("XML_READER_TYPE_ELEMENT %s, %s\n",
-			    elementName ? elementName : "NULL",
-			    nameSpace ? nameSpace : "NULL");
-*/
-			if (tagv == NULL) {
-				_LOGD("__run_parser_prestep pkgid[%s]\n", pkgid);
-				__run_parser_prestep(reader, action, pkgid);
-			}
-			else {
-				i = 0;
-				for (tag = tagv[0]; tag; tag = tagv[++i])
-					if (strcmp(tag, ASCII(elementName)) == 0) {
-						_LOGD("__run_parser_prestep tag[%s] pkgid[%s]\n", tag, pkgid);
-						__run_parser_prestep(reader,
-								     action, pkgid);
-						break;
-					}
-			}
-
-			break;
-		}
-	case XML_READER_TYPE_TEXT:
-	case XML_READER_TYPE_CDATA:
-		{
-			const xmlChar *value = xmlTextReaderConstValue(reader);
-			if (value) {
-//				_LOGD("value %s\n", value);
-			}
-
-			const xmlChar *lang = xmlTextReaderConstXmlLang(reader);
-			if (lang) {
-//				_LOGD("lang\n", lang);
-			}
-
-/*			_LOGD("XML_READER_TYPE_TEXT %s, %s\n",
-			    value ? value : "NULL", lang ? lang : "NULL");
-*/
-			break;
-		}
-	default:
-//		_LOGD("Ignoring Node of Type: %d", xmlTextReaderNodeType(reader));
-		break;
-	}
-}
-
-static void
-__processTag(void *lib_handle, xmlTextReaderPtr reader, ACTION_TYPE action, char *tag, const char *pkgid)
+static void __process_tag(void *lib_handle, xmlTextReaderPtr reader, ACTION_TYPE action, char *tag, const char *pkgid)
 {
 	switch (xmlTextReaderNodeType(reader)) {
 	case XML_READER_TYPE_END_ELEMENT:
@@ -1196,145 +1000,6 @@ static int __parser_send_tag(void *lib_handle, ACTION_TYPE action, PLUGIN_PROCES
 	return ret;
 }
 
-static void __plugin_send_tag(const char *tag, ACTION_TYPE action, PLUGIN_PROCESS_TYPE process, const char *pkgid)
-{
-	char *lib_path = NULL;
-	void *lib_handle = NULL;
-	int (*plugin_install) (const char *);
-	int ret = -1;
-	char *ac = NULL;
-
-	if (process == PLUGIN_PRE_PROCESS) {
-		switch (action) {
-		case ACTION_INSTALL:
-			ac = "PKGMGR_PARSER_PLUGIN_PRE_INSTALL";
-			break;
-		case ACTION_UPGRADE:
-			ac = "PKGMGR_PARSER_PLUGIN_PRE_UPGRADE";
-			break;
-		case ACTION_UNINSTALL:
-			ac = "PKGMGR_PARSER_PLUGIN_PRE_UNINSTALL";
-			break;
-		default:
-			goto END;
-		}
-	} else if (process == PLUGIN_POST_PROCESS) {
-		switch (action) {
-		case ACTION_INSTALL:
-			ac = "PKGMGR_PARSER_PLUGIN_POST_INSTALL";
-			break;
-		case ACTION_UPGRADE:
-			ac = "PKGMGR_PARSER_PLUGIN_POST_UPGRADE";
-			break;
-		case ACTION_UNINSTALL:
-			ac = "PKGMGR_PARSER_PLUGIN_POST_UNINSTALL";
-			break;
-		default:
-			goto END;
-		}
-	} else
-		goto END;
-
-	lib_path = __get_parser_plugin(tag);
-	if (!lib_path) {
-		goto END;
-	}
-
-	if ((lib_handle = dlopen(lib_path, RTLD_LAZY)) == NULL) {
-		_LOGE("dlopen is failed lib_path[%s] for tag[%s]\n", lib_path, tag);
-		goto END;
-	}
-	if ((plugin_install =
-		dlsym(lib_handle, ac)) == NULL || dlerror() != NULL) {
-//		_LOGE("can not find symbol[%s] for tag[%s] \n", ac, tag);
-		goto END;
-	}
-
-	ret = plugin_install(pkgid);
-	if (ret < 0)
-		_LOGD("[PLUGIN_PROCESS_TYPE[%d] pkgid=%s, tag=%s plugin fail\n", process, pkgid, tag);
-	else
-		_LOGD("[PLUGIN_PROCESS_TYPE[%d] pkgid=%s, tag=%s plugin success\n", process, pkgid, tag);
-
-END:
-	if (lib_path)
-		free(lib_path);
-	if (lib_handle)
-		dlclose(lib_handle);
-}
-
-static void
-__plugin_process_tag(char *const tag_list[], ACTION_TYPE action, PLUGIN_PROCESS_TYPE process, const char *pkgid)
-{
-	char *tag = NULL;
-	int i = 0;
-
-	for (tag = tag_list[0]; tag; tag = tag_list[++i])
-		__plugin_send_tag(tag, action, process, pkgid);
-
-}
-
-static void
-__plugin_save_tag(xmlTextReaderPtr reader, char *const tagv[], char *tag_list[])
-{
-	char *tag = NULL;
-	int i = 0;
-	static int pre_cnt=0;
-
-	switch (xmlTextReaderNodeType(reader)) {
-	case XML_READER_TYPE_ELEMENT:
-		{
-			const xmlChar *elementName = xmlTextReaderLocalName(reader);
-			if (elementName == NULL) {
-				break;
-			}
-			i = 0;
-			for (tag = tag_list[0]; tag; tag = tag_list[++i])
-				if (strcmp(ASCII(elementName), tag) == 0) {
-					return;
-				}
-			i = 0;
-			for (tag = tagv[0]; tag; tag = tagv[++i])
-				if (strcmp(tag, ASCII(elementName)) == 0) {
-					tag_list[pre_cnt++] = tag;
-					break;
-				}
-			break;
-		}
-	default:
-//		_LOGD("Ignoring Node of Type: %d", xmlTextReaderNodeType(reader));
-		break;
-	}
-}
-
-static void
-__streamFile(const char *filename, ACTION_TYPE action, char *const tagv[], const char *pkgid)
-{
-	xmlTextReaderPtr reader;
-	xmlDocPtr docPtr;
-	int ret;
-	__plugin_process_tag(tagv, action, PLUGIN_PRE_PROCESS, pkgid);
-
-	docPtr = xmlReadFile(filename, NULL, 0);
-	reader = xmlReaderWalker(docPtr);
-	if (reader != NULL) {
-		ret = xmlTextReaderRead(reader);
-		while (ret == 1) {
-			__processNode(reader, action, tagv, pkgid);
-			ret = xmlTextReaderRead(reader);
-		}
-		xmlFreeTextReader(reader);
-
-		if (ret != 0) {
-			_LOGD("%s : failed to parse", filename);
-		}
-	} else {
-		_LOGD("Unable to open %s", filename);
-	}
-
-	__plugin_process_tag(tagv, action, PLUGIN_POST_PROCESS, pkgid);
-}
-
 static int __next_child_element(xmlTextReaderPtr reader, int depth)
 {
 	int ret = xmlTextReaderRead(reader);
@@ -1363,43 +1028,6 @@ static int __next_child_element(xmlTextReaderPtr reader, int depth)
 		ret = xmlTextReaderRead(reader);
 		cur = xmlTextReaderDepth(reader);
 	}
-	return ret;
-}
-
-static bool __check_action_fota(char *const tagv[])
-{
-	int i = 0;
-	char delims[] = "=";
-	char *ret_result = NULL;
-	char *tag = NULL;
-	int ret = false;
-
-	if (tagv == NULL)
-		return ret;
-
-	for (tag = strdup(tagv[0]); tag != NULL; ) {
-		ret_result = strtok(tag, delims);
-
-		/*check tag :  fota is true */
-		if (strcmp(ret_result, "fota") == 0) {
-			ret_result = strtok(NULL, delims);
-			if (strcmp(ret_result, "true") == 0) {
-				ret = true;
-			}
-		} else
-			_LOGD("tag process [%s]is not defined\n", ret_result);
-
-		free(tag);
-
-		/*check next value*/
-		if (tagv[++i] != NULL)
-			tag = strdup(tagv[i]);
-		else {
-			_LOGD("tag process success...%d\n" , ret);
-			return ret;
-		}
-	}
-
 	return ret;
 }
 
@@ -1629,44 +1257,6 @@ static void __ps_free_compatibility(compatibility_x *compatibility)
 	compatibility = NULL;
 }
 
-static void __ps_free_resolution(resolution_x *resolution)
-{
-	if (resolution == NULL)
-		return;
-	if (resolution->mimetype) {
-		free((void *)resolution->mimetype);
-		resolution->mimetype = NULL;
-	}
-	if (resolution->urischeme) {
-		free((void *)resolution->urischeme);
-		resolution->urischeme = NULL;
-	}
-	free((void*)resolution);
-	resolution = NULL;
-}
-
-static void __ps_free_capability(capability_x *capability)
-{
-	if (capability == NULL)
-		return;
-	if (capability->operationid) {
-		free((void *)capability->operationid);
-		capability->operationid = NULL;
-	}
-	/*Free Resolution*/
-	if (capability->resolution) {
-		resolution_x *resolution = capability->resolution;
-		resolution_x *tmp = NULL;
-		while(resolution != NULL) {
-			tmp = resolution->next;
-			__ps_free_resolution(resolution);
-			resolution = tmp;
-		}
-	}
-	free((void*)capability);
-	capability = NULL;
-}
-
 static void __ps_free_allowed(allowed_x *allowed)
 {
 	if (allowed == NULL)
@@ -1743,13 +1333,13 @@ static void __ps_free_appcontrol(appcontrol_x *appcontrol)
 		return;
 	/*Free Operation*/
 	if (appcontrol->operation)
-		free(appcontrol->operation);
+		free((void *)appcontrol->operation);
 	/*Free Uri*/
 	if (appcontrol->uri)
-		free(appcontrol->uri);
+		free((void *)appcontrol->uri);
 	/*Free Mime*/
 	if (appcontrol->mime)
-		free(appcontrol->mime);
+		free((void *)appcontrol->mime);
 	free((void*)appcontrol);
 	appcontrol = NULL;
 }
@@ -2423,7 +2013,7 @@ int __ps_process_tag_parser(manifest_x *mfx, const char *filename, ACTION_TYPE a
 		if (reader != NULL) {
 			ret = xmlTextReaderRead(reader);
 			while (ret == 1) {
-				__processTag(lib_handle, reader, action, tag, mfx->package);
+				__process_tag(lib_handle, reader, action, tag, mfx->package);
 				ret = xmlTextReaderRead(reader);
 			}
 			xmlFreeTextReader(reader);
@@ -2452,7 +2042,7 @@ int __ps_process_tag_parser(manifest_x *mfx, const char *filename, ACTION_TYPE a
 int __ps_process_metadata_parser(manifest_x *mfx, ACTION_TYPE action)
 {
 	fprintf(stdout,"__ps_process_metadata_parser\n");
-	int ret = -1;
+	int ret = 0;
 	FILE *fp = NULL;
 	char md_key[PKG_STRING_LEN_MAX] = { 0 };
 
@@ -2461,23 +2051,23 @@ int __ps_process_metadata_parser(manifest_x *mfx, ACTION_TYPE action)
 		_LOGD("no preload list\n");
 		return -1;
 	}
-	
+
 	while (fgets(md_key, sizeof(md_key), fp) != NULL) {
 		__str_trim(md_key);
 		ret = __run_metadata_parser_prestep(mfx, md_key, action);
-
-		memset(md_key, 0x00, sizeof(md_key));
+		if (ret < 0)
+			break;
 	}
 
 	if (fp != NULL)
 		fclose(fp);
 
-	return 0;
+	return ret;
 }
 
 int __ps_process_category_parser(manifest_x *mfx, ACTION_TYPE action)
 {
-	int ret = -1;
+	int ret = 0;
 	FILE *fp = NULL;
 	char category_key[PKG_STRING_LEN_MAX] = { 0 };
 
@@ -2490,14 +2080,14 @@ int __ps_process_category_parser(manifest_x *mfx, ACTION_TYPE action)
 	while (fgets(category_key, sizeof(category_key), fp) != NULL) {
 		__str_trim(category_key);
 		ret = __run_category_parser_prestep(mfx, category_key, action);
-
-		memset(category_key, 0x00, sizeof(category_key));
+		if (ret < 0)
+			break;
 	}
 
 	if (fp != NULL)
 		fclose(fp);
 
-	return 0;
+	return ret;
 }
 
 static int __ps_process_allowed(xmlTextReaderPtr reader, allowed_x *allowed)
@@ -2890,21 +2480,18 @@ static int __ps_process_datashare(xmlTextReaderPtr reader, datashare_x *datashar
 	return ret;
 }
 
-static char*
-__get_icon_with_path(const char* icon, uid_t uid)
+static char *__get_icon_with_path(const char * icon, uid_t uid)
 {
-	if (!icon)
+	char *theme;
+	char *icon_with_path;
+	char *confirmed_icon;
+	const char *app_path;
+	int len;
+
+	if (!icon || !package)
 		return NULL;
 
 	if (index(icon, '/') == NULL) {
-		char* theme = NULL;
-		char* icon_with_path = NULL;
-		char *app_path = NULL;
-		int len;
-
-		if (!package)
-			return NULL;
-
 /* "db/setting/theme" is not exist */
 #if 0
 		theme = vconf_get_str("db/setting/theme");
@@ -2934,8 +2521,8 @@ __get_icon_with_path(const char* icon, uid_t uid)
 			if (access (icon_with_path, F_OK)) { //If doesn't exist in case of Global app, try to get icon directly into app's directory
 				app_path = tzplatform_getenv(TZ_SYS_RW_APP);
 				if (app_path)
-					snprintf(icon_with_path, len, "%s/%q/res/icons/%q/small/%q", app_path, package, theme, icon);
-				if (access (icon_with_path, F_OK))
+					snprintf(icon_with_path, len, "%s/%s/res/icons/%s/small/%s", app_path, package, theme, icon);
+				if (access(icon_with_path, F_OK))
 					_LOGE("Cannot find icon path");
 			}
 		}
@@ -2943,8 +2530,6 @@ __get_icon_with_path(const char* icon, uid_t uid)
 		_LOGD("Icon path : %s ---> %s", icon, icon_with_path);
 		return icon_with_path;
 	} else {
-		char* confirmed_icon = NULL;
-
 		confirmed_icon = strdup(icon);
 		if (!confirmed_icon)
 			return NULL;
@@ -3789,24 +3374,6 @@ static int __process_manifest(xmlTextReaderPtr reader, manifest_x *mfx, uid_t ui
 	return ret;
 }
 
-static char* __convert_to_system_locale(const char *mlocale)
-{
-	if (mlocale == NULL)
-		return NULL;
-	char *locale = NULL;
-	locale = (char *)calloc(1, 6);
-	if (!locale) {
-		_LOGE("Malloc Failed\n");
-		return NULL;
-	}
-
-	strncpy(locale, mlocale, 2);
-	strncat(locale, "_", 1);
-	locale[3] = toupper(mlocale[3]);
-	locale[4] = toupper(mlocale[4]);
-	return locale;
-}
-
 #define LIBAPPSVC_PATH LIB_PATH "/libappsvc.so.0"
 
 static int __ps_remove_appsvc_db(manifest_x *mfx, uid_t uid)
@@ -4225,7 +3792,6 @@ API manifest_x *pkgmgr_parser_usr_process_manifest_xml(const char *manifest, uid
 
 API int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char *const tagv[])
 {
-//	char *temp[] = {"shortcut-list", "livebox", "account", "notifications", "privileges", "ime", "font", NULL};
 	retvm_if(manifest == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
 	_LOGD("parsing manifest for installation: %s\n", manifest);
 
@@ -4238,7 +3804,6 @@ API int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char
 
 	_LOGD("Parsing Finished\n");
 
-//	__streamFile(manifest, ACTION_INSTALL, temp, mfx->package);
 	__add_preload_info(mfx, manifest, GLOBAL_USER);
 
 	_LOGD("Added preload infomation\n");
@@ -4267,7 +3832,6 @@ API int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char
 }
 API int pkgmgr_parser_parse_usr_manifest_for_installation(const char *manifest, uid_t uid, char *const tagv[])
 {
-//	char *temp[] = {"shortcut-list", "livebox", "account", "notifications", "privileges", "ime", "font", NULL};
 	retvm_if(manifest == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
 	_LOGD("parsing manifest for installation: %s\n", manifest);
 	manifest_x *mfx = NULL;
@@ -4278,7 +3842,6 @@ API int pkgmgr_parser_parse_usr_manifest_for_installation(const char *manifest, 
 	retvm_if(mfx == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
 
 	_LOGD("Parsing Finished\n");
-//	__streamFile(manifest, ACTION_INSTALL, temp, mfx->package);
 
 	__ps_process_tag(mfx, tagv);
 
@@ -4304,7 +3867,6 @@ API int pkgmgr_parser_parse_usr_manifest_for_installation(const char *manifest, 
 
 API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *const tagv[])
 {
-//	char *temp[] = {"shortcut-list", "livebox", "account", "notifications", "privileges", "ime", "font", NULL};
 	retvm_if(manifest == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
 	_LOGD("pkgmgr_parser_parse_manifest_for_upgrade  parsing manifest for upgradation: %s\n", manifest);
 	manifest_x *mfx = NULL;
@@ -4319,7 +3881,6 @@ API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *con
 	retvm_if(mfx == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
 
 	_LOGD("Parsing Finished\n");
-//	__streamFile(manifest, ACTION_UPGRADE, temp, mfx->package);
 	__add_preload_info(mfx, manifest, GLOBAL_USER);
 	_LOGD("Added preload infomation\n");
 	__check_preload_updated(mfx, manifest, GLOBAL_USER);
@@ -4347,7 +3908,7 @@ API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *con
 	ret = pkgmgrinfo_pkginfo_get_csc_path(handle, &csc_path);
 	if (ret != PMINFO_R_OK)
 		_LOGD("pkgmgrinfo_pkginfo_get_csc_path failed\n");
-	
+
 	if (csc_path != NULL) {
 		if (mfx->csc_path)
 			free((void *)mfx->csc_path);
@@ -4377,7 +3938,6 @@ API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *con
 
 API int pkgmgr_parser_parse_usr_manifest_for_upgrade(const char *manifest, uid_t uid, char *const tagv[])
 {
-//	char *temp[] = {"shortcut-list", "livebox", "account", "notifications", "privileges", "ime", "font", NULL};
 	retvm_if(manifest == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
 	_LOGD(" pkgmgr_parser_parse_usr_manifest_for_upgrade parsing manifest for upgradation: %s\n", manifest);
 	manifest_x *mfx = NULL;
@@ -4392,7 +3952,6 @@ API int pkgmgr_parser_parse_usr_manifest_for_upgrade(const char *manifest, uid_t
 	retvm_if(mfx == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
 
 	_LOGD("Parsing Finished\n");
-	//__streamFile(manifest, ACTION_UPGRADE, temp, mfx->package);
 	__check_preload_updated(mfx, manifest, uid);
 
 	ret = pkgmgrinfo_pkginfo_get_usr_pkginfo(mfx->package, uid, &handle);
@@ -4446,7 +4005,6 @@ API int pkgmgr_parser_parse_usr_manifest_for_upgrade(const char *manifest, uid_t
 
 API int pkgmgr_parser_parse_manifest_for_uninstallation(const char *manifest, char *const tagv[])
 {
-//	char *temp[] = {"shortcut-list", "livebox", "account", "notifications", "privileges", "ime", "font", NULL};
 	retvm_if(manifest == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
 	_LOGD("parsing manifest for uninstallation: %s\n", manifest);
 
@@ -4458,7 +4016,6 @@ API int pkgmgr_parser_parse_manifest_for_uninstallation(const char *manifest, ch
 
 	_LOGD("Parsing Finished\n");
 
-//	__streamFile(manifest, ACTION_UNINSTALL, temp, mfx->package);
 	__ps_process_tag_parser(mfx, manifest, ACTION_UNINSTALL);
 
 	__add_preload_info(mfx, manifest, GLOBAL_USER);
@@ -4488,7 +4045,6 @@ API int pkgmgr_parser_parse_manifest_for_uninstallation(const char *manifest, ch
 
 API int pkgmgr_parser_parse_usr_manifest_for_uninstallation(const char *manifest, uid_t uid, char *const tagv[])
 {
-//	char *temp[] = {"shortcut-list", "livebox", "account", "notifications", "privileges", "ime", "font", NULL};
 	retvm_if(manifest == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
 	_LOGD("parsing manifest for uninstallation: %s\n", manifest);
 
@@ -4500,7 +4056,6 @@ API int pkgmgr_parser_parse_usr_manifest_for_uninstallation(const char *manifest
 
 	_LOGD("Parsing Finished\n");
 
-//	__streamFile(manifest, ACTION_UNINSTALL, temp, mfx->package);
 	__ps_process_tag_parser(mfx, manifest, ACTION_UNINSTALL);
 
 	ret = __ps_process_metadata_parser(mfx, ACTION_UNINSTALL);

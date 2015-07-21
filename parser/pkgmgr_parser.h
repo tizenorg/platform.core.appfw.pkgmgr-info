@@ -344,21 +344,6 @@ typedef struct deviceprofile_x {
 	struct deviceprofile_x *next;
 }deviceprofile_x;
 
-typedef struct resolution_x {
-	const char *mimetype;
-	const char *urischeme;
-	struct resolution_x *prev;
-	struct resolution_x *next;
-} resolution_x;
-
-typedef struct capability_x {
-	const char *operationid;
-	const char *access;
-	struct resolution_x *resolution;
-	struct capability_x *prev;
-	struct capability_x *next;
-} capability_x;
-
 typedef struct datacontrol_x {
 	const char *providerid;
 	const char *access;
