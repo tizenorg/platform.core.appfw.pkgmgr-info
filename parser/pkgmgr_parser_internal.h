@@ -33,5 +33,6 @@
 
 int pkgmgr_parser_check_and_create_db(uid_t uid);
 int pkgmgr_parser_initialize_db(uid_t uid);
+void pkgmgr_parser_close_db(void);
 
 #endif				/* __PKGMGR_PARSER_INTERNAL_H__ */

@@ -444,13 +444,13 @@ typedef enum {
 #define	PMINFO_PKGINFO_PROP_RANGE_BASIC	"PMINFO_PKGINFO_PROP_RANGE_BASIC"
 
 /* For multiuser support */
-char *getIconPath(uid_t uid);
-char *getUserPkgParserDBPath(void);
-char *getUserPkgParserDBPathUID(uid_t uid);
-char *getUserPkgCertDBPath(void);
-char *getUserPkgCertDBPathUID(uid_t uid);
-const char* getUserDesktopPath(uid_t uid);
-const char* getUserManifestPath(uid_t uid);
+const char *getIconPath(uid_t uid);
+const char *getUserPkgParserDBPath(void);
+const char *getUserPkgParserDBPathUID(uid_t uid);
+const char *getUserPkgCertDBPath(void);
+const char *getUserPkgCertDBPathUID(uid_t uid);
+const char *getUserDesktopPath(uid_t uid);
+const char *getUserManifestPath(uid_t uid);
 
 /**
  * @fn	int pkgmgrinfo_pkginfo_get_list(pkgmgrinfo_pkg_list_cb pkg_list_cb, void *user_data)

@@ -89,23 +89,30 @@
 } while (0)
 
 #define retm_if(expr, fmt, arg...) do { \
-	 if (expr) { \
-		 PKGMGR_INFO_DEBUG_ERR("(%s) "fmt, #expr, ##arg); \
-		 return; \
-	 } \
- } while (0)
+	if (expr) { \
+		PKGMGR_INFO_DEBUG_ERR("(%s) "fmt, #expr, ##arg); \
+		return; \
+	} \
+} while (0)
 
 #define retv_if(expr, val) do { \
-		if (expr) { \
-			PKGMGR_INFO_DEBUG_ERR("(%s) ", #expr); \
-			return (val); \
-		} \
-	} while (0)
+	if (expr) { \
+		PKGMGR_INFO_DEBUG_ERR("(%s) ", #expr); \
+		return (val); \
+	} \
+} while (0)
 
 #define retvm_if(expr, val, fmt, arg...) do { \
 	if (expr) { \
 		PKGMGR_INFO_DEBUG_ERR("(%s) "fmt, #expr, ##arg); \
 		return (val); \
+	} \
+} while (0)
+
+#define trym_if(expr, fmt, arg...) do { \
+	if (expr) { \
+		PKGMGR_INFO_DEBUG_ERR("(%s) "fmt, #expr, ##arg); \
+		goto catch; \
 	} \
 } while (0)
 
