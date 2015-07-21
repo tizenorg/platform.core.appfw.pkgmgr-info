@@ -5523,6 +5523,7 @@ API int pkgmgrinfo_appinfo_get_appid(pkgmgrinfo_appinfo_h handle, char **appid)
 		if (info->svcapp_info == NULL || info->svcapp_info->appid == NULL)
 			return PMINFO_R_ERROR;
 		*appid = (char *)info->svcapp_info->appid;
+		break;
 	default:
 		return PMINFO_R_ERROR;
 	}
