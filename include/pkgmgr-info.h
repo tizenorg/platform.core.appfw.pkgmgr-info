@@ -423,8 +423,10 @@ typedef enum {
 #define	PMINFO_APPINFO_PROP_APP_CATEGORY	"PMINFO_APPINFO_PROP_APP_CATEGORY"
  /** String property for filtering based on app info*/
 #define	PMINFO_APPINFO_PROP_APP_HWACCELERATION	"PMINFO_APPINFO_PROP_APP_HWACCELERATION"
-  /** String property for filtering based on app info*/
+ /** String property for filtering based on app info*/
 #define	PMINFO_APPINFO_PROP_APP_SCREENREADER	"PMINFO_APPINFO_PROP_APP_SCREENREADER"
+ /** String property for filtering based on app info*/
+#define	PMINFO_APPINFO_PROP_APP_PACKAGE		"PMINFO_APPINFO_PROP_APP_PACKAGE"
 
  /** Boolean property for filtering based on app info*/
 #define	PMINFO_APPINFO_PROP_APP_NODISPLAY		"PMINFO_APPINFO_PROP_APP_NODISPLAY"
