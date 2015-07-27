@@ -352,6 +352,49 @@ typedef struct datacontrol_x {
 	struct datacontrol_x *next;
 } datacontrol_x;
 
+typedef struct application_x {
+	const char *appid;
+	const char *component;
+	const char *exec;
+	const char *nodisplay;
+	const char *type;
+	const char *onboot;
+	const char *multiple;
+	const char *autorestart;
+	const char *taskmanage;
+	const char *enabled;
+	const char *hwacceleration;
+	const char *screenreader;
+	const char *mainapp;
+	const char *recentimage;
+	const char *launchcondition;
+	const char *indicatordisplay;
+	const char *portraitimg;
+	const char *landscapeimg;
+	const char *guestmode_visibility;
+	const char *permission_type;
+	const char *preload;
+	const char *submode;
+	const char *submode_mainid;
+	const char *launch_mode;
+	const char *component_type;
+	const char *package;
+	struct label_x *label;
+	struct icon_x *icon;
+	struct image_x *image;
+	struct appsvc_x *appsvc;
+	struct appcontrol_x *appcontrol;
+	struct category_x *category;
+	struct metadata_x *metadata;
+	struct permission_x *permission;
+	struct launchconditions_x *launchconditions;
+	struct notification_x *notification;
+	struct datashare_x *datashare;
+	struct datacontrol_x *datacontrol;
+	struct application_x *prev;
+	struct application_x *next;
+} application_x;
+
 typedef struct uiapplication_x {
 	const char *appid;
 	const char *exec;

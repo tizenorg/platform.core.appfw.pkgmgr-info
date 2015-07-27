@@ -3,8 +3,6 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
 
 PROJECT(pkgmgr-info C)
 
-SET(VERSION 0.0.17)
-SET(VERSION_MAJOR 0)
 INCLUDE(TizenCommon)
 
 SET(PREFIX ${CMAKE_INSTALL_PREFIX})
@@ -49,8 +47,8 @@ add_subdirectory(parser)
 add_library(pkgmgr-info SHARED src/pkgmgr-info.c src/pkgmgr-info-internal.c src/pkgmgrinfo_resource.c)
 
 
-SET_TARGET_PROPERTIES(pkgmgr-info PROPERTIES SOVERSION ${VERSION_MAJOR})
-SET_TARGET_PROPERTIES(pkgmgr-info PROPERTIES VERSION ${VERSION})
+SET_TARGET_PROPERTIES(pkgmgr-info PROPERTIES SOVERSION ${MAJORVER})
+SET_TARGET_PROPERTIES(pkgmgr-info PROPERTIES VERSION ${FULLVER})
 TARGET_LINK_LIBRARIES(pkgmgr-info pkgmgr_parser ${libpkgs_LDFLAGS})
 
 CONFIGURE_FILE(${CMAKE_SOURCE_DIR}/pkgmgr-info.pc.in ${CMAKE_BINARY_DIR}/pkgmgr-info.pc @ONLY)
