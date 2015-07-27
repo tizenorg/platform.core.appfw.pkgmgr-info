@@ -3,8 +3,6 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
 
 PROJECT(pkgmgr-info C)
 
-SET(VERSION 0.0.17)
-SET(VERSION_MAJOR 0)
 INCLUDE(TizenCommon)
 
 SET(PREFIX ${CMAKE_INSTALL_PREFIX})
@@ -46,11 +44,11 @@ SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_CFLAGS}")
 add_subdirectory(parser)
 
 ## build pkgmgr-info library
-add_library(pkgmgr-info SHARED src/pkgmgr-info.c src/pkgmgr-info-internal.c src/pkgmgrinfo_resource.c)
+add_library(pkgmgr-info SHARED src/pkgmgr-info-basic.c src/pkgmgr-info.c src/pkgmgr-info-internal.c src/pkgmgrinfo_resource.c)
 
 
-SET_TARGET_PROPERTIES(pkgmgr-info PROPERTIES SOVERSION ${VERSION_MAJOR})
-SET_TARGET_PROPERTIES(pkgmgr-info PROPERTIES VERSION ${VERSION})
+SET_TARGET_PROPERTIES(pkgmgr-info PROPERTIES SOVERSION ${MAJORVER})
+SET_TARGET_PROPERTIES(pkgmgr-info PROPERTIES VERSION ${FULLVER})
 TARGET_LINK_LIBRARIES(pkgmgr-info pkgmgr_parser ${libpkgs_LDFLAGS})
 
 CONFIGURE_FILE(${CMAKE_SOURCE_DIR}/pkgmgr-info.pc.in ${CMAKE_BINARY_DIR}/pkgmgr-info.pc @ONLY)
@@ -62,6 +60,7 @@ configure_file(tag_parser_list.txt.in tag_parser_list.txt @ONLY)
 INSTALL(TARGETS pkgmgr-info DESTINATION ${LIB_INSTALL_DIR} COMPONENT RuntimeLibraries)
 INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/pkgmgr-info.pc DESTINATION ${LIB_INSTALL_DIR}/pkgconfig)
 INSTALL(FILES ${CMAKE_CURRENT_SOURCE_DIR}/include/pkgmgr-info.h DESTINATION include)
+INSTALL(FILES ${CMAKE_CURRENT_SOURCE_DIR}/include/pkgmgr-info-basic.h DESTINATION include)
 INSTALL(FILES ${CMAKE_CURRENT_SOURCE_DIR}/include/pkgmgrinfo_resource.h DESTINATION include)
 INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/parser_path.conf DESTINATION ${SYSCONFDIR}/package-manager/)
 INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/mdparser_list.txt DESTINATION ${SYSCONFDIR}/package-manager/parserlib/metadata)
