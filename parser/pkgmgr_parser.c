@@ -2514,7 +2514,7 @@ static char *__get_icon_with_path(const char * icon, uid_t uid)
 		}
 
 		memset(icon_with_path, 0, len);
-		if (uid != GLOBAL_USER)
+		if (uid != GLOBAL_USER && uid != OWNER_ROOT)
 			snprintf(icon_with_path, len, "%s%s", getIconPath(uid), icon);
 		else {
 			snprintf(icon_with_path, len, "%s%s/small/%s", getIconPath(GLOBAL_USER), theme, icon);
