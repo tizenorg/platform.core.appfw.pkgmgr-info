@@ -27,19 +27,19 @@
 #include <sys/smack.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <db-util.h>
-#include <glib.h>
 #include <grp.h>
 #include <pwd.h>
 
+#include <db-util.h>
+#include <glib.h>
 /* For multi-user support */
 #include <tzplatform_config.h>
 
 #include "pkgmgr-info.h"
+#include "pkgmgr-info-basic.h"
+#include "pkgmgr-info-debug.h"
 #include "pkgmgr_parser_internal.h"
 #include "pkgmgr_parser_db.h"
-
-#include "pkgmgr-info-debug.h"
 
 #ifdef LOG_TAG
 #undef LOG_TAG
