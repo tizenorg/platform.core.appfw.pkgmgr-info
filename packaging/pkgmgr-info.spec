@@ -1,7 +1,7 @@
 Name:       pkgmgr-info
 Summary:    Packager Manager infomation api for package
-Version:    0.0.134
-Release:    0
+Version:    0.1.0
+Release:    1
 Group:      Application Framework/Package Management
 License:    Apache-2.0
 Source0:    %{name}-%{version}.tar.gz
@@ -48,8 +48,9 @@ Dev package for libpkgmgr-parser
 cp %{SOURCE1001} .
 
 %build
-%cmake . 
-make %{?jobs:-j%jobs}
+MAJORVER=`echo %{version} | awk 'BEGIN {FS="."}{print $1}'`
+%cmake . -DFULLVER=%{version} -DMAJORVER=${MAJORVER}
+%__make %{?jobs:-j%jobs}
 
 %install
 %make_install
@@ -77,6 +78,7 @@ chsmack -a '*' %{TZ_SYS_RW_PACKAGES}
 %manifest %{name}.manifest
 %defattr(-,root,root,-)
 %{_includedir}/pkgmgr-info.h
+%{_includedir}/pkgmgr-info-basic.h
 %{_includedir}/pkgmgrinfo_resource.h
 %{_libdir}/pkgconfig/pkgmgr-info.pc
 %{_libdir}/libpkgmgr-info.so
