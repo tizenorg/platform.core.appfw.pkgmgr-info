@@ -45,7 +45,7 @@
 #define LOG_TAG "PKGMGR_PARSER"
 
 #define BUF_SIZE 1024
-#define PKGMGR_PARSER_DB_FILE tzplatform_mkpath(TZ_USER_DB, ".pkgmgr_parser.db")
+#define ROOT_UID 0
 
 enum {
 	NODE_ATTR_MIN = 0,
@@ -58,6 +58,66 @@ enum {
 	NODE_ATTR_LANGUAGE,
 	NODE_ATTR_MAX,
 };
+
+static int _attach_and_create_view(sqlite3 *handle, const char *db, uid_t uid)
+{
+	int ret = SQLITE_OK;
+	char *err;
+	char *query;
+
+	if (uid == GLOBAL_USER || uid == ROOT_UID)
+		return SQLITE_OK;
+
+	query = sqlite3_mprintf("ATTACH DATABASE '%s' AS Global", db);
+	ret = sqlite3_exec(handle, query, NULL, NULL, &err);
+	if (ret != SQLITE_OK) {
+		_LOGD("Don't execute query = %s error message = %s\n", query, err);
+		sqlite3_free(err);
+		sqlite3_free(query);
+		return ret;
+	}
+
+	query = sqlite3_mprintf("CREATE TEMP VIEW package_resource_data AS SELECT * \
+			FROM (SELECT rowid,*,0 AS for_all_users FROM  main.package_resource_data UNION \
+			SELECT rowid,*,1 AS for_all_users FROM Global.package_resource_data)");
+	ret = sqlite3_exec(handle, query, NULL, NULL, &err);
+	if (ret != SQLITE_OK) {
+		_LOGD("Don't execute query = %s error message = %s\n", query, err);
+		sqlite3_free(err);
+		sqlite3_free(query);
+		return ret;
+	}
+
+	sqlite3_free(query);
+	return ret;
+}
+
+
+static int _open_parser_db(sqlite3 **parser_db, uid_t uid)
+{
+	int ret = -1;
+
+	const char* user_pkg_parser = getUserPkgParserDBPathUID(uid);
+	if (access(user_pkg_parser, F_OK) != 0) {
+		_LOGE("Manifest DB does not exists !! try to create\n");
+		if (pkgmgr_parser_check_and_create_db(uid)) {
+			_LOGE("create db failed");
+			return -1;
+		}
+		if (pkgmgr_parser_initialize_db(uid)) {
+			_LOGE("initialize db failed");
+			return -1;
+		}
+	}
+
+	ret = db_util_open_with_options(user_pkg_parser, parser_db,
+			SQLITE_OPEN_READONLY, NULL);
+	retvm_if(ret != SQLITE_OK, -1, "connect db [%s] failed!\n", user_pkg_parser);
+	ret = _attach_and_create_view(*parser_db, getUserPkgParserDBPath(), uid);
+	retvm_if(ret != SQLITE_OK, -1, "attach db [%s] failed!\n", user_pkg_parser);
+
+	return 0;
+}
 
 static int _get_attr_val(bundle *b, char **attr_name, const char **attr_val, int attr_index)
 {
@@ -115,7 +175,7 @@ static int _get_attr_val(bundle *b, char **attr_name, const char **attr_val, int
 	return PMINFO_R_OK;
 }
 
-static int _insert_node_data_into_db(sqlite3 *pkginfo, const char *package, char *group_type, GList *node_list)
+static int _insert_node_data_into_db(sqlite3 *pkginfo, const char *package, resource_group_t *rsc_group)
 {
 	char *query = NULL;
 	resource_node_t *rsc_node = NULL;
@@ -126,10 +186,10 @@ static int _insert_node_data_into_db(sqlite3 *pkginfo, const char *package, char
 	int i;
 	int ret = -1;
 
-	if (pkginfo == NULL || package == NULL || strlen(package) == 0 || group_type == NULL || strlen(group_type) == 0 || node_list == NULL)
+	if (pkginfo == NULL || package == NULL || strlen(package) == 0)
 		return PMINFO_R_EINVAL;
 
-	tmp_node_list = g_list_first(node_list);
+	tmp_node_list = g_list_first(rsc_group->node_list);
 
 	if (tmp_node_list == NULL) {
 		_LOGE("list is null");
@@ -159,8 +219,10 @@ static int _insert_node_data_into_db(sqlite3 *pkginfo, const char *package, char
 
 			if (attr_name == NULL || attr_val == NULL)
 				continue;
-			query = sqlite3_mprintf("insert into package_resource_data(id, node_folder, attr_name, attr_value) VALUES(" \
-				"(select rowid from package_resource_info where pkg_id=%Q and group_type=%Q), %Q, %Q, %Q)", package, group_type, rsc_node->folder, attr_name, attr_val);
+			query = sqlite3_mprintf("insert into package_resource_data" \
+					"(pkg_id, group_folder, group_type, node_folder, attr_name, attr_value)" \
+					" VALUES(%Q, %Q, %Q, %Q, %Q, %Q)", package, rsc_group->folder,
+					rsc_group->type, rsc_node->folder, attr_name, attr_val);
 
 			/*Begin transaction*/
 			ret = sqlite3_exec(pkginfo, query, NULL, NULL, NULL);
@@ -190,8 +252,9 @@ int pkgmgr_parser_resource_db_remove(const char *package)
 	}
 
 	/*db open*/
-	ret = db_util_open(PKGMGR_PARSER_DB_FILE, &pkginfo, 0);
-	retvm_if(ret != SQLITE_OK, PMINFO_R_ERROR, "connect db [%s] failed!", PKGMGR_PARSER_DB_FILE);
+	ret = db_util_open_with_options(getUserPkgParserDBPathUID(getuid()),
+			&pkginfo, SQLITE_OPEN_READWRITE, NULL);
+	retvm_if(ret != SQLITE_OK, PMINFO_R_ERROR, "connect db [%s] failed!");
 
 	/*Begin transaction*/
 	ret = sqlite3_exec(pkginfo, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
@@ -199,16 +262,9 @@ int pkgmgr_parser_resource_db_remove(const char *package)
 	_LOGD("Transaction Begin\n");
 
 	/*delete data from package_resource_data*/
-	query = sqlite3_mprintf("delete from package_resource_data where id in (select rowid from package_resource_info where pkg_id=%Q)", package);
+	query = sqlite3_mprintf("delete from package_resource_data where pkg_id=%Q", package);
 	ret = sqlite3_exec(pkginfo, query, NULL, NULL, NULL);
-	tryvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "Failed to delete from package_resource_info");
-	sqlite3_free(query);
-	query = NULL;
-
-	/*delete data from package_resource_info*/
-	query = sqlite3_mprintf("delete from package_resource_info where pkg_id=%Q", package);
-	ret = sqlite3_exec(pkginfo, query, NULL, NULL, NULL);
-	tryvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "Failed to delete from package_resource_info");
+	tryvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "Failed to delete from package_resource_data");
 
 	/*Commit transaction*/
 	ret = sqlite3_exec(pkginfo, "COMMIT", NULL, NULL, NULL);
@@ -233,7 +289,6 @@ int pkgmgr_parser_resource_db_save(const char *package, resource_data_t *data)
 	char *query = NULL;
 	int ret = -1;
 	GList *group_list = NULL;
-	GList *node_list = NULL;
 	resource_group_t *rsc_group = NULL;
 
 	if (package == NULL || strlen(package) == 0 || data == NULL) {
@@ -249,11 +304,11 @@ int pkgmgr_parser_resource_db_save(const char *package, resource_data_t *data)
 		goto catch;
 	}
 
-
 	group_list = g_list_first(data->group_list);
 	/*db open*/
-	ret = db_util_open(PKGMGR_PARSER_DB_FILE, &pkginfo, 0);
-	retvm_if(ret != SQLITE_OK, PMINFO_R_ERROR, "connect db [%s] failed!", PKGMGR_PARSER_DB_FILE);
+	ret = db_util_open_with_options(getUserPkgParserDBPathUID(getuid()),
+			&pkginfo, SQLITE_OPEN_READWRITE, NULL);
+	retvm_if(ret != SQLITE_OK, PMINFO_R_ERROR, "connect db [%s] failed!");
 
 	/*Begin transaction*/
 	ret = sqlite3_exec(pkginfo, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
@@ -262,27 +317,15 @@ int pkgmgr_parser_resource_db_save(const char *package, resource_data_t *data)
 
 	while (group_list != NULL) {
 		rsc_group = NULL;
-		node_list = NULL;
 
 		rsc_group = (resource_group_t *)group_list->data;
-		node_list = g_list_first(rsc_group->node_list);
-
-		if (rsc_group == NULL || node_list == NULL) {
-			_LOGE("value is null");
+		if (rsc_group == NULL) {
+			_LOGE("resource group is null");
 			ret = -1;
 			goto catch;
 		}
 
-		query = sqlite3_mprintf("insert into package_resource_info(pkg_id, group_folder, group_type) VALUES(%Q, %Q, %Q)", \
-			package, rsc_group->folder, rsc_group->type);
-
-		/*Begin transaction*/
-		ret = sqlite3_exec(pkginfo, query, NULL, NULL, NULL);
-		tryvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "Failed to insert into package_resource_info");
-		sqlite3_free(query);
-		query = NULL;
-
-		ret = _insert_node_data_into_db(pkginfo, package, rsc_group->type, node_list);
+		ret = _insert_node_data_into_db(pkginfo, package, rsc_group);
 
 		group_list = g_list_next(group_list);
 	}
@@ -389,16 +432,15 @@ int pkgmgr_parser_resource_db_load(const char *package, resource_data_t **data)
 	GList *tmp_group_list = NULL;
 	GList *tmp_node_list = NULL;
 
-	ret = db_util_open(PKGMGR_PARSER_DB_FILE, &pkginfo, 0);
-	retvm_if(ret != SQLITE_OK, PMINFO_R_ERROR, "connect db [%s] failed!", PKGMGR_PARSER_DB_FILE);
+	ret = _open_parser_db(&pkginfo, getuid());
+	retvm_if(ret != SQLITE_OK, PMINFO_R_ERROR, "connect db [%s] failed!");
 	query = sqlite3_mprintf("select " \
-		"package_resource_info.group_type, package_resource_info.group_folder, package_resource_data.node_folder, package_resource_data.attr_name, package_resource_data.attr_value " \
-		"from package_resource_info, package_resource_data where " \
-		"package_resource_info.rowid=package_resource_data.id and " \
-		"package_resource_info.pkg_id=%Q order by package_resource_data.rowid asc", \
+		"group_type, group_folder, node_folder, attr_name, attr_value " \
+		"from package_resource_data where " \
+		"pkg_id=%Q order by package_resource_data.rowid asc", \
 		package);
 	ret = sqlite3_prepare_v2(pkginfo, query, strlen(query), &stmt, NULL);
-	tryvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "sqlite3_prepare_v2 query = %s\n", query);
+	tryvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "sqlite3_prepare_v2 query = %s, %d\n", query, ret);
 	cols = sqlite3_column_count(stmt);
 
 	while (1) {
@@ -426,23 +468,32 @@ int pkgmgr_parser_resource_db_load(const char *package, resource_data_t **data)
 					node_list = NULL;
 				} else {
 					rsc_group = (resource_group_t *)tmp_group_list->data;
-					node_list = rsc_group->node_list;
+					if (rsc_group)
+						node_list = rsc_group->node_list;
 				}
 			} else if (strcmp(colname, "group_folder") == 0) {
 				/*group_folder*/
 				group_folder = (char *)sqlite3_column_text(stmt, i);
+				if (!rsc_group) {
+					_LOGE("rsc_group should not be null");
+					ret = PMINFO_R_ERROR;
+					goto catch;
+				}
+
 				if (rsc_group->folder != NULL && strcmp(rsc_group->folder, group_folder) == 0)
 					continue;
-				else if (rsc_group != NULL && group_folder != NULL)
+				else if (group_folder != NULL)
 					rsc_group->folder = strdup(group_folder);
 				else {
-					_LOGE("rsc_group and group_folder should not be null");
+					_LOGE("Unexpected error");
 					ret = PMINFO_R_ERROR;
 					goto catch;
 				}
 			} else if (strcmp(colname, "node_folder") == 0) {
 				/*node_folder*/
 				node_folder = (char *)sqlite3_column_text(stmt, i);
+				if (node_folder == NULL || strlen(node_folder) == 0)
+					continue;
 				tmp_node_list = g_list_find_custom(node_list, node_folder, (GCompareFunc)_find_node_folder);
 				if (tmp_node_list == NULL) {
 					ret = _init_node(node_folder, &rsc_node);
@@ -459,10 +510,14 @@ int pkgmgr_parser_resource_db_load(const char *package, resource_data_t **data)
 			} else if (strcmp(colname, "attr_name") == 0) {
 				/*attr_name*/
 				attr_name = (char *)sqlite3_column_text(stmt, i);
+				if (attr_name == NULL || strlen(attr_name) == 0)
+					continue;
 			} else if (strcmp(colname, "attr_value") == 0) {
 				/*attr_value*/
 				attr_value = (char *)sqlite3_column_text(stmt, i);
-				if (rsc_node != NULL && attr_name != NULL && attr_value != NULL) {
+				if (attr_name == NULL || attr_value == NULL || strlen(attr_name) == 0 || strlen(attr_value) == 0 )
+					continue;
+				if (rsc_node != NULL) {
 					if (rsc_node->attr != NULL)
 						bundle_add(rsc_node->attr, attr_name, attr_value);
 					else {
