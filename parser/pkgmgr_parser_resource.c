@@ -267,24 +267,33 @@ static int __start_resource_process(xmlTextReaderPtr reader, GList **list)
 		ret = __is_group(ASCII(node), &group_type);
 		if (ret) {
 			_LOGE("unidentified node[%s] has found with error[%d]", ASCII(node), ret);
-			return ret;
+			goto err;
 		}
 		res_group = NULL;
 		res_group = malloc(sizeof(resource_group_t));
 		if (res_group == NULL) {
 			_LOGE("malloc failed");
-			return -1;
+			ret = PMINFO_R_ERROR;
+			goto err;
 		}
 		memset(res_group, '\0', sizeof(resource_group_t));
 		tmp_list = g_list_append(tmp_list, res_group);
 		ret = __psp_process_group(reader, &res_group, group_type);
 		if (ret != 0) {
-			FREE_AND_NULL(res_group);
-			return PMINFO_R_ERROR;
+			_LOGE("resource group processing failed");
+			ret = PMINFO_R_ERROR;
+			goto err;
 		}
 	}
 
 	*list = g_list_first(tmp_list);
+	return ret;
+
+err:
+	FREE_AND_NULL(group_type);
+	FREE_AND_NULL(res_group);
+	g_list_free_full(tmp_list, _free_group_list);
+
 	return ret;
 }
 
