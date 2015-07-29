@@ -35,8 +35,8 @@
 #include <bundle.h>
 #include "pkgmgr-info.h"
 #include "pkgmgr-info-debug.h"
+#include "pkgmgr_parser.h"
 #include "pkgmgr_parser_resource.h"
-#include "pkgmgr_parser_resource_db.h"
 #ifdef LOG_TAG
 #undef LOG_TAG
 #endif
@@ -92,7 +92,7 @@ static int __next_child_element(xmlTextReaderPtr reader, int depth)
 	return ret;
 }
 
-static void _free_node_list(void *data, void *user_data)
+static void _free_node_list(gpointer data)
 {
 	resource_node_t *tmp_node = (resource_node_t *)data;
 
@@ -108,7 +108,7 @@ static void _free_node_list(void *data, void *user_data)
 	}
 }
 
-static void _free_group_list(void *data, void *user_data)
+static void _free_group_list(gpointer data)
 {
 	resource_group_t *tmp_group = (resource_group_t *)data;
 
@@ -267,24 +267,33 @@ static int __start_resource_process(xmlTextReaderPtr reader, GList **list)
 		ret = __is_group(ASCII(node), &group_type);
 		if (ret) {
 			_LOGE("unidentified node[%s] has found with error[%d]", ASCII(node), ret);
-			return ret;
+			goto err;
 		}
 		res_group = NULL;
 		res_group = malloc(sizeof(resource_group_t));
 		if (res_group == NULL) {
 			_LOGE("malloc failed");
-			return -1;
+			ret = PMINFO_R_ERROR;
+			goto err;
 		}
 		memset(res_group, '\0', sizeof(resource_group_t));
 		tmp_list = g_list_append(tmp_list, res_group);
 		ret = __psp_process_group(reader, &res_group, group_type);
 		if (ret != 0) {
-			FREE_AND_NULL(res_group);
-			return PMINFO_R_ERROR;
+			_LOGE("resource group processing failed");
+			ret = PMINFO_R_ERROR;
+			goto err;
 		}
 	}
 
 	*list = g_list_first(tmp_list);
+	return ret;
+
+err:
+	FREE_AND_NULL(group_type);
+	FREE_AND_NULL(res_group);
+	g_list_free_full(tmp_list, _free_group_list);
+
 	return ret;
 }
 
@@ -331,7 +340,7 @@ static resource_data_t *_pkgmgr_resource_parser_process_manifest_xml(const char 
 			_LOGE("parsing failed with given manifest[%s]", manifest);
 			if (pkgmgr_resource_parser_close(rsc_data) != 0)
 				_LOGE("closing failed");
-			rsc_data = NULL;
+			FREE_AND_NULL(rsc_data);
 		} else
 			_LOGE("parsing succeed");
 
@@ -343,27 +352,7 @@ static resource_data_t *_pkgmgr_resource_parser_process_manifest_xml(const char 
 	return rsc_data;
 }
 
-API int pkgmgr_resource_parser_open_from_db(const char *package, resource_data_t **data)
-{
-	resource_data_t *rsc_data = NULL;
-	int ret = -1;
-
-	if (package == NULL || strlen(package) == 0) {
-		_LOGE("invalid parameter");
-		return PMINFO_R_EINVAL;
-	}
-
-	ret = pkgmgr_parser_resource_db_load(package, &rsc_data);
-	if (ret != 0) {
-		_LOGE("get resource data from db failed");
-		return ret;
-	}
-
-	*data = rsc_data;
-	return ret;
-}
-
-API int pkgmgr_resource_parser_open(const char *fname, const char *package, resource_data_t **data)
+API int pkgmgr_resource_parser_open(const char *fname, resource_data_t **data)
 {
 	resource_data_t *rsc_data = NULL;
 	int ret = PMINFO_R_ERROR;
@@ -378,7 +367,8 @@ API int pkgmgr_resource_parser_open(const char *fname, const char *package, reso
 		_LOGE("parsing failed");
 		goto catch;
 	}
-	rsc_data->package = strdup(package);
+
+	rsc_data->package = NULL;
 
 	*data = rsc_data;
 	ret = PMINFO_R_OK;
@@ -398,26 +388,6 @@ API int pkgmgr_resource_parser_close(resource_data_t *data)
 	g_list_free_full(data->group_list, (GDestroyNotify)_free_group_list);
 
 	return PMINFO_R_OK;
-}
-
-API int pkgmgr_resource_parser_insert_into_db(resource_data_t *data)
-{
-	if (data == NULL) {
-		_LOGE("parameter is NULL");
-		return PMINFO_R_EINVAL;
-	}
-
-	return pkgmgr_parser_resource_db_save(data->package, data);
-}
-
-API int pkgmgr_resource_parser_delete_from_db(const char *package)
-{
-	if (package == NULL) {
-		_LOGE("parameter is NULL");
-		return PMINFO_R_EINVAL;
-	}
-
-	return pkgmgr_parser_resource_db_remove(package);
 }
 
 API int pkgmgr_resource_parser_check_xml_validation(const char *xmlfile)

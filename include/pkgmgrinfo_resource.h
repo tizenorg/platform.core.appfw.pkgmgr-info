@@ -50,17 +50,17 @@ typedef struct {
 int pkgmgrinfo_resource_close(resource_data_t *data);
 
 /**
- * @fn int pkgmgrinfo_resource_open(const char *package, resource_data_t **data)
- * @brief	This API will get resource data of specific package from db
+ * @fn int pkgmgrinfo_resource_open(const char *filepath, resource_data_t **data)
+ * @brief	This API will get resource data from specified resource xml
  *
  * @par		This API is for capi-appfw-application.
  * @par Sync (or) Async : Synchronous API
  *
- * @param[in]	package	packageID
+ * @param[in]	filepath	path of resource xml
  * @param[out]data	resource_data type structure. it will filled with resource data
  * @return	0 on succeed and -1 on failure, -2 on invalid parameter
  */
-int pkgmgrinfo_resource_open(const char *package, resource_data_t **data);
+int pkgmgrinfo_resource_open(const char *filepath, resource_data_t **data);
 
 #ifdef __cplusplus
 }
