@@ -114,6 +114,7 @@ typedef enum {
  * @brief API return values
  */
 enum {
+	PMINFO_R_ENOENT = -3,		/**< No result */
 	PMINFO_R_EINVAL = -2,		/**< Invalid argument */
 	PMINFO_R_ERROR = -1,		/**< General error */
 	PMINFO_R_OK = 0			/**< General success */
