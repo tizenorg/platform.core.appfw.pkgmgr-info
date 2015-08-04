@@ -3927,7 +3927,7 @@ static int _appinfo_get_app(const char *locale, pkgmgrinfo_filter_x *filter,
 		*appinfo = info;
 	} else {
 		LOGE("no result");
-		return PMINFO_R_OK;
+		return PMINFO_R_ERROR;
 	}
 
 	return PMINFO_R_OK;
