@@ -1343,6 +1343,7 @@ static int _pkginfo_get_filtered_foreach_pkginfo(pkgmgrinfo_filter_x *filter,
 	pkgmgr_pkginfo_x *tmp;
 	char *locale;
 	int stop = 0;
+	int ret;
 
 	if (__open_manifest_db(uid) < 0)
 		return PMINFO_R_ERROR;
@@ -1353,10 +1354,11 @@ static int _pkginfo_get_filtered_foreach_pkginfo(pkgmgrinfo_filter_x *filter,
 		return PMINFO_R_ERROR;
 	}
 
-	if (_pkginfo_get_pkg(locale, filter, &pkginfo)) {
+	ret = _pkginfo_get_pkg(locale, filter, &pkginfo);
+	if (ret != PMINFO_R_OK) {
 		free(locale);
 		__close_manifest_db();
-		return PMINFO_R_ERROR;
+		return (ret == PMINFO_R_ENOENT) ? PMINFO_R_OK : PMINFO_R_ERROR;
 	}
 
 	tmp = pkginfo;
@@ -1818,13 +1820,13 @@ static int _pkginfo_get_pkg(const char *locale, pkgmgrinfo_filter_x *filter,
 
 	sqlite3_finalize(stmt);
 
-	if (*pkginfo) {
-		LISTHEAD(*pkginfo, info);
-		*pkginfo = info;
-	} else {
+	if (*pkginfo == NULL) {
 		LOGE("no result");
-		return PMINFO_R_ERROR;
+		return PMINFO_R_ENOENT;
 	}
+
+	LISTHEAD(*pkginfo, info);
+	*pkginfo = info;
 
 	return PMINFO_R_OK;
 }
@@ -3427,6 +3429,7 @@ static int _appinfo_get_filtered_foreach_appinfo(uid_t uid,
 	pkgmgr_appinfo_x *tmp;
 	char *locale;
 	int stop = 0;
+	int ret;
 
 	if (__open_manifest_db(uid) < 0)
 		return PMINFO_R_ERROR;
@@ -3437,10 +3440,11 @@ static int _appinfo_get_filtered_foreach_appinfo(uid_t uid,
 		return PMINFO_R_ERROR;
 	}
 
-	if (_appinfo_get_app(locale, filter, &appinfo)) {
+	ret = _appinfo_get_app(locale, filter, &appinfo);
+	if (ret != PMINFO_R_OK) {
 		free(locale);
 		__close_manifest_db();
-		return PMINFO_R_ERROR;
+		return (ret == PMINFO_R_ENOENT) ? PMINFO_R_OK : PMINFO_R_ERROR;
 	}
 
 	tmp = appinfo;
@@ -3922,13 +3926,13 @@ static int _appinfo_get_app(const char *locale, pkgmgrinfo_filter_x *filter,
 
 	sqlite3_finalize(stmt);
 
-	if (*appinfo) {
-		LISTHEAD(*appinfo, info);
-		*appinfo = info;
-	} else {
+	if (*appinfo == NULL) {
 		LOGE("no result");
-		return PMINFO_R_ERROR;
+		return PMINFO_R_ENOENT;
 	}
+
+	LISTHEAD(*appinfo, info);
+	*appinfo = info;
 
 	return PMINFO_R_OK;
 }
@@ -5332,7 +5336,7 @@ API int pkgmgrinfo_appinfo_usr_metadata_filter_foreach(
 	if (list == NULL) {
 		LOGE("no result");
 		__close_manifest_db();
-		return PMINFO_R_ERROR;
+		return PMINFO_R_OK;
 	}
 
 	for (tmp = list; tmp; tmp = tmp->next) {
