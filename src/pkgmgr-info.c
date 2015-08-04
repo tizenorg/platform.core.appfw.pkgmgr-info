@@ -830,7 +830,7 @@ static int __close_cert_db(void)
 {
 	if(cert_db.ref) {
 		if(--cert_db.ref == 0)
-			sqlite3_close(GET_DB(cert_db));
+			sqlite3_close_v2(GET_DB(cert_db));
 			return 0;
 	}
 	_LOGE("Certificate DB is already closed !!\n");
@@ -1504,6 +1504,8 @@ static int _pkginfo_get_label(const char *pkgid, const char *locale,
 		*label = info;
 	}
 
+	sqlite3_finalize(stmt);
+
 	return PMINFO_R_OK;
 }
 
@@ -1556,6 +1558,8 @@ static int _pkginfo_get_icon(const char *pkgid, const char *locale,
 		*icon = info;
 	}
 
+	sqlite3_finalize(stmt);
+
 	return PMINFO_R_OK;
 }
 
@@ -1607,6 +1611,8 @@ static int _pkginfo_get_description(const char *pkgid, const char *locale,
 		LISTHEAD(*description, info);
 		*description = info;
 	}
+
+	sqlite3_finalize(stmt);
 
 	return PMINFO_R_OK;
 }
@@ -1664,6 +1670,8 @@ static int _pkginfo_get_privilege(const char *pkgid, privileges_x **privileges)
 		LISTHEAD(p->privilege, info);
 		p->privilege = info;
 	}
+
+	sqlite3_finalize(stmt);
 
 	return PMINFO_R_OK;
 }
@@ -3595,6 +3603,8 @@ static int _appinfo_get_label(const char *appid, const char *locale,
 		*label = info;
 	}
 
+	sqlite3_finalize(stmt);
+
 	return PMINFO_R_OK;
 }
 
@@ -3647,6 +3657,8 @@ static int _appinfo_get_icon(const char *appid, const char *locale,
 		*icon = info;
 	}
 
+	sqlite3_finalize(stmt);
+
 	return PMINFO_R_OK;
 }
 
@@ -3693,6 +3705,8 @@ static int _appinfo_get_category(const char *appid, category_x **category)
 		*category = info;
 	}
 
+	sqlite3_finalize(stmt);
+
 	return PMINFO_R_OK;
 }
 
@@ -3733,6 +3747,8 @@ static int _appinfo_get_app_control(const char *appid,
 		LISTHEAD(*appcontrol, info);
 		*appcontrol = info;
 	}
+
+	sqlite3_finalize(stmt);
 
 	return PMINFO_R_OK;
 }
@@ -3785,6 +3801,8 @@ static int _appinfo_get_data_control(const char *appid,
 		LISTHEAD(*datacontrol, info);
 		*datacontrol = info;
 	}
+
+	sqlite3_finalize(stmt);
 
 	return PMINFO_R_OK;
 }
@@ -5286,6 +5304,8 @@ static GSList *_appinfo_get_metadata_filtered_list(pkgmgrinfo_filter_x *filter)
 		_save_column_str(stmt, 0, (const char **)&appid);
 		list = g_slist_append(list, appid);
 	}
+
+	sqlite3_finalize(stmt);
 
 	return list;
 }
