@@ -1137,12 +1137,17 @@ API void pkgmgrinfo_basic_free_application(application_x *application)
 			datacontrol = tmp;
 		}
 	}
+	free((void *)application);
 }
 
 API void pkgmgrinfo_basic_free_package(package_x *package)
 {
 	if (package == NULL)
 		return;
+	if (package->for_all_users) {
+		free((void *)package->for_all_users);
+		package->for_all_users = NULL;
+	}
 	if (package->ns) {
 		free((void *)package->ns);
 		package->ns = NULL;

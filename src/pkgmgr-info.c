@@ -749,19 +749,20 @@ static void __cleanup_pkginfo(pkgmgr_pkginfo_x *data)
 
 static void __cleanup_appinfo(pkgmgr_appinfo_x *data)
 {
-	ret_if(data == NULL);
-	if (data->package){
-		free((void *)data->package);
-		data->package = NULL;
-	}
-	if (data->locale){
-		free((void *)data->locale);
-		data->locale = NULL;
-	}
+	pkgmgr_appinfo_x *info = data;
+	pkgmgr_appinfo_x *tmp;
 
-	pkgmgrinfo_basic_free_application(data->app_info);
-	free((void *)data);
-	data = NULL;
+	while (info != NULL) {
+		tmp = info->next;
+		if (info->package)
+			free((void *)info->package);
+		if (info->locale)
+			free((void *)info->locale);
+
+		pkgmgrinfo_basic_free_application(info->app_info);
+		free((void *)info);
+		info = tmp;
+	}
 	return;
 }
 
@@ -1038,6 +1039,10 @@ static void __parse_appcontrol(appcontrol_x **appcontrol, char *appcontrol_str)
 		LISTADD(*appcontrol, ac);
 	} while ((token = strtok_r(NULL, ";", &ptr)));
 
+	if (*appcontrol) {
+		LISTHEAD(*appcontrol, ac);
+		*appcontrol = ac;
+	}
 	free(dup);
 }
 
@@ -3426,7 +3431,6 @@ static int _appinfo_get_filtered_foreach_appinfo(uid_t uid,
 	pkgmgr_appinfo_x *next;
 	pkgmgr_appinfo_x *tmp;
 	char *locale;
-	int stop = 0;
 
 	if (__open_manifest_db(uid) < 0)
 		return PMINFO_R_ERROR;
@@ -3443,18 +3447,12 @@ static int _appinfo_get_filtered_foreach_appinfo(uid_t uid,
 		return PMINFO_R_ERROR;
 	}
 
-	tmp = appinfo;
-	while (tmp) {
-		next = tmp->next;
-		tmp->locale = strdup(locale);
-		if (stop == 0) {
-			if (app_list_cb(tmp, user_data) < 0)
-				stop = 1;
-		}
-		__cleanup_appinfo(tmp);
-		tmp = next;
+	for (tmp = appinfo; tmp; tmp = tmp->next) {
+		if (app_list_cb(tmp, user_data) < 0)
+			break;
 	}
 
+	__cleanup_appinfo(appinfo);
 	free(locale);
 	__close_manifest_db();
 
@@ -3743,10 +3741,7 @@ static int _appinfo_get_app_control(const char *appid,
 		free(str);
 	}
 
-	if (*appcontrol) {
-		LISTHEAD(*appcontrol, info);
-		*appcontrol = info;
-	}
+	*appcontrol = info;
 
 	sqlite3_finalize(stmt);
 
@@ -3976,6 +3971,7 @@ API int pkgmgrinfo_appinfo_get_usr_appinfo(const char *appid, uid_t uid,
 
 	*handle = appinfo;
 
+	free(locale);
 	pkgmgrinfo_appinfo_filter_destroy(filter);
 	__close_manifest_db();
 
