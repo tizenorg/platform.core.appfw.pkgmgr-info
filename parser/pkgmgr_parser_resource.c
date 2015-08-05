@@ -34,7 +34,7 @@
 #include <libxml/xmlschemas.h>
 #include <bundle.h>
 #include "pkgmgr-info.h"
-#include "pkgmgr-info-debug.h"
+#include "pkgmgrinfo_debug.h"
 #include "pkgmgr_parser.h"
 #include "pkgmgr_parser_resource.h"
 #ifdef LOG_TAG
