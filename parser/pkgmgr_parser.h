@@ -45,7 +45,7 @@
 
 /* For multi-user support */
 #include <tzplatform_config.h>
-#include "pkgmgr-info-basic.h"
+#include "pkgmgrinfo_basic.h"
 
 #ifdef __cplusplus
 extern "C" {

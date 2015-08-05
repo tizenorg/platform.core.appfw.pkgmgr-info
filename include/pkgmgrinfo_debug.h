@@ -1,5 +1,5 @@
 /*
- * pkgmgr-info-debug
+ * pkgmgrinfo_debug
  *
  * Copyright (c) 2000 - 2011 Samsung Electronics Co., Ltd. All rights reserved.
  *

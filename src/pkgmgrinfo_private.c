@@ -20,11 +20,19 @@
  *
  */
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
+#include <ctype.h>
+
+#include <vconf.h>
+#include <sqlite3.h>
+
 #include "pkgmgr-info.h"
-#include "pkgmgr-info-internal.h"
+#include "pkgmgrinfo_type.h"
+#include "pkgmgrinfo_debug.h"
+#include "pkgmgrinfo_private.h"
+#include "pkgmgr_parser.h"
 
 struct _pkginfo_str_map_t {
 	pkgmgrinfo_pkginfo_filter_prop_str prop;
@@ -215,3 +223,192 @@ inline pkgmgrinfo_appinfo_filter_prop_bool _pminfo_appinfo_convert_to_prop_bool(
 	}
 	return prop;
 }
+
+void __get_filter_condition(gpointer data, char **condition)
+{
+	pkgmgrinfo_node_x *node = (pkgmgrinfo_node_x*)data;
+	char buf[MAX_QUERY_LEN + 1] = {'\0'};
+	char temp[PKG_STRING_LEN_MAX] = {'\0'};
+	switch (node->prop) {
+	case E_PMINFO_PKGINFO_PROP_PACKAGE_ID:
+		snprintf(buf, MAX_QUERY_LEN, "package_info.package='%s'", node->value);
+		break;
+	case E_PMINFO_PKGINFO_PROP_PACKAGE_TYPE:
+		snprintf(buf, MAX_QUERY_LEN, "package_info.package_type='%s'", node->value);
+		break;
+	case E_PMINFO_PKGINFO_PROP_PACKAGE_VERSION:
+		snprintf(buf, MAX_QUERY_LEN, "package_info.package_version='%s'", node->value);
+		break;
+	case E_PMINFO_PKGINFO_PROP_PACKAGE_INSTALL_LOCATION:
+		snprintf(buf, MAX_QUERY_LEN, "package_info.install_location='%s'", node->value);
+		break;
+	case E_PMINFO_PKGINFO_PROP_PACKAGE_INSTALLED_STORAGE:
+		snprintf(buf, MAX_QUERY_LEN, "package_info.installed_storage='%s'", node->value);
+		break;
+	case E_PMINFO_PKGINFO_PROP_PACKAGE_AUTHOR_NAME:
+		snprintf(buf, MAX_QUERY_LEN, "package_info.author_name='%s'", node->value);
+		break;
+	case E_PMINFO_PKGINFO_PROP_PACKAGE_AUTHOR_HREF:
+		snprintf(buf, MAX_QUERY_LEN, "package_info.author_href='%s'", node->value);
+		break;
+	case E_PMINFO_PKGINFO_PROP_PACKAGE_AUTHOR_EMAIL:
+		snprintf(buf, MAX_QUERY_LEN, "package_info.author_email='%s'", node->value);
+		break;
+	case E_PMINFO_PKGINFO_PROP_PACKAGE_SIZE:
+		snprintf(buf, MAX_QUERY_LEN, "package_info.package_size='%s'", node->value);
+		break;
+	case E_PMINFO_PKGINFO_PROP_PACKAGE_REMOVABLE:
+		snprintf(buf, MAX_QUERY_LEN, "package_info.package_removable IN %s", node->value);
+		break;
+	case E_PMINFO_PKGINFO_PROP_PACKAGE_PRELOAD:
+		snprintf(buf, MAX_QUERY_LEN, "package_info.package_preload IN %s", node->value);
+		break;
+	case E_PMINFO_PKGINFO_PROP_PACKAGE_READONLY:
+		snprintf(buf, MAX_QUERY_LEN, "package_info.package_readonly IN %s", node->value);
+		break;
+	case E_PMINFO_PKGINFO_PROP_PACKAGE_UPDATE:
+		snprintf(buf, MAX_QUERY_LEN, "package_info.package_update IN %s", node->value);
+		break;
+	case E_PMINFO_PKGINFO_PROP_PACKAGE_APPSETTING:
+		snprintf(buf, MAX_QUERY_LEN, "package_info.package_appsetting IN %s", node->value);
+		break;
+	case E_PMINFO_PKGINFO_PROP_PACKAGE_NODISPLAY_SETTING:
+		snprintf(buf, MAX_QUERY_LEN, "package_info.package_nodisplay IN %s", node->value);
+		break;
+
+	case E_PMINFO_APPINFO_PROP_APP_ID:
+		snprintf(buf, MAX_QUERY_LEN, "package_app_info.app_id='%s'", node->value);
+		break;
+	case E_PMINFO_APPINFO_PROP_APP_COMPONENT:
+		snprintf(buf, MAX_QUERY_LEN, "package_app_info.app_component='%s'", node->value);
+		break;
+	case E_PMINFO_APPINFO_PROP_APP_EXEC:
+		snprintf(buf, MAX_QUERY_LEN, "package_app_info.app_exec='%s'", node->value);
+		break;
+	case E_PMINFO_APPINFO_PROP_APP_ICON:
+		snprintf(buf, MAX_QUERY_LEN, "package_app_localized_info.app_icon='%s'", node->value);
+		break;
+	case E_PMINFO_APPINFO_PROP_APP_TYPE:
+		snprintf(buf, MAX_QUERY_LEN, "package_app_info.app_type='%s'", node->value);
+		break;
+	case E_PMINFO_APPINFO_PROP_APP_OPERATION:
+		snprintf(temp, PKG_STRING_LEN_MAX, "(%s)", node->value);
+		snprintf(buf, MAX_QUERY_LEN, "package_app_app_svc.operation IN %s", temp);
+		break;
+	case E_PMINFO_APPINFO_PROP_APP_URI:
+		snprintf(temp, PKG_STRING_LEN_MAX, "(%s)", node->value);
+		snprintf(buf, MAX_QUERY_LEN, "package_app_app_svc.uri_scheme IN %s", temp);
+		break;
+	case E_PMINFO_APPINFO_PROP_APP_MIME:
+		snprintf(temp, PKG_STRING_LEN_MAX, "(%s)", node->value);
+		snprintf(buf, MAX_QUERY_LEN, "package_app_app_svc.mime_type IN %s", temp);
+		break;
+	case E_PMINFO_APPINFO_PROP_APP_CATEGORY:
+		snprintf(temp, PKG_STRING_LEN_MAX, "(%s)", node->value);
+		snprintf(buf, MAX_QUERY_LEN, "package_app_app_category.category IN %s", temp);
+		break;
+	case E_PMINFO_APPINFO_PROP_APP_NODISPLAY:
+		snprintf(buf, MAX_QUERY_LEN, "package_app_info.app_nodisplay IN %s", node->value);
+		break;
+	case E_PMINFO_APPINFO_PROP_APP_MULTIPLE:
+		snprintf(buf, MAX_QUERY_LEN, "package_app_info.app_multiple IN %s", node->value);
+		break;
+	case E_PMINFO_APPINFO_PROP_APP_ONBOOT:
+		snprintf(buf, MAX_QUERY_LEN, "package_app_info.app_onboot IN %s", node->value);
+		break;
+	case E_PMINFO_APPINFO_PROP_APP_AUTORESTART:
+		snprintf(buf, MAX_QUERY_LEN, "package_app_info.app_autorestart IN %s", node->value);
+		break;
+	case E_PMINFO_APPINFO_PROP_APP_TASKMANAGE:
+		snprintf(buf, MAX_QUERY_LEN, "package_app_info.app_taskmanage IN %s", node->value);
+		break;
+	case E_PMINFO_APPINFO_PROP_APP_HWACCELERATION:
+		snprintf(buf, MAX_QUERY_LEN, "package_app_info.app_hwacceleration='%s'", node->value);
+		break;
+	case E_PMINFO_APPINFO_PROP_APP_SCREENREADER:
+		snprintf(buf, MAX_QUERY_LEN, "package_app_info.app_screenreader='%s'", node->value);
+		break;
+	case E_PMINFO_APPINFO_PROP_APP_LAUNCHCONDITION:
+		snprintf(buf, MAX_QUERY_LEN, "package_app_info.app_launchcondition IN %s", node->value);
+		break;
+	case E_PMINFO_APPINFO_PROP_APP_PACKAGE:
+		snprintf(buf, MAX_QUERY_LEN, "package_app_info.package='%s'", node->value);
+		break;
+	default:
+		_LOGE("Invalid Property Type\n");
+		*condition = NULL;
+		return;
+	}
+	*condition = strdup(buf);
+	return;
+}
+
+gint __compare_func(gconstpointer data1, gconstpointer data2)
+{
+	pkgmgrinfo_node_x *node1 = (pkgmgrinfo_node_x*)data1;
+	pkgmgrinfo_node_x *node2 = (pkgmgrinfo_node_x*)data2;
+	if (node1->prop == node2->prop)
+		return 0;
+	else if (node1->prop > node2->prop)
+		return 1;
+	else
+		return -1;
+}
+
+char *__convert_system_locale_to_manifest_locale(char *syslocale)
+{
+	if (syslocale == NULL)
+		return strdup(DEFAULT_LOCALE);
+	char *locale = NULL;
+	locale = (char *)calloc(1, 6);
+	retvm_if(!locale, NULL, "Malloc Failed\n");
+
+	strncpy(locale, syslocale, 2);
+	strncat(locale, "-", 1);
+	locale[3] = syslocale[3] + 32;
+	locale[4] = syslocale[4] + 32;
+	return locale;
+}
+
+char *_get_system_locale(void)
+{
+	char *lang;
+	char *locale;
+
+	lang = vconf_get_str(VCONFKEY_LANGSET);
+	if (lang == NULL) {
+		locale = strdup(DEFAULT_LOCALE);
+		if (locale == NULL) {
+			LOGE("out of memory");
+			return NULL;
+		}
+		return locale;
+	}
+
+	locale = malloc(sizeof(char *) * 6);
+	if (locale == NULL) {
+		LOGE("out of memory");
+		free(lang);
+		return NULL;
+	}
+
+	strncpy(locale, lang, 2);
+	locale[2] = '-';
+	locale[3] = tolower(lang[3]);
+	locale[4] = tolower(lang[4]);
+	locale[5] = '\0';
+
+	free(lang);
+
+	return locale;
+}
+
+void _save_column_str(sqlite3_stmt *stmt, int idx, const char **str)
+{
+	const char *val;
+
+	val = (const char *)sqlite3_column_text(stmt, idx);
+	if (val)
+		*str = strdup(val);
+}
+
