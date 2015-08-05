@@ -44,7 +44,15 @@ SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_CFLAGS}")
 add_subdirectory(parser)
 
 ## build pkgmgr-info library
-add_library(pkgmgr-info SHARED src/pkgmgr-info-basic.c src/pkgmgr-info.c src/pkgmgr-info-internal.c src/pkgmgrinfo_resource.c)
+add_library(pkgmgr-info SHARED
+	src/pkgmgrinfo_client.c
+	src/pkgmgrinfo_db.c
+	src/pkgmgrinfo_certinfo.c
+	src/pkgmgrinfo_pkginfo.c
+	src/pkgmgrinfo_appinfo.c
+	src/pkgmgrinfo_private.c
+	src/pkgmgrinfo_basic.c
+	src/pkgmgrinfo_resource.c)
 
 
 SET_TARGET_PROPERTIES(pkgmgr-info PROPERTIES SOVERSION ${MAJORVER})
@@ -60,7 +68,8 @@ configure_file(tag_parser_list.txt.in tag_parser_list.txt @ONLY)
 INSTALL(TARGETS pkgmgr-info DESTINATION ${LIB_INSTALL_DIR} COMPONENT RuntimeLibraries)
 INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/pkgmgr-info.pc DESTINATION ${LIB_INSTALL_DIR}/pkgconfig)
 INSTALL(FILES ${CMAKE_CURRENT_SOURCE_DIR}/include/pkgmgr-info.h DESTINATION include)
-INSTALL(FILES ${CMAKE_CURRENT_SOURCE_DIR}/include/pkgmgr-info-basic.h DESTINATION include)
+INSTALL(FILES ${CMAKE_CURRENT_SOURCE_DIR}/include/pkgmgrinfo_basic.h DESTINATION include)
+INSTALL(FILES ${CMAKE_CURRENT_SOURCE_DIR}/include/pkgmgrinfo_type.h DESTINATION include)
 INSTALL(FILES ${CMAKE_CURRENT_SOURCE_DIR}/include/pkgmgrinfo_resource.h DESTINATION include)
 INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/parser_path.conf DESTINATION ${SYSCONFDIR}/package-manager/)
 INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/mdparser_list.txt DESTINATION ${SYSCONFDIR}/package-manager/parserlib/metadata)
