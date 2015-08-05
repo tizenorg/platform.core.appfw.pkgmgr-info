@@ -78,8 +78,9 @@ chsmack -a '*' %{TZ_SYS_RW_PACKAGES}
 %manifest %{name}.manifest
 %defattr(-,root,root,-)
 %{_includedir}/pkgmgr-info.h
-%{_includedir}/pkgmgr-info-basic.h
 %{_includedir}/pkgmgrinfo_resource.h
+%{_includedir}/pkgmgrinfo_basic.h
+%{_includedir}/pkgmgrinfo_type.h
 %{_libdir}/pkgconfig/pkgmgr-info.pc
 %{_libdir}/libpkgmgr-info.so
 
