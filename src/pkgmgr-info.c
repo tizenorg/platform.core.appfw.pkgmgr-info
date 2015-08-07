@@ -319,6 +319,8 @@ static int _mkdir_for_user(const char* dir, uid_t uid, gid_t gid)
 	char *subpath;
 
 	fullpath = strdup(dir);
+	if (fullpath == NULL)
+		return -1;
 	subpath = dirname(fullpath);
 	if (strlen(subpath) > 1 && strcmp(subpath, fullpath) != 0) {
 		ret = _mkdir_for_user(fullpath, uid, gid);
@@ -1027,14 +1029,18 @@ static void __parse_appcontrol(appcontrol_x **appcontrol, char *appcontrol_str)
 	dup = strdup(appcontrol_str);
 	do {
 		ac = calloc(1, sizeof(appcontrol_x));
+		if (ac == NULL) {
+			_LOGE("out of memory");
+			break;
+		}
 		token = strtok_r(dup, "|", &ptr);
-		if (strcmp(token, "NULL"))
+		if (token && strcmp(token, "NULL"))
 			ac->operation = strdup(token);
 		token = strtok_r(NULL, "|", &ptr);
-		if (strcmp(token, "NULL"))
+		if (token && strcmp(token, "NULL"))
 			ac->uri = strdup(token);
 		token = strtok_r(NULL, "|", &ptr);
-		if (strcmp(token, "NULL"))
+		if (token && strcmp(token, "NULL"))
 			ac->mime = strdup(token);
 		LISTADD(*appcontrol, ac);
 	} while ((token = strtok_r(NULL, ";", &ptr)));
@@ -1851,7 +1857,7 @@ static char *_get_system_locale(void)
 		return locale;
 	}
 
-	locale = malloc(sizeof(char *) * 6);
+	locale = malloc(sizeof(char) * 6);
 	if (locale == NULL) {
 		LOGE("out of memory");
 		free(lang);
@@ -2567,7 +2573,7 @@ API int pkgmgrinfo_pkginfo_compare_usr_pkg_cert_info(const char *lhs_package_id,
 {
 	int ret = PMINFO_R_OK;
 	char query[MAX_QUERY_LEN] = {'\0'};
-	char *error_message;
+	char *error_message = NULL;
 	sqlite3_stmt *stmt = NULL;
 	char *lhs_certinfo = NULL;
 	char *rhs_certinfo = NULL;
@@ -2659,7 +2665,7 @@ API int pkgmgrinfo_pkginfo_compare_usr_pkg_cert_info(const char *lhs_package_id,
 		else if (rcert == 0)
 			*compare_result = PMINFO_CERT_COMPARE_RHS_NO_CERT;
 	} else {
-		if (!strcmp(lhs_certinfo, rhs_certinfo))
+		if (lhs_certinfo && rhs_certinfo && !strcmp(lhs_certinfo, rhs_certinfo))
 			*compare_result = PMINFO_CERT_COMPARE_MATCH;
 		else
 			*compare_result = PMINFO_CERT_COMPARE_MISMATCH;
@@ -2687,7 +2693,7 @@ API int pkgmgrinfo_pkginfo_compare_app_cert_info(const char *lhs_app_id, const c
 {
 	int ret = PMINFO_R_OK;
 	char query[MAX_QUERY_LEN] = {'\0'};
-	char *error_message;
+	char *error_message = NULL;
 	pkgmgr_cert_x *info;
  	int exist;
 	char *lpkgid = NULL;
@@ -2770,7 +2776,8 @@ API int pkgmgrinfo_pkginfo_compare_app_cert_info(const char *lhs_app_id, const c
 	}
 	ret = pkgmgrinfo_pkginfo_compare_pkg_cert_info(lpkgid, rpkgid, compare_result);
  err:
-	sqlite3_free(error_message);
+	if (error_message)
+		sqlite3_free(error_message);
 	__close_manifest_db();
 	if (info) {
 		if (info->pkgid) {
@@ -2795,7 +2802,7 @@ API int pkgmgrinfo_pkginfo_compare_usr_app_cert_info(const char *lhs_app_id, con
 {
 	int ret = PMINFO_R_OK;
 	char query[MAX_QUERY_LEN] = {'\0'};
-	char *error_message;
+	char *error_message = NULL;
 	pkgmgr_cert_x *info;
  	int exist;
 	char *lpkgid = NULL;
@@ -2876,7 +2883,8 @@ API int pkgmgrinfo_pkginfo_compare_usr_app_cert_info(const char *lhs_app_id, con
 	}
 	ret = pkgmgrinfo_pkginfo_compare_usr_pkg_cert_info(lpkgid, rpkgid, uid, compare_result);
  err:
-	sqlite3_free(error_message);
+	if (error_message)
+		sqlite3_free(error_message);
 	__close_manifest_db();
 	if (info) {
 		if (info->pkgid) {
@@ -3485,8 +3493,10 @@ API int pkgmgrinfo_appinfo_get_usr_list(pkgmgrinfo_pkginfo_h handle,
 		return PMINFO_R_ERROR;
 
 	if (pkgmgrinfo_appinfo_filter_add_string(filter,
-				PMINFO_APPINFO_PROP_APP_PACKAGE, pkgid))
+				PMINFO_APPINFO_PROP_APP_PACKAGE, pkgid)) {
+		pkgmgrinfo_appinfo_filter_destroy(filter);
 		return PMINFO_R_ERROR;
+	}
 
 
 	switch (component) {
@@ -3738,6 +3748,7 @@ static int _appinfo_get_app_control(const char *appid,
 	}
 
 	while (sqlite3_step(stmt) == SQLITE_ROW) {
+		str = NULL;
 		_save_column_str(stmt, 0, (const char **)&str);
 		/* TODO: revise */
 		__parse_appcontrol(&info, str);
@@ -3968,6 +3979,7 @@ API int pkgmgrinfo_appinfo_get_usr_appinfo(const char *appid, uid_t uid,
 
 	if (_appinfo_get_app(locale, filter, &appinfo)) {
 		free(locale);
+		pkgmgrinfo_appinfo_filter_destroy(filter);
 		__close_manifest_db();
 		return PMINFO_R_ERROR;
 	}
@@ -5503,7 +5515,7 @@ API int pkgmgrinfo_save_certinfo(const char *pkgid, pkgmgrinfo_instcertinfo_h ha
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "Certinfo handle is NULL\n");
 	char *error_message = NULL;
 	char query[MAX_QUERY_LEN] = {'\0'};
-	char *vquery = NULL;
+	char vquery[MAX_QUERY_LEN] = {'\0'};
 	int len = 0;
 	int i = 0;
 	int j = 0;
@@ -5616,7 +5628,6 @@ API int pkgmgrinfo_save_certinfo(const char *pkgid, pkgmgrinfo_instcertinfo_h ha
 		if ((info->cert_info)[i])
 			len+= strlen((info->cert_info)[i]);
 	}
-	vquery = (char *)calloc(1, len);
 	/*insert*/
 	snprintf(vquery, len,
                  "insert into package_cert_info(package, author_root_cert, author_im_cert, author_signer_cert, dist_root_cert, " \
@@ -5681,10 +5692,6 @@ API int pkgmgrinfo_save_certinfo(const char *pkgid, pkgmgrinfo_instcertinfo_h ha
 	ret =  PMINFO_R_OK;
 err:
 	__close_cert_db();
-	if (vquery) {
-		free(vquery);
-		vquery = NULL;
-	}
 	if (indexinfo) {
 		free(indexinfo);
 		indexinfo = NULL;
