@@ -1,8 +1,7 @@
-
 #include <stdlib.h>
 
-#include "pkgmgr-info-basic.h"
-#include "pkgmgr-info-internal.h"
+#include "pkgmgrinfo_basic.h"
+#include "pkgmgrinfo_private.h"
 
 static void __ps_free_category(category_x *category)
 {

@@ -36,8 +36,8 @@
 #include <grp.h>
 
 #include "pkgmgr-info.h"
-#include "pkgmgr-info-basic.h"
-#include "pkgmgr-info-debug.h"
+#include "pkgmgrinfo_basic.h"
+#include "pkgmgrinfo_debug.h"
 
 #include "pkgmgr_parser.h"
 #include "pkgmgr_parser_internal.h"
