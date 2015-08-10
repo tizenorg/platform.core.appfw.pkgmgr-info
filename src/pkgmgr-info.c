@@ -4050,7 +4050,6 @@ API int pkgmgrinfo_appinfo_get_usr_appinfo(const char *appid, uid_t uid,
 
 	if (_appinfo_get_app(appid, locale, &appinfo)) {
 		free(locale);
-		pkgmgrinfo_appinfo_filter_destroy(filter);
 		__close_manifest_db();
 		return PMINFO_R_ERROR;
 	}
