@@ -21,8 +21,18 @@
  */
 
 
-#ifndef __PKGMGR_INFO_INTERNAL_H__
-#define __PKGMGR_INFO_INTERNAL_H__
+#ifndef __PKGMGRINFO_PRIVATE_H__
+#define __PKGMGRINFO_PRIVATE_H__
+
+#include <unistd.h>
+#include <sys/types.h>
+
+#include <sqlite3.h>
+#include <glib.h>
+#include <tzplatform_config.h>
+
+#include "pkgmgrinfo_type.h"
+#include "pkgmgrinfo_basic.h"
 
 #ifndef DEPRECATED
 #define DEPRECATED	__attribute__ ((__deprecated__))
@@ -31,6 +41,37 @@
 #ifndef API
 #define API __attribute__ ((visibility("default")))
 #endif
+
+#ifdef LOG_TAG
+#undef LOG_TAG
+#endif
+#define LOG_TAG "PKGMGR_INFO"
+
+#define ASC_CHAR(s) (const char *)s
+#define XML_CHAR(s) (const xmlChar *)s
+
+#define MANIFEST_DB	tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_parser.db")
+#define MAX_QUERY_LEN	4096
+#define MAX_CERT_TYPE	9
+#define CERT_DB		tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_cert.db")
+#define PKG_TYPE_STRING_LEN_MAX		128
+#define PKG_VERSION_STRING_LEN_MAX	128
+#define PKG_VALUE_STRING_LEN_MAX		512
+#define PKG_RW_PATH tzplatform_mkpath(TZ_USER_APP, "")
+#define PKG_RO_PATH tzplatform_mkpath(TZ_SYS_RO_APP, "")
+#define BLOCK_SIZE      4096 /*in bytes*/
+#define BUFSIZE 4096
+#define ROOT_UID 0
+
+#define PKG_SD_PATH tzplatform_mkpath3(TZ_SYS_STORAGE, "sdcard", "app2sd/")
+#define PKG_INSTALLATION_PATH tzplatform_mkpath(TZ_USER_APP, "")
+
+#define SERVICE_NAME "org.tizen.system.deviced"
+#define PATH_NAME "/Org/Tizen/System/DeviceD/Mmc"
+#define INTERFACE_NAME "org.tizen.system.deviced.Mmc"
+#define METHOD_NAME "RequestMountApp2ext"
+
+#define GET_DB(X)  (X).dbHandle
 
 /*String properties for filtering based on package info*/
 typedef enum _pkgmgrinfo_pkginfo_filter_prop_str {
@@ -110,6 +151,58 @@ typedef enum _pkgmgrinfo_pkginfo_filter_prop_range {
 	E_PMINFO_PKGINFO_PROP_RANGE_MAX_INT = E_PMINFO_PKGINFO_PROP_RANGE_BASIC
 } pkgmgrinfo_pkginfo_filter_prop_range;
 
+typedef struct _pkgmgr_pkginfo_x {
+	uid_t uid;
+	package_x *pkg_info;
+	char *locale;
+
+	struct _pkgmgr_pkginfo_x *prev;
+	struct _pkgmgr_pkginfo_x *next;
+} pkgmgr_pkginfo_x;
+
+typedef struct _pkgmgr_appinfo_x {
+	const char *package;
+	char *locale;
+	pkgmgrinfo_app_component app_component;
+	union {
+		uiapplication_x *uiapp_info;
+		serviceapplication_x *svcapp_info;
+		application_x *app_info;
+	};
+	struct _pkgmgr_appinfo_x *prev;
+	struct _pkgmgr_appinfo_x *next;
+} pkgmgr_appinfo_x;
+
+/*For filter APIs*/
+typedef struct _pkgmgrinfo_filter_x {
+	uid_t uid;
+	GSList *list;
+} pkgmgrinfo_filter_x;
+
+typedef struct _pkgmgrinfo_node_x {
+	int prop;
+	char *key;
+	char *value;
+} pkgmgrinfo_node_x;
+
+typedef struct _pkgmgrinfo_appcontrol_x {
+	int operation_count;
+	int uri_count;
+	int mime_count;
+	int subapp_count;
+	char **operation;
+	char **uri;
+	char **mime;
+	char **subapp;
+} pkgmgrinfo_appcontrol_x;
+
+typedef struct _db_handle {
+	sqlite3 *dbHandle;
+	int ref;
+} db_handle;
+
+extern __thread db_handle manifest_db;
+extern __thread db_handle cert_db;
 
 pkgmgrinfo_pkginfo_filter_prop_str _pminfo_pkginfo_convert_to_prop_str(const char *property);
 pkgmgrinfo_pkginfo_filter_prop_int _pminfo_pkginfo_convert_to_prop_int(const char *property);
@@ -121,4 +214,13 @@ pkgmgrinfo_appinfo_filter_prop_bool _pminfo_appinfo_convert_to_prop_bool(const c
 
 pkgmgrinfo_pkginfo_filter_prop_range _pminfo_pkginfo_convert_to_prop_range(const char *property);
 
-#endif  /* __PKGMGR_INFO_INTERNAL_H__ */
+int _check_create_cert_db(sqlite3 *certdb);
+int __close_manifest_db(void);
+int __open_manifest_db(uid_t uid);
+int __close_cert_db(void);
+int __open_cert_db(uid_t uid, char* mode);
+void _save_column_str(sqlite3_stmt *stmt, int idx, const char **str);
+char *_get_system_locale(void);
+void __get_filter_condition(gpointer data, char **condition);
+
+#endif  /* __PKGMGRINFO_PRIVATE_H__ */
