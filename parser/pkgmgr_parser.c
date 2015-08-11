@@ -1494,61 +1494,50 @@ static int __ps_process_datashare(xmlTextReaderPtr reader, datashare_x *datashar
 	return ret;
 }
 
-static char *__get_icon_with_path(const char * icon, uid_t uid)
+static char *__get_icon_with_path(const char *icon, uid_t uid)
 {
-	char *theme;
-	char *icon_with_path;
-	char *confirmed_icon;
+	char icon_with_path[BUFSIZE];
 	const char *app_path;
-	int len;
 
 	if (!icon || !package)
 		return NULL;
 
-	if (index(icon, '/') == NULL) {
-/* "db/setting/theme" is not exist */
-#if 0
-		theme = vconf_get_str("db/setting/theme");
-		if (!theme) {
-			theme = strdup("default");
-			if(!theme) {
-				return NULL;
-			}
-		}
-#else
-		theme = strdup("default");
-#endif
+	if (index(icon, '/'))
+		return strdup(icon);
 
-		len = (0x01 << 7) + strlen(icon) + strlen(package) + strlen(theme);
-		icon_with_path = malloc(len);
-		if(icon_with_path == NULL) {
-			_LOGD("(icon_with_path == NULL) return\n");
-			free(theme);
-			return NULL;
-		}
-
-		memset(icon_with_path, 0, len);
-		if (uid != GLOBAL_USER && uid != OWNER_ROOT)
-			snprintf(icon_with_path, len, "%s%s", getIconPath(uid), icon);
-		else {
-			snprintf(icon_with_path, len, "%s%s/small/%s", getIconPath(GLOBAL_USER), theme, icon);
-			if (access (icon_with_path, F_OK)) { //If doesn't exist in case of Global app, try to get icon directly into app's directory
-				app_path = tzplatform_getenv(TZ_SYS_RW_APP);
-				if (app_path)
-					snprintf(icon_with_path, len, "%s/%s/res/icons/%s/small/%s", app_path, package, theme, icon);
-				if (access(icon_with_path, F_OK))
-					_LOGE("Cannot find icon path");
-			}
-		}
-		free(theme);
+	snprintf(icon_with_path, sizeof(icon_with_path), "%s%s",
+			getIconPath(uid), icon);
+	if (access(icon_with_path, F_OK) != -1) {
 		_LOGD("Icon path : %s ---> %s", icon, icon_with_path);
-		return icon_with_path;
-	} else {
-		confirmed_icon = strdup(icon);
-		if (!confirmed_icon)
-			return NULL;
-		return confirmed_icon;
+		return strdup(icon_with_path);
 	}
+	/* If doesn't exist in case of Global app,
+	 * try to get icon directly into app's directory
+	 */
+	do {
+		if (uid == GLOBAL_USER || uid == OWNER_ROOT) {
+			app_path = tzplatform_getenv(TZ_SYS_RW_APP);
+		} else {
+			tzplatform_set_user(uid);
+			app_path = tzplatform_getenv(TZ_USER_APP);
+			tzplatform_reset_user();
+		}
+		snprintf(icon_with_path, sizeof(icon_with_path),
+				"%s/%s/%s", app_path, package, icon);
+		if (access(icon_with_path, F_OK) == 0)
+			break;
+		snprintf(icon_with_path, sizeof(icon_with_path),
+				"%s/%s/shared/res/%s", app_path, package, icon);
+		if (access(icon_with_path, F_OK) == 0)
+			break;
+
+		_LOGE("cannot find icon icon path");
+		return NULL;
+	} while (0);
+
+	_LOGD("Icon path : %s ---> %s", icon, icon_with_path);
+
+	return strdup(icon_with_path);
 }
 
 static void __ps_process_tag(manifest_x * mfx, char *const tagv[])
