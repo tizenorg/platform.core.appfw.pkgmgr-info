@@ -5585,7 +5585,6 @@ API int pkgmgrinfo_save_certinfo(const char *pkgid, pkgmgrinfo_instcertinfo_h ha
 	char *error_message = NULL;
 	char query[MAX_QUERY_LEN] = {'\0'};
 	char vquery[MAX_QUERY_LEN] = {'\0'};
-	int len = 0;
 	int i = 0;
 	int j = 0;
 	int c = 0;
@@ -5692,13 +5691,8 @@ API int pkgmgrinfo_save_certinfo(const char *pkgid, pkgmgrinfo_instcertinfo_h ha
 			is_new = 0;
 		}
 	}
-	len = MAX_QUERY_LEN;
-	for (i = 0; i < MAX_CERT_TYPE; i++) {
-		if ((info->cert_info)[i])
-			len+= strlen((info->cert_info)[i]);
-	}
 	/*insert*/
-	snprintf(vquery, len,
+	snprintf(vquery, sizeof(vquery),
                  "insert into package_cert_info(package, author_root_cert, author_im_cert, author_signer_cert, dist_root_cert, " \
                 "dist_im_cert, dist_signer_cert, dist2_root_cert, dist2_im_cert, dist2_signer_cert) " \
                 "values('%s', %d, %d, %d, %d, %d, %d, %d, %d, %d)",\
@@ -5719,9 +5713,8 @@ API int pkgmgrinfo_save_certinfo(const char *pkgid, pkgmgrinfo_instcertinfo_h ha
 	/*If cert_id exists and is repeated for current package, ref count should only be increased once*/
 	for (i = 0; i < MAX_CERT_TYPE; i++) {
 		if ((info->cert_info)[i]) {
-			memset(vquery, '\0', len);
 			if ((info->is_new)[i]) {
-				snprintf(vquery, len, "insert into package_cert_index_info(cert_info, cert_id, cert_ref_count) " \
+				snprintf(vquery, sizeof(vquery), "insert into package_cert_index_info(cert_info, cert_id, cert_ref_count) " \
 				"values('%s', '%d', '%d') ", (info->cert_info)[i], (info->cert_id)[i], 1);
 				unique_id[c++] = (info->cert_id)[i];
 			} else {
@@ -5736,7 +5729,7 @@ API int pkgmgrinfo_save_certinfo(const char *pkgid, pkgmgrinfo_instcertinfo_h ha
 					unique_id[c++] = (info->cert_id)[i];
 				else
 					continue;
-				snprintf(vquery, len, "update package_cert_index_info set cert_ref_count=%d " \
+				snprintf(vquery, sizeof(vquery), "update package_cert_index_info set cert_ref_count=%d " \
 				"where cert_id=%d",  (info->ref_count)[i] + 1, (info->cert_id)[i]);
 			}
 		        if (SQLITE_OK !=
