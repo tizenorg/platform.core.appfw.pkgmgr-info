@@ -739,6 +739,10 @@ static void __ps_free_uiapplication(uiapplication_x *uiapplication)
 		free((void *)uiapplication->submode_mainid);
 		uiapplication->submode_mainid = NULL;
 	}
+	if (uiapplication->ui_gadget) {
+		free((void *)uiapplication->ui_gadget);
+		uiapplication->ui_gadget = NULL;
+	}
 
 	free((void*)uiapplication);
 	uiapplication = NULL;
@@ -1011,6 +1015,8 @@ API void pkgmgrinfo_basic_free_application(application_x *application)
 		free((void *)application->submode_mainid);
 	if (application->launch_mode)
 		free((void *)application->launch_mode);
+	if (application->ui_gadget)
+		free((void *)application->ui_gadget);
 	if (application->component_type)
 		free((void *)application->component_type);
 	if (application->package)

@@ -3651,6 +3651,42 @@ static int is_category_exist(const char *appid, const char *category)
 int pkgmgrinfo_appinfo_is_category_exist(pkgmgrinfo_appinfo_h handle, const char *category, bool *exist);
 
 /**
+ * @fn int pkgmgrinfo_appinfo_is_ui_gadget(pkgmgrinfo_appinfo_h handle, bool *ui_gadget)
+ * @brief	This API gets the application 'ui_gadget' value from the app ID
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in]	handle	pointer to application info handle
+ * @param[out]	ui_gadget	pointer to hold package ui_gadget value
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @pre		pkgmgrinfo_appinfo_get_appinfo()
+ * @post	pkgmgrinfo_appinfo_destroy_appinfo()
+ * @code
+static int get_app_ui_gadget(const char *appid)
+{
+	int ret = 0;
+	bool ui_gadget;
+	pkgmgrinfo_appinfo_h handle = NULL;
+	ret = pkgmgrinfo_appinfo_get_appinfo(appid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_appinfo_is_ui_gadget(handle, &ui_gadget);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_appinfo_destroy_appinfo(handle);
+		return -1;
+	}
+	printf("app ui_gadget: %d\n", ui_gadget);
+	pkgmgrinfo_appinfo_destroy_appinfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_appinfo_is_ui_gadget(pkgmgrinfo_appinfo_h handle, bool *ui_gadget);
+
+/**
  * @fn int pkgmgrinfo_appinfo_destroy_appinfo(pkgmgrinfo_appinfo_h handle)
  * @brief	This API destroys the application information handle freeing up all the resources
  *
