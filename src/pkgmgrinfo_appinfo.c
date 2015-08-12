@@ -91,7 +91,7 @@ static GSList *_appinfo_get_filtered_list(const char *locale,
 		pkgmgrinfo_filter_x *filter)
 {
 	static const char query_raw[] =
-		"SELECT package_app_info.app_id FROM package_app_info"
+		"SELECT DISTINCT package_app_info.app_id FROM package_app_info"
 		" LEFT OUTER JOIN package_app_localized_info"
 		"  ON package_app_info.app_id=package_app_localized_info.app_id"
 		"  AND package_app_localized_info.app_locale=%Q"

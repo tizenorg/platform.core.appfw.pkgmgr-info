@@ -196,7 +196,7 @@ static GSList *_pkginfo_get_filtered_list(const char *locale,
 		pkgmgrinfo_filter_x *filter)
 {
 	static const char query_raw[] =
-		"SELECT package_info.package FROM package_info"
+		"SELECT DISTINCT package_info.package FROM package_info"
 		" LEFT OUTER JOIN package_localized_info"
 		"  ON package_info.package=package_localized_info.package"
 		"  AND package_localized_info.package_locale=%Q ";
@@ -266,6 +266,7 @@ static int _pkginfo_get_filtered_foreach_pkginfo(pkgmgrinfo_filter_x *filter,
 				free(pkgid);
 				continue;
 			}
+			info->uid = uid;
 			if (pkg_list_cb(info, user_data) < 0)
 				stop = 1;
 			pkgmgrinfo_pkginfo_destroy_pkginfo(info);
@@ -715,6 +716,7 @@ static int _pkginfo_get_pkg(const char *pkgid, const char *locale,
 	}
 
 	info->pkg_info = pkg;
+	info->locale = strdup(locale);
 	*pkginfo = info;
 
 	sqlite3_finalize(stmt);
@@ -750,8 +752,8 @@ API int pkgmgrinfo_pkginfo_get_usr_pkginfo(const char *pkgid, uid_t uid,
 		return PMINFO_R_ERROR;
 	}
 
+	free(locale);
 	pkginfo->uid = uid;
-	pkginfo->locale = locale;
 	*handle = pkginfo;
 
 	__close_manifest_db();
