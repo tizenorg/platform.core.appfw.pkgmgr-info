@@ -144,6 +144,8 @@ extern "C" {
 #define	PMINFO_APPINFO_PROP_APP_TASKMANAGE	"PMINFO_APPINFO_PROP_APP_TASKMANAGE"
  /** Boolean property for filtering based on app info*/
 #define	PMINFO_APPINFO_PROP_APP_LAUNCHCONDITION	"PMINFO_APPINFO_PROP_APP_LAUNCHCONDITION"
+ /** Boolean property for filtering based on app info*/
+#define	PMINFO_APPINFO_PROP_APP_UI_GADGET	"PMINFO_APPINFO_PROP_APP_UI_GADGET"
 
  /** will be updated*/
  /** string property for filtering based on pkg info*/

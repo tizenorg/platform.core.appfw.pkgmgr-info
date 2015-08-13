@@ -113,7 +113,8 @@ static struct _appinfo_bool_map_t appinfo_bool_prop_map[] = {
 	{E_PMINFO_APPINFO_PROP_APP_ONBOOT,		PMINFO_APPINFO_PROP_APP_ONBOOT},
 	{E_PMINFO_APPINFO_PROP_APP_AUTORESTART,		PMINFO_APPINFO_PROP_APP_AUTORESTART},
 	{E_PMINFO_APPINFO_PROP_APP_TASKMANAGE,		PMINFO_APPINFO_PROP_APP_TASKMANAGE},
-	{E_PMINFO_APPINFO_PROP_APP_LAUNCHCONDITION,		PMINFO_APPINFO_PROP_APP_LAUNCHCONDITION}
+	{E_PMINFO_APPINFO_PROP_APP_LAUNCHCONDITION,		PMINFO_APPINFO_PROP_APP_LAUNCHCONDITION},
+	{E_PMINFO_APPINFO_PROP_APP_UI_GADGET,		PMINFO_APPINFO_PROP_APP_UI_GADGET}
 };
 
 inline pkgmgrinfo_pkginfo_filter_prop_str _pminfo_pkginfo_convert_to_prop_str(const char *property)
@@ -333,6 +334,9 @@ void __get_filter_condition(gpointer data, char **condition)
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_PACKAGE:
 		snprintf(buf, MAX_QUERY_LEN, "package_app_info.package='%s'", node->value);
+		break;
+	case E_PMINFO_APPINFO_PROP_APP_UI_GADGET:
+		snprintf(buf, MAX_QUERY_LEN, "package_app_info.app_ui_gadget IN %s", node->value);
 		break;
 	default:
 		_LOGE("Invalid Property Type\n");
