@@ -419,6 +419,59 @@ static int _appinfo_get_data_control(const char *appid,
 	return PMINFO_R_OK;
 }
 
+static int _appinfo_get_metadata(const char *appid, metadata_x **metadata)
+{
+	static const char query_raw[] =
+		"SELECT md_key, md_value "
+		"FROM package_app_app_metadata WHERE app_id=%Q";
+	int ret;
+	char *query;
+	sqlite3_stmt *stmt;
+	int idx;
+	metadata_x *info;
+
+	query = sqlite3_mprintf(query_raw, appid);
+	if (query == NULL) {
+		LOGE("out of memory");
+		return PMINFO_R_ERROR;
+	}
+
+	ret = sqlite3_prepare_v2(GET_DB(manifest_db), query, strlen(query),
+			&stmt, NULL);
+	sqlite3_free(query);
+	if (ret != SQLITE_OK) {
+		LOGE("prepare failed: %s", sqlite3_errmsg(GET_DB(manifest_db)));
+		return PMINFO_R_ERROR;
+	}
+
+	while (sqlite3_step(stmt) == SQLITE_ROW) {
+		info = calloc(1, sizeof(metadata_x));
+		if (info == NULL) {
+			LOGE("out of memory");
+			sqlite3_finalize(stmt);
+			if (*metadata) {
+				LISTHEAD(*metadata, info);
+				*metadata = info;
+			}
+			return PMINFO_R_ERROR;
+		}
+		idx = 0;
+		_save_column_str(stmt, idx++, &info->key);
+		_save_column_str(stmt, idx++, &info->value);
+		LISTADD(*metadata, info);
+	}
+
+	if (*metadata) {
+		LISTHEAD(*metadata, info);
+		*metadata = info;
+	}
+
+	sqlite3_finalize(stmt);
+
+	return PMINFO_R_OK;
+
+}
+
 static int _appinfo_get_app(const char *appid, const char *locale,
 		pkgmgr_appinfo_x **appinfo)
 {
@@ -525,6 +578,12 @@ static int _appinfo_get_app(const char *appid, const char *locale,
 	}
 
 	if (_appinfo_get_data_control(app->appid, &app->datacontrol)) {
+		pkgmgrinfo_basic_free_application(app);
+		sqlite3_finalize(stmt);
+		return PMINFO_R_ERROR;
+	}
+
+	if (_appinfo_get_metadata(app->appid, &app->metadata)) {
 		pkgmgrinfo_basic_free_application(app);
 		sqlite3_finalize(stmt);
 		return PMINFO_R_ERROR;
