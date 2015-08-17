@@ -199,7 +199,9 @@ static GSList *_pkginfo_get_filtered_list(const char *locale,
 		"SELECT DISTINCT package_info.package FROM package_info"
 		" LEFT OUTER JOIN package_localized_info"
 		"  ON package_info.package=package_localized_info.package"
-		"  AND package_localized_info.package_locale=%Q ";
+		"  AND package_localized_info.package_locale=%Q "
+		" LEFT OUTER JOIN package_privilege_info"
+		"  ON package_info.package=package_privilege_info.package";
 	int ret;
 	char *query;
 	char *query_localized;

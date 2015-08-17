@@ -90,6 +90,8 @@ extern "C" {
 #define	PMINFO_PKGINFO_PROP_PACKAGE_AUTHOR_EMAIL		"PMINFO_PKGINFO_PROP_PACKAGE_AUTHOR_EMAIL"
  /** String property for filtering based on package info*/
 #define	PMINFO_PKGINFO_PROP_PACKAGE_AUTHOR_HREF		"PMINFO_PKGINFO_PROP_PACKAGE_AUTHOR_HREF"
+ /** String property for filtering based on package info*/
+#define	PMINFO_PKGINFO_PROP_PACKAGE_PRIVILEGE		"PMINFO_PKGINFO_PROP_PACKAGE_PRIVILEGE"
 
  /** Boolean property for filtering based on package info*/
 #define	PMINFO_PKGINFO_PROP_PACKAGE_REMOVABLE		"PMINFO_PKGINFO_PROP_PACKAGE_REMOVABLE"

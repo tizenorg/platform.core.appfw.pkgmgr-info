@@ -47,7 +47,8 @@ static struct _pkginfo_str_map_t pkginfo_str_prop_map[] = {
 	{E_PMINFO_PKGINFO_PROP_PACKAGE_INSTALLED_STORAGE,PMINFO_PKGINFO_PROP_PACKAGE_INSTALLED_STORAGE},
 	{E_PMINFO_PKGINFO_PROP_PACKAGE_AUTHOR_NAME, 	PMINFO_PKGINFO_PROP_PACKAGE_AUTHOR_NAME},
 	{E_PMINFO_PKGINFO_PROP_PACKAGE_AUTHOR_EMAIL, 	PMINFO_PKGINFO_PROP_PACKAGE_AUTHOR_EMAIL},
-	{E_PMINFO_PKGINFO_PROP_PACKAGE_AUTHOR_HREF, 	PMINFO_PKGINFO_PROP_PACKAGE_AUTHOR_HREF}
+	{E_PMINFO_PKGINFO_PROP_PACKAGE_AUTHOR_HREF, 	PMINFO_PKGINFO_PROP_PACKAGE_AUTHOR_HREF},
+	{E_PMINFO_PKGINFO_PROP_PACKAGE_PRIVILEGE,	PMINFO_PKGINFO_PROP_PACKAGE_PRIVILEGE}
 };
 
 struct _pkginfo_int_map_t {
@@ -254,6 +255,9 @@ void __get_filter_condition(gpointer data, char **condition)
 		break;
 	case E_PMINFO_PKGINFO_PROP_PACKAGE_AUTHOR_EMAIL:
 		snprintf(buf, MAX_QUERY_LEN, "package_info.author_email='%s'", node->value);
+		break;
+	case E_PMINFO_PKGINFO_PROP_PACKAGE_PRIVILEGE:
+		snprintf(buf, MAX_QUERY_LEN, "package_privilege_info.privilege='%s'", node->value);
 		break;
 	case E_PMINFO_PKGINFO_PROP_PACKAGE_SIZE:
 		snprintf(buf, MAX_QUERY_LEN, "package_info.package_size='%s'", node->value);
