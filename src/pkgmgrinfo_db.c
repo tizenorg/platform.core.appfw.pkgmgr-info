@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <ctype.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <grp.h>
@@ -319,35 +320,35 @@ static const char *parserdb_tables[] = {
 	NULL
 };
 
-int __open_manifest_db(uid_t uid)
+int __open_manifest_db(uid_t uid, bool readonly)
 {
-	int ret = -1;
+	int ret;
+	const char *user_pkg_parser;
+	int flags;
+
 	if (manifest_db.ref) {
 		manifest_db.ref ++;
 		return 0;
 	}
-	const char* user_pkg_parser = getUserPkgParserDBPathUID(uid);
+
+	user_pkg_parser = getUserPkgParserDBPathUID(uid);
 	if (access(user_pkg_parser, F_OK) != 0) {
-		_LOGE("Manifest DB does not exists !! try to create\n");
-
-		if (pkgmgr_parser_check_and_create_db(uid)) {
-			_LOGE("create db failed");
-			return -1;
-		}
-
-		if (pkgmgr_parser_initialize_db(uid)) {
-			_LOGE("initialize db failed");
-			return -1;
-		}
+		_LOGE("Manifest DB does not exists !!");
+		return -1;
 	}
 
+	flags = readonly ? SQLITE_OPEN_READONLY : SQLITE_OPEN_READWRITE;
 	ret = db_util_open_with_options(user_pkg_parser, &GET_DB(manifest_db),
-			SQLITE_OPEN_READONLY, NULL);
-	retvm_if(ret != SQLITE_OK, -1, "connect db [%s] failed!\n", user_pkg_parser);
-	manifest_db.ref ++;
-	ret = __attach_and_create_view(GET_DB(manifest_db), MANIFEST_DB, parserdb_tables, uid);
-	retvm_if(ret != SQLITE_OK, -1, "attach db [%s] failed!\n", user_pkg_parser);
-
+			flags, NULL);
+	retvm_if(ret != SQLITE_OK, -1, "connect db [%s] failed!\n",
+			user_pkg_parser);
+	manifest_db.ref++;
+	if (readonly) {
+		ret = __attach_and_create_view(GET_DB(manifest_db), MANIFEST_DB,
+				parserdb_tables, uid);
+		retvm_if(ret != SQLITE_OK, -1, "attach db [%s] failed!\n",
+				user_pkg_parser);
+	}
 	return 0;
 }
 
@@ -368,28 +369,36 @@ static const char *certdb_tables[] = {
 	NULL
 };
 
-int __open_cert_db(uid_t uid, char* mode)
+int __open_cert_db(uid_t uid, bool readonly)
 {
-	int ret = -1;
+	int ret;
+	const char *user_cert_parser;
+	int flags;
+
 	if (cert_db.ref) {
 		cert_db.ref ++;
 		return 0;
 	}
 
-	const char* user_cert_parser = getUserPkgCertDBPathUID(uid);
-	if (access(user_cert_parser, F_OK) == 0) {
-		ret = db_util_open_with_options(user_cert_parser, &GET_DB(cert_db),
-				 SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, NULL);
-		retvm_if(ret != SQLITE_OK, -1, "connect db [%s] failed!\n", user_cert_parser);
-		cert_db.ref ++;
-		if ((strcmp(mode, "w") != 0)) {
-			ret = __attach_and_create_view(GET_DB(cert_db), CERT_DB, certdb_tables, uid);
-			retvm_if(ret != SQLITE_OK, -1, "attach db [%s] failed!\n", user_cert_parser);
-		}
-		return 0;
+	user_cert_parser = getUserPkgCertDBPathUID(uid);
+	if (access(user_cert_parser, F_OK) != 0) {
+		_LOGE("Cert DB does not exists !!");
+		return -1;
 	}
-	_LOGE("Cert DB does not exists !!\n");
-	return -1;
+
+	flags = readonly ? SQLITE_OPEN_READONLY : SQLITE_OPEN_READWRITE;
+	ret = db_util_open_with_options(user_cert_parser, &GET_DB(cert_db),
+			flags, NULL);
+	retvm_if(ret != SQLITE_OK, -1, "connect db [%s] failed!",
+			user_cert_parser);
+	cert_db.ref++;
+	if (readonly) {
+		ret = __attach_and_create_view(GET_DB(cert_db), CERT_DB,
+				certdb_tables, uid);
+		retvm_if(ret != SQLITE_OK, -1, "attach db [%s] failed!",
+				user_cert_parser);
+	}
+	return 0;
 }
 
 void _save_column_str(sqlite3_stmt *stmt, int idx, const char **str)
@@ -416,7 +425,7 @@ API int pkgmgrinfo_appinfo_set_usr_state_enabled(const char *appid, bool enabled
 	retvm_if(appid == NULL, PMINFO_R_EINVAL, "appid is NULL\n");
 
 	/* Open db.*/
-	ret = __open_manifest_db(uid);
+	ret = __open_manifest_db(uid, false);
 	if (ret != SQLITE_OK) {
 		_LOGE("connect db [%s] failed!\n", getUserPkgParserDBPathUID(uid));
 		return PMINFO_R_ERROR;
@@ -470,7 +479,7 @@ API int pkgmgrinfo_appinfo_set_usr_default_label(const char *appid, const char *
 
 	retvm_if(appid == NULL, PMINFO_R_EINVAL, "appid is NULL\n");
 
-	ret = __open_manifest_db(uid);
+	ret = __open_manifest_db(uid, false);
 	if (ret == -1) {
 		_LOGE("Fail to open manifest DB\n");
 		return PMINFO_R_ERROR;

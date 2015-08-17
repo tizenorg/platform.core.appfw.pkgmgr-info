@@ -24,6 +24,7 @@
 #ifndef __PKGMGRINFO_PRIVATE_H__
 #define __PKGMGRINFO_PRIVATE_H__
 
+#include <stdbool.h>
 #include <unistd.h>
 #include <sys/types.h>
 
@@ -218,9 +219,9 @@ pkgmgrinfo_pkginfo_filter_prop_range _pminfo_pkginfo_convert_to_prop_range(const
 
 int _check_create_cert_db(sqlite3 *certdb);
 int __close_manifest_db(void);
-int __open_manifest_db(uid_t uid);
+int __open_manifest_db(uid_t uid, bool readonly);
 int __close_cert_db(void);
-int __open_cert_db(uid_t uid, char* mode);
+int __open_cert_db(uid_t uid, bool readonly);
 void _save_column_str(sqlite3_stmt *stmt, int idx, const char **str);
 char *_get_system_locale(void);
 void __get_filter_condition(gpointer data, char **condition);

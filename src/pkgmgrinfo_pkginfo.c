@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <ctype.h>
 #include <sys/smack.h>
@@ -245,7 +246,7 @@ static int _pkginfo_get_filtered_foreach_pkginfo(pkgmgrinfo_filter_x *filter,
 	char *locale;
 	int stop = 0;
 
-	if (__open_manifest_db(uid) < 0)
+	if (__open_manifest_db(uid, true) < 0)
 		return PMINFO_R_ERROR;
 
 	locale = _get_system_locale();
@@ -737,7 +738,7 @@ API int pkgmgrinfo_pkginfo_get_usr_pkginfo(const char *pkgid, uid_t uid,
 		return PMINFO_R_EINVAL;
 	}
 
-	if (__open_manifest_db(uid) < 0)
+	if (__open_manifest_db(uid, true) < 0)
 		return PMINFO_R_ERROR;
 
 
@@ -1828,7 +1829,7 @@ API int pkgmgrinfo_pkginfo_usr_filter_count(pkgmgrinfo_pkginfo_filter_h handle, 
 		return PMINFO_R_ERROR;
 	}
 
-	ret = __open_manifest_db(uid);
+	ret = __open_manifest_db(uid, true);
 	if (ret == -1) {
 		_LOGE("Fail to open manifest DB\n");
 		free(locale);

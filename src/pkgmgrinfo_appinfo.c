@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <string.h>
 #include <ctype.h>
 #include <unistd.h>
@@ -618,7 +619,7 @@ API int pkgmgrinfo_appinfo_get_usr_appinfo(const char *appid, uid_t uid,
 		return PMINFO_R_EINVAL;
 	}
 
-	if (__open_manifest_db(uid) < 0)
+	if (__open_manifest_db(uid, true) < 0)
 		return PMINFO_R_ERROR;
 
 	locale = _get_system_locale();
@@ -657,7 +658,7 @@ static int _appinfo_get_filtered_foreach_appinfo(uid_t uid,
 	char *locale;
 	int stop = 0;
 
-	if (__open_manifest_db(uid) < 0)
+	if (__open_manifest_db(uid, true) < 0)
 		return PMINFO_R_ERROR;
 
 	locale = _get_system_locale();
@@ -1312,7 +1313,7 @@ API int pkgmgrinfo_appinfo_usr_get_datacontrol_info(const char *providerid, cons
 	sqlite3_stmt *stmt = NULL;
 
 	/*open db*/
-	ret = __open_manifest_db(uid);
+	ret = __open_manifest_db(uid, true);
 	retvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "connect db [%s] failed!", MANIFEST_DB);
 
 	/*Start constructing query*/
@@ -1353,7 +1354,7 @@ API int pkgmgrinfo_appinfo_usr_get_datacontrol_appid(const char *providerid, uid
 	sqlite3_stmt *stmt = NULL;
 
 	/*open db*/
-	ret = __open_manifest_db(uid);
+	ret = __open_manifest_db(uid, true);
 	retvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "connect db [%s] failed!", MANIFEST_DB);
 
 	/*Start constructing query*/
@@ -1862,7 +1863,7 @@ API int pkgmgrinfo_appinfo_usr_filter_count(pkgmgrinfo_appinfo_filter_h handle, 
 		return PMINFO_R_ERROR;
 	}
 
-	ret = __open_manifest_db(uid);
+	ret = __open_manifest_db(uid, true);
 	if (ret == -1) {
 		_LOGE("Fail to open manifest DB\n");
 		free(locale);
@@ -2087,7 +2088,7 @@ API int pkgmgrinfo_appinfo_usr_metadata_filter_foreach(
 		return PMINFO_R_EINVAL;
 	}
 
-	if (__open_manifest_db(uid) < 0)
+	if (__open_manifest_db(uid, true) < 0)
 		return PMINFO_R_ERROR;
 
 	list = _appinfo_get_metadata_filtered_list(handle);

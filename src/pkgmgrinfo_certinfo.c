@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <ctype.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <sys/types.h>
 
@@ -205,7 +205,7 @@ static int __delete_certinfo(const char *pkgid, uid_t uid)
 		goto err;
 	}
 
-	__open_cert_db(uid, "w");
+	__open_cert_db(uid, false);
 	/*populate certinfo from DB*/
 	snprintf(query, MAX_QUERY_LEN, "select * from package_cert_info where package='%s' ", pkgid);
 	ret = __exec_certinfo_query(query, (void *)certinfo);
@@ -320,7 +320,7 @@ API int pkgmgrinfo_pkginfo_compare_usr_pkg_cert_info(const char *lhs_package_id,
 	retvm_if(rhs_package_id == NULL, PMINFO_R_EINVAL, "rhs package ID is NULL");
 	retvm_if(compare_result == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 
-	ret = __open_cert_db(uid, "r");
+	ret = __open_cert_db(uid, true);
 	if (ret != 0) {
 		ret = PMINFO_R_ERROR;
 		goto err;
@@ -547,7 +547,7 @@ API int pkgmgrinfo_pkginfo_compare_usr_app_cert_info(const char *lhs_app_id, con
 	info = (pkgmgr_cert_x *)calloc(1, sizeof(pkgmgr_cert_x));
 	retvm_if(info == NULL, PMINFO_R_ERROR, "Out of Memory!!!");
 
-	ret = __open_manifest_db(uid);
+	ret = __open_manifest_db(uid, true);
 	if (ret != SQLITE_OK) {
 		_LOGE("connect db [%s] failed!\n", getUserPkgParserDBPathUID(uid));
 		ret = PMINFO_R_ERROR;
@@ -660,7 +660,7 @@ API int pkgmgrinfo_pkginfo_load_certinfo(const char *pkgid, pkgmgrinfo_certinfo_
 	int i = 0;
 
 	/*Open db.*/
-	ret = __open_cert_db(uid,"r");
+	ret = __open_cert_db(uid, true);
 	if (ret != SQLITE_OK) {
 		_LOGE("connect db [%s] failed!\n");
 		ret = PMINFO_R_ERROR;
@@ -800,7 +800,7 @@ API int pkgmgrinfo_save_certinfo(const char *pkgid, pkgmgrinfo_instcertinfo_h ha
 	info->pkgid = strdup(pkgid);
 
 	/*Open db.*/
-	ret =__open_cert_db(uid, "w");
+	ret =__open_cert_db(uid, false);
 	if (ret != 0) {
 		ret = PMINFO_R_ERROR;
 		_LOGE("Failed to open cert db \n");
@@ -980,7 +980,7 @@ API int pkgmgrinfo_delete_usr_certinfo(const char *pkgid, uid_t uid)
 	retvm_if(pkgid == NULL, PMINFO_R_EINVAL, "Argument supplied is NULL\n");
 	int ret = -1;
 	/*Open db.*/
-	ret = __open_cert_db(uid, "w");
+	ret = __open_cert_db(uid, false);
 	if (ret != 0) {
 		_LOGE("connect db [%s] failed!\n", getUserPkgCertDBPathUID(uid));
 		ret = PMINFO_R_ERROR;
