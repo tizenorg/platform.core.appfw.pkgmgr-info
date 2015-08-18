@@ -617,7 +617,7 @@ static int _pkginfo_get_pkg(const char *pkgid, const char *locale,
 		"package_system, package_type, package_size, installed_time, "
 		"installed_storage, storeclient_id, mainapp_id, package_url, "
 		"root_path, csc_path, package_nodisplay, package_api_version "
-		"FROM package_info WHERE package=%Q";
+		"FROM package_info WHERE package=%Q order by for_all_users";
 	int ret;
 	char *query;
 	sqlite3_stmt *stmt;
