@@ -1125,35 +1125,18 @@ API int pkgmgrinfo_pkginfo_get_description(pkgmgrinfo_pkginfo_h handle, char **d
 
 API int pkgmgrinfo_pkginfo_get_author_name(pkgmgrinfo_pkginfo_h handle, char **author_name)
 {
-	char *locale;
-	author_x *ptr;
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
 
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
 	retvm_if(author_name == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 
-	locale = info->locale;
-	retvm_if(locale == NULL, PMINFO_R_ERROR, "manifest locale is NULL");
+	if (info->pkg_info == NULL || info->pkg_info->author == NULL ||
+			info->pkg_info->author->text == NULL)
+		return PMINFO_R_ERROR;
 
-	for (ptr = info->pkg_info->author; ptr != NULL; ptr = ptr->next) {
-		if (ptr->lang == NULL)
-			continue;
+	*author_name = (char *)info->pkg_info->author->text;
 
-		if (strcmp(ptr->lang, locale) == 0) {
-			*author_name = (char *)ptr->text;
-			if (strcasecmp(*author_name, PKGMGR_PARSER_EMPTY_STR) == 0) {
-				locale = DEFAULT_LOCALE;
-				continue;
-			} else {
-				return PMINFO_R_OK;
-			}
-		} else if (strcmp(ptr->lang, DEFAULT_LOCALE) == 0) {
-			*author_name = (char *)ptr->text;
-			return PMINFO_R_OK;
-		}
-	}
-
-	return PMINFO_R_ERROR;
+	return PMINFO_R_OK;
 }
 
 API int pkgmgrinfo_pkginfo_get_author_email(pkgmgrinfo_pkginfo_h handle, char **author_email)

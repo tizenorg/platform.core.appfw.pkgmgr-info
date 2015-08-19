@@ -1647,7 +1647,6 @@ static int __ps_process_author(xmlTextReaderPtr reader, author_x *author)
 {
 	__save_xml_attribute(reader, "email", &author->email, NULL);
 	__save_xml_attribute(reader, "href", &author->href, NULL);
-	__save_xml_lang(reader, &author->lang);
 	__save_xml_value(reader, &author->text);
 	return 0;
 }
