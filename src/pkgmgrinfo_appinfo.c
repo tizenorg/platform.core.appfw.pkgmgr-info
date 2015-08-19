@@ -88,8 +88,13 @@ static char *_get_filtered_query(const char *query_raw,
 	return strdup(buf);
 }
 
-static GSList *_appinfo_get_filtered_list(const char *locale,
-		pkgmgrinfo_filter_x *filter)
+static gint __list_strcmp(gconstpointer a, gconstpointer b)
+{
+	return strcmp((char *)a, (char *)b);
+}
+
+static gint _appinfo_get_list(sqlite3 *db, const char *locale,
+		pkgmgrinfo_filter_x *filter, GList **list)
 {
 	static const char query_raw[] =
 		"SELECT DISTINCT package_app_info.app_id FROM package_app_info"
@@ -106,37 +111,112 @@ static GSList *_appinfo_get_filtered_list(const char *locale,
 	char *query;
 	char *query_localized;
 	sqlite3_stmt *stmt;
-	GSList *list = NULL;
-	char *appid;
+	char *appid = NULL;
 
 	query = _get_filtered_query(query_raw, filter);
 	if (query == NULL)
-		return NULL;
+		return PMINFO_R_ERROR;
 	query_localized = sqlite3_mprintf(query, locale);
 	free(query);
 	if (query_localized == NULL)
-		return NULL;
+		return PMINFO_R_ERROR;
 
-	ret = sqlite3_prepare_v2(GET_DB(manifest_db), query_localized,
+	ret = sqlite3_prepare_v2(db, query_localized,
 			strlen(query_localized), &stmt, NULL);
 	sqlite3_free(query_localized);
 	if (ret != SQLITE_OK) {
-		LOGE("prepare failed: %s", sqlite3_errmsg(GET_DB(manifest_db)));
-		return NULL;
+		LOGE("prepare failed: %s", sqlite3_errmsg(db));
+		return PMINFO_R_ERROR;
 	}
 
 	while (sqlite3_step(stmt) == SQLITE_ROW) {
 		_save_column_str(stmt, 0, (const char **)&appid);
-		list = g_slist_append(list, appid);
+		if (appid != NULL)
+			*list = g_list_insert_sorted(*list, appid,
+					__list_strcmp);
 	}
 
 	sqlite3_finalize(stmt);
 
-	return list;
+	return PMINFO_R_OK;
 }
 
-static int _appinfo_get_label(const char *appid, const char *locale,
-		label_x **label)
+static int _appinfo_get_filtered_list(pkgmgrinfo_filter_x *filter, uid_t uid,
+		GList **list)
+{
+	int ret;
+	sqlite3 *db;
+	const char *dbpath;
+	char *locale;
+	GList *tmp;
+
+	locale = _get_system_locale();
+	if (locale == NULL)
+		return PMINFO_R_ERROR;
+
+	dbpath = getUserPkgParserDBPathUID(uid);
+	if (dbpath == NULL) {
+		free(locale);
+		return PMINFO_R_ERROR;
+	}
+
+	ret = sqlite3_open_v2(dbpath, &db, SQLITE_OPEN_READONLY, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGE("failed to open db: %d", ret);
+		free(locale);
+		return PMINFO_R_ERROR;
+	}
+
+	if (_appinfo_get_list(db, locale, filter, list)) {
+		free(locale);
+		sqlite3_close_v2(db);
+		return PMINFO_R_ERROR;
+	}
+	sqlite3_close_v2(db);
+
+	if (uid == GLOBAL_USER) {
+		free(locale);
+		return PMINFO_R_OK;
+	}
+
+	/* search again from global */
+	dbpath = getUserPkgParserDBPathUID(GLOBAL_USER);
+	if (dbpath == NULL) {
+		free(locale);
+		return PMINFO_R_ERROR;
+	}
+
+	ret = sqlite3_open_v2(dbpath, &db, SQLITE_OPEN_READONLY, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGE("failed to open db: %d", ret);
+		free(locale);
+		return PMINFO_R_ERROR;
+	}
+
+	if (_appinfo_get_list(db, locale, filter, list)) {
+		free(locale);
+		sqlite3_close_v2(db);
+		return PMINFO_R_ERROR;
+	}
+	sqlite3_close_v2(db);
+
+	/* remove duplicate element:
+	 * since the list is sorted, we can remove duplicates in linear time
+	 */
+	for (tmp = *list; tmp; tmp = tmp->next) {
+		if (tmp->prev == NULL || tmp->data == NULL)
+			continue;
+		if (strcmp((const char *)tmp->prev->data,
+					(const char *)tmp->data) == 0)
+			*list = g_list_delete_link(*list, tmp);
+	}
+
+	return PMINFO_R_OK;
+
+}
+
+static int _appinfo_get_label(sqlite3 *db, const char *appid,
+		const char *locale, label_x **label)
 {
 	static const char query_raw[] =
 		"SELECT app_label, app_locale "
@@ -154,11 +234,10 @@ static int _appinfo_get_label(const char *appid, const char *locale,
 		return PMINFO_R_ERROR;
 	}
 
-	ret = sqlite3_prepare_v2(GET_DB(manifest_db), query, strlen(query),
-			&stmt, NULL);
+	ret = sqlite3_prepare_v2(db, query, strlen(query), &stmt, NULL);
 	sqlite3_free(query);
 	if (ret != SQLITE_OK) {
-		LOGE("prepare failed: %s", sqlite3_errmsg(GET_DB(manifest_db)));
+		LOGE("prepare failed: %s", sqlite3_errmsg(db));
 		return PMINFO_R_ERROR;
 	}
 
@@ -189,7 +268,7 @@ static int _appinfo_get_label(const char *appid, const char *locale,
 	return PMINFO_R_OK;
 }
 
-static int _appinfo_get_icon(const char *appid, const char *locale,
+static int _appinfo_get_icon(sqlite3 *db, const char *appid, const char *locale,
 		icon_x **icon)
 {
 	static const char query_raw[] =
@@ -208,11 +287,11 @@ static int _appinfo_get_icon(const char *appid, const char *locale,
 		return PMINFO_R_ERROR;
 	}
 
-	ret = sqlite3_prepare_v2(GET_DB(manifest_db), query, strlen(query),
+	ret = sqlite3_prepare_v2(db, query, strlen(query),
 			&stmt, NULL);
 	sqlite3_free(query);
 	if (ret != SQLITE_OK) {
-		LOGE("prepare failed: %s", sqlite3_errmsg(GET_DB(manifest_db)));
+		LOGE("prepare failed: %s", sqlite3_errmsg(db));
 		return PMINFO_R_ERROR;
 	}
 
@@ -243,7 +322,8 @@ static int _appinfo_get_icon(const char *appid, const char *locale,
 	return PMINFO_R_OK;
 }
 
-static int _appinfo_get_category(const char *appid, category_x **category)
+static int _appinfo_get_category(sqlite3 *db, const char *appid,
+		category_x **category)
 {
 	static const char query_raw[] =
 		"SELECT category FROM package_app_app_category WHERE app_id=%Q";
@@ -258,11 +338,10 @@ static int _appinfo_get_category(const char *appid, category_x **category)
 		return PMINFO_R_ERROR;
 	}
 
-	ret = sqlite3_prepare_v2(GET_DB(manifest_db), query, strlen(query),
-			&stmt, NULL);
+	ret = sqlite3_prepare_v2(db, query, strlen(query), &stmt, NULL);
 	sqlite3_free(query);
 	if (ret != SQLITE_OK) {
-		LOGE("prepare failed: %s", sqlite3_errmsg(GET_DB(manifest_db)));
+		LOGE("prepare failed: %s", sqlite3_errmsg(db));
 		return PMINFO_R_ERROR;
 	}
 
@@ -327,7 +406,7 @@ static void __parse_appcontrol(appcontrol_x **appcontrol, char *appcontrol_str)
 	free(dup);
 }
 
-static int _appinfo_get_app_control(const char *appid,
+static int _appinfo_get_app_control(sqlite3 *db, const char *appid,
 		appcontrol_x **appcontrol)
 {
 	static const char query_raw[] =
@@ -345,11 +424,10 @@ static int _appinfo_get_app_control(const char *appid,
 		return PMINFO_R_ERROR;
 	}
 
-	ret = sqlite3_prepare_v2(GET_DB(manifest_db), query, strlen(query),
-			&stmt, NULL);
+	ret = sqlite3_prepare_v2(db, query, strlen(query), &stmt, NULL);
 	sqlite3_free(query);
 	if (ret != SQLITE_OK) {
-		LOGE("prepare failed: %s", sqlite3_errmsg(GET_DB(manifest_db)));
+		LOGE("prepare failed: %s", sqlite3_errmsg(db));
 		return PMINFO_R_ERROR;
 	}
 
@@ -368,7 +446,7 @@ static int _appinfo_get_app_control(const char *appid,
 	return PMINFO_R_OK;
 }
 
-static int _appinfo_get_data_control(const char *appid,
+static int _appinfo_get_data_control(sqlite3 *db, const char *appid,
 		datacontrol_x **datacontrol)
 {
 	static const char query_raw[] =
@@ -386,11 +464,10 @@ static int _appinfo_get_data_control(const char *appid,
 		return PMINFO_R_ERROR;
 	}
 
-	ret = sqlite3_prepare_v2(GET_DB(manifest_db), query, strlen(query),
-			&stmt, NULL);
+	ret = sqlite3_prepare_v2(db, query, strlen(query), &stmt, NULL);
 	sqlite3_free(query);
 	if (ret != SQLITE_OK) {
-		LOGE("prepare failed: %s", sqlite3_errmsg(GET_DB(manifest_db)));
+		LOGE("prepare failed: %s", sqlite3_errmsg(db));
 		return PMINFO_R_ERROR;
 	}
 
@@ -422,7 +499,8 @@ static int _appinfo_get_data_control(const char *appid,
 	return PMINFO_R_OK;
 }
 
-static int _appinfo_get_metadata(const char *appid, metadata_x **metadata)
+static int _appinfo_get_metadata(sqlite3 *db, const char *appid,
+		metadata_x **metadata)
 {
 	static const char query_raw[] =
 		"SELECT md_key, md_value "
@@ -439,11 +517,10 @@ static int _appinfo_get_metadata(const char *appid, metadata_x **metadata)
 		return PMINFO_R_ERROR;
 	}
 
-	ret = sqlite3_prepare_v2(GET_DB(manifest_db), query, strlen(query),
-			&stmt, NULL);
+	ret = sqlite3_prepare_v2(db, query, strlen(query), &stmt, NULL);
 	sqlite3_free(query);
 	if (ret != SQLITE_OK) {
-		LOGE("prepare failed: %s", sqlite3_errmsg(GET_DB(manifest_db)));
+		LOGE("prepare failed: %s", sqlite3_errmsg(db));
 		return PMINFO_R_ERROR;
 	}
 
@@ -475,8 +552,8 @@ static int _appinfo_get_metadata(const char *appid, metadata_x **metadata)
 
 }
 
-static int _appinfo_get_app(const char *appid, const char *locale,
-		pkgmgr_appinfo_x **appinfo)
+static int _appinfo_get_application(sqlite3 *db, const char *appid,
+		const char *locale, application_x **application)
 {
 	static const char query_raw[] =
 		"SELECT app_id, app_component, app_exec, app_nodisplay, "
@@ -493,8 +570,7 @@ static int _appinfo_get_app(const char *appid, const char *locale,
 	char *query;
 	sqlite3_stmt *stmt;
 	int idx;
-	pkgmgr_appinfo_x *info;
-	application_x *app;
+	application_x *info;
 
 	query = sqlite3_mprintf(query_raw, appid);
 	if (query == NULL) {
@@ -502,146 +578,166 @@ static int _appinfo_get_app(const char *appid, const char *locale,
 		return PMINFO_R_ERROR;
 	}
 
-	ret = sqlite3_prepare_v2(GET_DB(manifest_db), query, strlen(query),
-			&stmt, NULL);
+	ret = sqlite3_prepare_v2(db, query, strlen(query), &stmt, NULL);
 	sqlite3_free(query);
 	if (ret != SQLITE_OK) {
-		LOGE("prepare failed: %s", sqlite3_errmsg(GET_DB(manifest_db)));
+		LOGE("prepare failed: %s", sqlite3_errmsg(db));
 		return PMINFO_R_ERROR;
 	}
 
 	ret = sqlite3_step(stmt);
 	if (ret == SQLITE_DONE) {
-		LOGE("cannot find app");
 		sqlite3_finalize(stmt);
 		return PMINFO_R_ENOENT;
 	} else if (ret != SQLITE_ROW) {
-		LOGE("step failed: %s", sqlite3_errmsg(GET_DB(manifest_db)));
+		LOGE("step failed: %s", sqlite3_errmsg(db));
 		sqlite3_finalize(stmt);
 		return PMINFO_R_ERROR;
 	}
 
-	app = calloc(1, sizeof(application_x));
-	if (app == NULL) {
+	info = calloc(1, sizeof(application_x));
+	if (info == NULL) {
 		LOGE("out of memory");
 		sqlite3_finalize(stmt);
 		return PMINFO_R_ERROR;
 	}
 	idx = 0;
-	_save_column_str(stmt, idx++, &app->appid);
-	_save_column_str(stmt, idx++, &app->component);
-	_save_column_str(stmt, idx++, &app->exec);
-	_save_column_str(stmt, idx++, &app->nodisplay);
-	_save_column_str(stmt, idx++, &app->type);
-	_save_column_str(stmt, idx++, &app->onboot);
-	_save_column_str(stmt, idx++, &app->multiple);
-	_save_column_str(stmt, idx++, &app->autorestart);
-	_save_column_str(stmt, idx++, &app->taskmanage);
-	_save_column_str(stmt, idx++, &app->enabled);
-	_save_column_str(stmt, idx++, &app->hwacceleration);
-	_save_column_str(stmt, idx++, &app->screenreader);
-	_save_column_str(stmt, idx++, &app->mainapp);
-	_save_column_str(stmt, idx++, &app->recentimage);
-	_save_column_str(stmt, idx++, &app->launchcondition);
-	_save_column_str(stmt, idx++, &app->indicatordisplay);
-	_save_column_str(stmt, idx++, &app->portraitimg);
-	_save_column_str(stmt, idx++, &app->landscapeimg);
-	_save_column_str(stmt, idx++, &app->guestmode_visibility);
-	_save_column_str(stmt, idx++, &app->permission_type);
-	_save_column_str(stmt, idx++, &app->preload);
-	_save_column_str(stmt, idx++, &app->submode);
-	_save_column_str(stmt, idx++, &app->submode_mainid);
-	_save_column_str(stmt, idx++, &app->launch_mode);
-	_save_column_str(stmt, idx++, &app->ui_gadget);
-	_save_column_str(stmt, idx++, &app->component_type);
-	_save_column_str(stmt, idx++, &app->package);
+	_save_column_str(stmt, idx++, &info->appid);
+	_save_column_str(stmt, idx++, &info->component);
+	_save_column_str(stmt, idx++, &info->exec);
+	_save_column_str(stmt, idx++, &info->nodisplay);
+	_save_column_str(stmt, idx++, &info->type);
+	_save_column_str(stmt, idx++, &info->onboot);
+	_save_column_str(stmt, idx++, &info->multiple);
+	_save_column_str(stmt, idx++, &info->autorestart);
+	_save_column_str(stmt, idx++, &info->taskmanage);
+	_save_column_str(stmt, idx++, &info->enabled);
+	_save_column_str(stmt, idx++, &info->hwacceleration);
+	_save_column_str(stmt, idx++, &info->screenreader);
+	_save_column_str(stmt, idx++, &info->mainapp);
+	_save_column_str(stmt, idx++, &info->recentimage);
+	_save_column_str(stmt, idx++, &info->launchcondition);
+	_save_column_str(stmt, idx++, &info->indicatordisplay);
+	_save_column_str(stmt, idx++, &info->portraitimg);
+	_save_column_str(stmt, idx++, &info->landscapeimg);
+	_save_column_str(stmt, idx++, &info->guestmode_visibility);
+	_save_column_str(stmt, idx++, &info->permission_type);
+	_save_column_str(stmt, idx++, &info->preload);
+	_save_column_str(stmt, idx++, &info->submode);
+	_save_column_str(stmt, idx++, &info->submode_mainid);
+	_save_column_str(stmt, idx++, &info->launch_mode);
+	_save_column_str(stmt, idx++, &info->ui_gadget);
+	_save_column_str(stmt, idx++, &info->component_type);
+	_save_column_str(stmt, idx++, &info->package);
 
-	if (_appinfo_get_label(app->appid, locale, &app->label)) {
-		pkgmgrinfo_basic_free_application(app);
+	if (_appinfo_get_label(db, info->appid, locale, &info->label)) {
+		pkgmgrinfo_basic_free_application(info);
 		sqlite3_finalize(stmt);
 		return PMINFO_R_ERROR;
 	}
 
-	if (_appinfo_get_icon(app->appid, locale, &app->icon)) {
-		pkgmgrinfo_basic_free_application(app);
+	if (_appinfo_get_icon(db, info->appid, locale, &info->icon)) {
+		pkgmgrinfo_basic_free_application(info);
 		sqlite3_finalize(stmt);
 		return PMINFO_R_ERROR;
 	}
 
-	if (_appinfo_get_category(app->appid, &app->category)) {
-		pkgmgrinfo_basic_free_application(app);
+	if (_appinfo_get_category(db, info->appid, &info->category)) {
+		pkgmgrinfo_basic_free_application(info);
 		sqlite3_finalize(stmt);
 		return PMINFO_R_ERROR;
 	}
 
-	if (_appinfo_get_app_control(app->appid, &app->appcontrol)) {
-		pkgmgrinfo_basic_free_application(app);
+	if (_appinfo_get_app_control(db, info->appid, &info->appcontrol)) {
+		pkgmgrinfo_basic_free_application(info);
 		sqlite3_finalize(stmt);
 		return PMINFO_R_ERROR;
 	}
 
-	if (_appinfo_get_data_control(app->appid, &app->datacontrol)) {
-		pkgmgrinfo_basic_free_application(app);
+	if (_appinfo_get_data_control(db, info->appid, &info->datacontrol)) {
+		pkgmgrinfo_basic_free_application(info);
 		sqlite3_finalize(stmt);
 		return PMINFO_R_ERROR;
 	}
 
-	if (_appinfo_get_metadata(app->appid, &app->metadata)) {
-		pkgmgrinfo_basic_free_application(app);
+	if (_appinfo_get_metadata(db, info->appid, &info->metadata)) {
+		pkgmgrinfo_basic_free_application(info);
 		sqlite3_finalize(stmt);
 		return PMINFO_R_ERROR;
 	}
 
-	info = calloc(1, sizeof(pkgmgr_appinfo_x));
-	if (info == NULL) {
-		LOGE("out of memory");
-		pkgmgrinfo_basic_free_application(app);
-		sqlite3_finalize(stmt);
-		return PMINFO_R_ERROR;
-	}
-
-	info->package = strdup(app->package);
-	info->app_info = app;
-	info->locale = strdup(locale);
-	*appinfo = info;
+	*application = info;
 
 	sqlite3_finalize(stmt);
 
 	return PMINFO_R_OK;
 }
 
+static int _appinfo_get_appinfo(const char *appid, uid_t uid,
+		pkgmgr_appinfo_x **appinfo)
+{
+	int ret;
+	sqlite3 *db;
+	const char *dbpath;
+	char *locale;
+	pkgmgr_appinfo_x *info;
+
+	dbpath = getUserPkgParserDBPathUID(uid);
+	if (dbpath == NULL)
+		return PMINFO_R_ERROR;
+
+	locale = _get_system_locale();
+	if (locale == NULL)
+		return PMINFO_R_ERROR;
+
+	ret = sqlite3_open_v2(dbpath, &db, SQLITE_OPEN_READONLY, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGE("failed to open db: %d", ret);
+		free(locale);
+		return PMINFO_R_ERROR;
+	}
+
+	info = calloc(1, sizeof(pkgmgr_appinfo_x));
+	if (info == NULL) {
+		_LOGE("out of memory");
+		free(locale);
+		sqlite3_close_v2(db);
+		return PMINFO_R_ERROR;
+	}
+
+	ret = _appinfo_get_application(db, appid, locale, &info->app_info);
+	if (ret == PMINFO_R_OK) {
+		info->locale = strdup(locale);
+		info->package = strdup(info->app_info->package);
+	}
+
+	*appinfo = info;
+
+	free(locale);
+	sqlite3_close_v2(db);
+
+	return ret;
+}
+
 API int pkgmgrinfo_appinfo_get_usr_appinfo(const char *appid, uid_t uid,
 		pkgmgrinfo_appinfo_h *handle)
 {
-	pkgmgr_appinfo_x *appinfo = NULL;
-	char *locale;
+	int ret;
 
 	if (appid == NULL || handle == NULL) {
 		LOGE("invalid parameter");
 		return PMINFO_R_EINVAL;
 	}
 
-	if (__open_manifest_db(uid, true) < 0)
-		return PMINFO_R_ERROR;
+	ret = _appinfo_get_appinfo(appid, uid, (pkgmgr_appinfo_x **)handle);
+	if (ret == PMINFO_R_ENOENT && uid != GLOBAL_USER)
+		ret = _appinfo_get_appinfo(appid, GLOBAL_USER,
+				(pkgmgr_appinfo_x **)handle);
 
-	locale = _get_system_locale();
-	if (locale == NULL) {
-		__close_manifest_db();
-		return PMINFO_R_ERROR;
-	}
+	if (ret != PMINFO_R_OK)
+		_LOGE("failed to get appinfo of %s for user %d", appid, uid);
 
-	if (_appinfo_get_app(appid, locale, &appinfo)) {
-		free(locale);
-		__close_manifest_db();
-		return PMINFO_R_ERROR;
-	}
-
-	*handle = appinfo;
-
-	free(locale);
-	__close_manifest_db();
-
-	return PMINFO_R_OK;
+	return ret;
 }
 
 API int pkgmgrinfo_appinfo_get_appinfo(const char *appid, pkgmgrinfo_appinfo_h *handle)
@@ -653,33 +749,25 @@ static int _appinfo_get_filtered_foreach_appinfo(uid_t uid,
 		pkgmgrinfo_filter_x *filter, pkgmgrinfo_app_list_cb app_list_cb,
 		void *user_data)
 {
+	int ret;
 	pkgmgr_appinfo_x *info;
-	GSList *list;
-	GSList *tmp;
+	GList *list = NULL;
+	GList *tmp;
 	char *appid;
-	char *locale;
 	int stop = 0;
 
-	if (__open_manifest_db(uid, true) < 0)
+	ret = _appinfo_get_filtered_list(filter, uid, &list);
+	if (ret != PMINFO_R_OK)
 		return PMINFO_R_ERROR;
-
-	locale = _get_system_locale();
-	if (locale == NULL) {
-		__close_manifest_db();
-		return PMINFO_R_ERROR;
-	}
-
-	list = _appinfo_get_filtered_list(locale, filter);
-	if (list == NULL) {
-		free(locale);
-		__close_manifest_db();
-		return PMINFO_R_OK;
-	}
 
 	for (tmp = list; tmp; tmp = tmp->next) {
 		appid = (char *)tmp->data;
 		if (stop == 0) {
-			if (_appinfo_get_app(appid, locale, &info)) {
+			ret = _appinfo_get_appinfo(appid, uid, &info);
+			if (ret == PMINFO_R_ENOENT && uid != GLOBAL_USER)
+				ret = _appinfo_get_appinfo(appid, GLOBAL_USER,
+						&info);
+			if (ret != PMINFO_R_OK) {
 				free(appid);
 				continue;
 			}
@@ -690,9 +778,7 @@ static int _appinfo_get_filtered_foreach_appinfo(uid_t uid,
 		free(appid);
 	}
 
-	free(locale);
-	g_slist_free(list);
-	__close_manifest_db();
+	g_list_free(list);
 
 	return PMINFO_R_OK;
 }
