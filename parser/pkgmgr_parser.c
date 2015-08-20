@@ -1718,6 +1718,7 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 	__save_xml_attribute(reader, "submode-mainid", &uiapplication->submode_mainid, NULL);
 	__save_xml_attribute(reader, "launch_mode", &uiapplication->launch_mode, "caller");
 	__save_xml_attribute(reader, "ui-gadget", &uiapplication->ui_gadget, "false");
+	__save_xml_attribute(reader, "support-disable", &uiapplication->support_disable, "false");
 
 	uiapplication->package= strdup(package);
 

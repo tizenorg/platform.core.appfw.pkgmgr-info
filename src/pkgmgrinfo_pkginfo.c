@@ -1606,7 +1606,6 @@ API int pkgmgrinfo_pkginfo_is_for_all_users(pkgmgrinfo_pkginfo_h handle, bool *f
 	return PMINFO_R_OK;
 }
 
-
 API int pkgmgrinfo_pkginfo_destroy_pkginfo(pkgmgrinfo_pkginfo_h handle)
 {
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;

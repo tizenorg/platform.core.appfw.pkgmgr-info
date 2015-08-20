@@ -87,7 +87,7 @@ sqlite3 *pkgmgr_cert_db;
 						"mainapp_id text," \
 						"package_url text," \
 						"root_path text," \
-						"csc_path text )"
+						"csc_path text)"
 
 #define QUERY_CREATE_TABLE_PACKAGE_LOCALIZED_INFO "create table if not exists package_localized_info " \
 						"(package text not null, " \
@@ -136,6 +136,7 @@ sqlite3 *pkgmgr_cert_db;
 						"app_submode_mainid text, " \
 						"app_launch_mode text NOT NULL DEFAULT 'caller', " \
 						"app_ui_gadget text DEFAULT 'false', " \
+						"app_support_disable text DEFAULT 'false', " \
 						"component_type text, " \
 						"package text not null, " \
 						"FOREIGN KEY(package) " \
@@ -832,8 +833,8 @@ static int __insert_uiapplication_info(manifest_x *mfx)
 			 "insert into package_app_info(app_id, app_component, app_exec, app_nodisplay, app_type, app_onboot, " \
 			"app_multiple, app_autorestart, app_taskmanage, app_enabled, app_hwacceleration, app_screenreader, app_mainapp , app_recentimage, " \
 			"app_launchcondition, app_indicatordisplay, app_portraitimg, app_landscapeimg, app_guestmodevisibility, app_permissiontype, "\
-			"app_preload, app_submode, app_submode_mainid, app_launch_mode, app_ui_gadget, component_type, package) " \
-			"values('%s', '%s', '%s', '%s', '%s', '%s', '%s','%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
+			"app_preload, app_submode, app_submode_mainid, app_launch_mode, app_ui_gadget, app_support_disable, component_type, package) " \
+			"values('%s', '%s', '%s', '%s', '%s', '%s', '%s','%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
 			 up->appid,
 			 "uiapp",
 			 up->exec,
@@ -859,6 +860,7 @@ static int __insert_uiapplication_info(manifest_x *mfx)
 			 __get_str(up->submode_mainid),
 			 up->launch_mode,
 			 up->ui_gadget,
+			 up->support_disable,
 			 up->component_type,
 			 mfx->package);
 
