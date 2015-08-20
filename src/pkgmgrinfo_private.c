@@ -71,7 +71,8 @@ static struct _pkginfo_bool_map_t pkginfo_bool_prop_map[] = {
 	{E_PMINFO_PKGINFO_PROP_PACKAGE_READONLY,	PMINFO_PKGINFO_PROP_PACKAGE_READONLY},
 	{E_PMINFO_PKGINFO_PROP_PACKAGE_UPDATE,		PMINFO_PKGINFO_PROP_PACKAGE_UPDATE},
 	{E_PMINFO_PKGINFO_PROP_PACKAGE_APPSETTING,	PMINFO_PKGINFO_PROP_PACKAGE_APPSETTING},
-	{E_PMINFO_PKGINFO_PROP_PACKAGE_NODISPLAY_SETTING,	PMINFO_PKGINFO_PROP_PACKAGE_NODISPLAY_SETTING}
+	{E_PMINFO_PKGINFO_PROP_PACKAGE_NODISPLAY_SETTING,	PMINFO_PKGINFO_PROP_PACKAGE_NODISPLAY_SETTING},
+	{E_PMINFO_PKGINFO_PROP_PACKAGE_SUPPORT_DISABLE,		PMINFO_PKGINFO_PROP_PACKAGE_SUPPORT_DISABLE}
 };
 
 struct _appinfo_str_map_t {
@@ -117,7 +118,8 @@ static struct _appinfo_bool_map_t appinfo_bool_prop_map[] = {
 	{E_PMINFO_APPINFO_PROP_APP_AUTORESTART,		PMINFO_APPINFO_PROP_APP_AUTORESTART},
 	{E_PMINFO_APPINFO_PROP_APP_TASKMANAGE,		PMINFO_APPINFO_PROP_APP_TASKMANAGE},
 	{E_PMINFO_APPINFO_PROP_APP_LAUNCHCONDITION,		PMINFO_APPINFO_PROP_APP_LAUNCHCONDITION},
-	{E_PMINFO_APPINFO_PROP_APP_UI_GADGET,		PMINFO_APPINFO_PROP_APP_UI_GADGET}
+	{E_PMINFO_APPINFO_PROP_APP_UI_GADGET,		PMINFO_APPINFO_PROP_APP_UI_GADGET},
+	{E_PMINFO_APPINFO_PROP_APP_SUPPORT_DISABLE,		PMINFO_APPINFO_PROP_APP_SUPPORT_DISABLE}
 };
 
 inline pkgmgrinfo_pkginfo_filter_prop_str _pminfo_pkginfo_convert_to_prop_str(const char *property)
@@ -282,6 +284,9 @@ void __get_filter_condition(gpointer data, char **condition)
 	case E_PMINFO_PKGINFO_PROP_PACKAGE_NODISPLAY_SETTING:
 		snprintf(buf, sizeof(buf), "package_info.package_nodisplay IN %s", node->value);
 		break;
+	case E_PMINFO_PKGINFO_PROP_PACKAGE_SUPPORT_DISABLE:
+		snprintf(buf, sizeof(buf), "package_info.package_support_disable IN %s", node->value);
+		break;
 
 	case E_PMINFO_APPINFO_PROP_APP_ID:
 		snprintf(buf, sizeof(buf), "package_app_info.app_id='%s'", node->value);
@@ -349,6 +354,9 @@ void __get_filter_condition(gpointer data, char **condition)
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_METADATA_VALUE:
 		snprintf(buf, sizeof(buf), "package_app_app_metadata.md_value='%s'", node->value);
+		break;
+	case E_PMINFO_APPINFO_PROP_APP_SUPPORT_DISABLE:
+		snprintf(buf, MAX_QUERY_LEN, "package_app_info.app_support_disable IN %s", node->value);
 		break;
 	default:
 		_LOGE("Invalid Property Type\n");

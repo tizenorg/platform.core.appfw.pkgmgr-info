@@ -743,6 +743,10 @@ static void __ps_free_uiapplication(uiapplication_x *uiapplication)
 		free((void *)uiapplication->ui_gadget);
 		uiapplication->ui_gadget = NULL;
 	}
+	if (uiapplication->support_disable) {
+		free((void *)uiapplication->support_disable);
+		uiapplication->support_disable = NULL;
+	}
 
 	free((void*)uiapplication);
 	uiapplication = NULL;
@@ -1021,6 +1025,8 @@ API void pkgmgrinfo_basic_free_application(application_x *application)
 		free((void *)application->component_type);
 	if (application->package)
 		free((void *)application->package);
+	if (application->support_disable)
+		free((void *)application->support_disable);
 
 	/*Free Label*/
 	if (application->label) {
@@ -1236,6 +1242,10 @@ API void pkgmgrinfo_basic_free_package(package_x *package)
 	if (package->api_version) {
 		free((void *)package->api_version);
 		package->api_version = NULL;
+	}
+	if (package->support_disable) {
+		free((void *)package->support_disable);
+		package->support_disable = NULL;
 	}
 
 	/*Free Icon*/

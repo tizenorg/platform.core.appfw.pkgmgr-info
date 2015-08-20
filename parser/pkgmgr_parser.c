@@ -2380,6 +2380,7 @@ static int __process_manifest(xmlTextReaderPtr reader, manifest_x *mfx, uid_t ui
 			__save_xml_attribute(reader, "nodisplay-setting", &mfx->nodisplay_setting, "false");
 			__save_xml_attribute(reader, "url", &mfx->package_url, NULL);
 			__save_xml_attribute(reader, "api-version", &mfx->api_version, NULL);
+			__save_xml_attribute(reader, "support-disable", &mfx->support_disable, "false");
 
 			__save_xml_installed_time(mfx);
 			__save_xml_root_path(mfx, uid);

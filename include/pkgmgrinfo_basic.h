@@ -311,6 +311,7 @@ typedef struct application_x {
 	const char *submode_mainid;
 	const char *launch_mode;
 	const char *ui_gadget;
+	const char *support_disable;
 	const char *component_type;
 	const char *package;
 	struct label_x *label;
@@ -357,6 +358,7 @@ typedef struct uiapplication_x {
 	const char *submode_mainid;
 	const char *launch_mode;
 	const char *ui_gadget;
+	const char *support_disable;
 	struct label_x *label;
 	struct icon_x *icon;
 	struct image_x *image;
@@ -449,6 +451,7 @@ typedef struct package_x {
 	const char *csc_path;		/**< package csc path*/
 	const char *nodisplay_setting;		/**< package no display setting menu*/
 	const char *api_version;		/**< minimum version of API package using*/
+	const char *support_disable;		/**< package support disable flag*/
 	struct icon_x *icon;		/**< package icon*/
 	struct label_x *label;		/**< package label*/
 	struct author_x *author;		/**< package author*/
