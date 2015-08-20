@@ -180,6 +180,7 @@
       <xs:attribute name="auto-restart" type="xs:boolean"/>
       <xs:attribute name="process-pool" type="xs:boolean"/>
       <xs:attribute name="ui-gadget" type="xs:boolean"/>
+      <xs:attribute name="support-disable" type="xs:boolean"/>
     </xs:complexType>
   </xs:element>
   <xs:element name="ime-application">

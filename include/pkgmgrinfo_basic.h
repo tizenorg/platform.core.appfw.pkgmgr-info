@@ -311,6 +311,7 @@ typedef struct application_x {
 	const char *submode_mainid;
 	const char *launch_mode;
 	const char *ui_gadget;
+	const char *support_disable;
 	const char *component_type;
 	const char *package;
 	struct label_x *label;
@@ -357,6 +358,7 @@ typedef struct uiapplication_x {
 	const char *submode_mainid;
 	const char *launch_mode;
 	const char *ui_gadget;
+	const char *support_disable;
 	struct label_x *label;
 	struct icon_x *icon;
 	struct image_x *image;
