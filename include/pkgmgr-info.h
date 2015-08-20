@@ -133,6 +133,10 @@ extern "C" {
 #define	PMINFO_APPINFO_PROP_APP_SCREENREADER	"PMINFO_APPINFO_PROP_APP_SCREENREADER"
  /** String property for filtering based on app info*/
 #define	PMINFO_APPINFO_PROP_APP_PACKAGE		"PMINFO_APPINFO_PROP_APP_PACKAGE"
+ /** String property for filtering based on app info*/
+#define	PMINFO_APPINFO_PROP_APP_METADATA_KEY	"PMINFO_APPINFO_PROP_APP_METADATA_KEY"
+ /** String property for filtering based on app info*/
+#define	PMINFO_APPINFO_PROP_APP_METADATA_VALUE	"PMINFO_APPINFO_PROP_APP_METADATA_VALUE"
 
  /** Boolean property for filtering based on app info*/
 #define	PMINFO_APPINFO_PROP_APP_NODISPLAY		"PMINFO_APPINFO_PROP_APP_NODISPLAY"

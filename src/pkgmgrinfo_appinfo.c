@@ -99,7 +99,9 @@ static GSList *_appinfo_get_filtered_list(const char *locale,
 		" LEFT OUTER JOIN package_app_app_category"
 		"  ON package_app_info.app_id=package_app_app_category.app_id"
 		" LEFT OUTER JOIN package_app_app_svc"
-		"  ON package_app_info.app_id=package_app_app_svc.app_id ";
+		"  ON package_app_info.app_id=package_app_app_svc.app_id "
+		" LEFT OUTER JOIN package_app_app_metadata"
+		"  ON package_app_info.app_id=package_app_app_metadata.app_id ";
 	int ret;
 	char *query;
 	char *query_localized;
@@ -1946,183 +1948,49 @@ API int pkgmgrinfo_appinfo_metadata_filter_destroy(pkgmgrinfo_appinfo_metadata_f
 	return (pkgmgrinfo_pkginfo_filter_destroy(handle));
 }
 
-API int pkgmgrinfo_appinfo_metadata_filter_add(pkgmgrinfo_appinfo_metadata_filter_h handle,
+API int pkgmgrinfo_appinfo_metadata_filter_add(
+		pkgmgrinfo_appinfo_metadata_filter_h handle,
 		const char *key, const char *value)
 {
-	retvm_if(handle == NULL, PMINFO_R_EINVAL, "filter handle is NULL\n");
-	retvm_if(key == NULL, PMINFO_R_EINVAL, "metadata key supplied is NULL\n");
-	/*value can be NULL. In that case all apps with specified key should be displayed*/
-	int ret = 0;
-	char *k = NULL;
-	char *v = NULL;
-	pkgmgrinfo_filter_x *filter = (pkgmgrinfo_filter_x*)handle;
-	pkgmgrinfo_node_x *node = (pkgmgrinfo_node_x*)calloc(1, sizeof(pkgmgrinfo_node_x));
-	retvm_if(node == NULL, PMINFO_R_ERROR, "Out of Memory!!!\n");
-	k = strdup(key);
-	tryvm_if(k == NULL, ret = PMINFO_R_ERROR, "Out of Memory!!!\n");
-	node->key = k;
-	if (value) {
-		v = strdup(value);
-		tryvm_if(v == NULL, ret = PMINFO_R_ERROR, "Out of Memory!!!\n");
-	}
-	node->value = v;
-	/*If API is called multiple times, we should OR all conditions.*/
-	filter->list = g_slist_append(filter->list, (gpointer)node);
-	/*All memory will be freed in destroy API*/
-	return PMINFO_R_OK;
-catch:
-	if (node) {
-		if (node->key) {
-			free(node->key);
-			node->key = NULL;
-		}
-		if (node->value) {
-			free(node->value);
-			node->value = NULL;
-		}
-		free(node);
-		node = NULL;
-	}
-	return ret;
-}
-
-static void __get_metadata_filter_condition(gpointer data, char **condition)
-{
-	pkgmgrinfo_node_x *node = (pkgmgrinfo_node_x*)data;
-	char key[MAX_QUERY_LEN] = {'\0'};
-	char value[MAX_QUERY_LEN] = {'\0'};
-	if (node->key) {
-		snprintf(key, MAX_QUERY_LEN, "(package_app_app_metadata.md_key='%s'", node->key);
-	}
-	if (node->value) {
-		snprintf(value, MAX_QUERY_LEN, " AND package_app_app_metadata.md_value='%s')", node->value);
-		strcat(key, value);
-	} else {
-		strcat(key, ")");
-	}
-	*condition = strdup(key);
-	return;
-}
-
-static char *_get_metadata_filtered_query(const char *query_raw,
-		pkgmgrinfo_filter_x *filter)
-{
-	char buf[MAX_QUERY_LEN] = { 0, };
-	char *condition;
-	size_t len;
-	GSList *list;
-	GSList *head = NULL;
-
-	if (filter)
-		head = filter->list;
-
-	strncat(buf, query_raw, MAX_QUERY_LEN - 1);
-	len = strlen(buf);
-	for (list = head; list; list = list->next) {
-		/* TODO: revise condition getter function */
-		__get_metadata_filter_condition(list->data, &condition);
-		if (condition == NULL)
-			continue;
-		if (buf[strlen(query_raw)] == '\0') {
-			len += strlen(" WHERE ");
-			strncat(buf, " WHERE ", MAX_QUERY_LEN - len - 1);
-		} else {
-			len += strlen(" AND ");
-			strncat(buf, " AND ", MAX_QUERY_LEN -len - 1);
-		}
-		len += strlen(condition);
-		strncat(buf, condition, sizeof(buf) - len - 1);
-		free(condition);
-		condition = NULL;
-	}
-
-	return strdup(buf);
-}
-
-static GSList *_appinfo_get_metadata_filtered_list(pkgmgrinfo_filter_x *filter)
-{
-	static const char query_raw[] =
-		"SELECT app_id FROM package_app_app_metadata";
 	int ret;
-	char *query;
-	sqlite3_stmt *stmt;
-	GSList *list = NULL;
-	char *appid;
 
-	query = _get_metadata_filtered_query(query_raw, filter);
-	if (query == NULL) {
-		LOGE("out of memory");
-		return NULL;
+	ret = pkgmgrinfo_appinfo_filter_add_string(handle,
+			PMINFO_APPINFO_PROP_APP_METADATA_KEY, key);
+	if (ret != PMINFO_R_OK)
+		return ret;
+
+	/* value can be NULL.
+	 * In that case all apps with specified key should be displayed
+	 */
+	if (value) {
+		ret = pkgmgrinfo_appinfo_filter_add_string(handle,
+				PMINFO_APPINFO_PROP_APP_METADATA_VALUE, value);
+		if (ret != PMINFO_R_OK)
+			return ret;
 	}
 
-	ret = sqlite3_prepare_v2(GET_DB(manifest_db), query, strlen(query),
-			&stmt, NULL);
-	free(query);
-	if (ret != SQLITE_OK) {
-		LOGE("prepare failed: %s", sqlite3_errmsg(GET_DB(manifest_db)));
-		return NULL;
-	}
-
-	while (sqlite3_step(stmt) == SQLITE_ROW) {
-		_save_column_str(stmt, 0, (const char **)&appid);
-		list = g_slist_append(list, appid);
-	}
-
-	sqlite3_finalize(stmt);
-
-	return list;
+	return PMINFO_R_OK;
 }
 
 API int pkgmgrinfo_appinfo_usr_metadata_filter_foreach(
 		pkgmgrinfo_appinfo_metadata_filter_h handle,
 		pkgmgrinfo_app_list_cb app_cb, void *user_data, uid_t uid)
 {
-	GSList *list;
-	GSList *tmp;
-	char *appid;
-	pkgmgrinfo_appinfo_h info;
-	int stop = 0;
-
 	if (handle == NULL || app_cb == NULL) {
 		LOGE("invalid parameter");
 		return PMINFO_R_EINVAL;
 	}
 
-	if (__open_manifest_db(uid, true) < 0)
-		return PMINFO_R_ERROR;
-
-	list = _appinfo_get_metadata_filtered_list(handle);
-	if (list == NULL) {
-		LOGE("no result");
-		__close_manifest_db();
-		return PMINFO_R_OK;
-	}
-
-	for (tmp = list; tmp; tmp = tmp->next) {
-		appid = (char *)tmp->data;
-		if (stop == 0) {
-			if (pkgmgrinfo_appinfo_get_usr_appinfo(appid, uid,
-						&info)) {
-				free(appid);
-				continue;
-			}
-			if (app_cb(info, user_data) < 0)
-				stop = 1;
-			pkgmgrinfo_appinfo_destroy_appinfo(info);
-		}
-		free(appid);
-	}
-
-	g_slist_free(list);
-	__close_manifest_db();
-
-	return PMINFO_R_OK;
+	return _appinfo_get_filtered_foreach_appinfo(uid, handle, app_cb,
+			user_data);
 }
 
-API int pkgmgrinfo_appinfo_metadata_filter_foreach(pkgmgrinfo_appinfo_metadata_filter_h handle,
+API int pkgmgrinfo_appinfo_metadata_filter_foreach(
+		pkgmgrinfo_appinfo_metadata_filter_h handle,
 		pkgmgrinfo_app_list_cb app_cb, void *user_data)
 {
-	return pkgmgrinfo_appinfo_usr_metadata_filter_foreach(handle, app_cb, user_data, GLOBAL_USER);
+	return pkgmgrinfo_appinfo_usr_metadata_filter_foreach(handle, app_cb,
+			user_data, GLOBAL_USER);
 }
 
 API int pkgmgrinfo_appinfo_is_guestmode_visibility(pkgmgrinfo_appinfo_h handle, bool *status)
