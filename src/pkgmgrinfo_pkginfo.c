@@ -687,7 +687,8 @@ static int _pkginfo_get_package(sqlite3 *db, const char *pkgid,
 		"package_readonly, package_update, package_appsetting, "
 		"package_system, package_type, package_size, installed_time, "
 		"installed_storage, storeclient_id, mainapp_id, package_url, "
-		"root_path, csc_path, package_nodisplay, package_api_version "
+		"root_path, csc_path, package_nodisplay, package_api_version, "
+		"package_support_disable "
 		"FROM package_info WHERE package=%Q";
 	int ret;
 	char *query;
@@ -746,6 +747,7 @@ static int _pkginfo_get_package(sqlite3 *db, const char *pkgid,
 	_save_column_str(stmt, idx++, &info->csc_path);
 	_save_column_str(stmt, idx++, &info->nodisplay_setting);
 	_save_column_str(stmt, idx++, &info->api_version);
+	_save_column_str(stmt, idx++, &info->support_disable);
 
 	if (_pkginfo_get_author(db, info->package, &info->author)) {
 		pkgmgrinfo_basic_free_package(info);
@@ -1673,6 +1675,28 @@ API int pkgmgrinfo_pkginfo_is_update(pkgmgrinfo_pkginfo_h handle, bool *update)
 	return PMINFO_R_OK;
 }
 
+API int pkgmgrinfo_pkginfo_is_support_disable(pkgmgrinfo_pkginfo_h handle, bool *support_disable)
+{
+	char *val;
+	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
+
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
+	retvm_if(support_disable == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
+
+	if (info->pkg_info == NULL || info->pkg_info->support_disable == NULL)
+		return PMINFO_R_ERROR;
+
+	val = (char *)info->pkg_info->support_disable;
+	if (strcasecmp(val, "true") == 0)
+		*support_disable = 1;
+	else if (strcasecmp(val, "false") == 0)
+		*support_disable = 0;
+	else
+		*support_disable = 1;
+
+	return PMINFO_R_OK;
+}
+
 API int pkgmgrinfo_pkginfo_is_for_all_users(pkgmgrinfo_pkginfo_h handle, bool *for_all_users)
 {
 	char *val;
@@ -1694,7 +1718,6 @@ API int pkgmgrinfo_pkginfo_is_for_all_users(pkgmgrinfo_pkginfo_h handle, bool *f
 
 	return PMINFO_R_OK;
 }
-
 
 API int pkgmgrinfo_pkginfo_destroy_pkginfo(pkgmgrinfo_pkginfo_h handle)
 {

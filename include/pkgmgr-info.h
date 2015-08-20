@@ -105,6 +105,8 @@ extern "C" {
 #define	PMINFO_PKGINFO_PROP_PACKAGE_APPSETTING		"PMINFO_PKGINFO_PROP_PACKAGE_APPSETTING"
    /** Boolean property for filtering based on package info*/
 #define	PMINFO_PKGINFO_PROP_PACKAGE_NODISPLAY_SETTING		"PMINFO_PKGINFO_PROP_PACKAGE_NODISPLAY_SETTING"
+   /** Boolean property for filtering based on package info*/
+#define	PMINFO_PKGINFO_PROP_PACKAGE_SUPPORT_DISABLE		"PMINFO_PKGINFO_PROP_PACKAGE_SUPPORT_DISABLE"
 
  /** Integer property for filtering based on package info*/
 #define	PMINFO_PKGINFO_PROP_PACKAGE_SIZE		"PMINFO_PKGINFO_PROP_PACKAGE_SIZE"
@@ -152,6 +154,8 @@ extern "C" {
 #define	PMINFO_APPINFO_PROP_APP_LAUNCHCONDITION	"PMINFO_APPINFO_PROP_APP_LAUNCHCONDITION"
  /** Boolean property for filtering based on app info*/
 #define	PMINFO_APPINFO_PROP_APP_UI_GADGET	"PMINFO_APPINFO_PROP_APP_UI_GADGET"
+ /** Boolean property for filtering based on app info*/
+#define	PMINFO_APPINFO_PROP_APP_SUPPORT_DISABLE	"PMINFO_APPINFO_PROP_APP_SUPPORT_DISABLE"
 
  /** will be updated*/
  /** string property for filtering based on pkg info*/
@@ -1402,6 +1406,43 @@ static int get_pkg_update(const char *pkgid)
  */
 int pkgmgrinfo_pkginfo_is_update(pkgmgrinfo_pkginfo_h handle, bool *update);
 
+/**
+ * @fn int pkgmgrinfo_pkginfo_is_support_disable(pkgmgrinfo_pkginfo_h handle, bool *support_disable)
+ * @brief	This API gets the package 'support_disable' value from the package ID
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in]	handle	pointer to package info handle
+ * @param[out]	support_disable	pointer to hold package support_disable value
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		pkgmgrinfo_pkginfo_get_pkginfo()
+ * @post		pkgmgrinfo_pkginfo_destroy_pkginfo()
+ * @see		pkgmgrinfo_pkginfo_get_pkgid()
+ * @code
+static int get_pkg_support_disable(const char *pkgid)
+{
+	int ret = 0;
+	bool support_disable;
+	pkgmgrinfo_pkginfo_h handle = NULL;
+	ret = pkgmgrinfo_pkginfo_get_pkginfo(pkgid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_pkginfo_is_support_disable(handle, &support_disable);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_pkginfo_destroy_pkginfo(handle);
+		return -1;
+	}
+	printf("pkg support_disable: %d\n", support_disable);
+	pkgmgrinfo_pkginfo_destroy_pkginfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_pkginfo_is_support_disable(pkgmgrinfo_pkginfo_h handle, bool *support_disable);
 
 /**
  * @fn int pkgmgrinfo_pkginfo_is_global(uid_t uid, const char *pkgid)
@@ -3693,6 +3734,42 @@ static int get_app_ui_gadget(const char *appid)
  * @endcode
  */
 int pkgmgrinfo_appinfo_is_ui_gadget(pkgmgrinfo_appinfo_h handle, bool *ui_gadget);
+
+/**
+ * @fn int pkgmgrinfo_appinfo_is_support_disable(pkgmgrinfo_appinfo_h handle, bool *support_disable)
+ * @brief	This API gets the application 'support_disable' value from the app ID
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in]	handle	pointer to application info handle
+ * @param[out]	support_disable	pointer to hold package support_disable value
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @pre		pkgmgrinfo_appinfo_get_appinfo()
+ * @post	pkgmgrinfo_appinfo_destroy_appinfo()
+ * @code
+static int get_app_support_disable(const char *appid)
+{
+	int ret = 0;
+	bool support_disable;
+	pkgmgrinfo_appinfo_h handle = NULL;
+	ret = pkgmgrinfo_appinfo_get_appinfo(appid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_appinfo_is_support_disable(handle, &support_disable);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_appinfo_destroy_appinfo(handle);
+		return -1;
+	}
+	printf("app support_disable: %d\n", support_disable);
+	pkgmgrinfo_appinfo_destroy_appinfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_appinfo_is_support_disable(pkgmgrinfo_appinfo_h handle, bool *support_disable);
 
 /**
  * @fn int pkgmgrinfo_appinfo_destroy_appinfo(pkgmgrinfo_appinfo_h handle)

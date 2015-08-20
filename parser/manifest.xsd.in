@@ -37,6 +37,7 @@
       <xs:attribute name="nodisplay-setting" type="xs:boolean"/>
       <xs:attribute name="url" type="xs:string"/>
       <xs:attribute name="api-version" type="xs:string"/>
+      <xs:attribute name="support-disable" type="xs:boolean"/>
     </xs:complexType>
   </xs:element>
 

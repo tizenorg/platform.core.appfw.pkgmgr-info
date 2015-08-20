@@ -87,7 +87,8 @@ sqlite3 *pkgmgr_cert_db;
 						"mainapp_id text," \
 						"package_url text," \
 						"root_path text," \
-						"csc_path text )"
+						"csc_path text," \
+						"package_support_disable text DEFAULT 'false')"
 
 #define QUERY_CREATE_TABLE_PACKAGE_LOCALIZED_INFO "create table if not exists package_localized_info " \
 						"(package text not null, " \
@@ -136,6 +137,7 @@ sqlite3 *pkgmgr_cert_db;
 						"app_submode_mainid text, " \
 						"app_launch_mode text NOT NULL DEFAULT 'caller', " \
 						"app_ui_gadget text DEFAULT 'false', " \
+						"app_support_disable text DEFAULT 'false', " \
 						"component_type text, " \
 						"package text not null, " \
 						"FOREIGN KEY(package) " \
@@ -832,8 +834,8 @@ static int __insert_uiapplication_info(manifest_x *mfx)
 			 "insert into package_app_info(app_id, app_component, app_exec, app_nodisplay, app_type, app_onboot, " \
 			"app_multiple, app_autorestart, app_taskmanage, app_enabled, app_hwacceleration, app_screenreader, app_mainapp , app_recentimage, " \
 			"app_launchcondition, app_indicatordisplay, app_portraitimg, app_landscapeimg, app_guestmodevisibility, app_permissiontype, "\
-			"app_preload, app_submode, app_submode_mainid, app_launch_mode, app_ui_gadget, component_type, package) " \
-			"values('%s', '%s', '%s', '%s', '%s', '%s', '%s','%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
+			"app_preload, app_submode, app_submode_mainid, app_launch_mode, app_ui_gadget, app_support_disable, component_type, package) " \
+			"values('%s', '%s', '%s', '%s', '%s', '%s', '%s','%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
 			 up->appid,
 			 "uiapp",
 			 up->exec,
@@ -859,6 +861,7 @@ static int __insert_uiapplication_info(manifest_x *mfx)
 			 __get_str(up->submode_mainid),
 			 up->launch_mode,
 			 up->ui_gadget,
+			 mfx->support_disable,
 			 up->component_type,
 			 mfx->package);
 
@@ -1552,8 +1555,8 @@ static int __insert_manifest_info_in_db(manifest_x *mfx, uid_t uid)
 	snprintf(query, MAX_QUERY_LEN,
 		 "insert into package_info(package, package_type, package_version, package_api_version, install_location, package_size, " \
 		"package_removable, package_preload, package_readonly, package_update, package_appsetting, package_nodisplay, package_system," \
-		"author_name, author_email, author_href, installed_time, installed_storage, storeclient_id, mainapp_id, package_url, root_path, csc_path) " \
-		"values('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
+		"author_name, author_email, author_href, installed_time, installed_storage, storeclient_id, mainapp_id, package_url, root_path, csc_path, package_support_disable) " \
+		"values('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
 		 mfx->package,
 		 mfx->type,
 		 mfx->version,
@@ -1576,7 +1579,8 @@ static int __insert_manifest_info_in_db(manifest_x *mfx, uid_t uid)
 		 mfx->mainapp_id,
 		 __get_str(mfx->package_url),
 		 mfx->root_path,
-		 __get_str(mfx->csc_path));
+		 __get_str(mfx->csc_path),
+		 mfx->support_disable);
 
 	ret = __exec_query(query);
 	if (ret == -1) {

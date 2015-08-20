@@ -564,6 +564,7 @@ static int _appinfo_get_application(sqlite3 *db, const char *appid,
 		"app_landscapeimg, app_guestmodevisibility, "
 		"app_permissiontype, app_preload, app_submode, "
 		"app_submode_mainid, app_launch_mode, app_ui_gadget, "
+		"app_support_disable, "
 		"component_type, package "
 		"FROM package_app_info WHERE app_id=%Q";
 	int ret;
@@ -627,6 +628,7 @@ static int _appinfo_get_application(sqlite3 *db, const char *appid,
 	_save_column_str(stmt, idx++, &info->submode_mainid);
 	_save_column_str(stmt, idx++, &info->launch_mode);
 	_save_column_str(stmt, idx++, &info->ui_gadget);
+	_save_column_str(stmt, idx++, &info->support_disable);
 	_save_column_str(stmt, idx++, &info->component_type);
 	_save_column_str(stmt, idx++, &info->package);
 
@@ -1726,6 +1728,21 @@ API int pkgmgrinfo_appinfo_is_ui_gadget(pkgmgrinfo_appinfo_h handle,
 	}
 
 	*ui_gadget = _get_bool_value(info->app_info->ui_gadget);
+
+	return PMINFO_R_OK;
+}
+
+API int pkgmgrinfo_appinfo_is_support_disable(pkgmgrinfo_appinfo_h handle,
+		bool *support_disable)
+{
+	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
+
+	if (info == NULL || info->app_info == NULL || support_disable == NULL) {
+		_LOGE("invalid parameter");
+		return PMINFO_R_EINVAL;
+	}
+
+	*support_disable = _get_bool_value(info->app_info->support_disable);
 
 	return PMINFO_R_OK;
 }
