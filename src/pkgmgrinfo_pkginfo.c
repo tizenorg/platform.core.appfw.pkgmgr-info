@@ -69,14 +69,6 @@ static gint __compare_func(gconstpointer data1, gconstpointer data2)
 		return -1;
 }
 
-static int __count_cb(void *data, int ncols, char **coltxt, char **colname)
-{
-	int *p = (int*)data;
-	*p = atoi(coltxt[0]);
-	_LOGE("count value is %d\n", *p);
-	return 0;
-}
-
 static void __destroy_each_node(gpointer data, gpointer user_data)
 {
 	ret_if(data == NULL);
@@ -1905,72 +1897,23 @@ API int pkgmgrinfo_pkginfo_filter_add_string(pkgmgrinfo_pkginfo_filter_h handle,
 
 API int pkgmgrinfo_pkginfo_usr_filter_count(pkgmgrinfo_pkginfo_filter_h handle, int *count, uid_t uid)
 {
-	retvm_if(handle == NULL, PMINFO_R_EINVAL, "Filter handle input parameter is NULL\n");
-	retvm_if(count == NULL, PMINFO_R_EINVAL, "Filter handle input parameter is NULL\n");
-	char *locale = NULL;
-	char *condition = NULL;
-	char *error_message = NULL;
-	char query[MAX_QUERY_LEN] = {'\0'};
-	char where[MAX_QUERY_LEN] = {'\0'};
-	GSList *list;
-	int ret = 0;
+	int ret;
+	GList *list = NULL;
 
-	pkgmgrinfo_filter_x *filter = (pkgmgrinfo_filter_x*)handle;
-	filter->uid = uid;
-	/*Get current locale*/
-	locale = _get_system_locale();
-	if (locale == NULL) {
-		_LOGE("manifest locale is NULL\n");
+	if (handle == NULL || count == NULL) {
+		_LOGE("invalid parameter");
+		return PMINFO_R_EINVAL;
+	}
+
+	ret = _pkginfo_get_filtered_list((pkgmgrinfo_filter_x *)handle, uid, &list);
+	if (ret != PMINFO_R_OK)
 		return PMINFO_R_ERROR;
-	}
 
-	ret = __open_manifest_db(uid, true);
-	if (ret == -1) {
-		_LOGE("Fail to open manifest DB\n");
-		free(locale);
-		return PMINFO_R_ERROR;
-	}
+	*count = g_list_length(list);
 
-	/*Start constructing query*/
-	snprintf(query, MAX_QUERY_LEN - 1, FILTER_QUERY_COUNT_PACKAGE, locale);
+	g_list_free_full(list, free);
 
-	/*Get where clause*/
-	for (list = filter->list; list; list = g_slist_next(list)) {
-		__get_filter_condition(list->data, &condition);
-		if (condition) {
-			strncat(where, condition, sizeof(where) - strlen(where) -1);
-			where[sizeof(where) - 1] = '\0';
-			free(condition);
-			condition = NULL;
-		}
-		if (g_slist_next(list)) {
-			strncat(where, " and ", sizeof(where) - strlen(where) - 1);
-			where[sizeof(where) - 1] = '\0';
-		}
-	}
-	if (strlen(where) > 0) {
-		strncat(query, where, sizeof(query) - strlen(query) - 1);
-		query[sizeof(query) - 1] = '\0';
-	}
-
-	/*Execute Query*/
-	if (SQLITE_OK !=
-	    sqlite3_exec(GET_DB(manifest_db), query, __count_cb, (void *)count, &error_message)) {
-		_LOGE("Don't execute query = %s error message = %s\n", query,
-		       error_message);
-		sqlite3_free(error_message);
-		ret = PMINFO_R_ERROR;
-		*count = 0;
-		goto err;
-	}
-	ret = PMINFO_R_OK;
-err:
-	if (locale) {
-		free(locale);
-		locale = NULL;
-	}
-	__close_manifest_db();
-	return ret;
+	return PMINFO_R_OK;
 }
 
 API int pkgmgrinfo_pkginfo_filter_count(pkgmgrinfo_pkginfo_filter_h handle, int *count)
