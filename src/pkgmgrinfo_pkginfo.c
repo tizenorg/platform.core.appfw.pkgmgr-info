@@ -236,6 +236,7 @@ static int _pkginfo_get_filtered_list(pkgmgrinfo_filter_x *filter, uid_t uid,
 	const char *dbpath;
 	char *locale;
 	GList *tmp;
+	GList *tmp2;
 
 	locale = _get_system_locale();
 	if (locale == NULL)
@@ -290,7 +291,8 @@ static int _pkginfo_get_filtered_list(pkgmgrinfo_filter_x *filter, uid_t uid,
 	/* remove duplicate element:
 	 * since the list is sorted, we can remove duplicates in linear time
 	 */
-	for (tmp = *list; tmp; tmp = tmp->next) {
+	for (tmp = *list, tmp2 = g_list_next(tmp); tmp;
+			tmp = tmp2, tmp2 = g_list_next(tmp)) {
 		if (tmp->prev == NULL || tmp->data == NULL)
 			continue;
 		if (strcmp((const char *)tmp->prev->data,
