@@ -1559,10 +1559,11 @@ API int pkgmgrinfo_appinfo_is_nodisplay(pkgmgrinfo_appinfo_h handle, bool *nodis
 	retvm_if(nodisplay == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 
-	if (info->app_info == NULL)
+	if (info->app_info == NULL || info->app_info->nodisplay == NULL)
 		return PMINFO_R_ERROR;
 
 	*nodisplay = _get_bool_value(info->app_info->nodisplay);
+
 	return PMINFO_R_OK;
 }
 
@@ -1572,10 +1573,11 @@ API int pkgmgrinfo_appinfo_is_multiple(pkgmgrinfo_appinfo_h handle, bool *multip
 	retvm_if(multiple == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 
-	if (info->app_info == NULL)
+	if (info->app_info == NULL || info->app_info->multiple == NULL)
 		return PMINFO_R_ERROR;
 
 	*multiple = _get_bool_value(info->app_info->multiple);
+
 	return PMINFO_R_OK;
 }
 
@@ -1585,10 +1587,11 @@ API int pkgmgrinfo_appinfo_is_indicator_display_allowed(pkgmgrinfo_appinfo_h han
 	retvm_if(indicator_disp == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 
-	if (info->app_info == NULL)
+	if (info->app_info == NULL || info->app_info->indicatordisplay == NULL)
 		return PMINFO_R_ERROR;
 
 	*indicator_disp = _get_bool_value(info->app_info->indicatordisplay);
+
 	return PMINFO_R_OK;
 }
 
@@ -1598,10 +1601,11 @@ API int pkgmgrinfo_appinfo_is_taskmanage(pkgmgrinfo_appinfo_h  handle, bool *tas
 	retvm_if(taskmanage == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 
-	if (info->app_info == NULL)
+	if (info->app_info == NULL || info->app_info->taskmanage == NULL)
 		return PMINFO_R_ERROR;
 
 	*taskmanage = _get_bool_value(info->app_info->taskmanage);
+
 	return PMINFO_R_OK;
 }
 
@@ -1611,12 +1615,12 @@ API int pkgmgrinfo_appinfo_is_enabled(pkgmgrinfo_appinfo_h  handle, bool *enable
 	retvm_if(enabled == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 
-	if (info->app_info == NULL)
+	if (info->app_info == NULL || info->app_info->enabled == NULL)
 		return PMINFO_R_ERROR;
 
 	*enabled = _get_bool_value(info->app_info->enabled);
-	return PMINFO_R_OK;
 
+	return PMINFO_R_OK;
 }
 
 API int pkgmgrinfo_appinfo_is_onboot(pkgmgrinfo_appinfo_h  handle, bool *onboot)
@@ -1625,10 +1629,11 @@ API int pkgmgrinfo_appinfo_is_onboot(pkgmgrinfo_appinfo_h  handle, bool *onboot)
 	retvm_if(onboot == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 
-	if (info->app_info == NULL)
+	if (info->app_info == NULL || info->app_info->onboot == NULL)
 		return PMINFO_R_ERROR;
 
 	*onboot = _get_bool_value(info->app_info->onboot);
+
 	return PMINFO_R_OK;
 }
 
@@ -1638,10 +1643,11 @@ API int pkgmgrinfo_appinfo_is_autorestart(pkgmgrinfo_appinfo_h  handle, bool *au
 	retvm_if(autorestart == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 
-	if (info->app_info == NULL)
+	if (info->app_info == NULL || info->app_info->autorestart == NULL)
 		return PMINFO_R_ERROR;
 
 	*autorestart = _get_bool_value(info->app_info->autorestart);
+
 	return PMINFO_R_OK;
 }
 
@@ -1651,10 +1657,11 @@ API int pkgmgrinfo_appinfo_is_mainapp(pkgmgrinfo_appinfo_h  handle, bool *mainap
 	retvm_if(mainapp == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 
-	if (info->app_info == NULL)
+	if (info->app_info == NULL || info->app_info->mainapp == NULL)
 		return PMINFO_R_ERROR;
 
 	*mainapp = _get_bool_value(info->app_info->mainapp);
+
 	return PMINFO_R_OK;
 }
 
@@ -1664,10 +1671,11 @@ API int pkgmgrinfo_appinfo_is_preload(pkgmgrinfo_appinfo_h handle, bool *preload
 	retvm_if(preload == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 
-	if (info->app_info == NULL)
+	if (info->app_info == NULL || info->app_info->preload == NULL)
 		return PMINFO_R_ERROR;
 
 	*preload = _get_bool_value(info->app_info->preload);
+
 	return PMINFO_R_OK;
 }
 
@@ -1677,10 +1685,11 @@ API int pkgmgrinfo_appinfo_is_submode(pkgmgrinfo_appinfo_h handle, bool *submode
 	retvm_if(submode == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 
-	if (info->app_info == NULL)
+	if (info->app_info == NULL || info->app_info->submode == NULL)
 		return PMINFO_R_ERROR;
 
 	*submode = _get_bool_value(info->app_info->submode);
+
 	return PMINFO_R_OK;
 }
 

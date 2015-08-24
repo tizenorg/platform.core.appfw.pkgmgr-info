@@ -51,6 +51,16 @@ static int _pkginfo_get_pkginfo(const char *pkgid, uid_t uid,
 static char *_get_filtered_query(const char *query_raw,
 		pkgmgrinfo_filter_x *filter);
 
+static bool _get_bool_value(const char *str)
+{
+	if (str == NULL)
+		return false;
+	else if (!strcasecmp(str, "true"))
+		return true;
+	else
+		return false;
+}
+
 static gint __compare_func(gconstpointer data1, gconstpointer data2)
 {
 	pkgmgrinfo_node_x *node1 = (pkgmgrinfo_node_x*)data1;
@@ -1533,7 +1543,6 @@ API int pkgmgrinfo_pkginfo_is_accessible(pkgmgrinfo_pkginfo_h handle, bool *acce
 
 API int pkgmgrinfo_pkginfo_is_removable(pkgmgrinfo_pkginfo_h handle, bool *removable)
 {
-	char *val;
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
 
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
@@ -1542,13 +1551,7 @@ API int pkgmgrinfo_pkginfo_is_removable(pkgmgrinfo_pkginfo_h handle, bool *remov
 	if (info->pkg_info == NULL || info->pkg_info->removable == NULL)
 		return PMINFO_R_ERROR;
 
-	val = (char *)info->pkg_info->removable;
-	if (strcasecmp(val, "true") == 0)
-		*removable = 1;
-	else if (strcasecmp(val, "false") == 0)
-		*removable = 0;
-	else
-		*removable = 1;
+	*removable = _get_bool_value(info->pkg_info->removable);
 
 	return PMINFO_R_OK;
 }
@@ -1577,7 +1580,6 @@ API int pkgmgrinfo_pkginfo_is_movable(pkgmgrinfo_pkginfo_h handle, bool *movable
 
 API int pkgmgrinfo_pkginfo_is_preload(pkgmgrinfo_pkginfo_h handle, bool *preload)
 {
-	char *val;
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
 
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
@@ -1586,20 +1588,13 @@ API int pkgmgrinfo_pkginfo_is_preload(pkgmgrinfo_pkginfo_h handle, bool *preload
 	if (info->pkg_info == NULL || info->pkg_info->preload == NULL)
 		return PMINFO_R_ERROR;
 
-	val = (char *)info->pkg_info->preload;
-	if (strcasecmp(val, "true") == 0)
-		*preload = 1;
-	else if (strcasecmp(val, "false") == 0)
-		*preload = 0;
-	else
-		*preload = 0;
+	*preload = _get_bool_value(info->pkg_info->preload);
 
 	return PMINFO_R_OK;
 }
 
 API int pkgmgrinfo_pkginfo_is_system(pkgmgrinfo_pkginfo_h handle, bool *system)
 {
-	char *val;
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
 
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
@@ -1608,20 +1603,13 @@ API int pkgmgrinfo_pkginfo_is_system(pkgmgrinfo_pkginfo_h handle, bool *system)
 	if (info->pkg_info == NULL || info->pkg_info->system == NULL)
 		return PMINFO_R_ERROR;
 
-	val = (char *)info->pkg_info->system;
-	if (strcasecmp(val, "true") == 0)
-		*system = 1;
-	else if (strcasecmp(val, "false") == 0)
-		*system = 0;
-	else
-		*system = 0;
+	*system = _get_bool_value(info->pkg_info->system);
 
 	return PMINFO_R_OK;
 }
 
 API int pkgmgrinfo_pkginfo_is_readonly(pkgmgrinfo_pkginfo_h handle, bool *readonly)
 {
-	char *val;
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
 
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
@@ -1630,20 +1618,13 @@ API int pkgmgrinfo_pkginfo_is_readonly(pkgmgrinfo_pkginfo_h handle, bool *readon
 	if (info->pkg_info == NULL || info->pkg_info->readonly == NULL)
 		return PMINFO_R_ERROR;
 
-	val = (char *)info->pkg_info->readonly;
-	if (strcasecmp(val, "true") == 0)
-		*readonly = 1;
-	else if (strcasecmp(val, "false") == 0)
-		*readonly = 0;
-	else
-		*readonly = 0;
+	*readonly = _get_bool_value(info->pkg_info->readonly);
 
 	return PMINFO_R_OK;
 }
 
 API int pkgmgrinfo_pkginfo_is_update(pkgmgrinfo_pkginfo_h handle, bool *update)
 {
-	char *val;
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
 
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
@@ -1652,20 +1633,13 @@ API int pkgmgrinfo_pkginfo_is_update(pkgmgrinfo_pkginfo_h handle, bool *update)
 	if (info->pkg_info == NULL || info->pkg_info->update == NULL)
 		return PMINFO_R_ERROR;
 
-	val = (char *)info->pkg_info->update;
-	if (strcasecmp(val, "true") == 0)
-		*update = 1;
-	else if (strcasecmp(val, "false") == 0)
-		*update = 0;
-	else
-		*update = 1;
+	*update = _get_bool_value(info->pkg_info->update);
 
 	return PMINFO_R_OK;
 }
 
 API int pkgmgrinfo_pkginfo_is_support_disable(pkgmgrinfo_pkginfo_h handle, bool *support_disable)
 {
-	char *val;
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
 
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
@@ -1674,20 +1648,13 @@ API int pkgmgrinfo_pkginfo_is_support_disable(pkgmgrinfo_pkginfo_h handle, bool 
 	if (info->pkg_info == NULL || info->pkg_info->support_disable == NULL)
 		return PMINFO_R_ERROR;
 
-	val = (char *)info->pkg_info->support_disable;
-	if (strcasecmp(val, "true") == 0)
-		*support_disable = 1;
-	else if (strcasecmp(val, "false") == 0)
-		*support_disable = 0;
-	else
-		*support_disable = 1;
+	*support_disable = _get_bool_value(info->pkg_info->support_disable);
 
 	return PMINFO_R_OK;
 }
 
 API int pkgmgrinfo_pkginfo_is_for_all_users(pkgmgrinfo_pkginfo_h handle, bool *for_all_users)
 {
-	char *val;
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
 
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
@@ -1696,13 +1663,7 @@ API int pkgmgrinfo_pkginfo_is_for_all_users(pkgmgrinfo_pkginfo_h handle, bool *f
 	if (info->pkg_info == NULL || info->pkg_info->for_all_users == NULL)
 		return PMINFO_R_ERROR;
 
-	val = (char *)info->pkg_info->for_all_users;
-	if (strcasecmp(val, "true") == 0)
-		*for_all_users = 1;
-	else if (strcasecmp(val, "false") == 0)
-		*for_all_users = 0;
-	else
-		*for_all_users = 1;
+	*for_all_users = _get_bool_value(info->pkg_info->for_all_users);
 
 	return PMINFO_R_OK;
 }
