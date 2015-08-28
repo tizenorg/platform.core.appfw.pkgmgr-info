@@ -204,6 +204,8 @@ static int _appinfo_get_filtered_list(pkgmgrinfo_filter_x *filter, uid_t uid,
 			*list = g_list_delete_link(*list, tmp);
 	}
 
+	free(locale);
+
 	return PMINFO_R_OK;
 }
 
@@ -700,14 +702,18 @@ static int _appinfo_get_appinfo(const char *appid, uid_t uid,
 	}
 
 	ret = _appinfo_get_application(db, appid, locale, &info->app_info);
-	if (ret == PMINFO_R_OK) {
-		info->locale = strdup(locale);
-		info->package = strdup(info->app_info->package);
+	if (ret != PMINFO_R_OK) {
+		free(info);
+		free(locale);
+		sqlite3_close_v2(db);
+		return ret;
 	}
+
+	info->locale = locale;
+	info->package = strdup(info->app_info->package);
 
 	*appinfo = info;
 
-	free(locale);
 	sqlite3_close_v2(db);
 
 	return ret;
