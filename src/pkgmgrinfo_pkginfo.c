@@ -310,6 +310,8 @@ static int _pkginfo_get_filtered_list(pkgmgrinfo_filter_x *filter, uid_t uid,
 			*list = g_list_delete_link(*list, tmp);
 	}
 
+	free(locale);
+
 	return PMINFO_R_OK;
 }
 
@@ -817,12 +819,17 @@ static int _pkginfo_get_pkginfo(const char *pkgid, uid_t uid,
 	}
 
 	ret = _pkginfo_get_package(db, pkgid, locale, &info->pkg_info);
-	if (ret == PMINFO_R_OK) {
-		info->locale = strdup(locale);
-		info->uid = uid;
-		info->pkg_info->for_all_users = strdup(
-				uid != GLOBAL_USER ? "false" : "true");
+	if (ret != PMINFO_R_OK) {
+		free(info);
+		free(locale);
+		sqlite3_close_v2(db);
+		return ret;
 	}
+
+	info->locale = strdup(locale);
+	info->uid = uid;
+	info->pkg_info->for_all_users = strdup(
+			uid != GLOBAL_USER ? "false" : "true");
 
 	*pkginfo = info;
 
