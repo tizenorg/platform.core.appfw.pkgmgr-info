@@ -1659,19 +1659,24 @@ API int pkgmgrinfo_pkginfo_is_support_disable(pkgmgrinfo_pkginfo_h handle, bool 
 	return PMINFO_R_OK;
 }
 
-API int pkgmgrinfo_pkginfo_is_for_all_users(pkgmgrinfo_pkginfo_h handle, bool *for_all_users)
+API int pkgmgrinfo_pkginfo_is_global(pkgmgrinfo_pkginfo_h handle, bool *global)
 {
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
 
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
-	retvm_if(for_all_users == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
+	retvm_if(global == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 
 	if (info->pkg_info == NULL || info->pkg_info->for_all_users == NULL)
 		return PMINFO_R_ERROR;
 
-	*for_all_users = _get_bool_value(info->pkg_info->for_all_users);
+	*global = _get_bool_value(info->pkg_info->for_all_users);
 
 	return PMINFO_R_OK;
+}
+
+API int pkgmgrinfo_pkginfo_is_for_all_users(pkgmgrinfo_pkginfo_h handle, bool *for_all_users)
+{
+	return pkgmgrinfo_pkginfo_is_global(handle, for_all_users);
 }
 
 API int pkgmgrinfo_pkginfo_destroy_pkginfo(pkgmgrinfo_pkginfo_h handle)

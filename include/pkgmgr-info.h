@@ -1445,8 +1445,8 @@ static int get_pkg_support_disable(const char *pkgid)
 int pkgmgrinfo_pkginfo_is_support_disable(pkgmgrinfo_pkginfo_h handle, bool *support_disable);
 
 /**
- * @fn int pkgmgrinfo_pkginfo_is_global(uid_t uid, const char *pkgid)
- * @brief	This API gets the package 'uid' value from the view table of user database
+ * @fn int pkgmgrinfo_pkginfo_is_global(pkgmgrinfo_pkginfo_h handle, bool *global)
+ * @brief	This API gets whethere the given package is global package or user package
  *
  * @par		This API is for package-manager client application
  * @par Sync (or) Async : Synchronous API
@@ -1456,7 +1456,7 @@ int pkgmgrinfo_pkginfo_is_support_disable(pkgmgrinfo_pkginfo_h handle, bool *sup
  * @return	1 if it a global package, 0 else
  */
 
-int pkgmgrinfo_pkginfo_is_global(uid_t uid, const char *pkgid);
+int pkgmgrinfo_pkginfo_is_global(pkgmgrinfo_pkginfo_h handle, bool *global);
 
 
 /**
