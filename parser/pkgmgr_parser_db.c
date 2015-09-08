@@ -919,7 +919,7 @@ static int __insert_uiapplication_appmetadata_info(manifest_x *mfx)
 				snprintf(query, MAX_QUERY_LEN,
 					"insert into package_app_app_metadata(app_id, md_key, md_value) " \
 					"values('%s','%s', '%s')",\
-					 up->appid, md->key, md->value);
+					 up->appid, md->key, md->value ? md->value : "");
 				ret = __exec_query(query);
 				if (ret == -1) {
 					_LOGD("Package UiApp Metadata Info DB Insert Failed\n");
@@ -1245,7 +1245,7 @@ static int __insert_serviceapplication_appmetadata_info(manifest_x *mfx)
 				snprintf(query, MAX_QUERY_LEN,
 					"insert into package_app_app_metadata(app_id, md_key, md_value) " \
 					"values('%s','%s', '%s')",\
-					 sp->appid, md->key, md->value);
+					 sp->appid, md->key, md->value ? md->value : "");
 				ret = __exec_query(query);
 				if (ret == -1) {
 					_LOGD("Package ServiceApp Metadata Info DB Insert Failed\n");
