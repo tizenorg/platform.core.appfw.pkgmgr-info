@@ -52,12 +52,13 @@
 #define BUFSIZE 4096
 #define OWNER_ROOT 0
 
+#define DB_LABEL "User::Home"
 #define SET_SMACK_LABEL(x) \
 do { \
-	if (smack_setlabel((x), "System::Shared", SMACK_LABEL_ACCESS)) \
-		_LOGE("failed chsmack -a \"System::Shared\" %s", x); \
+	if (smack_setlabel((x), DB_LABEL, SMACK_LABEL_ACCESS)) \
+		_LOGE("failed chsmack -a %s %s", DB_LABEL, x); \
 	else \
-		_LOGD("chsmack -a \"System::Shared\" %s", x); \
+		_LOGD("chsmack -a %s %s", DB_LABEL, x); \
 } while (0)
 
 sqlite3 *pkgmgr_parser_db;
