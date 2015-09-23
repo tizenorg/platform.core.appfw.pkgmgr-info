@@ -1121,7 +1121,7 @@ API int pkgmgrinfo_pkginfo_get_data_size(pkgmgrinfo_pkginfo_h handle, int *size)
 
 API int pkgmgrinfo_pkginfo_get_icon(pkgmgrinfo_pkginfo_h handle, char **icon)
 {
-	char *locale;
+	const char *locale;
 	icon_x *ptr;
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
 
@@ -1132,21 +1132,18 @@ API int pkgmgrinfo_pkginfo_get_icon(pkgmgrinfo_pkginfo_h handle, char **icon)
 	retvm_if(locale == NULL, PMINFO_R_ERROR, "manifest locale is NULL");
 
 	for (ptr = info->pkg_info->icon; ptr != NULL; ptr = ptr->next) {
-		if (ptr->lang == NULL)
+		if (ptr->text == NULL || ptr->lang == NULL || strcmp(ptr->lang, locale))
 			continue;
+		*icon = (char *)ptr->text;
+		return PMINFO_R_OK;
+	}
 
-		if (strcmp(ptr->lang, locale) == 0) {
-			*icon = (char *)ptr->text;
-			if (strcasecmp(*icon, "(null)") == 0) {
-				locale = DEFAULT_LOCALE;
-				continue;
-			} else {
-				return PMINFO_R_OK;
-			}
-		} else if (strcmp(ptr->lang, DEFAULT_LOCALE) == 0) {
-			*icon = (char *)ptr->text;
-			return PMINFO_R_OK;
-		}
+	locale = DEFAULT_LOCALE;
+	for (ptr = info->pkg_info->icon; ptr != NULL; ptr = ptr->next) {
+		if (ptr->text == NULL || ptr->lang == NULL || strcmp(ptr->lang, locale))
+			continue;
+		*icon = (char *)ptr->text;
+		return PMINFO_R_OK;
 	}
 
 	return PMINFO_R_ERROR;
@@ -1154,7 +1151,7 @@ API int pkgmgrinfo_pkginfo_get_icon(pkgmgrinfo_pkginfo_h handle, char **icon)
 
 API int pkgmgrinfo_pkginfo_get_label(pkgmgrinfo_pkginfo_h handle, char **label)
 {
-	char *locale;
+	const char *locale;
 	label_x *ptr;
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
 
@@ -1165,21 +1162,18 @@ API int pkgmgrinfo_pkginfo_get_label(pkgmgrinfo_pkginfo_h handle, char **label)
 	retvm_if(locale == NULL, PMINFO_R_ERROR, "manifest locale is NULL");
 
 	for (ptr = info->pkg_info->label; ptr != NULL; ptr = ptr->next) {
-		if (ptr->lang == NULL)
+		if (ptr->text == NULL || ptr->lang == NULL || strcmp(ptr->lang, locale))
 			continue;
+		*label = (char *)ptr->text;
+		return PMINFO_R_OK;
+	}
 
-		if (strcmp(ptr->lang, locale) == 0) {
-			*label = (char *)ptr->text;
-			if (strcasecmp(*label, "(null)") == 0) {
-				locale = DEFAULT_LOCALE;
-				continue;
-			} else {
-				return PMINFO_R_OK;
-			}
-		} else if (strcmp(ptr->lang, DEFAULT_LOCALE) == 0) {
-			*label = (char *)ptr->text;
-			return PMINFO_R_OK;
-		}
+	locale = DEFAULT_LOCALE;
+	for (ptr = info->pkg_info->label; ptr != NULL; ptr = ptr->next) {
+		if (ptr->text == NULL || ptr->lang == NULL || strcmp(ptr->lang, locale))
+			continue;
+		*label = (char *)ptr->text;
+		return PMINFO_R_OK;
 	}
 
 	return PMINFO_R_ERROR;
@@ -1187,7 +1181,7 @@ API int pkgmgrinfo_pkginfo_get_label(pkgmgrinfo_pkginfo_h handle, char **label)
 
 API int pkgmgrinfo_pkginfo_get_description(pkgmgrinfo_pkginfo_h handle, char **description)
 {
-	char *locale;
+	const char *locale;
 	description_x *ptr;
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
 
@@ -1198,21 +1192,18 @@ API int pkgmgrinfo_pkginfo_get_description(pkgmgrinfo_pkginfo_h handle, char **d
 	retvm_if(locale == NULL, PMINFO_R_ERROR, "manifest locale is NULL");
 
 	for (ptr = info->pkg_info->description; ptr != NULL; ptr = ptr->next) {
-		if (ptr->lang == NULL)
+		if (ptr->text == NULL || ptr->lang == NULL || strcmp(ptr->lang, locale))
 			continue;
+		*description = (char *)ptr->text;
+		return PMINFO_R_OK;
+	}
 
-		if (strcmp(ptr->lang, locale) == 0) {
-			*description = (char *)ptr->text;
-			if (strcasecmp(*description, PKGMGR_PARSER_EMPTY_STR) == 0) {
-				locale = DEFAULT_LOCALE;
-				continue;
-			} else {
-				return PMINFO_R_OK;
-			}
-		} else if (strcmp(ptr->lang, DEFAULT_LOCALE) == 0) {
-			*description = (char *)ptr->text;
-			return PMINFO_R_OK;
-		}
+	locale = DEFAULT_LOCALE;
+	for (ptr = info->pkg_info->description; ptr != NULL; ptr = ptr->next) {
+		if (ptr->text == NULL || ptr->lang == NULL || strcmp(ptr->lang, locale))
+			continue;
+		*description = (char *)ptr->text;
+		return PMINFO_R_OK;
 	}
 
 	return PMINFO_R_ERROR;
