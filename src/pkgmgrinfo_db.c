@@ -406,8 +406,11 @@ void _save_column_str(sqlite3_stmt *stmt, int idx, const char **str)
 	const char *val;
 
 	val = (const char *)sqlite3_column_text(stmt, idx);
-	if (val)
-		*str = strdup(val);
+	if (val) {
+		/* get string when the result is not null */
+		if (strcasecmp(val, "(null)") && strcmp(val, ""))
+			*str = strdup(val);
+	}
 }
 
 API int pkgmgrinfo_pkginfo_set_state_enabled(const char *pkgid, bool enabled)
