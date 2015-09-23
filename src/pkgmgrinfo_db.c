@@ -406,7 +406,8 @@ void _save_column_str(sqlite3_stmt *stmt, int idx, const char **str)
 	const char *val;
 
 	val = (const char *)sqlite3_column_text(stmt, idx);
-	if (val)
+	/* get string when the result is not null */
+	if (val && (strcasecmp(val, "(null)") != 0) && (strcmp(val, "") != 0))
 		*str = strdup(val);
 }
 
