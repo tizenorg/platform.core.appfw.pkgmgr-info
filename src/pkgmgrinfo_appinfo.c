@@ -939,7 +939,7 @@ API int pkgmgrinfo_appinfo_get_exec(pkgmgrinfo_appinfo_h handle, char **exec)
 
 API int pkgmgrinfo_appinfo_get_icon(pkgmgrinfo_appinfo_h handle, char **icon)
 {
-        char *locale;
+        const char *locale;
         icon_x *ptr;
         icon_x *start;
         pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
@@ -952,21 +952,18 @@ API int pkgmgrinfo_appinfo_get_icon(pkgmgrinfo_appinfo_h handle, char **icon)
 
 	start = info->app_info->icon;
 	for (ptr = start; ptr != NULL; ptr = ptr->next) {
-		if (ptr->lang == NULL)
+		if (ptr->text == NULL || ptr->lang == NULL || strcmp(ptr->lang, locale))
 			continue;
+		*icon = (char *)ptr->text;
+		return PMINFO_R_OK;
+	}
 
-		if (strcmp(ptr->lang, locale) == 0) {
-			*icon = (char *)ptr->text;
-			if (strcasecmp(*icon, "(null)") == 0) {
-				locale = DEFAULT_LOCALE;
-				continue;
-			} else {
-				return PMINFO_R_OK;
-			}
-		} else if (strcmp(ptr->lang, DEFAULT_LOCALE) == 0) {
-			*icon = (char *)ptr->text;
-			return PMINFO_R_OK;
-		}
+	locale = DEFAULT_LOCALE;
+	for (ptr = start; ptr != NULL; ptr = ptr->next) {
+		if (ptr->text == NULL || ptr->lang == NULL || strcmp(ptr->lang, locale))
+			continue;
+		*icon = (char *)ptr->text;
+		return PMINFO_R_OK;
 	}
 
 	return PMINFO_R_ERROR;
@@ -975,7 +972,7 @@ API int pkgmgrinfo_appinfo_get_icon(pkgmgrinfo_appinfo_h handle, char **icon)
 
 API int pkgmgrinfo_appinfo_get_label(pkgmgrinfo_appinfo_h handle, char **label)
 {
-	char *locale;
+	const char *locale;
 	label_x *ptr;
 	label_x *start;
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
@@ -988,21 +985,18 @@ API int pkgmgrinfo_appinfo_get_label(pkgmgrinfo_appinfo_h handle, char **label)
 
 	start = info->app_info->label;
 	for (ptr = start; ptr != NULL; ptr = ptr->next) {
-		if (ptr->lang == NULL)
+		if (ptr->text == NULL || ptr->lang == NULL || strcmp(ptr->lang, locale))
 			continue;
+		*label = (char *)ptr->text;
+		return PMINFO_R_OK;
+	}
 
-		if (strcmp(ptr->lang, locale) == 0) {
-			*label = (char *)ptr->text;
-			if (strcasecmp(*label, "(null)") == 0) {
-				locale = DEFAULT_LOCALE;
-				continue;
-			} else {
-				return PMINFO_R_OK;
-			}
-		} else if (strcmp(ptr->lang, DEFAULT_LOCALE) == 0) {
-			*label = (char *)ptr->text;
-			return PMINFO_R_OK;
-		}
+	locale = DEFAULT_LOCALE;
+	for (ptr = start; ptr != NULL; ptr = ptr->next) {
+		if (ptr->text == NULL || ptr->lang == NULL || strcmp(ptr->lang, locale))
+			continue;
+		*label = (char *)ptr->text;
+		return PMINFO_R_OK;
 	}
 
 	return PMINFO_R_ERROR;
