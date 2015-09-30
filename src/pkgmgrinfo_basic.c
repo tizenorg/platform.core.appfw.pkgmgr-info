@@ -513,395 +513,6 @@ static void __ps_free_license(license_x *license)
 	license = NULL;
 }
 
-static void __ps_free_uiapplication(uiapplication_x *uiapplication)
-{
-	if (uiapplication == NULL)
-		return;
-	if (uiapplication->exec) {
-		free((void *)uiapplication->exec);
-		uiapplication->exec = NULL;
-	}
-	if (uiapplication->appid) {
-		free((void *)uiapplication->appid);
-		uiapplication->appid = NULL;
-	}
-	if (uiapplication->nodisplay) {
-		free((void *)uiapplication->nodisplay);
-		uiapplication->nodisplay = NULL;
-	}
-	if (uiapplication->multiple) {
-		free((void *)uiapplication->multiple);
-		uiapplication->multiple = NULL;
-	}
-	if (uiapplication->type) {
-		free((void *)uiapplication->type);
-		uiapplication->type = NULL;
-	}
-	if (uiapplication->categories) {
-		free((void *)uiapplication->categories);
-		uiapplication->categories = NULL;
-	}
-	if (uiapplication->extraid) {
-		free((void *)uiapplication->extraid);
-		uiapplication->extraid = NULL;
-	}
-	if (uiapplication->taskmanage) {
-		free((void *)uiapplication->taskmanage);
-		uiapplication->taskmanage = NULL;
-	}
-	if (uiapplication->enabled) {
-		free((void *)uiapplication->enabled);
-		uiapplication->enabled = NULL;
-	}
-	if (uiapplication->hwacceleration) {
-		free((void *)uiapplication->hwacceleration);
-		uiapplication->hwacceleration = NULL;
-	}
-	if (uiapplication->screenreader) {
-		free((void *)uiapplication->screenreader);
-		uiapplication->screenreader = NULL;
-	}
-	if (uiapplication->mainapp) {
-		free((void *)uiapplication->mainapp);
-		uiapplication->mainapp = NULL;
-	}
-	if (uiapplication->recentimage) {
-		free((void *)uiapplication->recentimage);
-		uiapplication->recentimage = NULL;
-	}
-	if (uiapplication->package) {
-		free((void *)uiapplication->package);
-		uiapplication->package = NULL;
-	}
-	if (uiapplication->launchcondition) {
-		free((void *)uiapplication->launchcondition);
-		uiapplication->launchcondition = NULL;
-	}
-	/*Free Label*/
-	if (uiapplication->label) {
-		label_x *label = uiapplication->label;
-		label_x *tmp = NULL;
-		while(label != NULL) {
-			tmp = label->next;
-			__ps_free_label(label);
-			label = tmp;
-		}
-	}
-	/*Free Icon*/
-	if (uiapplication->icon) {
-		icon_x *icon = uiapplication->icon;
-		icon_x *tmp = NULL;
-		while(icon != NULL) {
-			tmp = icon->next;
-			__ps_free_icon(icon);
-			icon = tmp;
-		}
-	}
-	/*Free image*/
-	if (uiapplication->image) {
-		image_x *image = uiapplication->image;
-		image_x *tmp = NULL;
-		while(image != NULL) {
-			tmp = image->next;
-			__ps_free_image(image);
-			image = tmp;
-		}
-	}
-	/*Free AppControl*/
-	if (uiapplication->appcontrol) {
-		appcontrol_x *appcontrol = uiapplication->appcontrol;
-		appcontrol_x *tmp = NULL;
-		while(appcontrol != NULL) {
-			tmp = appcontrol->next;
-			__ps_free_appcontrol(appcontrol);
-			appcontrol = tmp;
-		}
-	}
-	/*Free LaunchConditions*/
-	if (uiapplication->launchconditions) {
-		launchconditions_x *launchconditions = uiapplication->launchconditions;
-		launchconditions_x *tmp = NULL;
-		while(launchconditions != NULL) {
-			tmp = launchconditions->next;
-			__ps_free_launchconditions(launchconditions);
-			launchconditions = tmp;
-		}
-	}
-	/*Free Notification*/
-	if (uiapplication->notification) {
-		notification_x *notification = uiapplication->notification;
-		notification_x *tmp = NULL;
-		while(notification != NULL) {
-			tmp = notification->next;
-			__ps_free_notification(notification);
-			notification = tmp;
-		}
-	}
-	/*Free DataShare*/
-	if (uiapplication->datashare) {
-		datashare_x *datashare = uiapplication->datashare;
-		datashare_x *tmp = NULL;
-		while(datashare != NULL) {
-			tmp = datashare->next;
-			__ps_free_datashare(datashare);
-			datashare = tmp;
-		}
-	}
-	/*Free AppSvc*/
-	if (uiapplication->appsvc) {
-		appsvc_x *appsvc = uiapplication->appsvc;
-		appsvc_x *tmp = NULL;
-		while(appsvc != NULL) {
-			tmp = appsvc->next;
-			__ps_free_appsvc(appsvc);
-			appsvc = tmp;
-		}
-	}
-	/*Free Category*/
-	if (uiapplication->category) {
-		category_x *category = uiapplication->category;
-		category_x *tmp = NULL;
-		while(category != NULL) {
-			tmp = category->next;
-			__ps_free_category(category);
-			category = tmp;
-		}
-	}
-	/*Free Metadata*/
-	if (uiapplication->metadata) {
-		metadata_x *metadata = uiapplication->metadata;
-		metadata_x *tmp = NULL;
-		while(metadata != NULL) {
-			tmp = metadata->next;
-			__ps_free_metadata(metadata);
-			metadata = tmp;
-		}
-	}
-	/*Free permission*/
-	if (uiapplication->permission) {
-		permission_x *permission = uiapplication->permission;
-		permission_x *tmp = NULL;
-		while(permission != NULL) {
-			tmp = permission->next;
-			__ps_free_permission(permission);
-			permission = tmp;
-		}
-	}
-	/*Free DataControl*/
-	if (uiapplication->datacontrol) {
-		datacontrol_x *datacontrol = uiapplication->datacontrol;
-		datacontrol_x *tmp = NULL;
-		while(datacontrol != NULL) {
-			tmp = datacontrol->next;
-			__ps_free_datacontrol(datacontrol);
-			datacontrol = tmp;
-		}
-	}
-	/* _PRODUCT_LAUNCHING_ENHANCED_ START */
-	if (uiapplication->indicatordisplay) {
-		free((void *)uiapplication->indicatordisplay);
-		uiapplication->indicatordisplay = NULL;
-	}
-	if (uiapplication->portraitimg) {
-		free((void *)uiapplication->portraitimg);
-		uiapplication->portraitimg = NULL;
-	}
-	if (uiapplication->landscapeimg) {
-		free((void *)uiapplication->landscapeimg);
-		uiapplication->landscapeimg = NULL;
-	}
-	/* _PRODUCT_LAUNCHING_ENHANCED_ END */
-	if (uiapplication->guestmode_visibility) {
-		free((void *)uiapplication->guestmode_visibility);
-		uiapplication->guestmode_visibility = NULL;
-	}
-	if (uiapplication->app_component) {
-		free((void *)uiapplication->app_component);
-		uiapplication->app_component = NULL;
-	}
-	if (uiapplication->permission_type) {
-		free((void *)uiapplication->permission_type);
-		uiapplication->permission_type = NULL;
-	}
-	if (uiapplication->component_type) {
-		free((void *)uiapplication->component_type);
-		uiapplication->component_type = NULL;
-	}
-	if (uiapplication->preload) {
-		free((void *)uiapplication->preload);
-		uiapplication->preload = NULL;
-	}
-	if (uiapplication->submode) {
-		free((void *)uiapplication->submode);
-		uiapplication->submode = NULL;
-	}
-	if (uiapplication->submode_mainid) {
-		free((void *)uiapplication->submode_mainid);
-		uiapplication->submode_mainid = NULL;
-	}
-	if (uiapplication->ui_gadget) {
-		free((void *)uiapplication->ui_gadget);
-		uiapplication->ui_gadget = NULL;
-	}
-	if (uiapplication->support_disable) {
-		free((void *)uiapplication->support_disable);
-		uiapplication->support_disable = NULL;
-	}
-
-	free((void*)uiapplication);
-	uiapplication = NULL;
-}
-
-static void __ps_free_serviceapplication(serviceapplication_x *serviceapplication)
-{
-	if (serviceapplication == NULL)
-		return;
-	if (serviceapplication->exec) {
-		free((void *)serviceapplication->exec);
-		serviceapplication->exec = NULL;
-	}
-	if (serviceapplication->appid) {
-		free((void *)serviceapplication->appid);
-		serviceapplication->appid = NULL;
-	}
-	if (serviceapplication->onboot) {
-		free((void *)serviceapplication->onboot);
-		serviceapplication->onboot = NULL;
-	}
-	if (serviceapplication->autorestart) {
-		free((void *)serviceapplication->autorestart);
-		serviceapplication->autorestart = NULL;
-	}
-	if (serviceapplication->type) {
-		free((void *)serviceapplication->type);
-		serviceapplication->type = NULL;
-	}
-	if (serviceapplication->enabled) {
-		free((void *)serviceapplication->enabled);
-		serviceapplication->enabled = NULL;
-	}
-	if (serviceapplication->package) {
-		free((void *)serviceapplication->package);
-		serviceapplication->package = NULL;
-	}
-	if (serviceapplication->permission_type) {
-		free((void *)serviceapplication->permission_type);
-		serviceapplication->permission_type = NULL;
-	}
-	/*Free Label*/
-	if (serviceapplication->label) {
-		label_x *label = serviceapplication->label;
-		label_x *tmp = NULL;
-		while(label != NULL) {
-			tmp = label->next;
-			__ps_free_label(label);
-			label = tmp;
-		}
-	}
-	/*Free Icon*/
-	if (serviceapplication->icon) {
-		icon_x *icon = serviceapplication->icon;
-		icon_x *tmp = NULL;
-		while(icon != NULL) {
-			tmp = icon->next;
-			__ps_free_icon(icon);
-			icon = tmp;
-		}
-	}
-	/*Free AppControl*/
-	if (serviceapplication->appcontrol) {
-		appcontrol_x *appcontrol = serviceapplication->appcontrol;
-		appcontrol_x *tmp = NULL;
-		while(appcontrol != NULL) {
-			tmp = appcontrol->next;
-			__ps_free_appcontrol(appcontrol);
-			appcontrol = tmp;
-		}
-	}
-	/*Free DataControl*/
-	if (serviceapplication->datacontrol) {
-		datacontrol_x *datacontrol = serviceapplication->datacontrol;
-		datacontrol_x *tmp = NULL;
-		while(datacontrol != NULL) {
-			tmp = datacontrol->next;
-			__ps_free_datacontrol(datacontrol);
-			datacontrol = tmp;
-		}
-	}
-	/*Free LaunchConditions*/
-	if (serviceapplication->launchconditions) {
-		launchconditions_x *launchconditions = serviceapplication->launchconditions;
-		launchconditions_x *tmp = NULL;
-		while(launchconditions != NULL) {
-			tmp = launchconditions->next;
-			__ps_free_launchconditions(launchconditions);
-			launchconditions = tmp;
-		}
-	}
-	/*Free Notification*/
-	if (serviceapplication->notification) {
-		notification_x *notification = serviceapplication->notification;
-		notification_x *tmp = NULL;
-		while(notification != NULL) {
-			tmp = notification->next;
-			__ps_free_notification(notification);
-			notification = tmp;
-		}
-	}
-	/*Free DataShare*/
-	if (serviceapplication->datashare) {
-		datashare_x *datashare = serviceapplication->datashare;
-		datashare_x *tmp = NULL;
-		while(datashare != NULL) {
-			tmp = datashare->next;
-			__ps_free_datashare(datashare);
-			datashare = tmp;
-		}
-	}
-	/*Free AppSvc*/
-	if (serviceapplication->appsvc) {
-		appsvc_x *appsvc = serviceapplication->appsvc;
-		appsvc_x *tmp = NULL;
-		while(appsvc != NULL) {
-			tmp = appsvc->next;
-			__ps_free_appsvc(appsvc);
-			appsvc = tmp;
-		}
-	}
-	/*Free Category*/
-	if (serviceapplication->category) {
-		category_x *category = serviceapplication->category;
-		category_x *tmp = NULL;
-		while(category != NULL) {
-			tmp = category->next;
-			__ps_free_category(category);
-			category = tmp;
-		}
-	}
-	/*Free Metadata*/
-	if (serviceapplication->metadata) {
-		metadata_x *metadata = serviceapplication->metadata;
-		metadata_x *tmp = NULL;
-		while(metadata != NULL) {
-			tmp = metadata->next;
-			__ps_free_metadata(metadata);
-			metadata = tmp;
-		}
-	}
-	/*Free permission*/
-	if (serviceapplication->permission) {
-		permission_x *permission = serviceapplication->permission;
-		permission_x *tmp = NULL;
-		while(permission != NULL) {
-			tmp = permission->next;
-			__ps_free_permission(permission);
-			permission = tmp;
-		}
-	}
-	free((void*)serviceapplication);
-	serviceapplication = NULL;
-}
-
 static void __ps_free_font(font_x *font)
 {
 	if (font == NULL)
@@ -966,7 +577,7 @@ static void __ps_free_ime(ime_x *ime)
 	ime = NULL;
 }
 
-API void pkgmgrinfo_basic_free_application(application_x *application)
+static void __ps_free_application(application_x *application)
 {
 	if (application == NULL)
 		return;
@@ -991,6 +602,10 @@ API void pkgmgrinfo_basic_free_application(application_x *application)
 		free((void *)application->taskmanage);
 	if (application->enabled)
 		free((void *)application->enabled);
+	if (application->categories)
+		free((void *)application->categories);
+	if (application->extraid)
+		free((void *)application->extraid);
 	if (application->hwacceleration)
 		free((void *)application->hwacceleration);
 	if (application->screenreader)
@@ -1151,6 +766,11 @@ API void pkgmgrinfo_basic_free_application(application_x *application)
 	free((void *)application);
 }
 
+API void pkgmgrinfo_basic_free_application(application_x *application)
+{
+	__ps_free_application(application);
+}
+
 API void pkgmgrinfo_basic_free_package(package_x *package)
 {
 	if (package == NULL)
@@ -1308,24 +928,14 @@ API void pkgmgrinfo_basic_free_package(package_x *package)
 			privileges = tmp;
 		}
 	}
-	/*Free UiApplication*/
-	if (package->uiapplication) {
-		uiapplication_x *uiapplication = package->uiapplication;
-		uiapplication_x *tmp = NULL;
-		while(uiapplication != NULL) {
-			tmp = uiapplication->next;
-			__ps_free_uiapplication(uiapplication);
-			uiapplication = tmp;
-		}
-	}
-	/*Free ServiceApplication*/
-	if (package->serviceapplication) {
-		serviceapplication_x *serviceapplication = package->serviceapplication;
-		serviceapplication_x *tmp = NULL;
-		while(serviceapplication != NULL) {
-			tmp = serviceapplication->next;
-			__ps_free_serviceapplication(serviceapplication);
-			serviceapplication = tmp;
+	/*Free Application*/
+	if (package->application) {
+		application_x *application = package->application;
+		application_x *tmp = NULL;
+		while(application != NULL) {
+			tmp = application->next;
+			__ps_free_application(application);
+			application = tmp;
 		}
 	}
 	/*Free Daemon*/

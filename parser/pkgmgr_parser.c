@@ -119,8 +119,7 @@ static int __ps_process_description(xmlTextReaderPtr reader, description_x *desc
 static int __ps_process_license(xmlTextReaderPtr reader, license_x *license);
 static int __ps_process_appcontrol(xmlTextReaderPtr reader, appcontrol_x *appcontrol);
 static int __ps_process_datacontrol(xmlTextReaderPtr reader, datacontrol_x *datacontrol);
-static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *uiapplication, uid_t uid);
-static int __ps_process_serviceapplication(xmlTextReaderPtr reader, serviceapplication_x *serviceapplication, uid_t uid);
+static int __ps_process_application(xmlTextReaderPtr reader, application_x *application, int type, uid_t uid);
 static int __ps_process_font(xmlTextReaderPtr reader, font_x *font);
 static int __ps_process_theme(xmlTextReaderPtr reader, theme_x *theme);
 static int __ps_process_daemon(xmlTextReaderPtr reader, daemon_x *daemon);
@@ -754,7 +753,7 @@ static int __run_metadata_parser_prestep (manifest_x *mfx, char *md_key, ACTION_
 	int ret = -1;
 	int tag_exist = 0;
 	char buffer[1024] = { 0, };
-	uiapplication_x *up = mfx->uiapplication;
+	application_x *app = mfx->application;
 	metadata_x *md = NULL;
 	char *md_tag = NULL;
 
@@ -767,8 +766,8 @@ static int __run_metadata_parser_prestep (manifest_x *mfx, char *md_key, ACTION_
 		return -1;
 	}
 
-	while(up != NULL) {
-		md = up->metadata;
+	while (app != NULL) {
+		md = app->metadata;
 		while (md != NULL) {
 			//get glist of metadata key and value combination
 			memset(buffer, 0x00, 1024);
@@ -803,7 +802,7 @@ static int __run_metadata_parser_prestep (manifest_x *mfx, char *md_key, ACTION_
 
 		//send glist to parser when tags for metadata plugin parser exist.
 		if (tag_exist) {
-			ret = __ps_run_metadata_parser(md_list, md_tag, action, mfx->package, up->appid);
+			ret = __ps_run_metadata_parser(md_list, md_tag, action, mfx->package, app->appid);
 			if (ret < 0){
 				_LOGD("metadata_parser failed[%d] for tag[%s]\n", ret, md_tag);
 			}
@@ -814,7 +813,7 @@ static int __run_metadata_parser_prestep (manifest_x *mfx, char *md_key, ACTION_
 		__metadata_parser_clear_dir_list(md_list);
 		md_list = NULL;
 		tag_exist = 0;
-		up = up->next;
+		app = app->next;
 	}
 
 	return 0;
@@ -832,7 +831,7 @@ static int __run_category_parser_prestep (manifest_x *mfx, char *category_key, A
 	int ret = -1;
 	int tag_exist = 0;
 	char buffer[1024] = { 0, };
-	uiapplication_x *up = mfx->uiapplication;
+	application_x *app = mfx->application;
 	category_x *category = NULL;
 	char *category_tag = NULL;
 
@@ -845,8 +844,8 @@ static int __run_category_parser_prestep (manifest_x *mfx, char *category_key, A
 		return -1;
 	}
 
-	while(up != NULL) {
-		category = up->category;
+	while (app != NULL) {
+		category = app->category;
 		while (category != NULL) {
 			//get glist of category key and value combination
 			memset(buffer, 0x00, 1024);
@@ -873,7 +872,7 @@ static int __run_category_parser_prestep (manifest_x *mfx, char *category_key, A
 
 		//send glist to parser when tags for metadata plugin parser exist.
 		if (tag_exist) {
-			ret = __ps_run_category_parser(category_list, category_tag, action, mfx->package, up->appid);
+			ret = __ps_run_category_parser(category_list, category_tag, action, mfx->package, app->appid);
 			if (ret < 0)
 				_LOGD("category_parser failed[%d] for tag[%s]\n", ret, category_tag);
 			else
@@ -882,7 +881,7 @@ static int __run_category_parser_prestep (manifest_x *mfx, char *category_key, A
 		__category_parser_clear_dir_list(category_list);
 		category_list = NULL;
 		tag_exist = 0;
-		up = up->next;
+		app = app->next;
 	}
 
 	return 0;
@@ -1673,7 +1672,7 @@ static int __ps_process_datacontrol(xmlTextReaderPtr reader, datacontrol_x *data
 	return 0;
 }
 
-static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *uiapplication, uid_t uid)
+static int __ps_process_application(xmlTextReaderPtr reader, application_x *application, int type, uid_t uid)
 {
 	const xmlChar *node;
 	int ret = -1;
@@ -1691,35 +1690,37 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 	permission_x *tmp11 = NULL;
 	datacontrol_x *tmp12 = NULL;
 
-	__save_xml_attribute(reader, "appid", &uiapplication->appid, NULL);
-	retvm_if(uiapplication->appid == NULL, PM_PARSER_R_ERROR, "appid cant be NULL, appid field is mandatory\n");
-	__save_xml_attribute(reader, "exec", &uiapplication->exec, NULL);
-	__save_xml_attribute(reader, "nodisplay", &uiapplication->nodisplay, "false");
-	__save_xml_attribute(reader, "multiple", &uiapplication->multiple, "false");
-	__save_xml_attribute(reader, "type", &uiapplication->type, NULL);
-	__save_xml_attribute(reader, "categories", &uiapplication->categories, NULL);
-	__save_xml_attribute(reader, "extraid", &uiapplication->extraid, NULL);
-	__save_xml_attribute(reader, "taskmanage", &uiapplication->taskmanage, "true");
-	__save_xml_attribute(reader, "enabled", &uiapplication->enabled, "true");
-	__save_xml_attribute(reader, "hw-acceleration", &uiapplication->hwacceleration, "default");
-	__save_xml_attribute(reader, "screen-reader", &uiapplication->screenreader, "use-system-setting");
-	__save_xml_attribute(reader, "mainapp", &uiapplication->mainapp, "false");
-	__save_xml_attribute(reader, "recentimage", &uiapplication->recentimage, "false");
-	__save_xml_attribute(reader, "launchcondition", &uiapplication->launchcondition, "false");
-	__save_xml_attribute(reader, "indicatordisplay", &uiapplication->indicatordisplay, "true");
-	__save_xml_attribute(reader, "portrait-effectimage", &uiapplication->portraitimg, NULL);
-	__save_xml_attribute(reader, "landscape-effectimage", &uiapplication->landscapeimg, NULL);
-	__save_xml_attribute(reader, "guestmode-visibility", &uiapplication->guestmode_visibility, "true");
-	__save_xml_attribute(reader, "permission-type", &uiapplication->permission_type, "normal");
-	__save_xml_attribute(reader, "component-type", &uiapplication->component_type, "uiapp");
+	__save_xml_attribute(reader, "appid", &application->appid, NULL);
+	retvm_if(application->appid == NULL, PM_PARSER_R_ERROR, "appid cant be NULL, appid field is mandatory\n");
+	__save_xml_attribute(reader, "exec", &application->exec, NULL);
+	__save_xml_attribute(reader, "nodisplay", &application->nodisplay, "false");
+	__save_xml_attribute(reader, "multiple", &application->multiple, "false");
+	__save_xml_attribute(reader, "type", &application->type, NULL);
+	__save_xml_attribute(reader, "categories", &application->categories, NULL);
+	__save_xml_attribute(reader, "extraid", &application->extraid, NULL);
+	__save_xml_attribute(reader, "taskmanage", &application->taskmanage, "true");
+	__save_xml_attribute(reader, "enabled", &application->enabled, "true");
+	__save_xml_attribute(reader, "hw-acceleration", &application->hwacceleration, "default");
+	__save_xml_attribute(reader, "screen-reader", &application->screenreader, "use-system-setting");
+	__save_xml_attribute(reader, "mainapp", &application->mainapp, "false");
+	__save_xml_attribute(reader, "recentimage", &application->recentimage, "false");
+	__save_xml_attribute(reader, "launchcondition", &application->launchcondition, "false");
+	__save_xml_attribute(reader, "indicatordisplay", &application->indicatordisplay, "true");
+	__save_xml_attribute(reader, "portrait-effectimage", &application->portraitimg, NULL);
+	__save_xml_attribute(reader, "landscape-effectimage", &application->landscapeimg, NULL);
+	__save_xml_attribute(reader, "guestmode-visibility", &application->guestmode_visibility, "true");
+	__save_xml_attribute(reader, "permission-type", &application->permission_type, "normal");
+	__save_xml_attribute(reader, "component-type", &application->component_type, type == PMINFO_UI_APP ? "uiapp" : "svcapp");
 	/*component_type has "svcapp" or "uiapp", if it is not, parsing manifest is fail*/
-	retvm_if(((strcmp(uiapplication->component_type, "svcapp") != 0) && (strcmp(uiapplication->component_type, "uiapp") != 0) && (strcmp(uiapplication->component_type, "widgetapp") != 0)), PM_PARSER_R_ERROR, "invalid component_type[%s]\n", uiapplication->component_type);
-	__save_xml_attribute(reader, "submode", &uiapplication->submode, "false");
-	__save_xml_attribute(reader, "submode-mainid", &uiapplication->submode_mainid, NULL);
-	__save_xml_attribute(reader, "launch_mode", &uiapplication->launch_mode, "caller");
-	__save_xml_attribute(reader, "ui-gadget", &uiapplication->ui_gadget, "false");
+	retvm_if(((strcmp(application->component_type, "svcapp") != 0) && (strcmp(application->component_type, "uiapp") != 0) && (strcmp(application->component_type, "widgetapp") != 0)), PM_PARSER_R_ERROR, "invalid component_type[%s]", application->component_type);
+	__save_xml_attribute(reader, "submode", &application->submode, "false");
+	__save_xml_attribute(reader, "submode-mainid", &application->submode_mainid, NULL);
+	__save_xml_attribute(reader, "launch_mode", &application->launch_mode, "caller");
+	__save_xml_attribute(reader, "ui-gadget", &application->ui_gadget, "false");
+	__save_xml_attribute(reader, "auto-restart", &application->autorestart, "false");
+	__save_xml_attribute(reader, "on-boot", &application->onboot, "false");
 
-	uiapplication->package= strdup(package);
+	application->package= strdup(package);
 
 	depth = xmlTextReaderDepth(reader);
 	while ((ret = __next_child_element(reader, depth))) {
@@ -1735,7 +1736,7 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 				return -1;
 			}
 			memset(label, '\0', sizeof(label_x));
-			LISTADD(uiapplication->label, label);
+			LISTADD(application->label, label);
 			ret = __ps_process_label(reader, label);
 		} else if (!strcmp(ASCII(node), "icon")) {
 			icon_x *icon = malloc(sizeof(icon_x));
@@ -1744,7 +1745,7 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 				return -1;
 			}
 			memset(icon, '\0', sizeof(icon_x));
-			LISTADD(uiapplication->icon, icon);
+			LISTADD(application->icon, icon);
 			ret = __ps_process_icon(reader, icon, uid);
 		} else if (!strcmp(ASCII(node), "image")) {
 			image_x *image = malloc(sizeof(image_x));
@@ -1753,7 +1754,7 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 				return -1;
 			}
 			memset(image, '\0', sizeof(image_x));
-			LISTADD(uiapplication->image, image);
+			LISTADD(application->image, image);
 			ret = __ps_process_image(reader, image);
 		} else if (!strcmp(ASCII(node), "category")) {
 			category_x *category = malloc(sizeof(category_x));
@@ -1762,7 +1763,7 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 				return -1;
 			}
 			memset(category, '\0', sizeof(category_x));
-			LISTADD(uiapplication->category, category);
+			LISTADD(application->category, category);
 			ret = __ps_process_category(reader, category);
 		} else if (!strcmp(ASCII(node), "metadata")) {
 			metadata_x *metadata = malloc(sizeof(metadata_x));
@@ -1771,7 +1772,7 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 				return -1;
 			}
 			memset(metadata, '\0', sizeof(metadata_x));
-			LISTADD(uiapplication->metadata, metadata);
+			LISTADD(application->metadata, metadata);
 			ret = __ps_process_metadata(reader, metadata);
 		} else if (!strcmp(ASCII(node), "permission")) {
 			permission_x *permission = malloc(sizeof(permission_x));
@@ -1780,7 +1781,7 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 				return -1;
 			}
 			memset(permission, '\0', sizeof(permission_x));
-			LISTADD(uiapplication->permission, permission);
+			LISTADD(application->permission, permission);
 			ret = __ps_process_permission(reader, permission);
 		} else if (!strcmp(ASCII(node), "app-control")) {
 			appcontrol_x *appcontrol = malloc(sizeof(appcontrol_x));
@@ -1789,7 +1790,7 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 				return -1;
 			}
 			memset(appcontrol, '\0', sizeof(appcontrol_x));
-			LISTADD(uiapplication->appcontrol, appcontrol);
+			LISTADD(application->appcontrol, appcontrol);
 			ret = __ps_process_appcontrol(reader, appcontrol);
 		} else if (!strcmp(ASCII(node), "application-service")) {
 			appsvc_x *appsvc = malloc(sizeof(appsvc_x));
@@ -1798,7 +1799,7 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 				return -1;
 			}
 			memset(appsvc, '\0', sizeof(appsvc_x));
-			LISTADD(uiapplication->appsvc, appsvc);
+			LISTADD(application->appsvc, appsvc);
 			ret = __ps_process_appsvc(reader, appsvc);
 		} else if (!strcmp(ASCII(node), "data-share")) {
 			datashare_x *datashare = malloc(sizeof(datashare_x));
@@ -1807,7 +1808,7 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 				return -1;
 			}
 			memset(datashare, '\0', sizeof(datashare_x));
-			LISTADD(uiapplication->datashare, datashare);
+			LISTADD(application->datashare, datashare);
 			ret = __ps_process_datashare(reader, datashare);
 		} else if (!strcmp(ASCII(node), "launch-conditions")) {
 			launchconditions_x *launchconditions = malloc(sizeof(launchconditions_x));
@@ -1816,7 +1817,7 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 				return -1;
 			}
 			memset(launchconditions, '\0', sizeof(launchconditions_x));
-			LISTADD(uiapplication->launchconditions, launchconditions);
+			LISTADD(application->launchconditions, launchconditions);
 			ret = __ps_process_launchconditions(reader, launchconditions);
 		} else if (!strcmp(ASCII(node), "notification")) {
 			notification_x *notification = malloc(sizeof(notification_x));
@@ -1825,7 +1826,7 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 				return -1;
 			}
 			memset(notification, '\0', sizeof(notification_x));
-			LISTADD(uiapplication->notification, notification);
+			LISTADD(application->notification, notification);
 			ret = __ps_process_notification(reader, notification);
 		} else if (!strcmp(ASCII(node), "datacontrol")) {
 			datacontrol_x *datacontrol = malloc(sizeof(datacontrol_x));
@@ -1834,254 +1835,63 @@ static int __ps_process_uiapplication(xmlTextReaderPtr reader, uiapplication_x *
 				return -1;
 			}
 			memset(datacontrol, '\0', sizeof(datacontrol_x));
-			LISTADD(uiapplication->datacontrol, datacontrol);
+			LISTADD(application->datacontrol, datacontrol);
 			ret = __ps_process_datacontrol(reader, datacontrol);
 		} else
 			return -1;
 		if (ret < 0) {
-			_LOGD("Processing uiapplication failed\n");
+			_LOGD("Processing application failed\n");
 			return ret;
 		}
 	}
 
-	if (uiapplication->label) {
-		LISTHEAD(uiapplication->label, tmp1);
-		uiapplication->label = tmp1;
+	if (application->label) {
+		LISTHEAD(application->label, tmp1);
+		application->label = tmp1;
 	}
-	if (uiapplication->icon) {
-		LISTHEAD(uiapplication->icon, tmp2);
-		uiapplication->icon = tmp2;
+	if (application->icon) {
+		LISTHEAD(application->icon, tmp2);
+		application->icon = tmp2;
 	}
-	if (uiapplication->appsvc) {
-		LISTHEAD(uiapplication->appsvc, tmp3);
-		uiapplication->appsvc = tmp3;
+	if (application->appsvc) {
+		LISTHEAD(application->appsvc, tmp3);
+		application->appsvc = tmp3;
 	}
-	if (uiapplication->appcontrol) {
-		LISTHEAD(uiapplication->appcontrol, tmp4);
-		uiapplication->appcontrol = tmp4;
+	if (application->appcontrol) {
+		LISTHEAD(application->appcontrol, tmp4);
+		application->appcontrol = tmp4;
 	}
-	if (uiapplication->launchconditions) {
-		LISTHEAD(uiapplication->launchconditions, tmp5);
-		uiapplication->launchconditions = tmp5;
+	if (application->launchconditions) {
+		LISTHEAD(application->launchconditions, tmp5);
+		application->launchconditions = tmp5;
 	}
-	if (uiapplication->notification) {
-		LISTHEAD(uiapplication->notification, tmp6);
-		uiapplication->notification = tmp6;
+	if (application->notification) {
+		LISTHEAD(application->notification, tmp6);
+		application->notification = tmp6;
 	}
-	if (uiapplication->datashare) {
-		LISTHEAD(uiapplication->datashare, tmp7);
-		uiapplication->datashare = tmp7;
+	if (application->datashare) {
+		LISTHEAD(application->datashare, tmp7);
+		application->datashare = tmp7;
 	}
-	if (uiapplication->category) {
-		LISTHEAD(uiapplication->category, tmp8);
-		uiapplication->category = tmp8;
+	if (application->category) {
+		LISTHEAD(application->category, tmp8);
+		application->category = tmp8;
 	}
-	if (uiapplication->metadata) {
-		LISTHEAD(uiapplication->metadata, tmp9);
-		uiapplication->metadata = tmp9;
+	if (application->metadata) {
+		LISTHEAD(application->metadata, tmp9);
+		application->metadata = tmp9;
 	}
-	if (uiapplication->image) {
-		LISTHEAD(uiapplication->image, tmp10);
-		uiapplication->image = tmp10;
+	if (application->image) {
+		LISTHEAD(application->image, tmp10);
+		application->image = tmp10;
 	}
-	if (uiapplication->permission) {
-		LISTHEAD(uiapplication->permission, tmp11);
-		uiapplication->permission = tmp11;
+	if (application->permission) {
+		LISTHEAD(application->permission, tmp11);
+		application->permission = tmp11;
 	}
-	if (uiapplication->datacontrol) {
-		LISTHEAD(uiapplication->datacontrol, tmp12);
-		uiapplication->datacontrol = tmp12;
-	}
-
-	return ret;
-}
-
-static int __ps_process_serviceapplication(xmlTextReaderPtr reader, serviceapplication_x *serviceapplication, uid_t uid)
-{
-	const xmlChar *node;
-	int ret = -1;
-	int depth = -1;
-	label_x *tmp1 = NULL;
-	icon_x *tmp2 = NULL;
-	appsvc_x *tmp3 = NULL;
-	appcontrol_x *tmp4 = NULL;
-	datacontrol_x *tmp5 = NULL;
-	launchconditions_x *tmp6 = NULL;
-	notification_x *tmp7 = NULL;
-	datashare_x *tmp8 = NULL;
-	category_x *tmp9 = NULL;
-	metadata_x *tmp10 = NULL;
-	permission_x *tmp11 = NULL;
-
-	__save_xml_attribute(reader, "appid", &serviceapplication->appid, NULL);
-	retvm_if(serviceapplication->appid == NULL, PM_PARSER_R_ERROR, "appid cant be NULL, appid field is mandatory\n");
-	__save_xml_attribute(reader, "exec", &serviceapplication->exec, NULL);
-	__save_xml_attribute(reader, "type", &serviceapplication->type, NULL);
-	__save_xml_attribute(reader, "enabled", &serviceapplication->enabled, "true");
-	__save_xml_attribute(reader, "permission-type", &serviceapplication->permission_type, "normal");
-	__save_xml_attribute(reader, "auto-restart", &serviceapplication->autorestart, "false");
-	__save_xml_attribute(reader, "on-boot", &serviceapplication->onboot, "false");
-
-	serviceapplication->package= strdup(package);
-
-	depth = xmlTextReaderDepth(reader);
-	while ((ret = __next_child_element(reader, depth))) {
-		node = xmlTextReaderConstName(reader);
-		if (!node) {
-			_LOGD("xmlTextReaderConstName value is NULL\n");
-			return -1;
-		}
-
-		if (!strcmp(ASCII(node), "label")) {
-			label_x *label = malloc(sizeof(label_x));
-			if (label == NULL) {
-				_LOGD("Malloc Failed\n");
-				return -1;
-			}
-			memset(label, '\0', sizeof(label_x));
-			LISTADD(serviceapplication->label, label);
-			ret = __ps_process_label(reader, label);
-		} else if (!strcmp(ASCII(node), "icon")) {
-			icon_x *icon = malloc(sizeof(icon_x));
-			if (icon == NULL) {
-				_LOGD("Malloc Failed\n");
-				return -1;
-			}
-			memset(icon, '\0', sizeof(icon_x));
-			LISTADD(serviceapplication->icon, icon);
-			ret = __ps_process_icon(reader, icon, uid);
-		} else if (!strcmp(ASCII(node), "category")) {
-			category_x *category = malloc(sizeof(category_x));
-			if (category == NULL) {
-				_LOGD("Malloc Failed\n");
-				return -1;
-			}
-			memset(category, '\0', sizeof(category_x));
-			LISTADD(serviceapplication->category, category);
-			ret = __ps_process_category(reader, category);
-		} else if (!strcmp(ASCII(node), "metadata")) {
-			metadata_x *metadata = malloc(sizeof(metadata_x));
-			if (metadata == NULL) {
-				_LOGD("Malloc Failed\n");
-				return -1;
-			}
-			memset(metadata, '\0', sizeof(metadata_x));
-			LISTADD(serviceapplication->metadata, metadata);
-			ret = __ps_process_metadata(reader, metadata);
-		} else if (!strcmp(ASCII(node), "permission")) {
-			permission_x *permission = malloc(sizeof(permission_x));
-			if (permission == NULL) {
-				_LOGD("Malloc Failed\n");
-				return -1;
-			}
-			memset(permission, '\0', sizeof(permission_x));
-			LISTADD(serviceapplication->permission, permission);
-			ret = __ps_process_permission(reader, permission);
-		} else if (!strcmp(ASCII(node), "app-control")) {
-			appcontrol_x *appcontrol = malloc(sizeof(appcontrol_x));
-			if (appcontrol == NULL) {
-				_LOGD("Malloc Failed\n");
-				return -1;
-			}
-			memset(appcontrol, '\0', sizeof(appcontrol_x));
-			LISTADD(serviceapplication->appcontrol, appcontrol);
-			ret = __ps_process_appcontrol(reader, appcontrol);
-		} else if (!strcmp(ASCII(node), "application-service")) {
-			appsvc_x *appsvc = malloc(sizeof(appsvc_x));
-			if (appsvc == NULL) {
-				_LOGD("Malloc Failed\n");
-				return -1;
-			}
-			memset(appsvc, '\0', sizeof(appsvc_x));
-			LISTADD(serviceapplication->appsvc, appsvc);
-			ret = __ps_process_appsvc(reader, appsvc);
-		} else if (!strcmp(ASCII(node), "data-share")) {
-			datashare_x *datashare = malloc(sizeof(datashare_x));
-			if (datashare == NULL) {
-				_LOGD("Malloc Failed\n");
-				return -1;
-			}
-			memset(datashare, '\0', sizeof(datashare_x));
-			LISTADD(serviceapplication->datashare, datashare);
-			ret = __ps_process_datashare(reader, datashare);
-		} else if (!strcmp(ASCII(node), "launch-conditions")) {
-			launchconditions_x *launchconditions = malloc(sizeof(launchconditions_x));
-			if (launchconditions == NULL) {
-				_LOGD("Malloc Failed\n");
-				return -1;
-			}
-			memset(launchconditions, '\0', sizeof(launchconditions_x));
-			LISTADD(serviceapplication->launchconditions, launchconditions);
-			ret = __ps_process_launchconditions(reader, launchconditions);
-		} else if (!strcmp(ASCII(node), "notification")) {
-			notification_x *notification = malloc(sizeof(notification_x));
-			if (notification == NULL) {
-				_LOGD("Malloc Failed\n");
-				return -1;
-			}
-			memset(notification, '\0', sizeof(notification_x));
-			LISTADD(serviceapplication->notification, notification);
-			ret = __ps_process_notification(reader, notification);
-		} else if (!strcmp(ASCII(node), "datacontrol")) {
-			datacontrol_x *datacontrol = malloc(sizeof(datacontrol_x));
-			if (datacontrol == NULL) {
-				_LOGD("Malloc Failed\n");
-				return -1;
-			}
-			memset(datacontrol, '\0', sizeof(datacontrol_x));
-			LISTADD(serviceapplication->datacontrol, datacontrol);
-			ret = __ps_process_datacontrol(reader, datacontrol);
-		} else
-			return -1;
-		if (ret < 0) {
-			_LOGD("Processing serviceapplication failed\n");
-			return ret;
-		}
-	}
-
-	if (serviceapplication->label) {
-		LISTHEAD(serviceapplication->label, tmp1);
-		serviceapplication->label = tmp1;
-	}
-	if (serviceapplication->icon) {
-		LISTHEAD(serviceapplication->icon, tmp2);
-		serviceapplication->icon = tmp2;
-	}
-	if (serviceapplication->appsvc) {
-		LISTHEAD(serviceapplication->appsvc, tmp3);
-		serviceapplication->appsvc = tmp3;
-	}
-	if (serviceapplication->appcontrol) {
-		LISTHEAD(serviceapplication->appcontrol, tmp4);
-		serviceapplication->appcontrol = tmp4;
-	}
-	if (serviceapplication->datacontrol) {
-		LISTHEAD(serviceapplication->datacontrol, tmp5);
-		serviceapplication->datacontrol = tmp5;
-	}
-	if (serviceapplication->launchconditions) {
-		LISTHEAD(serviceapplication->launchconditions, tmp6);
-		serviceapplication->launchconditions = tmp6;
-	}
-	if (serviceapplication->notification) {
-		LISTHEAD(serviceapplication->notification, tmp7);
-		serviceapplication->notification = tmp7;
-	}
-	if (serviceapplication->datashare) {
-		LISTHEAD(serviceapplication->datashare, tmp8);
-		serviceapplication->datashare = tmp8;
-	}
-	if (serviceapplication->category) {
-		LISTHEAD(serviceapplication->category, tmp9);
-		serviceapplication->category = tmp9;
-	}
-	if (serviceapplication->metadata) {
-		LISTHEAD(serviceapplication->metadata, tmp10);
-		serviceapplication->metadata = tmp10;
-	}
-	if (serviceapplication->permission) {
-		LISTHEAD(serviceapplication->permission, tmp11);
-		serviceapplication->permission = tmp11;
+	if (application->datacontrol) {
+		LISTHEAD(application->datacontrol, tmp12);
+		application->datacontrol = tmp12;
 	}
 
 	return ret;
@@ -2127,8 +1937,7 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx, uid_t uid)
 	author_x *tmp2 = NULL;
 	description_x *tmp3 = NULL;
 	license_x *tmp4 = NULL;
-	uiapplication_x *tmp5 = NULL;
-	serviceapplication_x *tmp6 = NULL;
+	application_x *tmp5 = NULL;
 	daemon_x *tmp7 = NULL;
 	theme_x *tmp8 = NULL;
 	font_x *tmp9 = NULL;
@@ -2192,23 +2001,23 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx, uid_t uid)
 			LISTADD(mfx->privileges, privileges);
 			ret = __ps_process_privileges(reader, privileges);
 		} else if (!strcmp(ASCII(node), "ui-application")) {
-			uiapplication_x *uiapplication = malloc(sizeof(uiapplication_x));
-			if (uiapplication == NULL) {
+			application_x *application = malloc(sizeof(application_x));
+			if (application == NULL) {
 				_LOGD("Malloc Failed\n");
 				return -1;
 			}
-			memset(uiapplication, '\0', sizeof(uiapplication_x));
-			LISTADD(mfx->uiapplication, uiapplication);
-			ret = __ps_process_uiapplication(reader, uiapplication, uid);
+			memset(application, '\0', sizeof(application_x));
+			LISTADD(mfx->application, application);
+			ret = __ps_process_application(reader, application, PMINFO_UI_APP, uid);
 		} else if (!strcmp(ASCII(node), "service-application")) {
-			serviceapplication_x *serviceapplication = malloc(sizeof(serviceapplication_x));
-			if (serviceapplication == NULL) {
+			application_x *application = malloc(sizeof(application_x));
+			if (application == NULL) {
 				_LOGD("Malloc Failed\n");
 				return -1;
 			}
-			memset(serviceapplication, '\0', sizeof(serviceapplication_x));
-			LISTADD(mfx->serviceapplication, serviceapplication);
-			ret = __ps_process_serviceapplication(reader, serviceapplication, uid);
+			memset(application, '\0', sizeof(application_x));
+			LISTADD(mfx->application, application);
+			ret = __ps_process_application(reader, application, PMINFO_SVC_APP, uid);
 		} else if (!strcmp(ASCII(node), "daemon")) {
 			daemon_x *daemon = malloc(sizeof(daemon_x));
 			if (daemon == NULL) {
@@ -2310,13 +2119,9 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx, uid_t uid)
 		LISTHEAD(mfx->license, tmp4);
 		mfx->license= tmp4;
 	}
-	if (mfx->uiapplication) {
-		LISTHEAD(mfx->uiapplication, tmp5);
-		mfx->uiapplication = tmp5;
-	}
-	if (mfx->serviceapplication) {
-		LISTHEAD(mfx->serviceapplication, tmp6);
-		mfx->serviceapplication = tmp6;
+	if (mfx->application) {
+		LISTHEAD(mfx->application, tmp5);
+		mfx->application = tmp5;
 	}
 	if (mfx->daemon) {
 		LISTHEAD(mfx->daemon, tmp7);
@@ -2403,7 +2208,7 @@ static int __ps_remove_appsvc_db(manifest_x *mfx, uid_t uid)
 	void *lib_handle = NULL;
 	int (*appsvc_operation) (const char *, uid_t);
 	int ret = 0;
-	uiapplication_x *uiapplication = mfx->uiapplication;
+	application_x *application = mfx->application;
 
 	if ((lib_handle = dlopen(LIBAPPSVC_PATH, RTLD_LAZY)) == NULL) {
 		_LOGE("dlopen is failed LIBAPPSVC_PATH[%s]\n", LIBAPPSVC_PATH);
@@ -2416,8 +2221,8 @@ static int __ps_remove_appsvc_db(manifest_x *mfx, uid_t uid)
 		goto END;
 	}
 
-	for(; uiapplication; uiapplication=uiapplication->next) {
-		ret = appsvc_operation(uiapplication->appid, uid);
+	for (; application; application = application->next) {
+		ret = appsvc_operation(application->appid, uid);
 		if (ret <0)
 			_LOGE("can not operation  symbol \n");
 	}

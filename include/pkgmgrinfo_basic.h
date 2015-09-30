@@ -296,6 +296,8 @@ typedef struct application_x {
 	const char *autorestart;
 	const char *taskmanage;
 	const char *enabled;
+	const char *categories;
+	const char *extraid;
 	const char *hwacceleration;
 	const char *screenreader;
 	const char *mainapp;
@@ -329,76 +331,6 @@ typedef struct application_x {
 	struct application_x *prev;
 	struct application_x *next;
 } application_x;
-
-typedef struct uiapplication_x {
-	const char *appid;
-	const char *exec;
-	const char *nodisplay;
-	const char *multiple;
-	const char *taskmanage;
-	const char *enabled;
-	const char *type;
-	const char *categories;
-	const char *extraid;
-	const char *hwacceleration;
-	const char *screenreader;
-	const char *mainapp;
-	const char *package;
-	const char *recentimage;
-	const char *launchcondition;
-	const char *indicatordisplay;
-	const char *portraitimg;
-	const char *landscapeimg;
-	const char *guestmode_visibility;
-	const char *app_component;
-	const char *permission_type;
-	const char *component_type;
-	const char *preload;
-	const char *submode;
-	const char *submode_mainid;
-	const char *launch_mode;
-	const char *ui_gadget;
-	const char *support_disable;
-	struct label_x *label;
-	struct icon_x *icon;
-	struct image_x *image;
-	struct appsvc_x *appsvc;
-	struct appcontrol_x *appcontrol;
-	struct category_x *category;
-	struct metadata_x *metadata;
-	struct permission_x *permission;
-	struct launchconditions_x *launchconditions;
-	struct notification_x *notification;
-	struct datashare_x *datashare;
-	struct datacontrol_x *datacontrol;
-	struct uiapplication_x *prev;
-	struct uiapplication_x *next;
-
-} uiapplication_x;
-
-typedef struct serviceapplication_x {
-	const char *appid;
-	const char *exec;
-	const char *onboot;
-	const char *autorestart;
-	const char *enabled;
-	const char *type;
-	const char *package;
-	const char *permission_type;
-	struct label_x *label;
-	struct icon_x *icon;
-	struct appsvc_x *appsvc;
-	struct appcontrol_x *appcontrol;
-	struct category_x *category;
-	struct metadata_x *metadata;
-	struct permission_x *permission;
-	struct datacontrol_x *datacontrol;
-	struct launchconditions_x *launchconditions;
-	struct notification_x *notification;
-	struct datashare_x *datashare;
-	struct serviceapplication_x *prev;
-	struct serviceapplication_x *next;
-} serviceapplication_x;
 
 typedef struct daemon_x {
 	const char *name;
@@ -459,8 +391,6 @@ typedef struct package_x {
 	struct license_x *license;		/**< package license*/
 	struct privileges_x *privileges;	/**< package privileges*/
 	struct application_x *application;		/**< package's application*/
-	struct uiapplication_x *uiapplication;		/**< package's ui application*/
-	struct serviceapplication_x *serviceapplication;		/**< package's service application*/
 	struct daemon_x *daemon;		/**< package daemon*/
 	struct theme_x *theme;		/**< package theme*/
 	struct font_x *font;		/**< package font*/

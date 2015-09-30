@@ -1541,7 +1541,7 @@ API int pkgmgrinfo_appinfo_foreach_appcontrol(pkgmgrinfo_appinfo_h handle,
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 	appcontrol_x *appcontrol;
 
-	if (info->uiapp_info == NULL)
+	if (info->app_info == NULL)
 		return PMINFO_R_ERROR;
 
 	for (appcontrol = info->app_info->appcontrol; appcontrol; appcontrol = appcontrol->next) {
@@ -2049,7 +2049,7 @@ API int pkgmgrinfo_appinfo_is_guestmode_visibility(pkgmgrinfo_appinfo_h handle, 
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL\n");
 	retvm_if(status == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 
-	val = info->uiapp_info->guestmode_visibility;
+	val = info->app_info->guestmode_visibility;
 	*status = _get_bool_value(val);
 	return PMINFO_R_OK;
 }

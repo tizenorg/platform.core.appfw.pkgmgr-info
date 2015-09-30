@@ -171,11 +171,7 @@ typedef struct _pkgmgr_appinfo_x {
 	const char *package;
 	char *locale;
 	pkgmgrinfo_app_component app_component;
-	union {
-		uiapplication_x *uiapp_info;
-		serviceapplication_x *svcapp_info;
-		application_x *app_info;
-	};
+	application_x *app_info;
 	struct _pkgmgr_appinfo_x *prev;
 	struct _pkgmgr_appinfo_x *next;
 } pkgmgr_appinfo_x;

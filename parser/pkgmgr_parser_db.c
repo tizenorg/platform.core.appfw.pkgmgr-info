@@ -266,24 +266,15 @@ sqlite3 *pkgmgr_cert_db;
 						"REFERENCES package_app_info(app_id) " \
 						"ON DELETE CASCADE)"
 
-static int __insert_uiapplication_info(manifest_x *mfx);
-static int __insert_serviceapplication_info(manifest_x *mfx);
-static int __insert_uiapplication_appsvc_info(manifest_x *mfx);
-static int __insert_serviceapplication_appsvc_info(manifest_x *mfx);
-static int __insert_uiapplication_appcategory_info(manifest_x *mfx);
-static int __insert_serviceapplication_appcategory_info(manifest_x *mfx);
-static int __insert_uiapplication_appcontrol_info(manifest_x *mfx);
-static int __insert_serviceapplication_appmetadata_info(manifest_x *mfx);
-static int __insert_uiapplication_appmetadata_info(manifest_x *mfx);
-static int __insert_serviceapplication_appcontrol_info(manifest_x *mfx);
-static int __insert_uiapplication_share_allowed_info(manifest_x *mfx);
-static int __insert_serviceapplication_share_allowed_info(manifest_x *mfx);
-static int __insert_uiapplication_share_request_info(manifest_x *mfx);
-static int __insert_serviceapplication_share_request_info(manifest_x *mfx);
-static int __insert_uiapplication_datacontrol_info(manifest_x *mfx);
-static int __insert_serviceapplication_datacontrol_info(manifest_x *mfx);
-static void __insert_serviceapplication_locale_info(gpointer data, gpointer userdata);
-static void __insert_uiapplication_locale_info(gpointer data, gpointer userdata);
+static int __insert_application_info(manifest_x *mfx);
+static int __insert_application_appsvc_info(manifest_x *mfx);
+static int __insert_application_appcategory_info(manifest_x *mfx);
+static int __insert_application_appcontrol_info(manifest_x *mfx);
+static int __insert_application_appmetadata_info(manifest_x *mfx);
+static int __insert_application_share_allowed_info(manifest_x *mfx);
+static int __insert_application_share_request_info(manifest_x *mfx);
+static int __insert_application_datacontrol_info(manifest_x *mfx);
+static void __insert_application_locale_info(gpointer data, gpointer userdata);
 static void __insert_pkglocale_info(gpointer data, gpointer userdata);
 static int __insert_manifest_info_in_db(manifest_x *mfx, uid_t uid);
 static int __delete_manifest_info_from_db(manifest_x *mfx, uid_t uid);
@@ -339,10 +330,10 @@ static int __guestmode_visibility_cb(void *data, int ncols, char **coltxt, char 
 	int i = 0;
 	char *appid = NULL;
 	char *status = NULL;
-	uiapplication_x *uiapp = NULL;
+	application_x *app = NULL;
 	for(i = 0; i < ncols; i++)
 	{
-		uiapp = mfx->uiapplication;
+		app = mfx->application;
 		if (strcmp(colname[i], "app_id") == 0) {
 			if (coltxt[i])
 				appid = strdup(coltxt[i]);
@@ -356,10 +347,10 @@ static int __guestmode_visibility_cb(void *data, int ncols, char **coltxt, char 
 		return -1;
 	}
 	/*update guest mode visibility*/
-	for (; uiapp != NULL; uiapp = uiapp->next) {
-		if (strcmp(uiapp->appid, appid) == 0) {
-			free((void *)uiapp->guestmode_visibility);
-			uiapp->guestmode_visibility = strdup(status);
+	for (; app != NULL; app = app->next) {
+		if (strcmp(app->appid, appid) == 0) {
+			free((void *)app->guestmode_visibility);
+			app->guestmode_visibility = strdup(status);
 			break;
 		}
 	}
@@ -653,34 +644,34 @@ static void __insert_pkglocale_info(gpointer data, gpointer userdata)
 		_LOGD("Package Localized Info DB Insert failed\n");
 }
 
-static void __insert_uiapplication_locale_info(gpointer data, gpointer userdata)
+static void __insert_application_locale_info(gpointer data, gpointer userdata)
 {
 	int ret = -1;
 	char *label = NULL;
 	char *icon = NULL;
 	char query[MAX_QUERY_LEN] = {'\0'};
 
-	uiapplication_x *up = (uiapplication_x*)userdata;
-	label_x *lbl = up->label;
-	icon_x *icn = up->icon;
+	application_x *app = (application_x*)userdata;
+	label_x *lbl = app->label;
+	icon_x *icn = app->icon;
 
 	__extract_data(data, lbl, NULL, icn, NULL, NULL, &label, NULL, &icon, NULL, NULL);
 	if (!label && !icon)
 		return;
 	sqlite3_snprintf(MAX_QUERY_LEN, query, "insert into package_app_localized_info(app_id, app_locale, " \
 		"app_label, app_icon) values " \
-		"('%q', '%q', '%q', '%q')", up->appid, (char*)data,
+		"('%q', '%q', '%q', '%q')", app->appid, (char*)data,
 		label, icon);
 	ret = __exec_query(query);
 	if (ret == -1)
 		_LOGD("Package UiApp Localized Info DB Insert failed\n");
 
 	/*insert ui app locale info to pkg locale to get mainapp data */
-	if (strcasecmp(up->mainapp, "true")==0) {
+	if (strcasecmp(app->mainapp, "true")==0) {
 		sqlite3_snprintf(MAX_QUERY_LEN, query, "insert into package_localized_info(package, package_locale, " \
 			"package_label, package_icon, package_description, package_license, package_author) values " \
 			"('%q', '%q', '%q', '%q', '%q', '%q', '%q')",
-			up->package,
+			app->package,
 			(char*)data,
 			label,
 			icon,
@@ -692,28 +683,28 @@ static void __insert_uiapplication_locale_info(gpointer data, gpointer userdata)
 
 		if (icon != NULL) {
 			sqlite3_snprintf(MAX_QUERY_LEN, query, "update package_localized_info set package_icon='%s' "\
-				"where package='%s' and package_locale='%s'", icon, up->package, (char*)data);
+				"where package='%s' and package_locale='%s'", icon, app->package, (char*)data);
 			ret = __exec_query_no_msg(query);
 		}
 	}
 }
 
-static void __insert_uiapplication_icon_section_info(gpointer data, gpointer userdata)
+static void __insert_application_icon_section_info(gpointer data, gpointer userdata)
 {
 	int ret = -1;
 	char *icon = NULL;
 	char *resolution = NULL;
 	char query[MAX_QUERY_LEN] = {'\0'};
 
-	uiapplication_x *up = (uiapplication_x*)userdata;
-	icon_x *icn = up->icon;
+	application_x *app = (application_x*)userdata;
+	icon_x *icn = app->icon;
 
 	__extract_icon_data(data, icn, &icon, &resolution);
 	if (!icon && !resolution)
 		return;
 	sqlite3_snprintf(MAX_QUERY_LEN, query, "insert into package_app_icon_section_info(app_id, " \
 		"app_icon, app_icon_section, app_icon_resolution) values " \
-		"('%q', '%q', '%q', '%q')", up->appid,
+		"('%q', '%q', '%q', '%q')", app->appid,
 		icon, (char*)data, resolution);
 
 	ret = __exec_query(query);
@@ -722,22 +713,22 @@ static void __insert_uiapplication_icon_section_info(gpointer data, gpointer use
 
 }
 
-static void __insert_uiapplication_image_info(gpointer data, gpointer userdata)
+static void __insert_application_image_info(gpointer data, gpointer userdata)
 {
 	int ret = -1;
 	char *lang = NULL;
 	char *img = NULL;
 	char query[MAX_QUERY_LEN] = {'\0'};
 
-	uiapplication_x *up = (uiapplication_x*)userdata;
-	image_x *image = up->image;
+	application_x *app = (application_x*)userdata;
+	image_x *image = app->image;
 
 	__extract_image_data(data, image, &lang, &img);
 	if (!lang && !img)
 		return;
 	sqlite3_snprintf(MAX_QUERY_LEN, query, "insert into package_app_image_info(app_id, app_locale, " \
 		"app_image_section, app_image) values " \
-		"('%q', '%q', '%q', '%q')", up->appid, lang, (char*)data, img);
+		"('%q', '%q', '%q', '%q')", app->appid, lang, (char*)data, img);
 
 	ret = __exec_query(query);
 	if (ret == -1)
@@ -746,54 +737,30 @@ static void __insert_uiapplication_image_info(gpointer data, gpointer userdata)
 }
 
 
-static void __insert_serviceapplication_locale_info(gpointer data, gpointer userdata)
+static int __insert_mainapp_info(manifest_x *mfx)
 {
-	int ret = -1;
-	char *icon = NULL;
-	char *label = NULL;
-	char query[MAX_QUERY_LEN] = {'\0'};
-
-	serviceapplication_x *sp = (serviceapplication_x*)userdata;
-	label_x *lbl = sp->label;
-	icon_x *icn = sp->icon;
-
-	__extract_data(data, lbl, NULL, icn, NULL, NULL, &label, NULL, &icon, NULL, NULL);
-	if (!icon && !label)
-		return;
-	sqlite3_snprintf(MAX_QUERY_LEN, query, "insert into package_app_localized_info(app_id, app_locale, " \
-		"app_label, app_icon) values " \
-		"('%q', '%q', '%q', '%q')", sp->appid, (char*)data,
-		label, icon);
-	ret = __exec_query(query);
-	if (ret == -1)
-		_LOGD("Package ServiceApp Localized Info DB Insert failed\n");
-}
-
-static int __insert_ui_mainapp_info(manifest_x *mfx)
-{
-	uiapplication_x *up = mfx->uiapplication;
+	application_x *app = mfx->application;
 	int ret = -1;
 	char query[MAX_QUERY_LEN] = {'\0'};
-	while(up != NULL)
-	{
+	while (app != NULL) {
 		snprintf(query, MAX_QUERY_LEN,
-			"update package_app_info set app_mainapp='%s' where app_id='%s'", up->mainapp, up->appid);
+			"update package_app_info set app_mainapp='%s' where app_id='%s'", app->mainapp, app->appid);
 
 		ret = __exec_query(query);
 		if (ret == -1) {
-			_LOGD("Package UiApp Info DB Insert Failed\n");
+			_LOGD("Package App Info DB Insert Failed\n");
 			return -1;
 		}
-		if (strcasecmp(up->mainapp, "True")==0)
-			mfx->mainapp_id = strdup(up->appid);
+		if (strcasecmp(app->mainapp, "True")==0)
+			mfx->mainapp_id = strdup(app->appid);
 
-		up = up->next;
+		app = app->next;
 		memset(query, '\0', MAX_QUERY_LEN);
 	}
 
-	if (mfx->mainapp_id == NULL){
-		if (mfx->uiapplication && mfx->uiapplication->appid) {
-			snprintf(query, MAX_QUERY_LEN, "update package_app_info set app_mainapp='true' where app_id='%s'", mfx->uiapplication->appid);
+	if (mfx->mainapp_id == NULL) {
+		if (mfx->application && mfx->application->appid) {
+			snprintf(query, MAX_QUERY_LEN, "update package_app_info set app_mainapp='true' where app_id='%s'", mfx->application->appid);
 		} else {
 			_LOGD("Not valid appid\n");
 			return -1;
@@ -805,9 +772,9 @@ static int __insert_ui_mainapp_info(manifest_x *mfx)
 			return -1;
 		}
 
-		free((void *)mfx->uiapplication->mainapp);
-		mfx->uiapplication->mainapp= strdup("true");
-		mfx->mainapp_id = strdup(mfx->uiapplication->appid);
+		free((void *)mfx->application->mainapp);
+		mfx->application->mainapp= strdup("true");
+		mfx->mainapp_id = strdup(mfx->application->appid);
 	}
 
 	memset(query, '\0', MAX_QUERY_LEN);
@@ -822,48 +789,47 @@ static int __insert_ui_mainapp_info(manifest_x *mfx)
 	return 0;
 }
 /* _PRODUCT_LAUNCHING_ENHANCED_
-*  up->indicatordisplay, up->portraitimg, up->landscapeimg, up->guestmode_appstatus
+*  app->indicatordisplay, app->portraitimg, app->landscapeimg, app->guestmode_appstatus
 */
-static int __insert_uiapplication_info(manifest_x *mfx)
+static int __insert_application_info(manifest_x *mfx)
 {
-	uiapplication_x *up = mfx->uiapplication;
+	application_x *app = mfx->application;
 	int ret = -1;
 	char query[MAX_QUERY_LEN] = {'\0'};
-	while(up != NULL)
-	{
+	while (app != NULL) {
 		snprintf(query, MAX_QUERY_LEN,
 			 "insert into package_app_info(app_id, app_component, app_exec, app_nodisplay, app_type, app_onboot, " \
 			"app_multiple, app_autorestart, app_taskmanage, app_enabled, app_hwacceleration, app_screenreader, app_mainapp , app_recentimage, " \
 			"app_launchcondition, app_indicatordisplay, app_portraitimg, app_landscapeimg, app_guestmodevisibility, app_permissiontype, "\
 			"app_preload, app_submode, app_submode_mainid, app_launch_mode, app_ui_gadget, app_support_disable, component_type, package) " \
 			"values('%s', '%s', '%s', '%s', '%s', '%s', '%s','%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
-			 up->appid,
-			 "uiapp",
-			 up->exec,
-			 up->nodisplay,
-			 up->type,
-			 "false",
-			 up->multiple,
-			 "false",
-			 up->taskmanage,
-			 up->enabled,
-			 up->hwacceleration,
-			 up->screenreader,
-			 up->mainapp,
-			 __get_str(up->recentimage),
-			 up->launchcondition,
-			 up->indicatordisplay,
-			 __get_str(up->portraitimg),
-			 __get_str(up->landscapeimg),
-			 up->guestmode_visibility,
-			 up->permission_type,
+			 app->appid,
+			 app->component_type,
+			 app->exec,
+			 app->nodisplay,
+			 app->type,
+			 app->onboot,
+			 app->multiple,
+			 app->autorestart,
+			 app->taskmanage,
+			 app->enabled,
+			 app->hwacceleration,
+			 app->screenreader,
+			 app->mainapp,
+			 __get_str(app->recentimage),
+			 app->launchcondition,
+			 app->indicatordisplay,
+			 __get_str(app->portraitimg),
+			 __get_str(app->landscapeimg),
+			 app->guestmode_visibility,
+			 app->permission_type,
 			 mfx->preload,
-			 up->submode,
-			 __get_str(up->submode_mainid),
-			 up->launch_mode,
-			 up->ui_gadget,
+			 app->submode,
+			 __get_str(app->submode_mainid),
+			 app->launch_mode,
+			 app->ui_gadget,
 			 mfx->support_disable,
-			 up->component_type,
+			 app->component_type,
 			 mfx->package);
 
 		ret = __exec_query(query);
@@ -871,27 +837,25 @@ static int __insert_uiapplication_info(manifest_x *mfx)
 			_LOGD("Package UiApp Info DB Insert Failed\n");
 			return -1;
 		}
-		up = up->next;
+		app = app->next;
 		memset(query, '\0', MAX_QUERY_LEN);
 	}
 	return 0;
 }
 
-static int __insert_uiapplication_appcategory_info(manifest_x *mfx)
+static int __insert_application_appcategory_info(manifest_x *mfx)
 {
-	uiapplication_x *up = mfx->uiapplication;
+	application_x *app = mfx->application;
 	category_x *ct = NULL;
 	int ret = -1;
 	char query[MAX_QUERY_LEN] = {'\0'};
-	while(up != NULL)
-	{
-		ct = up->category;
-		while (ct != NULL)
-		{
+	while (app != NULL) {
+		ct = app->category;
+		while (ct != NULL) {
 			snprintf(query, MAX_QUERY_LEN,
 				"insert into package_app_app_category(app_id, category) " \
 				"values('%s','%s')",\
-				 up->appid, ct->name);
+				 app->appid, ct->name);
 			ret = __exec_query(query);
 			if (ret == -1) {
 				_LOGD("Package UiApp Category Info DB Insert Failed\n");
@@ -900,27 +864,25 @@ static int __insert_uiapplication_appcategory_info(manifest_x *mfx)
 			ct = ct->next;
 			memset(query, '\0', MAX_QUERY_LEN);
 		}
-		up = up->next;
+		app = app->next;
 	}
 	return 0;
 }
 
-static int __insert_uiapplication_appmetadata_info(manifest_x *mfx)
+static int __insert_application_appmetadata_info(manifest_x *mfx)
 {
-	uiapplication_x *up = mfx->uiapplication;
+	application_x *app = mfx->application;
 	metadata_x *md = NULL;
 	int ret = -1;
 	char query[MAX_QUERY_LEN] = {'\0'};
-	while(up != NULL)
-	{
-		md = up->metadata;
-		while (md != NULL)
-		{
+	while (app != NULL) {
+		md = app->metadata;
+		while (md != NULL) {
 			if (md->key) {
 				snprintf(query, MAX_QUERY_LEN,
 					"insert into package_app_app_metadata(app_id, md_key, md_value) " \
 					"values('%s','%s', '%s')",\
-					 up->appid, md->key, md->value ? md->value : "");
+					 app->appid, md->key, md->value ? md->value : "");
 				ret = __exec_query(query);
 				if (ret == -1) {
 					_LOGD("Package UiApp Metadata Info DB Insert Failed\n");
@@ -930,26 +892,24 @@ static int __insert_uiapplication_appmetadata_info(manifest_x *mfx)
 			md = md->next;
 			memset(query, '\0', MAX_QUERY_LEN);
 		}
-		up = up->next;
+		app = app->next;
 	}
 	return 0;
 }
 
-static int __insert_uiapplication_apppermission_info(manifest_x *mfx)
+static int __insert_application_apppermission_info(manifest_x *mfx)
 {
-	uiapplication_x *up = mfx->uiapplication;
+	application_x *app = mfx->application;
 	permission_x *pm = NULL;
 	int ret = -1;
 	char query[MAX_QUERY_LEN] = {'\0'};
-	while(up != NULL)
-	{
-		pm = up->permission;
-		while (pm != NULL)
-		{
+	while (app != NULL) {
+		pm = app->permission;
+		while (pm != NULL) {
 			snprintf(query, MAX_QUERY_LEN,
 				"insert into package_app_app_permission(app_id, pm_type, pm_value) " \
 				"values('%s','%s', '%s')",\
-				 up->appid, pm->type, pm->value);
+				 app->appid, pm->type, pm->value);
 			ret = __exec_query(query);
 			if (ret == -1) {
 				_LOGD("Package UiApp permission Info DB Insert Failed\n");
@@ -958,20 +918,20 @@ static int __insert_uiapplication_apppermission_info(manifest_x *mfx)
 			pm = pm->next;
 			memset(query, '\0', MAX_QUERY_LEN);
 		}
-		up = up->next;
+		app = app->next;
 	}
 	return 0;
 }
 
-static int __insert_uiapplication_appcontrol_info(manifest_x *mfx)
+static int __insert_application_appcontrol_info(manifest_x *mfx)
 {
-	uiapplication_x *up = mfx->uiapplication;
+	application_x *app = mfx->application;
 	appcontrol_x *acontrol = NULL;
 	int ret = -1;
 	char query[MAX_QUERY_LEN] = {'\0'};
 	char buf[BUFSIZE] = {'\0'};
-	while (up != NULL) {
-		acontrol = up->appcontrol;
+	while (app != NULL) {
+		acontrol = app->appcontrol;
 		while (acontrol != NULL) {
 			snprintf(buf, BUFSIZE, "%s|%s|%s",\
 					acontrol->operation ? (strlen(acontrol->operation) > 0 ? acontrol->operation : "NULL") : "NULL",
@@ -980,7 +940,7 @@ static int __insert_uiapplication_appcontrol_info(manifest_x *mfx)
 			snprintf(query, MAX_QUERY_LEN,
 					"insert into package_app_app_control(app_id, app_control) " \
 					"values('%s', '%s')",\
-					up->appid, buf);
+					app->appid, buf);
 			ret = __exec_query(query);
 			if (ret == -1) {
 				_LOGD("Package UiApp AppSvc DB Insert Failed\n");
@@ -989,14 +949,15 @@ static int __insert_uiapplication_appcontrol_info(manifest_x *mfx)
 			memset(query, '\0', MAX_QUERY_LEN);
 			acontrol = acontrol->next;
 		}
-		up = up->next;
+		app = app->next;
 	}
 	return 0;
 }
 
-static int __insert_uiapplication_appsvc_info(manifest_x *mfx)
+/* FIXME: should be changed to app_control */
+static int __insert_application_appsvc_info(manifest_x *mfx)
 {
-	uiapplication_x *up = mfx->uiapplication;
+	application_x *app = mfx->application;
 	appsvc_x *asvc = NULL;
 	operation_x *op = NULL;
 	mime_x *mi = NULL;
@@ -1008,9 +969,9 @@ static int __insert_uiapplication_appsvc_info(manifest_x *mfx)
 	const char *mime = NULL;
 	const char *uri = NULL;
 	const char *subapp = NULL;
-	while(up != NULL)
+	while(app != NULL)
 	{
-		asvc = up->appsvc;
+		asvc = app->appsvc;
 		while(asvc != NULL)
 		{
 			op = asvc->operation;
@@ -1037,7 +998,7 @@ static int __insert_uiapplication_appsvc_info(manifest_x *mfx)
 							snprintf(query, MAX_QUERY_LEN,
 								 "insert into package_app_app_svc(app_id, operation, uri_scheme, mime_type, subapp_name) " \
 								"values('%s', '%s', '%s', '%s', '%s')",\
-								 up->appid,
+								 app->appid,
 								 operation,
 								 __get_str(uri),
 								 __get_str(mime),
@@ -1067,27 +1028,25 @@ static int __insert_uiapplication_appsvc_info(manifest_x *mfx)
 			}
 			asvc = asvc->next;
 		}
-		up = up->next;
+		app = app->next;
 	}
 	return 0;
 }
 
-static int __insert_uiapplication_datacontrol_info(manifest_x *mfx)
+static int __insert_application_datacontrol_info(manifest_x *mfx)
 {
-	uiapplication_x *up = mfx->uiapplication;
+	application_x *app = mfx->application;
 	datacontrol_x *dc = NULL;
 	int ret = -1;
 	char query[MAX_QUERY_LEN] = {'\0'};
 
-	while(up != NULL)
-	{
-		dc = up->datacontrol;
-		while(dc != NULL)
-		{
+	while (app != NULL) {
+		dc = app->datacontrol;
+		while (dc != NULL) {
 			snprintf(query, MAX_QUERY_LEN,
 					"insert into package_app_data_control(app_id, providerid, access, type) " \
 					"values('%s', '%s', '%s', '%s')",\
-					mfx->uiapplication->appid,
+					mfx->application->appid,
 					dc->providerid,
 					dc->access,
 					dc->type);
@@ -1100,30 +1059,27 @@ static int __insert_uiapplication_datacontrol_info(manifest_x *mfx)
 			memset(query, '\0', MAX_QUERY_LEN);
 			dc = dc->next;
 		}
-		up = up->next;
+		app = app->next;
 	}
 	return 0;
 }
 
-static int __insert_uiapplication_share_request_info(manifest_x *mfx)
+static int __insert_application_share_request_info(manifest_x *mfx)
 {
-	uiapplication_x *up = mfx->uiapplication;
+	application_x *app = mfx->application;
 	datashare_x *ds = NULL;
 	request_x *rq = NULL;
 	int ret = -1;
 	char query[MAX_QUERY_LEN] = {'\0'};
-	while(up != NULL)
-	{
-		ds = up->datashare;
-		while(ds != NULL)
-		{
+	while (app != NULL) {
+		ds = app->datashare;
+		while (ds != NULL) {
 			rq = ds->request;
-			while(rq != NULL)
-			{
+			while (rq != NULL) {
 				snprintf(query, MAX_QUERY_LEN,
 					 "insert into package_app_share_request(app_id, data_share_request) " \
 					"values('%s', '%s')",\
-					 up->appid, rq->text);
+					 app->appid, rq->text);
 				ret = __exec_query(query);
 				if (ret == -1) {
 					_LOGD("Package UiApp Share Request DB Insert Failed\n");
@@ -1134,34 +1090,30 @@ static int __insert_uiapplication_share_request_info(manifest_x *mfx)
 			}
 			ds = ds->next;
 		}
-		up = up->next;
+		app = app->next;
 	}
 	return 0;
 }
 
-static int __insert_uiapplication_share_allowed_info(manifest_x *mfx)
+static int __insert_application_share_allowed_info(manifest_x *mfx)
 {
-	uiapplication_x *up = mfx->uiapplication;
+	application_x *app = mfx->application;
 	datashare_x *ds = NULL;
 	define_x *df = NULL;
 	allowed_x *al = NULL;
 	int ret = -1;
 	char query[MAX_QUERY_LEN] = {'\0'};
-	while(up != NULL)
-	{
-		ds = up->datashare;
-		while(ds != NULL)
-		{
+	while (app != NULL) {
+		ds = app->datashare;
+		while (ds != NULL) {
 			df = ds->define;
-			while(df != NULL)
-			{
+			while (df != NULL) {
 				al = df->allowed;
-				while(al != NULL)
-				{
+				while (al != NULL) {
 					snprintf(query, MAX_QUERY_LEN,
 						 "insert into package_app_share_allowed(app_id, data_share_path, data_share_allowed) " \
 						"values('%s', '%s', '%s')",\
-						 up->appid, df->path, al->text);
+						 app->appid, df->path, al->text);
 					ret = __exec_query(query);
 					if (ret == -1) {
 						_LOGD("Package UiApp Share Allowed DB Insert Failed\n");
@@ -1174,333 +1126,7 @@ static int __insert_uiapplication_share_allowed_info(manifest_x *mfx)
 			}
 			ds = ds->next;
 		}
-		up = up->next;
-	}
-	return 0;
-}
-
-static int __insert_serviceapplication_info(manifest_x *mfx)
-{
-	serviceapplication_x *sp = mfx->serviceapplication;
-	int ret = -1;
-	char query[MAX_QUERY_LEN] = {'\0'};
-	while(sp != NULL)
-	{
-		snprintf(query, MAX_QUERY_LEN,
-			 "insert into package_app_info(app_id, app_component, app_exec, app_type, app_onboot, " \
-			"app_multiple, app_autorestart, app_enabled, app_permissiontype, package) " \
-			"values('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
-			 sp->appid, "svcapp", sp->exec, sp->type, sp->onboot, "\0",
-			 sp->autorestart, sp->enabled, sp->permission_type, mfx->package);
-		ret = __exec_query(query);
-		if (ret == -1) {
-			_LOGD("Package ServiceApp Info DB Insert Failed\n");
-			return -1;
-		}
-		sp = sp->next;
-		memset(query, '\0', MAX_QUERY_LEN);
-	}
-	return 0;
-}
-
-static int __insert_serviceapplication_appcategory_info(manifest_x *mfx)
-{
-	serviceapplication_x *sp = mfx->serviceapplication;
-	category_x *ct = NULL;
-	int ret = -1;
-	char query[MAX_QUERY_LEN] = {'\0'};
-	while(sp != NULL)
-	{
-		ct = sp->category;
-		while (ct != NULL)
-		{
-			snprintf(query, MAX_QUERY_LEN,
-				"insert into package_app_app_category(app_id, category) " \
-				"values('%s','%s')",\
-				 sp->appid, ct->name);
-			ret = __exec_query(query);
-			if (ret == -1) {
-				_LOGD("Package ServiceApp Category Info DB Insert Failed\n");
-				return -1;
-			}
-			ct = ct->next;
-			memset(query, '\0', MAX_QUERY_LEN);
-		}
-		sp = sp->next;
-	}
-	return 0;
-}
-
-static int __insert_serviceapplication_appmetadata_info(manifest_x *mfx)
-{
-	serviceapplication_x *sp = mfx->serviceapplication;
-	metadata_x *md = NULL;
-	int ret = -1;
-	char query[MAX_QUERY_LEN] = {'\0'};
-	while(sp != NULL)
-	{
-		md = sp->metadata;
-		while (md != NULL)
-		{
-			if (md->key) {
-				snprintf(query, MAX_QUERY_LEN,
-					"insert into package_app_app_metadata(app_id, md_key, md_value) " \
-					"values('%s','%s', '%s')",\
-					 sp->appid, md->key, md->value ? md->value : "");
-				ret = __exec_query(query);
-				if (ret == -1) {
-					_LOGD("Package ServiceApp Metadata Info DB Insert Failed\n");
-					return -1;
-				}
-			}
-			md = md->next;
-			memset(query, '\0', MAX_QUERY_LEN);
-		}
-		sp = sp->next;
-	}
-	return 0;
-}
-
-static int __insert_serviceapplication_apppermission_info(manifest_x *mfx)
-{
-	serviceapplication_x *sp = mfx->serviceapplication;
-	permission_x *pm = NULL;
-	int ret = -1;
-	char query[MAX_QUERY_LEN] = {'\0'};
-	while(sp != NULL)
-	{
-		pm = sp->permission;
-		while (pm != NULL)
-		{
-			snprintf(query, MAX_QUERY_LEN,
-				"insert into package_app_app_permission(app_id, pm_type, pm_value) " \
-				"values('%s','%s', '%s')",\
-				 sp->appid, pm->type, pm->value);
-			ret = __exec_query(query);
-			if (ret == -1) {
-				_LOGD("Package ServiceApp permission Info DB Insert Failed\n");
-				return -1;
-			}
-			pm = pm->next;
-			memset(query, '\0', MAX_QUERY_LEN);
-		}
-		sp = sp->next;
-	}
-	return 0;
-}
-
-static int __insert_serviceapplication_appcontrol_info(manifest_x *mfx)
-{
-	serviceapplication_x *sp = mfx->serviceapplication;
-	appcontrol_x *acontrol = NULL;
-	int ret = -1;
-	char query[MAX_QUERY_LEN] = {'\0'};
-	char buf[BUFSIZE] = {'\0'};
-	while (sp != NULL) {
-		acontrol = sp->appcontrol;
-		while (acontrol != NULL) {
-			snprintf(buf, BUFSIZE, "%s|%s|%s",
-					acontrol->operation ? (strlen(acontrol->operation) > 0 ? acontrol->operation : "NULL") : "NULL",
-					acontrol->uri ? (strlen(acontrol->uri) > 0 ? acontrol->uri : "NULL") : "NULL",
-					acontrol->mime ? (strlen(acontrol->mime) > 0 ? acontrol->mime : "NULL") : "NULL");
-			snprintf(query, MAX_QUERY_LEN,
-					"insert into package_app_app_control(app_id, app_control) " \
-					"values('%s', '%s')",\
-					sp->appid, buf);
-			ret = __exec_query(query);
-			if (ret == -1) {
-				_LOGD("Package UiApp AppSvc DB Insert Failed\n");
-				return -1;
-			}
-			memset(query, '\0', MAX_QUERY_LEN);
-			acontrol = acontrol->next;
-		}
-		sp = sp->next;
-	}
-	return 0;
-}
-
-static int __insert_serviceapplication_appsvc_info(manifest_x *mfx)
-{
-	serviceapplication_x *sp = mfx->serviceapplication;
-	appsvc_x *asvc = NULL;
-	int ret = -1;
-	char query[MAX_QUERY_LEN] = {'\0'};
-	operation_x *op = NULL;
-	mime_x *mi = NULL;
-	uri_x *ui = NULL;
-	subapp_x *sub = NULL;
-	const char *operation = NULL;
-	const char *mime = NULL;
-	const char *uri = NULL;
-	const char *subapp = NULL;
-	while(sp != NULL)
-	{
-		asvc = sp->appsvc;
-		while(asvc != NULL)
-		{
-			op = asvc->operation;
-			while(op != NULL)
-			{
-			if (op)
-				operation = op->name;
-			mi = asvc->mime;
-				do
-				{
-				if (mi)
-					mime = mi->name;
-				sub = asvc->subapp;
-					do
-					{
-					if (sub)
-						subapp = sub->name;
-					ui = asvc->uri;
-							do
-							{
-								if (ui)
-									uri = ui->name;
-								snprintf(query, MAX_QUERY_LEN,
-									 "insert into package_app_app_svc(app_id, operation, uri_scheme, mime_type, subapp_name) " \
-									"values('%s', '%s', '%s', '%s', '%s')",\
-									 sp->appid,
-									 operation,
-									__get_str(uri),
-									__get_str(mime),
-									__get_str(subapp));
-								ret = __exec_query(query);
-								if (ret == -1) {
-									_LOGD("Package UiApp AppSvc DB Insert Failed\n");
-									return -1;
-								}
-								memset(query, '\0', MAX_QUERY_LEN);
-								if (ui)
-									ui = ui->next;
-								uri = NULL;
-							} while(ui != NULL);
-						if (sub)
-							sub	= sub->next;
-						subapp = NULL;
-					}while(sub != NULL);
-					if (mi)
-						mi = mi->next;
-					mime = NULL;
-				}while(mi != NULL);
-				if (op)
-					op = op->next;
-				operation = NULL;
-			}
-			asvc = asvc->next;
-		}
-		sp = sp->next;
-	}
-	return 0;
-}
-
-static int __insert_serviceapplication_datacontrol_info(manifest_x *mfx)
-{
-	serviceapplication_x *sp = mfx->serviceapplication;
-	datacontrol_x *dc = NULL;
-	int ret = -1;
-	char query[MAX_QUERY_LEN] = {'\0'};
-
-	while(sp != NULL)
-	{
-		dc = sp->datacontrol;
-		while(dc != NULL)
-		{
-			snprintf(query, MAX_QUERY_LEN,
-					"insert into package_app_data_control(app_id, providerid, access, type) " \
-					"values('%s', '%s', '%s', '%s')",\
-					mfx->serviceapplication->appid,
-					dc->providerid,
-					dc->access,
-					dc->type);
-
-			ret = __exec_query(query);
-			if (ret == -1) {
-				_LOGD("Package ServiceApp Data Control DB Insert Failed\n");
-				return -1;
-			}
-			memset(query, '\0', MAX_QUERY_LEN);
-			dc = dc->next;
-		}
-		sp = sp->next;
-	}
-	return 0;
-}
-
-static int __insert_serviceapplication_share_request_info(manifest_x *mfx)
-{
-	serviceapplication_x *sp = mfx->serviceapplication;
-	datashare_x *ds = NULL;
-	request_x *rq = NULL;
-	int ret = -1;
-	char query[MAX_QUERY_LEN] = {'\0'};
-	while(sp != NULL)
-	{
-		ds = sp->datashare;
-		while(ds != NULL)
-		{
-			rq = ds->request;
-			while(rq != NULL)
-			{
-				snprintf(query, MAX_QUERY_LEN,
-					 "insert into package_app_share_request(app_id, data_share_request) " \
-					"values('%s', '%s')",\
-					 sp->appid, rq->text);
-				ret = __exec_query(query);
-				if (ret == -1) {
-					_LOGD("Package ServiceApp Share Request DB Insert Failed\n");
-					return -1;
-				}
-				memset(query, '\0', MAX_QUERY_LEN);
-				rq = rq->next;
-			}
-			ds = ds->next;
-		}
-		sp = sp->next;
-	}
-	return 0;
-}
-
-
-
-static int __insert_serviceapplication_share_allowed_info(manifest_x *mfx)
-{
-	serviceapplication_x *sp = mfx->serviceapplication;
-	datashare_x *ds = NULL;
-	define_x *df = NULL;
-	allowed_x *al = NULL;
-	int ret = -1;
-	char query[MAX_QUERY_LEN] = {'\0'};
-	while(sp != NULL)
-	{
-		ds = sp->datashare;
-		while(ds != NULL)
-		{
-			df = ds->define;
-			while(df != NULL)
-			{
-				al = df->allowed;
-				while(al != NULL)
-				{
-					snprintf(query, MAX_QUERY_LEN,
-						 "insert into package_app_share_allowed(app_id, data_share_path, data_share_allowed) " \
-						"values('%s', '%s', '%s')",\
-						 sp->appid, df->path, al->text);
-					ret = __exec_query(query);
-					if (ret == -1) {
-						_LOGD("Package App Share Allowed DB Insert Failed\n");
-						return -1;
-					}
-					memset(query, '\0', MAX_QUERY_LEN);
-					al = al->next;
-				}
-				df = df->next;
-			}
-			ds = ds->next;
-		}
-		sp = sp->next;
+		app = app->next;
 	}
 	return 0;
 }
@@ -1512,10 +1138,9 @@ static int __insert_manifest_info_in_db(manifest_x *mfx, uid_t uid)
 	icon_x *icn = mfx->icon;
 	description_x *dcn = mfx->description;
 	author_x *ath = mfx->author;
-	uiapplication_x *up = mfx->uiapplication;
-	uiapplication_x *up_icn = mfx->uiapplication;
-	uiapplication_x *up_image = mfx->uiapplication;
-	serviceapplication_x *sp = mfx->serviceapplication;
+	application_x *app = mfx->application;
+	application_x *app_icn = mfx->application;
+	application_x *app_image = mfx->application;
 	privileges_x *pvs = NULL;
 	privilege_x *pv = NULL;
 	char query[MAX_QUERY_LEN] = { '\0' };
@@ -1609,8 +1234,8 @@ static int __insert_manifest_info_in_db(manifest_x *mfx, uid_t uid)
 		pvs = pvs->next;
 	}
 
-	if (up != NULL) {
-		ret = __insert_ui_mainapp_info(mfx);
+	if (app != NULL) {
+		ret = __insert_mainapp_info(mfx);
 		if (ret == -1)
 			return -1;
 	}
@@ -1621,33 +1246,25 @@ static int __insert_manifest_info_in_db(manifest_x *mfx, uid_t uid)
 	__trimfunc(pkglocale);
 
 	/*Insert the app locale info */
-	while(up != NULL)
-	{
-		applocale = __create_locale_list(applocale, up->label, NULL, up->icon, NULL, NULL);
-		up = up->next;
-	}
-	while(sp != NULL)
-	{
-		applocale = __create_locale_list(applocale, sp->label, NULL, sp->icon, NULL, NULL);
-		sp = sp->next;
+	while (app != NULL) {
+		applocale = __create_locale_list(applocale, app->label, NULL, app->icon, NULL, NULL);
+		app = app->next;
 	}
 	/*remove duplicated data in applocale*/
 	__trimfunc(applocale);
 
 	/*Insert the app icon info */
-	while(up_icn != NULL)
-	{
-		appicon = __create_icon_list(appicon, up_icn->icon);
-		up_icn = up_icn->next;
+	while (app_icn != NULL) {
+		appicon = __create_icon_list(appicon, app_icn->icon);
+		app_icn = app_icn->next;
 	}
 	/*remove duplicated data in appicon*/
 	__trimfunc(appicon);
 
 	/*Insert the image info */
-	while(up_image != NULL)
-	{
-		appimage = __create_image_list(appimage, up_image->image);
-		up_image = up_image->next;
+	while (app_image != NULL) {
+		appimage = __create_image_list(appimage, app_image->image);
+		app_image = app_image->next;
 	}
 	/*remove duplicated data in appimage*/
 	__trimfunc(appimage);
@@ -1655,34 +1272,24 @@ static int __insert_manifest_info_in_db(manifest_x *mfx, uid_t uid)
 	g_list_foreach(pkglocale, __insert_pkglocale_info, (gpointer)mfx);
 
 	/*native app locale info*/
-	up = mfx->uiapplication;
-	while(up != NULL)
-	{
-		g_list_foreach(applocale, __insert_uiapplication_locale_info, (gpointer)up);
-		up = up->next;
-	}
-	/*agent app locale info*/
-	sp = mfx->serviceapplication;
-	while(sp != NULL)
-	{
-		g_list_foreach(applocale, __insert_serviceapplication_locale_info, (gpointer)sp);
-		sp = sp->next;
+	app = mfx->application;
+	while (app != NULL) {
+		g_list_foreach(applocale, __insert_application_locale_info, (gpointer)app);
+		app = app->next;
 	}
 
 	/*app icon locale info*/
-	up_icn = mfx->uiapplication;
-	while(up_icn != NULL)
-	{
-		g_list_foreach(appicon, __insert_uiapplication_icon_section_info, (gpointer)up_icn);
-		up_icn = up_icn->next;
+	app_icn = mfx->application;
+	while (app_icn != NULL) {
+		g_list_foreach(appicon, __insert_application_icon_section_info, (gpointer)app_icn);
+		app_icn = app_icn->next;
 	}
 
 	/*app image info*/
-	up_image = mfx->uiapplication;
-	while(up_image != NULL)
-	{
-		g_list_foreach(appimage, __insert_uiapplication_image_info, (gpointer)up_image);
-		up_image = up_image->next;
+	app_image = mfx->application;
+	while (app_image != NULL) {
+		g_list_foreach(appimage, __insert_application_image_info, (gpointer)app_image);
+		app_image = app_image->next;
 	}
 
 	g_list_free(pkglocale);
@@ -1695,73 +1302,46 @@ static int __insert_manifest_info_in_db(manifest_x *mfx, uid_t uid)
 	appimage = NULL;
 
 	/*Insert in the package_app_info DB*/
-	ret = __insert_uiapplication_info(mfx);
-	if (ret == -1)
-		return -1;
-	ret = __insert_serviceapplication_info(mfx);
+	ret = __insert_application_info(mfx);
 	if (ret == -1)
 		return -1;
 	/*Insert in the package_app_app_control DB*/
-	ret = __insert_uiapplication_appcontrol_info(mfx);
-	if (ret == -1)
-		return -1;
-	ret = __insert_serviceapplication_appcontrol_info(mfx);
+	ret = __insert_application_appcontrol_info(mfx);
 	if (ret == -1)
 		return -1;
 
 	/*Insert in the package_app_app_category DB*/
-	ret = __insert_uiapplication_appcategory_info(mfx);
-	if (ret == -1)
-		return -1;
-	ret = __insert_serviceapplication_appcategory_info(mfx);
+	ret = __insert_application_appcategory_info(mfx);
 	if (ret == -1)
 		return -1;
 
 	/*Insert in the package_app_app_metadata DB*/
-	ret = __insert_uiapplication_appmetadata_info(mfx);
-	if (ret == -1)
-		return -1;
-	ret = __insert_serviceapplication_appmetadata_info(mfx);
+	ret = __insert_application_appmetadata_info(mfx);
 	if (ret == -1)
 		return -1;
 
 	/*Insert in the package_app_app_permission DB*/
-	ret = __insert_uiapplication_apppermission_info(mfx);
-	if (ret == -1)
-		return -1;
-	ret = __insert_serviceapplication_apppermission_info(mfx);
+	ret = __insert_application_apppermission_info(mfx);
 	if (ret == -1)
 		return -1;
 
 	/*Insert in the package_app_app_svc DB*/
-	ret = __insert_uiapplication_appsvc_info(mfx);
-	if (ret == -1)
-		return -1;
-	ret = __insert_serviceapplication_appsvc_info(mfx);
+	ret = __insert_application_appsvc_info(mfx);
 	if (ret == -1)
 		return -1;
 
 	/*Insert in the package_app_share_allowed DB*/
-	ret = __insert_uiapplication_share_allowed_info(mfx);
-	if (ret == -1)
-		return -1;
-	ret = __insert_serviceapplication_share_allowed_info(mfx);
+	ret = __insert_application_share_allowed_info(mfx);
 	if (ret == -1)
 		return -1;
 
 	/*Insert in the package_app_share_request DB*/
-	ret = __insert_uiapplication_share_request_info(mfx);
-	if (ret == -1)
-		return -1;
-	ret = __insert_serviceapplication_share_request_info(mfx);
+	ret = __insert_application_share_request_info(mfx);
 	if (ret == -1)
 		return -1;
 
 	/*Insert in the package_app_data_control DB*/
-	ret = __insert_uiapplication_datacontrol_info(mfx);
-	if (ret == -1)
-		return -1;
-	ret = __insert_serviceapplication_datacontrol_info(mfx);
+	ret = __insert_application_datacontrol_info(mfx);
 	if (ret == -1)
 		return -1;
 
@@ -1850,8 +1430,7 @@ static int __delete_manifest_info_from_db(manifest_x *mfx, uid_t uid)
 {
 	char query[MAX_QUERY_LEN] = { '\0' };
 	int ret = -1;
-	uiapplication_x *up = mfx->uiapplication;
-	serviceapplication_x *sp = mfx->serviceapplication;
+	application_x *app = mfx->application;
 	/*Delete from cert table*/
 	if (uid != GLOBAL_USER)
 		ret = pkgmgrinfo_delete_usr_certinfo(mfx->package, uid);
@@ -1890,84 +1469,44 @@ static int __delete_manifest_info_from_db(manifest_x *mfx, uid_t uid)
 		return -1;
 	}
 
-	while (up != NULL) {
-		ret = __delete_appinfo_from_db("package_app_info", up->appid);
+	while (app != NULL) {
+		ret = __delete_appinfo_from_db("package_app_info", app->appid);
 		if (ret < 0)
 			return ret;
-		ret = __delete_appinfo_from_db("package_app_localized_info", up->appid);
+		ret = __delete_appinfo_from_db("package_app_localized_info", app->appid);
 		if (ret < 0)
 			return ret;
-		ret = __delete_appinfo_from_db("package_app_icon_section_info", up->appid);
+		ret = __delete_appinfo_from_db("package_app_icon_section_info", app->appid);
 		if (ret < 0)
 			return ret;
-		ret = __delete_appinfo_from_db("package_app_image_info", up->appid);
+		ret = __delete_appinfo_from_db("package_app_image_info", app->appid);
 		if (ret < 0)
 			return ret;
-		ret = __delete_appinfo_from_db("package_app_app_svc", up->appid);
+		ret = __delete_appinfo_from_db("package_app_app_svc", app->appid);
 		if (ret < 0)
 			return ret;
-		ret = __delete_appinfo_from_db("package_app_app_control", up->appid);
+		ret = __delete_appinfo_from_db("package_app_app_control", app->appid);
 		if (ret < 0)
 			return ret;
-		ret = __delete_appinfo_from_db("package_app_app_category", up->appid);
+		ret = __delete_appinfo_from_db("package_app_app_category", app->appid);
 		if (ret < 0)
 			return ret;
-		ret = __delete_appinfo_from_db("package_app_app_metadata", up->appid);
+		ret = __delete_appinfo_from_db("package_app_app_metadata", app->appid);
 		if (ret < 0)
 			return ret;
-		ret = __delete_appinfo_from_db("package_app_app_permission", up->appid);
+		ret = __delete_appinfo_from_db("package_app_app_permission", app->appid);
 		if (ret < 0)
 			return ret;
-		ret = __delete_appinfo_from_db("package_app_share_allowed", up->appid);
+		ret = __delete_appinfo_from_db("package_app_share_allowed", app->appid);
 		if (ret < 0)
 			return ret;
-		ret = __delete_appinfo_from_db("package_app_share_request", up->appid);
+		ret = __delete_appinfo_from_db("package_app_share_request", app->appid);
 		if (ret < 0)
 			return ret;
-		ret = __delete_appinfo_from_db("package_app_data_control", up->appid);
+		ret = __delete_appinfo_from_db("package_app_data_control", app->appid);
 		if (ret < 0)
 			return ret;
-		up = up->next;
-	}
-
-	while (sp != NULL) {
-		ret = __delete_appinfo_from_db("package_app_info", sp->appid);
-		if (ret < 0)
-			return ret;
-		ret = __delete_appinfo_from_db("package_app_localized_info", sp->appid);
-		if (ret < 0)
-			return ret;
-		ret = __delete_appinfo_from_db("package_app_icon_section_info", sp->appid);
-		if (ret < 0)
-			return ret;
-		ret = __delete_appinfo_from_db("package_app_image_info", sp->appid);
-		if (ret < 0)
-			return ret;
-		ret = __delete_appinfo_from_db("package_app_app_svc", sp->appid);
-		if (ret < 0)
-			return ret;
-		ret = __delete_appinfo_from_db("package_app_app_control", sp->appid);
-		if (ret < 0)
-			return ret;
-		ret = __delete_appinfo_from_db("package_app_app_category", sp->appid);
-		if (ret < 0)
-			return ret;
-		ret = __delete_appinfo_from_db("package_app_app_metadata", sp->appid);
-		if (ret < 0)
-			return ret;
-		ret = __delete_appinfo_from_db("package_app_app_permission", sp->appid);
-		if (ret < 0)
-			return ret;
-		ret = __delete_appinfo_from_db("package_app_share_allowed", sp->appid);
-		if (ret < 0)
-			return ret;
-		ret = __delete_appinfo_from_db("package_app_share_request", sp->appid);
-		if (ret < 0)
-			return ret;
-		ret = __delete_appinfo_from_db("package_app_data_control", sp->appid);
-		if (ret < 0)
-			return ret;
-		sp = sp->next;
+		app = app->next;
 	}
 
 	/* if main package has sub pkg, delete sub pkg data*/
