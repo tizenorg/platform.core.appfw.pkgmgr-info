@@ -296,6 +296,8 @@ typedef struct application_x {
 	const char *autorestart;
 	const char *taskmanage;
 	const char *enabled;
+	const char *categories;
+	const char *extraid;
 	const char *hwacceleration;
 	const char *screenreader;
 	const char *mainapp;
