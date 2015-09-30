@@ -536,7 +536,7 @@ API int pkgmgrinfo_appinfo_set_usr_guestmode_visibility(pkgmgrinfo_appinfo_h han
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL\n");
 
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
-	val = info->uiapp_info->guestmode_visibility;
+	val = info->app_info->guestmode_visibility;
 	if (val) {
 		ret = db_util_open_with_options(getUserPkgParserDBPathUID(uid), &pkgmgr_parser_db,
 				SQLITE_OPEN_READWRITE, NULL);
@@ -547,9 +547,9 @@ API int pkgmgrinfo_appinfo_set_usr_guestmode_visibility(pkgmgrinfo_appinfo_h han
 
 		/*TODO: Write to DB here*/
 		if (status == true)
-			snprintf(query, MAX_QUERY_LEN, "update package_app_info set app_guestmodevisibility = 'true' where app_id = '%s'", (char *)info->uiapp_info->appid);
+			snprintf(query, MAX_QUERY_LEN, "update package_app_info set app_guestmodevisibility = 'true' where app_id = '%s'", (char *)info->app_info->appid);
 		else
-			snprintf(query, MAX_QUERY_LEN, "update package_app_info set app_guestmodevisibility = 'false' where app_id = '%s'", (char *)info->uiapp_info->appid);
+			snprintf(query, MAX_QUERY_LEN, "update package_app_info set app_guestmodevisibility = 'false' where app_id = '%s'", (char *)info->app_info->appid);
 
 		ret = sqlite3_exec(pkgmgr_parser_db, query, NULL, NULL, &errmsg);
 		sqlite3_close(pkgmgr_parser_db);
