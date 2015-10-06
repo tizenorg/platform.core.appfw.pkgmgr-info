@@ -93,24 +93,23 @@ typedef struct {
 const char *package;
 
 static int __ps_process_label(xmlTextReaderPtr reader, label_x *label);
-static int __ps_process_privilege(xmlTextReaderPtr reader, privilege_x *privilege);
-static int __ps_process_privileges(xmlTextReaderPtr reader, privileges_x *privileges);
-static int __ps_process_deviceprofile(xmlTextReaderPtr reader, deviceprofile_x *deviceprofile);
-static int __ps_process_allowed(xmlTextReaderPtr reader, allowed_x *allowed);
-static int __ps_process_operation(xmlTextReaderPtr reader, operation_x *operation);
-static int __ps_process_uri(xmlTextReaderPtr reader, uri_x *uri);
-static int __ps_process_mime(xmlTextReaderPtr reader, mime_x *mime);
-static int __ps_process_subapp(xmlTextReaderPtr reader, subapp_x *subapp);
-static int __ps_process_condition(xmlTextReaderPtr reader, condition_x *condition);
+static int __ps_process_privilege(xmlTextReaderPtr reader, const char **privilege);
+static int __ps_process_privileges(xmlTextReaderPtr reader, GList **privileges);
+static int __ps_process_allowed(xmlTextReaderPtr reader, const char **allowed);
+static int __ps_process_operation(xmlTextReaderPtr reader, const char **operation);
+static int __ps_process_uri(xmlTextReaderPtr reader, const char **uri);
+static int __ps_process_mime(xmlTextReaderPtr reader, const char **mime);
+static int __ps_process_subapp(xmlTextReaderPtr reader, const char **subapp);
+static int __ps_process_condition(xmlTextReaderPtr reader, const char **condition);
 static int __ps_process_notification(xmlTextReaderPtr reader, notification_x *notifiation);
-static int __ps_process_category(xmlTextReaderPtr reader, category_x *category);
+static int __ps_process_category(xmlTextReaderPtr reader, const char **category);
 static int __ps_process_metadata(xmlTextReaderPtr reader, metadata_x *metadata);
 static int __ps_process_permission(xmlTextReaderPtr reader, permission_x *permission);
 static int __ps_process_compatibility(xmlTextReaderPtr reader, compatibility_x *compatibility);
-static int __ps_process_request(xmlTextReaderPtr reader, request_x *request);
+static int __ps_process_request(xmlTextReaderPtr reader, const char **request);
 static int __ps_process_define(xmlTextReaderPtr reader, define_x *define);
 static int __ps_process_appsvc(xmlTextReaderPtr reader, appsvc_x *appsvc);
-static int __ps_process_launchconditions(xmlTextReaderPtr reader, launchconditions_x *launchconditions);
+static int __ps_process_launchconditions(xmlTextReaderPtr reader, GList **launchconditions);
 static int __ps_process_datashare(xmlTextReaderPtr reader, datashare_x *datashare);
 static int __ps_process_icon(xmlTextReaderPtr reader, icon_x *icon, uid_t uid);
 static int __ps_process_author(xmlTextReaderPtr reader, author_x *author);
@@ -119,10 +118,6 @@ static int __ps_process_license(xmlTextReaderPtr reader, license_x *license);
 static int __ps_process_appcontrol(xmlTextReaderPtr reader, appcontrol_x *appcontrol);
 static int __ps_process_datacontrol(xmlTextReaderPtr reader, datacontrol_x *datacontrol);
 static int __ps_process_application(xmlTextReaderPtr reader, application_x *application, int type, uid_t uid);
-static int __ps_process_font(xmlTextReaderPtr reader, font_x *font);
-static int __ps_process_theme(xmlTextReaderPtr reader, theme_x *theme);
-static int __ps_process_daemon(xmlTextReaderPtr reader, daemon_x *daemon);
-static int __ps_process_ime(xmlTextReaderPtr reader, ime_x *ime);
 static char *__pkgid_to_manifest(const char *pkgid, uid_t uid);
 static int __next_child_element(xmlTextReaderPtr reader, int depth);
 static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx, uid_t uid);
@@ -752,8 +747,10 @@ static int __run_metadata_parser_prestep (manifest_x *mfx, char *md_key, ACTION_
 	int ret = -1;
 	int tag_exist = 0;
 	char buffer[1024] = { 0, };
-	application_x *app = mfx->application;
-	metadata_x *md = NULL;
+	GList *app_tmp;
+	application_x *app;
+	GList *md_tmp = NULL;
+	metadata_x *md;
 	char *md_tag = NULL;
 
 	GList *md_list = NULL;
@@ -765,9 +762,14 @@ static int __run_metadata_parser_prestep (manifest_x *mfx, char *md_key, ACTION_
 		return -1;
 	}
 
-	while (app != NULL) {
-		md = app->metadata;
-		while (md != NULL) {
+	for (app_tmp = mfx->application; app_tmp; app_tmp = app_tmp->next) {
+		app = (application_x *)app_tmp->data;
+		if (app == NULL)
+			continue;
+		for (md_tmp = app->metadata; md_tmp; md_tmp = md_tmp->next) {
+			md = (metadata_x *)md_tmp->data;
+			if (md == NULL)
+				continue;
 			//get glist of metadata key and value combination
 			memset(buffer, 0x00, 1024);
 			snprintf(buffer, 1024, "%s/", md_key);
@@ -796,7 +798,6 @@ static int __run_metadata_parser_prestep (manifest_x *mfx, char *md_key, ACTION_
 				md_list = g_list_append(md_list, (gpointer)md_detail);
 				tag_exist = 1;
 			}
-			md = md->next;
 		}
 
 		//send glist to parser when tags for metadata plugin parser exist.
@@ -812,7 +813,6 @@ static int __run_metadata_parser_prestep (manifest_x *mfx, char *md_key, ACTION_
 		__metadata_parser_clear_dir_list(md_list);
 		md_list = NULL;
 		tag_exist = 0;
-		app = app->next;
 	}
 
 	return 0;
@@ -830,8 +830,10 @@ static int __run_category_parser_prestep (manifest_x *mfx, char *category_key, A
 	int ret = -1;
 	int tag_exist = 0;
 	char buffer[1024] = { 0, };
-	application_x *app = mfx->application;
-	category_x *category = NULL;
+	GList *app_tmp;
+	application_x *app;
+	GList *category_tmp;
+	const char *category;
 	char *category_tag = NULL;
 
 	GList *category_list = NULL;
@@ -843,20 +845,23 @@ static int __run_category_parser_prestep (manifest_x *mfx, char *category_key, A
 		return -1;
 	}
 
-	while (app != NULL) {
-		category = app->category;
-		while (category != NULL) {
+	for (app_tmp = mfx->application; app_tmp; app_tmp = app_tmp->next) {
+		app = (application_x *)app_tmp->data;
+		if (app == NULL)
+			continue;
+		for (category_tmp = app->category; category_tmp; category_tmp = category_tmp->next) {
+			category = (const char *)category_tmp->data;
 			//get glist of category key and value combination
 			memset(buffer, 0x00, 1024);
 			snprintf(buffer, 1024, "%s/", category_key);
-			if ((category->name) && (strncmp(category->name, category_key, strlen(category_key)) == 0)) {
+			if ((category) && (strncmp(category, category_key, strlen(category_key)) == 0)) {
 				category_detail = (__category_t*) calloc(1, sizeof(__category_t));
 				if (category_detail == NULL) {
 					_LOGD("Memory allocation failed\n");
 					goto END;
 				}
 
-				category_detail->name = strdup(category->name);
+				category_detail->name = strdup(category);
 				if (category_detail->name == NULL) {
 					_LOGD("Memory allocation failed\n");
 					free(category_detail);
@@ -866,7 +871,6 @@ static int __run_category_parser_prestep (manifest_x *mfx, char *category_key, A
 				category_list = g_list_append(category_list, (gpointer)category_detail);
 				tag_exist = 1;
 			}
-			category = category->next;
 		}
 
 		//send glist to parser when tags for metadata plugin parser exist.
@@ -880,7 +884,6 @@ static int __run_category_parser_prestep (manifest_x *mfx, char *category_key, A
 		__category_parser_clear_dir_list(category_list);
 		category_list = NULL;
 		tag_exist = 0;
-		app = app->next;
 	}
 
 	return 0;
@@ -1102,39 +1105,39 @@ int __ps_process_category_parser(manifest_x *mfx, ACTION_TYPE action)
 	return ret;
 }
 
-static int __ps_process_allowed(xmlTextReaderPtr reader, allowed_x *allowed)
+static int __ps_process_allowed(xmlTextReaderPtr reader, const char **allowed)
 {
-	__save_xml_value(reader, &allowed->text);
+	__save_xml_value(reader, allowed);
 	return 0;
 }
 
-static int __ps_process_operation(xmlTextReaderPtr reader, operation_x *operation)
+static int __ps_process_operation(xmlTextReaderPtr reader, const char **operation)
 {
-	__save_xml_attribute(reader, "name", &operation->name, NULL);
+	__save_xml_attribute(reader, "name", operation, NULL);
 	return 0;
 }
 
-static int __ps_process_uri(xmlTextReaderPtr reader, uri_x *uri)
+static int __ps_process_uri(xmlTextReaderPtr reader, const char **uri)
 {
-	__save_xml_attribute(reader, "name", &uri->name, NULL);
+	__save_xml_attribute(reader, "name", uri, NULL);
 	return 0;
 }
 
-static int __ps_process_mime(xmlTextReaderPtr reader, mime_x *mime)
+static int __ps_process_mime(xmlTextReaderPtr reader, const char **mime)
 {
-	__save_xml_attribute(reader, "name", &mime->name, NULL);
+	__save_xml_attribute(reader, "name", mime, NULL);
 	return 0;
 }
 
-static int __ps_process_subapp(xmlTextReaderPtr reader, subapp_x *subapp)
+static int __ps_process_subapp(xmlTextReaderPtr reader, const char **subapp)
 {
-	__save_xml_attribute(reader, "name", &subapp->name, NULL);
+	__save_xml_attribute(reader, "name", subapp, NULL);
 	return 0;
 }
 
-static int __ps_process_condition(xmlTextReaderPtr reader, condition_x *condition)
+static int __ps_process_condition(xmlTextReaderPtr reader, const char **condition)
 {
-	__save_xml_attribute(reader, "name", &condition->name, NULL);
+	__save_xml_attribute(reader, "name", condition, NULL);
 	return 0;
 }
 
@@ -1145,15 +1148,15 @@ static int __ps_process_notification(xmlTextReaderPtr reader, notification_x *no
 	return 0;
 }
 
-static int __ps_process_category(xmlTextReaderPtr reader, category_x *category)
+static int __ps_process_category(xmlTextReaderPtr reader, const char **category)
 {
-	__save_xml_attribute(reader, "name", &category->name, NULL);
+	__save_xml_attribute(reader, "name", category, NULL);
 	return 0;
 }
 
-static int __ps_process_privilege(xmlTextReaderPtr reader, privilege_x *privilege)
+static int __ps_process_privilege(xmlTextReaderPtr reader, const char **privilege)
 {
-	__save_xml_value(reader, &privilege->text);
+	__save_xml_value(reader, privilege);
 	return 0;
 }
 
@@ -1178,9 +1181,9 @@ static int __ps_process_compatibility(xmlTextReaderPtr reader, compatibility_x *
 	return 0;
 }
 
-static int __ps_process_request(xmlTextReaderPtr reader, request_x *request)
+static int __ps_process_request(xmlTextReaderPtr reader, const char **request)
 {
-	__save_xml_value(reader, &request->text);
+	__save_xml_value(reader, request);
 	return 0;
 }
 
@@ -1189,8 +1192,7 @@ static int __ps_process_define(xmlTextReaderPtr reader, define_x *define)
 	const xmlChar *node;
 	int ret = -1;
 	int depth = -1;
-	allowed_x *tmp1 = NULL;
-	request_x *tmp2 = NULL;
+	const char *val;
 
 	__save_xml_attribute(reader, "path", &define->path, NULL);
 
@@ -1203,37 +1205,22 @@ static int __ps_process_define(xmlTextReaderPtr reader, define_x *define)
 		}
 
 		if (!strcmp(ASCII(node), "allowed")) {
-			allowed_x *allowed= malloc(sizeof(allowed_x));
-			if (allowed == NULL) {
-				_LOGD("Malloc Failed\n");
-				return -1;
-			}
-			memset(allowed, '\0', sizeof(allowed_x));
-			LISTADD(define->allowed, allowed);
-			ret = __ps_process_allowed(reader, allowed);
+			val = NULL;
+			ret = __ps_process_allowed(reader, &val);
+			if (val)
+				define->allowed = g_list_append(define->allowed, (gpointer)val);
 		} else if (!strcmp(ASCII(node), "request")) {
-			request_x *request = malloc(sizeof(request_x));
-			if (request == NULL) {
-				_LOGD("Malloc Failed\n");
-				return -1;
-			}
-			memset(request, '\0', sizeof(request_x));
-			LISTADD(define->request, request);
-			ret = __ps_process_request(reader, request);
-		} else
+			val = NULL;
+			ret = __ps_process_request(reader, &val);
+			if (val)
+				define->request = g_list_append(define->request, (gpointer)val);
+		} else {
 			return -1;
+		}
 		if (ret < 0) {
 			_LOGD("Processing define failed\n");
 			return ret;
 		}
-	}
-	if (define->allowed) {
-		LISTHEAD(define->allowed, tmp1);
-		define->allowed = tmp1;
-	}
-	if (define->request) {
-		LISTHEAD(define->request, tmp2);
-		define->request = tmp2;
 	}
 	return ret;
 }
@@ -1277,10 +1264,7 @@ static int __ps_process_appsvc(xmlTextReaderPtr reader, appsvc_x *appsvc)
 	const xmlChar *node;
 	int ret = -1;
 	int depth = -1;
-	operation_x *tmp1 = NULL;
-	uri_x *tmp2 = NULL;
-	mime_x *tmp3 = NULL;
-	subapp_x *tmp4 = NULL;
+	const char *val;
 
 	depth = xmlTextReaderDepth(reader);
 	while ((ret = __next_child_element(reader, depth))) {
@@ -1291,44 +1275,24 @@ static int __ps_process_appsvc(xmlTextReaderPtr reader, appsvc_x *appsvc)
 		}
 
 		if (!strcmp(ASCII(node), "operation")) {
-			operation_x *operation = malloc(sizeof(operation_x));
-			if (operation == NULL) {
-				_LOGD("Malloc Failed\n");
-				return -1;
-			}
-			memset(operation, '\0', sizeof(operation_x));
-			LISTADD(appsvc->operation, operation);
-			ret = __ps_process_operation(reader, operation);
+			val = NULL;
+			ret = __ps_process_operation(reader, &val);
+			appsvc->operation = val;
 			_LOGD("operation processing\n");
 		} else if (!strcmp(ASCII(node), "uri")) {
-			uri_x *uri= malloc(sizeof(uri_x));
-			if (uri == NULL) {
-				_LOGD("Malloc Failed\n");
-				return -1;
-			}
-			memset(uri, '\0', sizeof(uri_x));
-			LISTADD(appsvc->uri, uri);
-			ret = __ps_process_uri(reader, uri);
+			val = NULL;
+			ret = __ps_process_uri(reader, &val);
+			appsvc->uri = val;
 			_LOGD("uri processing\n");
 		} else if (!strcmp(ASCII(node), "mime")) {
-			mime_x *mime = malloc(sizeof(mime_x));
-			if (mime == NULL) {
-				_LOGD("Malloc Failed\n");
-				return -1;
-			}
-			memset(mime, '\0', sizeof(mime_x));
-			LISTADD(appsvc->mime, mime);
-			ret = __ps_process_mime(reader, mime);
+			val = NULL;
+			ret = __ps_process_mime(reader, &val);
+			appsvc->mime = val;
 			_LOGD("mime processing\n");
 		} else if (!strcmp(ASCII(node), "subapp")) {
-			subapp_x *subapp = malloc(sizeof(subapp_x));
-			if (subapp == NULL) {
-				_LOGD("Malloc Failed\n");
-				return -1;
-			}
-			memset(subapp, '\0', sizeof(subapp_x));
-			LISTADD(appsvc->subapp, subapp);
-			ret = __ps_process_subapp(reader, subapp);
+			val = NULL;
+			ret = __ps_process_subapp(reader, &val);
+			appsvc->subapp = val;
 			_LOGD("subapp processing\n");
 		} else
 			return -1;
@@ -1336,22 +1300,6 @@ static int __ps_process_appsvc(xmlTextReaderPtr reader, appsvc_x *appsvc)
 			_LOGD("Processing appsvc failed\n");
 			return ret;
 		}
-	}
-	if (appsvc->operation) {
-		LISTHEAD(appsvc->operation, tmp1);
-		appsvc->operation = tmp1;
-	}
-	if (appsvc->uri) {
-		LISTHEAD(appsvc->uri, tmp2);
-		appsvc->uri = tmp2;
-	}
-	if (appsvc->mime) {
-		LISTHEAD(appsvc->mime, tmp3);
-		appsvc->mime = tmp3;
-	}
-	if (appsvc->subapp) {
-		LISTHEAD(appsvc->subapp, tmp4);
-		appsvc->subapp = tmp4;
 	}
 
 	xmlTextReaderRead(reader);
@@ -1362,12 +1310,12 @@ static int __ps_process_appsvc(xmlTextReaderPtr reader, appsvc_x *appsvc)
 }
 
 
-static int __ps_process_privileges(xmlTextReaderPtr reader, privileges_x *privileges)
+static int __ps_process_privileges(xmlTextReaderPtr reader, GList **privileges)
 {
 	const xmlChar *node;
 	int ret = -1;
 	int depth = -1;
-	privilege_x *tmp1 = NULL;
+	const char *val;
 
 	depth = xmlTextReaderDepth(reader);
 	while ((ret = __next_child_element(reader, depth))) {
@@ -1378,14 +1326,10 @@ static int __ps_process_privileges(xmlTextReaderPtr reader, privileges_x *privil
 		}
 
 		if (strcmp(ASCII(node), "privilege") == 0) {
-			privilege_x *privilege = malloc(sizeof(privilege_x));
-			if (privilege == NULL) {
-				_LOGD("Malloc Failed\n");
-				return -1;
-			}
-			memset(privilege, '\0', sizeof(privilege_x));
-			LISTADD(privileges->privilege, privilege);
-			ret = __ps_process_privilege(reader, privilege);
+			val = NULL;
+			ret = __ps_process_privilege(reader, &val);
+			if (val)
+				*privileges = g_list_append(*privileges, (gpointer)val);
 		} else
 			return -1;
 		if (ret < 0) {
@@ -1393,19 +1337,15 @@ static int __ps_process_privileges(xmlTextReaderPtr reader, privileges_x *privil
 			return ret;
 		}
 	}
-	if (privileges->privilege) {
-		LISTHEAD(privileges->privilege, tmp1);
-		privileges->privilege = tmp1;
-	}
 	return ret;
 }
 
-static int __ps_process_launchconditions(xmlTextReaderPtr reader, launchconditions_x *launchconditions)
+static int __ps_process_launchconditions(xmlTextReaderPtr reader, GList **launchconditions)
 {
 	const xmlChar *node;
 	int ret = -1;
 	int depth = -1;
-	condition_x *tmp1 = NULL;
+	const char *val;
 
 	depth = xmlTextReaderDepth(reader);
 	while ((ret = __next_child_element(reader, depth))) {
@@ -1416,14 +1356,10 @@ static int __ps_process_launchconditions(xmlTextReaderPtr reader, launchconditio
 		}
 
 		if (strcmp(ASCII(node), "condition") == 0) {
-			condition_x *condition = malloc(sizeof(condition_x));
-			if (condition == NULL) {
-				_LOGD("Malloc Failed\n");
-				return -1;
-			}
-			memset(condition, '\0', sizeof(condition_x));
-			LISTADD(launchconditions->condition, condition);
-			ret = __ps_process_condition(reader, condition);
+			val = NULL;
+			ret = __ps_process_condition(reader, &val);
+			if (val)
+				*launchconditions = g_list_append(*launchconditions, (gpointer)val);
 		} else
 			return -1;
 		if (ret < 0) {
@@ -1431,12 +1367,6 @@ static int __ps_process_launchconditions(xmlTextReaderPtr reader, launchconditio
 			return ret;
 		}
 	}
-	if (launchconditions->condition) {
-		LISTHEAD(launchconditions->condition, tmp1);
-		launchconditions->condition = tmp1;
-	}
-
-	__save_xml_value(reader, &launchconditions->text);
 
 	return ret;
 }
@@ -1446,8 +1376,7 @@ static int __ps_process_datashare(xmlTextReaderPtr reader, datashare_x *datashar
 	const xmlChar *node;
 	int ret = -1;
 	int depth = -1;
-	define_x *tmp1 = NULL;
-	request_x *tmp2 = NULL;
+	const char *val;
 	depth = xmlTextReaderDepth(reader);
 	while ((ret = __next_child_element(reader, depth))) {
 		node = xmlTextReaderConstName(reader);
@@ -1457,37 +1386,24 @@ static int __ps_process_datashare(xmlTextReaderPtr reader, datashare_x *datashar
 		}
 
 		if (!strcmp(ASCII(node), "define")) {
-			define_x *define= malloc(sizeof(define_x));
+			define_x *define = calloc(1, sizeof(define_x));
 			if (define == NULL) {
 				_LOGD("Malloc Failed\n");
 				return -1;
 			}
-			memset(define, '\0', sizeof(define_x));
-			LISTADD(datashare->define, define);
+			datashare->define = g_list_append(datashare->define, define);
 			ret = __ps_process_define(reader, define);
 		} else if (!strcmp(ASCII(node), "request")) {
-			request_x *request= malloc(sizeof(request_x));
-			if (request == NULL) {
-				_LOGD("Malloc Failed\n");
-				return -1;
-			}
-			memset(request, '\0', sizeof(request_x));
-			LISTADD(datashare->request, request);
-			ret = __ps_process_request(reader, request);
+			val = NULL;
+			ret = __ps_process_request(reader, &val);
+			if (val)
+				datashare->request = g_list_append(datashare->request, (gpointer)val);
 		} else
 			return -1;
 		if (ret < 0) {
 			_LOGD("Processing data-share failed\n");
 			return ret;
 		}
-	}
-	if (datashare->define) {
-		LISTHEAD(datashare->define, tmp1);
-		datashare->define = tmp1;
-	}
-	if (datashare->request) {
-		LISTHEAD(datashare->request, tmp2);
-		datashare->request = tmp2;
 	}
 	return ret;
 }
@@ -1676,18 +1592,7 @@ static int __ps_process_application(xmlTextReaderPtr reader, application_x *appl
 	const xmlChar *node;
 	int ret = -1;
 	int depth = -1;
-	label_x *tmp1 = NULL;
-	icon_x *tmp2 = NULL;
-	appsvc_x *tmp3 = NULL;
-	appcontrol_x *tmp4 = NULL;
-	launchconditions_x *tmp5 = NULL;
-	notification_x *tmp6 = NULL;
-	datashare_x *tmp7 = NULL;
-	category_x *tmp8 = NULL;
-	metadata_x *tmp9 = NULL;
-	image_x *tmp10 = NULL;
-	permission_x *tmp11 = NULL;
-	datacontrol_x *tmp12 = NULL;
+	const char *val;
 
 	__save_xml_attribute(reader, "appid", &application->appid, NULL);
 	retvm_if(application->appid == NULL, PM_PARSER_R_ERROR, "appid cant be NULL, appid field is mandatory\n");
@@ -1729,112 +1634,91 @@ static int __ps_process_application(xmlTextReaderPtr reader, application_x *appl
 			return -1;
 		}
 		if (!strcmp(ASCII(node), "label")) {
-			label_x *label = malloc(sizeof(label_x));
+			label_x *label = calloc(1, sizeof(label_x));
 			if (label == NULL) {
 				_LOGD("Malloc Failed\n");
 				return -1;
 			}
-			memset(label, '\0', sizeof(label_x));
-			LISTADD(application->label, label);
+			application->label = g_list_append(application->label, label);
 			ret = __ps_process_label(reader, label);
 		} else if (!strcmp(ASCII(node), "icon")) {
-			icon_x *icon = malloc(sizeof(icon_x));
+			icon_x *icon = calloc(1, sizeof(icon_x));
 			if (icon == NULL) {
 				_LOGD("Malloc Failed\n");
 				return -1;
 			}
-			memset(icon, '\0', sizeof(icon_x));
-			LISTADD(application->icon, icon);
+			application->icon = g_list_append(application->icon, icon);
 			ret = __ps_process_icon(reader, icon, uid);
 		} else if (!strcmp(ASCII(node), "image")) {
-			image_x *image = malloc(sizeof(image_x));
+			image_x *image = calloc(1, sizeof(image_x));
 			if (image == NULL) {
 				_LOGD("Malloc Failed\n");
 				return -1;
 			}
-			memset(image, '\0', sizeof(image_x));
-			LISTADD(application->image, image);
+			application->image = g_list_append(application->image, image);
 			ret = __ps_process_image(reader, image);
 		} else if (!strcmp(ASCII(node), "category")) {
-			category_x *category = malloc(sizeof(category_x));
-			if (category == NULL) {
-				_LOGD("Malloc Failed\n");
-				return -1;
-			}
-			memset(category, '\0', sizeof(category_x));
-			LISTADD(application->category, category);
-			ret = __ps_process_category(reader, category);
+			val = NULL;
+			ret = __ps_process_category(reader, &val);
+			if (val)
+				application->category = g_list_append(application->category, (gpointer)val);
 		} else if (!strcmp(ASCII(node), "metadata")) {
-			metadata_x *metadata = malloc(sizeof(metadata_x));
+			metadata_x *metadata = calloc(1, sizeof(metadata_x));
 			if (metadata == NULL) {
 				_LOGD("Malloc Failed\n");
 				return -1;
 			}
-			memset(metadata, '\0', sizeof(metadata_x));
-			LISTADD(application->metadata, metadata);
+			application->metadata = g_list_append(application->metadata, metadata);
 			ret = __ps_process_metadata(reader, metadata);
 		} else if (!strcmp(ASCII(node), "permission")) {
-			permission_x *permission = malloc(sizeof(permission_x));
+			permission_x *permission = calloc(1, sizeof(permission_x));
 			if (permission == NULL) {
 				_LOGD("Malloc Failed\n");
 				return -1;
 			}
-			memset(permission, '\0', sizeof(permission_x));
-			LISTADD(application->permission, permission);
+			application->permission = g_list_append(application->permission, permission);
 			ret = __ps_process_permission(reader, permission);
 		} else if (!strcmp(ASCII(node), "app-control")) {
-			appcontrol_x *appcontrol = malloc(sizeof(appcontrol_x));
+			appcontrol_x *appcontrol = calloc(1, sizeof(appcontrol_x));
 			if (appcontrol == NULL) {
 				_LOGD("Malloc Failed\n");
 				return -1;
 			}
-			memset(appcontrol, '\0', sizeof(appcontrol_x));
-			LISTADD(application->appcontrol, appcontrol);
+			application->appcontrol = g_list_append(application->appcontrol, appcontrol);
 			ret = __ps_process_appcontrol(reader, appcontrol);
 		} else if (!strcmp(ASCII(node), "application-service")) {
-			appsvc_x *appsvc = malloc(sizeof(appsvc_x));
+			appsvc_x *appsvc = calloc(1, sizeof(appsvc_x));
 			if (appsvc == NULL) {
 				_LOGD("Malloc Failed\n");
 				return -1;
 			}
-			memset(appsvc, '\0', sizeof(appsvc_x));
-			LISTADD(application->appsvc, appsvc);
+			application->appsvc = g_list_append(application->appsvc, appsvc);
 			ret = __ps_process_appsvc(reader, appsvc);
 		} else if (!strcmp(ASCII(node), "data-share")) {
-			datashare_x *datashare = malloc(sizeof(datashare_x));
+			datashare_x *datashare = calloc(1, sizeof(datashare_x));
 			if (datashare == NULL) {
 				_LOGD("Malloc Failed\n");
 				return -1;
 			}
-			memset(datashare, '\0', sizeof(datashare_x));
-			LISTADD(application->datashare, datashare);
+			application->datashare = g_list_append(application->datashare, datashare);
 			ret = __ps_process_datashare(reader, datashare);
 		} else if (!strcmp(ASCII(node), "launch-conditions")) {
-			launchconditions_x *launchconditions = malloc(sizeof(launchconditions_x));
-			if (launchconditions == NULL) {
-				_LOGD("Malloc Failed\n");
-				return -1;
-			}
-			memset(launchconditions, '\0', sizeof(launchconditions_x));
-			LISTADD(application->launchconditions, launchconditions);
-			ret = __ps_process_launchconditions(reader, launchconditions);
+			ret = __ps_process_launchconditions(reader, &application->launchconditions);
 		} else if (!strcmp(ASCII(node), "notification")) {
-			notification_x *notification = malloc(sizeof(notification_x));
+			notification_x *notification = calloc(1, sizeof(notification_x));
 			if (notification == NULL) {
 				_LOGD("Malloc Failed\n");
 				return -1;
 			}
-			memset(notification, '\0', sizeof(notification_x));
-			LISTADD(application->notification, notification);
+			application->notification = g_list_append(application->notification, notification);
 			ret = __ps_process_notification(reader, notification);
 		} else if (!strcmp(ASCII(node), "datacontrol")) {
-			datacontrol_x *datacontrol = malloc(sizeof(datacontrol_x));
+			datacontrol_x *datacontrol = calloc(1, sizeof(datacontrol_x));
 			if (datacontrol == NULL) {
 				_LOGD("Malloc Failed\n");
 				return -1;
 			}
-			memset(datacontrol, '\0', sizeof(datacontrol_x));
-			LISTADD(application->datacontrol, datacontrol);
+			application->datacontrol = g_list_append(application->datacontrol, datacontrol);
 			ret = __ps_process_datacontrol(reader, datacontrol);
 		} else
 			return -1;
@@ -1844,86 +1728,7 @@ static int __ps_process_application(xmlTextReaderPtr reader, application_x *appl
 		}
 	}
 
-	if (application->label) {
-		LISTHEAD(application->label, tmp1);
-		application->label = tmp1;
-	}
-	if (application->icon) {
-		LISTHEAD(application->icon, tmp2);
-		application->icon = tmp2;
-	}
-	if (application->appsvc) {
-		LISTHEAD(application->appsvc, tmp3);
-		application->appsvc = tmp3;
-	}
-	if (application->appcontrol) {
-		LISTHEAD(application->appcontrol, tmp4);
-		application->appcontrol = tmp4;
-	}
-	if (application->launchconditions) {
-		LISTHEAD(application->launchconditions, tmp5);
-		application->launchconditions = tmp5;
-	}
-	if (application->notification) {
-		LISTHEAD(application->notification, tmp6);
-		application->notification = tmp6;
-	}
-	if (application->datashare) {
-		LISTHEAD(application->datashare, tmp7);
-		application->datashare = tmp7;
-	}
-	if (application->category) {
-		LISTHEAD(application->category, tmp8);
-		application->category = tmp8;
-	}
-	if (application->metadata) {
-		LISTHEAD(application->metadata, tmp9);
-		application->metadata = tmp9;
-	}
-	if (application->image) {
-		LISTHEAD(application->image, tmp10);
-		application->image = tmp10;
-	}
-	if (application->permission) {
-		LISTHEAD(application->permission, tmp11);
-		application->permission = tmp11;
-	}
-	if (application->datacontrol) {
-		LISTHEAD(application->datacontrol, tmp12);
-		application->datacontrol = tmp12;
-	}
-
 	return ret;
-}
-
-static int __ps_process_deviceprofile(xmlTextReaderPtr reader, deviceprofile_x *deviceprofile)
-{
-	/*TODO: once policy is set*/
-	return 0;
-}
-
-static int __ps_process_font(xmlTextReaderPtr reader, font_x *font)
-{
-	/*TODO: once policy is set*/
-	return 0;
-}
-
-static int __ps_process_theme(xmlTextReaderPtr reader, theme_x *theme)
-{
-	/*TODO: once policy is set*/
-	return 0;
-}
-
-static int __ps_process_daemon(xmlTextReaderPtr reader, daemon_x *daemon)
-{
-	/*TODO: once policy is set*/
-	return 0;
-}
-
-static int __ps_process_ime(xmlTextReaderPtr reader, ime_x *ime)
-{
-	/*TODO: once policy is set*/
-	return 0;
 }
 
 static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx, uid_t uid)
@@ -1932,19 +1737,6 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx, uid_t uid)
 	const xmlChar *node;
 	int ret = -1;
 	int depth = -1;
-	label_x *tmp1 = NULL;
-	author_x *tmp2 = NULL;
-	description_x *tmp3 = NULL;
-	license_x *tmp4 = NULL;
-	application_x *tmp5 = NULL;
-	daemon_x *tmp7 = NULL;
-	theme_x *tmp8 = NULL;
-	font_x *tmp9 = NULL;
-	ime_x *tmp10 = NULL;
-	icon_x *tmp11 = NULL;
-	compatibility_x *tmp12 = NULL;
-	deviceprofile_x *tmp13 = NULL;
-	privileges_x *tmp14 = NULL;
 
 	depth = xmlTextReaderDepth(reader);
 	while ((ret = __next_child_element(reader, depth))) {
@@ -1955,130 +1747,70 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx, uid_t uid)
 		}
 
 		if (!strcmp(ASCII(node), "label")) {
-			label_x *label = malloc(sizeof(label_x));
+			label_x *label = calloc(1, sizeof(label_x));
 			if (label == NULL) {
 				_LOGD("Malloc Failed\n");
 				return -1;
 			}
-			memset(label, '\0', sizeof(label_x));
-			LISTADD(mfx->label, label);
+			mfx->label = g_list_append(mfx->label, label);
 			ret = __ps_process_label(reader, label);
 		} else if (!strcmp(ASCII(node), "author")) {
-			author_x *author = malloc(sizeof(author_x));
+			author_x *author = calloc(1, sizeof(author_x));
 			if (author == NULL) {
 				_LOGD("Malloc Failed\n");
 				return -1;
 			}
-			memset(author, '\0', sizeof(author_x));
-			LISTADD(mfx->author, author);
+			mfx->author = g_list_append(mfx->author, author);
 			ret = __ps_process_author(reader, author);
 		} else if (!strcmp(ASCII(node), "description")) {
-			description_x *description = malloc(sizeof(description_x));
+			description_x *description = calloc(1, sizeof(description_x));
 			if (description == NULL) {
 				_LOGD("Malloc Failed\n");
 				return -1;
 			}
-			memset(description, '\0', sizeof(description_x));
-			LISTADD(mfx->description, description);
+			mfx->description = g_list_append(mfx->description, description);
 			ret = __ps_process_description(reader, description);
 		} else if (!strcmp(ASCII(node), "license")) {
-			license_x *license = malloc(sizeof(license_x));
+			license_x *license = calloc(1, sizeof(license_x));
 			if (license == NULL) {
 				_LOGD("Malloc Failed\n");
 				return -1;
 			}
-			memset(license, '\0', sizeof(license_x));
-			LISTADD(mfx->license, license);
+			mfx->license = g_list_append(mfx->license, license);
 			ret = __ps_process_license(reader, license);
 		} else if (!strcmp(ASCII(node), "privileges")) {
-			privileges_x *privileges = malloc(sizeof(privileges_x));
-			if (privileges == NULL) {
-				_LOGD("Malloc Failed\n");
-				return -1;
-			}
-			memset(privileges, '\0', sizeof(privileges_x));
-			LISTADD(mfx->privileges, privileges);
-			ret = __ps_process_privileges(reader, privileges);
+			ret = __ps_process_privileges(reader, &mfx->privileges);
 		} else if (!strcmp(ASCII(node), "ui-application")) {
-			application_x *application = malloc(sizeof(application_x));
+			application_x *application = calloc(1, sizeof(application_x));
 			if (application == NULL) {
 				_LOGD("Malloc Failed\n");
 				return -1;
 			}
-			memset(application, '\0', sizeof(application_x));
-			LISTADD(mfx->application, application);
+			mfx->application = g_list_append(mfx->application, application);
 			ret = __ps_process_application(reader, application, PMINFO_UI_APP, uid);
 		} else if (!strcmp(ASCII(node), "service-application")) {
-			application_x *application = malloc(sizeof(application_x));
+			application_x *application = calloc(1, sizeof(application_x));
 			if (application == NULL) {
 				_LOGD("Malloc Failed\n");
 				return -1;
 			}
-			memset(application, '\0', sizeof(application_x));
-			LISTADD(mfx->application, application);
+			mfx->application = g_list_append(mfx->application, application);
 			ret = __ps_process_application(reader, application, PMINFO_SVC_APP, uid);
-		} else if (!strcmp(ASCII(node), "daemon")) {
-			daemon_x *daemon = malloc(sizeof(daemon_x));
-			if (daemon == NULL) {
-				_LOGD("Malloc Failed\n");
-				return -1;
-			}
-			memset(daemon, '\0', sizeof(daemon_x));
-			LISTADD(mfx->daemon, daemon);
-			ret = __ps_process_daemon(reader, daemon);
-		} else if (!strcmp(ASCII(node), "theme")) {
-			theme_x *theme = malloc(sizeof(theme_x));
-			if (theme == NULL) {
-				_LOGD("Malloc Failed\n");
-				return -1;
-			}
-			memset(theme, '\0', sizeof(theme_x));
-			LISTADD(mfx->theme, theme);
-			ret = __ps_process_theme(reader, theme);
-		} else if (!strcmp(ASCII(node), "font")) {
-			font_x *font = malloc(sizeof(font_x));
-			if (font == NULL) {
-				_LOGD("Malloc Failed\n");
-				return -1;
-			}
-			memset(font, '\0', sizeof(font_x));
-			LISTADD(mfx->font, font);
-			ret = __ps_process_font(reader, font);
-		} else if (!strcmp(ASCII(node), "ime")) {
-			ime_x *ime = malloc(sizeof(ime_x));
-			if (ime == NULL) {
-				_LOGD("Malloc Failed\n");
-				return -1;
-			}
-			memset(ime, '\0', sizeof(ime_x));
-			LISTADD(mfx->ime, ime);
-			ret = __ps_process_ime(reader, ime);
 		} else if (!strcmp(ASCII(node), "icon")) {
-			icon_x *icon = malloc(sizeof(icon_x));
+			icon_x *icon = calloc(1, sizeof(icon_x));
 			if (icon == NULL) {
 				_LOGD("Malloc Failed\n");
 				return -1;
 			}
-			memset(icon, '\0', sizeof(icon_x));
-			LISTADD(mfx->icon, icon);
+			mfx->icon = g_list_append(mfx->icon, icon);
 			ret = __ps_process_icon(reader, icon, uid);
-		} else if (!strcmp(ASCII(node), "profile")) {
-			deviceprofile_x *deviceprofile = malloc(sizeof(deviceprofile_x));
-			if (deviceprofile == NULL) {
-				_LOGD("Malloc Failed\n");
-				return -1;
-			}
-			memset(deviceprofile, '\0', sizeof(deviceprofile_x));
-			LISTADD(mfx->deviceprofile, deviceprofile);
-			ret = __ps_process_deviceprofile(reader, deviceprofile);
 		} else if (!strcmp(ASCII(node), "compatibility")) {
-			compatibility_x *compatibility = malloc(sizeof(compatibility_x));
+			compatibility_x *compatibility = calloc(1, sizeof(compatibility_x));
 			if (compatibility == NULL) {
 				_LOGD("Malloc Failed\n");
 				return -1;
 			}
-			memset(compatibility, '\0', sizeof(compatibility_x));
-			LISTADD(mfx->compatibility, compatibility);
+			mfx->compatibility = g_list_append(mfx->compatibility, compatibility);
 			ret = __ps_process_compatibility(reader, compatibility);
 		} else if (!strcmp(ASCII(node), "shortcut-list")) {
 			continue;
@@ -2101,58 +1833,6 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx, uid_t uid)
 			_LOGD("Processing manifest failed\n");
 			return ret;
 		}
-	}
-	if (mfx->label) {
-		LISTHEAD(mfx->label, tmp1);
-		mfx->label = tmp1;
-	}
-	if (mfx->author) {
-		LISTHEAD(mfx->author, tmp2);
-		mfx->author = tmp2;
-	}
-	if (mfx->description) {
-		LISTHEAD(mfx->description, tmp3);
-		mfx->description= tmp3;
-	}
-	if (mfx->license) {
-		LISTHEAD(mfx->license, tmp4);
-		mfx->license= tmp4;
-	}
-	if (mfx->application) {
-		LISTHEAD(mfx->application, tmp5);
-		mfx->application = tmp5;
-	}
-	if (mfx->daemon) {
-		LISTHEAD(mfx->daemon, tmp7);
-		mfx->daemon= tmp7;
-	}
-	if (mfx->theme) {
-		LISTHEAD(mfx->theme, tmp8);
-		mfx->theme= tmp8;
-	}
-	if (mfx->font) {
-		LISTHEAD(mfx->font, tmp9);
-		mfx->font= tmp9;
-	}
-	if (mfx->ime) {
-		LISTHEAD(mfx->ime, tmp10);
-		mfx->ime= tmp10;
-	}
-	if (mfx->icon) {
-		LISTHEAD(mfx->icon, tmp11);
-		mfx->icon= tmp11;
-	}
-	if (mfx->compatibility) {
-		LISTHEAD(mfx->compatibility, tmp12);
-		mfx->compatibility= tmp12;
-	}
-	if (mfx->deviceprofile) {
-		LISTHEAD(mfx->deviceprofile, tmp13);
-		mfx->deviceprofile= tmp13;
-	}
-	if (mfx->privileges) {
-		LISTHEAD(mfx->privileges, tmp14);
-		mfx->privileges = tmp14;
 	}
 	return ret;
 }
@@ -2207,7 +1887,8 @@ static int __ps_remove_appsvc_db(manifest_x *mfx, uid_t uid)
 	void *lib_handle = NULL;
 	int (*appsvc_operation) (const char *, uid_t);
 	int ret = 0;
-	application_x *application = mfx->application;
+	GList *tmp;
+	application_x *application;
 
 	if ((lib_handle = dlopen(LIBAPPSVC_PATH, RTLD_LAZY)) == NULL) {
 		_LOGE("dlopen is failed LIBAPPSVC_PATH[%s]\n", LIBAPPSVC_PATH);
@@ -2220,7 +1901,10 @@ static int __ps_remove_appsvc_db(manifest_x *mfx, uid_t uid)
 		goto END;
 	}
 
-	for (; application; application = application->next) {
+	for (tmp = mfx->application; tmp; tmp = tmp->next) {
+		application = (application_x *)tmp->data;
+		if (application == NULL)
+			continue;
 		ret = appsvc_operation(application->appid, uid);
 		if (ret <0)
 			_LOGE("can not operation  symbol \n");

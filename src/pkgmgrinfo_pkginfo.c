@@ -371,7 +371,7 @@ API int pkgmgrinfo_pkginfo_get_list(pkgmgrinfo_pkg_list_cb pkg_list_cb, void *us
 }
 
 static int _pkginfo_get_author(sqlite3 *db, const char *pkgid,
-		author_x **author)
+		GList **author)
 {
 	static const char query_raw[] =
 		"SELECT author_name, author_email, author_href "
@@ -414,7 +414,8 @@ static int _pkginfo_get_author(sqlite3 *db, const char *pkgid,
 	_save_column_str(stmt, idx++, &info->email);
 	_save_column_str(stmt, idx++, &info->href);
 
-	*author = info;
+	/* TODO: revised */
+	*author = g_list_append(*author, info);
 
 	sqlite3_finalize(stmt);
 
@@ -422,7 +423,7 @@ static int _pkginfo_get_author(sqlite3 *db, const char *pkgid,
 }
 
 static int _pkginfo_get_label(sqlite3 *db, const char *pkgid,
-		const char *locale, label_x **label)
+		const char *locale, GList **label)
 {
 	static const char query_raw[] =
 		"SELECT package_label, package_locale "
@@ -453,21 +454,12 @@ static int _pkginfo_get_label(sqlite3 *db, const char *pkgid,
 		if (info == NULL) {
 			LOGE("out of memory");
 			sqlite3_finalize(stmt);
-			if (*label) {
-				LISTHEAD(*label, info);
-				*label = info;
-			}
 			return PMINFO_R_ERROR;
 		}
 		idx = 0;
 		_save_column_str(stmt, idx++, &info->text);
 		_save_column_str(stmt, idx++, &info->lang);
-		LISTADD(*label, info);
-	}
-
-	if (*label) {
-		LISTHEAD(*label, info);
-		*label = info;
+		*label = g_list_append(*label, info);
 	}
 
 	sqlite3_finalize(stmt);
@@ -476,7 +468,7 @@ static int _pkginfo_get_label(sqlite3 *db, const char *pkgid,
 }
 
 static int _pkginfo_get_icon(sqlite3 *db, const char *pkgid, const char *locale,
-		icon_x **icon)
+		GList **icon)
 {
 	static const char query_raw[] =
 		"SELECT package_icon, package_locale "
@@ -507,21 +499,12 @@ static int _pkginfo_get_icon(sqlite3 *db, const char *pkgid, const char *locale,
 		if (info == NULL) {
 			LOGE("out of memory");
 			sqlite3_finalize(stmt);
-			if (*icon) {
-				LISTHEAD(*icon, info);
-				*icon = info;
-			}
 			return PMINFO_R_ERROR;
 		}
 		idx = 0;
 		_save_column_str(stmt, idx++, &info->text);
 		_save_column_str(stmt, idx++, &info->lang);
-		LISTADD(*icon, info);
-	}
-
-	if (*icon) {
-		LISTHEAD(*icon, info);
-		*icon = info;
+		*icon = g_list_append(*icon, info);
 	}
 
 	sqlite3_finalize(stmt);
@@ -530,7 +513,7 @@ static int _pkginfo_get_icon(sqlite3 *db, const char *pkgid, const char *locale,
 }
 
 static int _pkginfo_get_description(sqlite3 *db, const char *pkgid,
-		const char *locale, description_x **description)
+		const char *locale, GList **description)
 {
 	static const char query_raw[] =
 		"SELECT package_description, package_locale "
@@ -561,21 +544,12 @@ static int _pkginfo_get_description(sqlite3 *db, const char *pkgid,
 		if (info == NULL) {
 			LOGE("out of memory");
 			sqlite3_finalize(stmt);
-			if (*description) {
-				LISTHEAD(*description, info);
-				*description = info;
-			}
 			return PMINFO_R_ERROR;
 		}
 		idx = 0;
 		_save_column_str(stmt, idx++, &info->text);
 		_save_column_str(stmt, idx++, &info->lang);
-		LISTADD(*description, info);
-	}
-
-	if (*description) {
-		LISTHEAD(*description, info);
-		*description = info;
+		*description = g_list_append(*description, info);
 	}
 
 	sqlite3_finalize(stmt);
@@ -584,28 +558,18 @@ static int _pkginfo_get_description(sqlite3 *db, const char *pkgid,
 }
 
 static int _pkginfo_get_privilege(sqlite3 *db, const char *pkgid,
-		privileges_x **privileges)
+		GList **privileges)
 {
 	static const char query_raw[] =
 		"SELECT privilege FROM package_privilege_info WHERE package=%Q";
 	int ret;
 	char *query;
 	sqlite3_stmt *stmt;
-	privileges_x *p;
-	privilege_x *info;
-
-	/* privilege list should stored in privileges_x... */
-	p = calloc(1, sizeof(privileges_x));
-	if (p == NULL) {
-		LOGE("out of memory");
-		return PMINFO_R_ERROR;
-	}
-	*privileges = p;
+	const char *privilege;
 
 	query = sqlite3_mprintf(query_raw, pkgid);
 	if (query == NULL) {
 		LOGE("out of memory");
-		free(p);
 		return PMINFO_R_ERROR;
 	}
 
@@ -614,28 +578,15 @@ static int _pkginfo_get_privilege(sqlite3 *db, const char *pkgid,
 	sqlite3_free(query);
 	if (ret != SQLITE_OK) {
 		LOGE("prepare failed: %s", sqlite3_errmsg(db));
-		free(p);
 		return PMINFO_R_ERROR;
 	}
 
 	while (sqlite3_step(stmt) == SQLITE_ROW) {
-		info = calloc(1, sizeof(privilege_x));
-		if (info == NULL) {
-			LOGE("out of memory");
-			sqlite3_finalize(stmt);
-			if (p->privilege) {
-				LISTHEAD(p->privilege, info);
-				p->privilege = info;
-			}
-			return PMINFO_R_ERROR;
-		}
-		_save_column_str(stmt, 0, &info->text);
-		LISTADD(p->privilege, info);
-	}
-
-	if (p->privilege) {
-		LISTHEAD(p->privilege, info);
-		p->privilege = info;
+		privilege = NULL;
+		_save_column_str(stmt, 0, &privilege);
+		if (privilege)
+			*privileges = g_list_append(*privileges,
+					(gpointer)privilege);
 	}
 
 	sqlite3_finalize(stmt);
@@ -1123,6 +1074,7 @@ API int pkgmgrinfo_pkginfo_get_icon(pkgmgrinfo_pkginfo_h handle, char **icon)
 {
 	const char *locale;
 	icon_x *ptr;
+	GList *tmp;
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
 
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL");
@@ -1131,16 +1083,23 @@ API int pkgmgrinfo_pkginfo_get_icon(pkgmgrinfo_pkginfo_h handle, char **icon)
 	locale = info->locale;
 	retvm_if(locale == NULL, PMINFO_R_ERROR, "manifest locale is NULL");
 
-	for (ptr = info->pkg_info->icon; ptr != NULL; ptr = ptr->next) {
-		if (ptr->text == NULL || ptr->lang == NULL || strcmp(ptr->lang, locale))
+	if (info->pkg_info == NULL)
+		return PMINFO_R_ERROR;
+
+	for (tmp = info->pkg_info->icon; tmp; tmp = tmp->next) {
+		ptr = (icon_x *)tmp->data;
+		if (ptr == NULL || ptr->text == NULL || ptr->lang == NULL ||
+				strcmp(ptr->lang, locale))
 			continue;
 		*icon = (char *)ptr->text;
 		return PMINFO_R_OK;
 	}
 
 	locale = DEFAULT_LOCALE;
-	for (ptr = info->pkg_info->icon; ptr != NULL; ptr = ptr->next) {
-		if (ptr->text == NULL || ptr->lang == NULL || strcmp(ptr->lang, locale))
+	for (tmp = info->pkg_info->icon; tmp; tmp = tmp->next) {
+		ptr = (icon_x *)tmp->data;
+		if (ptr == NULL || ptr->text == NULL || ptr->lang == NULL ||
+				strcmp(ptr->lang, locale))
 			continue;
 		*icon = (char *)ptr->text;
 		return PMINFO_R_OK;
@@ -1153,6 +1112,7 @@ API int pkgmgrinfo_pkginfo_get_label(pkgmgrinfo_pkginfo_h handle, char **label)
 {
 	const char *locale;
 	label_x *ptr;
+	GList *tmp;
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
 
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL");
@@ -1161,16 +1121,20 @@ API int pkgmgrinfo_pkginfo_get_label(pkgmgrinfo_pkginfo_h handle, char **label)
 	locale = info->locale;
 	retvm_if(locale == NULL, PMINFO_R_ERROR, "manifest locale is NULL");
 
-	for (ptr = info->pkg_info->label; ptr != NULL; ptr = ptr->next) {
-		if (ptr->text == NULL || ptr->lang == NULL || strcmp(ptr->lang, locale))
+	for (tmp = info->pkg_info->label; tmp != NULL; tmp = tmp->next) {
+		ptr = (label_x *)tmp->data;
+		if (ptr == NULL || ptr->text == NULL || ptr->lang == NULL ||
+				strcmp(ptr->lang, locale))
 			continue;
 		*label = (char *)ptr->text;
 		return PMINFO_R_OK;
 	}
 
 	locale = DEFAULT_LOCALE;
-	for (ptr = info->pkg_info->label; ptr != NULL; ptr = ptr->next) {
-		if (ptr->text == NULL || ptr->lang == NULL || strcmp(ptr->lang, locale))
+	for (tmp = info->pkg_info->label; tmp != NULL; tmp = tmp->next) {
+		ptr = (label_x *)tmp->data;
+		if (ptr == NULL || ptr->text == NULL || ptr->lang == NULL ||
+				strcmp(ptr->lang, locale))
 			continue;
 		*label = (char *)ptr->text;
 		return PMINFO_R_OK;
@@ -1183,6 +1147,7 @@ API int pkgmgrinfo_pkginfo_get_description(pkgmgrinfo_pkginfo_h handle, char **d
 {
 	const char *locale;
 	description_x *ptr;
+	GList *tmp;
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
 
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
@@ -1191,16 +1156,20 @@ API int pkgmgrinfo_pkginfo_get_description(pkgmgrinfo_pkginfo_h handle, char **d
 	locale = info->locale;
 	retvm_if(locale == NULL, PMINFO_R_ERROR, "manifest locale is NULL");
 
-	for (ptr = info->pkg_info->description; ptr != NULL; ptr = ptr->next) {
-		if (ptr->text == NULL || ptr->lang == NULL || strcmp(ptr->lang, locale))
+	for (tmp = info->pkg_info->description; tmp; tmp = tmp->next) {
+		ptr = (description_x *)tmp->data;
+		if (ptr == NULL || ptr->text == NULL || ptr->lang == NULL ||
+				strcmp(ptr->lang, locale))
 			continue;
 		*description = (char *)ptr->text;
 		return PMINFO_R_OK;
 	}
 
 	locale = DEFAULT_LOCALE;
-	for (ptr = info->pkg_info->description; ptr != NULL; ptr = ptr->next) {
-		if (ptr->text == NULL || ptr->lang == NULL || strcmp(ptr->lang, locale))
+	for (tmp = info->pkg_info->description; tmp; tmp = tmp->next) {
+		ptr = (description_x *)tmp->data;
+		if (ptr == NULL || ptr->text == NULL || ptr->lang == NULL ||
+				strcmp(ptr->lang, locale))
 			continue;
 		*description = (char *)ptr->text;
 		return PMINFO_R_OK;
@@ -1212,15 +1181,19 @@ API int pkgmgrinfo_pkginfo_get_description(pkgmgrinfo_pkginfo_h handle, char **d
 API int pkgmgrinfo_pkginfo_get_author_name(pkgmgrinfo_pkginfo_h handle, char **author_name)
 {
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
+	author_x *author;
 
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
 	retvm_if(author_name == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 
-	if (info->pkg_info == NULL || info->pkg_info->author == NULL ||
-			info->pkg_info->author->text == NULL)
+	if (info->pkg_info == NULL || info->pkg_info->author == NULL)
 		return PMINFO_R_ERROR;
 
-	*author_name = (char *)info->pkg_info->author->text;
+	author = (author_x *)info->pkg_info->author->data;
+	if (author == NULL || author->text == NULL)
+		return PMINFO_R_ERROR;
+
+	*author_name = (char *)author->text;
 
 	return PMINFO_R_OK;
 }
@@ -1228,15 +1201,19 @@ API int pkgmgrinfo_pkginfo_get_author_name(pkgmgrinfo_pkginfo_h handle, char **a
 API int pkgmgrinfo_pkginfo_get_author_email(pkgmgrinfo_pkginfo_h handle, char **author_email)
 {
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
+	author_x *author;
 
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
 	retvm_if(author_email == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 
-	if (info->pkg_info == NULL || info->pkg_info->author == NULL ||
-			info->pkg_info->author->email == NULL)
+	if (info->pkg_info == NULL || info->pkg_info->author == NULL)
 		return PMINFO_R_ERROR;
 
-	*author_email = (char *)info->pkg_info->author->email;
+	author = (author_x *)info->pkg_info->author->data;
+	if (author == NULL || author->email == NULL)
+		return PMINFO_R_ERROR;
+
+	*author_email = (char *)author->email;
 
 	return PMINFO_R_OK;
 }
@@ -1244,15 +1221,19 @@ API int pkgmgrinfo_pkginfo_get_author_email(pkgmgrinfo_pkginfo_h handle, char **
 API int pkgmgrinfo_pkginfo_get_author_href(pkgmgrinfo_pkginfo_h handle, char **author_href)
 {
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
+	author_x *author;
 
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
 	retvm_if(author_href == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 
-	if (info->pkg_info == NULL || info->pkg_info->author == NULL ||
-			info->pkg_info->author->href == NULL)
+	if (info->pkg_info == NULL || info->pkg_info->author == NULL)
 		return PMINFO_R_ERROR;
 
-	*author_href = (char *)info->pkg_info->author->href;
+	author = (author_x *)info->pkg_info->author->data;
+	if (author == NULL || author->href == NULL)
+		return PMINFO_R_ERROR;
+
+	*author_href = (char *)author->href;
 
 	return PMINFO_R_OK;
 }
@@ -1904,16 +1885,21 @@ API int pkgmgrinfo_pkginfo_foreach_privilege(pkgmgrinfo_pkginfo_h handle,
 {
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL");
 	retvm_if(privilege_func == NULL, PMINFO_R_EINVAL, "Callback function is NULL");
-	int ret = -1;
-	privilege_x *ptr = NULL;
+	int ret;
+	const char *privilege;
+	GList *tmp;
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
-	ptr = info->pkg_info->privileges->privilege;
-	for (; ptr; ptr = ptr->next) {
-		if (ptr->text){
-			ret = privilege_func(ptr->text, user_data);
-			if (ret < 0)
-				break;
-		}
+
+	if (info->pkg_info == NULL)
+		return PMINFO_R_ERROR;
+
+	for (tmp = info->pkg_info->privileges; tmp; tmp = tmp->next) {
+		privilege = (const char *)tmp->data;
+		if (privilege == NULL)
+			continue;
+		ret = privilege_func(privilege, user_data);
+		if (ret < 0)
+			break;
 	}
 	return PMINFO_R_OK;
 }
@@ -2049,12 +2035,12 @@ API int pkgmgrinfo_set_label_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, const c
 	label = calloc(1, sizeof(label_x));
 	retvm_if(label == NULL, PMINFO_R_EINVAL, "Malloc Failed");
 
-	LISTADD(mfx->label, label);
 	if (locale)
-		mfx->label->lang = strdup(locale);
+		label->lang = strdup(locale);
 	else
-		mfx->label->lang = strdup(DEFAULT_LOCALE);
-	mfx->label->text = strdup(label_txt);
+		label->lang = strdup(DEFAULT_LOCALE);
+	label->text = strdup(label_txt);
+	mfx->label = g_list_append(mfx->label, label);
 
 	return PMINFO_R_OK;
 }
@@ -2074,12 +2060,12 @@ API int pkgmgrinfo_set_icon_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, const ch
 	icon = calloc(1, sizeof(icon_x));
 	retvm_if(icon == NULL, PMINFO_R_EINVAL, "Malloc Failed");
 
-	LISTADD(mfx->icon, icon);
 	if (locale)
-		mfx->icon->lang = strdup(locale);
+		icon->lang = strdup(locale);
 	else
-		mfx->icon->lang = strdup(DEFAULT_LOCALE);
-	mfx->icon->text = strdup(icon_txt);
+		icon->lang = strdup(DEFAULT_LOCALE);
+	icon->text = strdup(icon_txt);
+	mfx->icon = g_list_append(mfx->icon, icon);
 
 	return PMINFO_R_OK;
 }
@@ -2099,12 +2085,12 @@ API int pkgmgrinfo_set_description_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, c
 	description = calloc(1, sizeof(description_x));
 	retvm_if(description == NULL, PMINFO_R_EINVAL, "Malloc Failed");
 
-	LISTADD(mfx->description, description);
 	if (locale)
-		mfx->description->lang = strdup(locale);
+		description->lang = strdup(locale);
 	else
-		mfx->description->lang = strdup(DEFAULT_LOCALE);
-	mfx->description->text = strdup(desc_txt);
+		description->lang = strdup(DEFAULT_LOCALE);
+	description->text = strdup(desc_txt);
+	mfx->description = g_list_append(mfx->description, description);
 
 	return PMINFO_R_OK;
 }
@@ -2120,17 +2106,17 @@ API int pkgmgrinfo_set_author_to_pkgdbinfo(pkgmgrinfo_pkgdbinfo_h handle, const 
 	author = calloc(1, sizeof(author_x));
 	retvm_if(author == NULL, PMINFO_R_EINVAL, "Argument supplied is NULL");
 
-	LISTADD(mfx->author, author);
 	if (author_name)
-		mfx->author->text = strdup(author_name);
+		author->text = strdup(author_name);
 	if (author_email)
-		mfx->author->email = strdup(author_email);
+		author->email = strdup(author_email);
 	if (author_href)
-		mfx->author->href = strdup(author_href);
+		author->href = strdup(author_href);
 	if (locale)
-		mfx->author->lang = strdup(locale);
+		author->lang = strdup(locale);
 	else
-		mfx->author->lang = strdup(DEFAULT_LOCALE);
+		author->lang = strdup(DEFAULT_LOCALE);
+	mfx->author = g_list_append(mfx->author, author);
 	return PMINFO_R_OK;
 }
 
