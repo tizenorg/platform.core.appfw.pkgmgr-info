@@ -42,7 +42,6 @@
 #include "pkgmgr_parser.h"
 #include "pkgmgr_parser_internal.h"
 #include "pkgmgr_parser_db.h"
-#include "pkgmgr_parser_signature.h"
 
 #ifdef LOG_TAG
 #undef LOG_TAG
