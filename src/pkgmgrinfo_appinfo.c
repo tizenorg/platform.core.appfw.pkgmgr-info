@@ -210,7 +210,7 @@ static int _appinfo_get_filtered_list(pkgmgrinfo_filter_x *filter, uid_t uid,
 }
 
 static int _appinfo_get_label(sqlite3 *db, const char *appid,
-		const char *locale, label_x **label)
+		const char *locale, GList **label)
 {
 	static const char query_raw[] =
 		"SELECT app_label, app_locale "
@@ -240,21 +240,12 @@ static int _appinfo_get_label(sqlite3 *db, const char *appid,
 		if (info == NULL) {
 			LOGE("out of memory");
 			sqlite3_finalize(stmt);
-			if (*label) {
-				LISTHEAD(*label, info);
-				*label = info;
-			}
 			return PMINFO_R_ERROR;
 		}
 		idx = 0;
 		_save_column_str(stmt, idx++, &info->text);
 		_save_column_str(stmt, idx++, &info->lang);
-		LISTADD(*label, info);
-	}
-
-	if (*label) {
-		LISTHEAD(*label, info);
-		*label = info;
+		*label = g_list_append(*label, info);
 	}
 
 	sqlite3_finalize(stmt);
@@ -263,7 +254,7 @@ static int _appinfo_get_label(sqlite3 *db, const char *appid,
 }
 
 static int _appinfo_get_icon(sqlite3 *db, const char *appid, const char *locale,
-		icon_x **icon)
+		GList **icon)
 {
 	static const char query_raw[] =
 		"SELECT app_icon, app_locale "
@@ -294,21 +285,12 @@ static int _appinfo_get_icon(sqlite3 *db, const char *appid, const char *locale,
 		if (info == NULL) {
 			LOGE("out of memory");
 			sqlite3_finalize(stmt);
-			if (*icon) {
-				LISTHEAD(*icon, info);
-				*icon = info;
-			}
 			return PMINFO_R_ERROR;
 		}
 		idx = 0;
 		_save_column_str(stmt, idx++, &info->text);
 		_save_column_str(stmt, idx++, &info->lang);
-		LISTADD(*icon, info);
-	}
-
-	if (*icon) {
-		LISTHEAD(*icon, info);
-		*icon = info;
+		*icon = g_list_append(*icon, info);
 	}
 
 	sqlite3_finalize(stmt);
@@ -317,14 +299,14 @@ static int _appinfo_get_icon(sqlite3 *db, const char *appid, const char *locale,
 }
 
 static int _appinfo_get_category(sqlite3 *db, const char *appid,
-		category_x **category)
+		GList **category)
 {
 	static const char query_raw[] =
 		"SELECT category FROM package_app_app_category WHERE app_id=%Q";
 	int ret;
 	char *query;
 	sqlite3_stmt *stmt;
-	category_x *info;
+	const char *val;
 
 	query = sqlite3_mprintf(query_raw, appid);
 	if (query == NULL) {
@@ -340,23 +322,10 @@ static int _appinfo_get_category(sqlite3 *db, const char *appid,
 	}
 
 	while (sqlite3_step(stmt) == SQLITE_ROW) {
-		info = calloc(1, sizeof(category_x));
-		if (info == NULL) {
-			LOGE("out of memory");
-			sqlite3_finalize(stmt);
-			if (*category) {
-				LISTHEAD(*category, info);
-				*category = info;
-			}
-			return PMINFO_R_ERROR;
-		}
-		_save_column_str(stmt, 0, &info->name);
-		LISTADD(*category, info);
-	}
-
-	if (*category) {
-		LISTHEAD(*category, info);
-		*category = info;
+		val = NULL;
+		_save_column_str(stmt, 0, &val);
+		if (val)
+			*category = g_list_append(*category, (gpointer)val);
 	}
 
 	sqlite3_finalize(stmt);
@@ -364,7 +333,7 @@ static int _appinfo_get_category(sqlite3 *db, const char *appid,
 	return PMINFO_R_OK;
 }
 
-static void __parse_appcontrol(appcontrol_x **appcontrol, char *appcontrol_str)
+static void __parse_appcontrol(GList **appcontrol, char *appcontrol_str)
 {
 	char *dup;
 	char *token;
@@ -390,18 +359,14 @@ static void __parse_appcontrol(appcontrol_x **appcontrol, char *appcontrol_str)
 		token = strtok_r(NULL, "|", &ptr);
 		if (token && strcmp(token, "NULL"))
 			ac->mime = strdup(token);
-		LISTADD(*appcontrol, ac);
+		*appcontrol = g_list_append(*appcontrol, ac);
 	} while ((token = strtok_r(NULL, ";", &ptr)));
 
-	if (*appcontrol) {
-		LISTHEAD(*appcontrol, ac);
-		*appcontrol = ac;
-	}
 	free(dup);
 }
 
 static int _appinfo_get_app_control(sqlite3 *db, const char *appid,
-		appcontrol_x **appcontrol)
+		GList **appcontrol)
 {
 	static const char query_raw[] =
 		"SELECT app_control FROM package_app_app_control "
@@ -409,7 +374,6 @@ static int _appinfo_get_app_control(sqlite3 *db, const char *appid,
 	int ret;
 	char *query;
 	sqlite3_stmt *stmt;
-	appcontrol_x *info = NULL;
 	char *str;
 
 	query = sqlite3_mprintf(query_raw, appid);
@@ -429,11 +393,9 @@ static int _appinfo_get_app_control(sqlite3 *db, const char *appid,
 		str = NULL;
 		_save_column_str(stmt, 0, (const char **)&str);
 		/* TODO: revise */
-		__parse_appcontrol(&info, str);
+		__parse_appcontrol(appcontrol, str);
 		free(str);
 	}
-
-	*appcontrol = info;
 
 	sqlite3_finalize(stmt);
 
@@ -441,7 +403,7 @@ static int _appinfo_get_app_control(sqlite3 *db, const char *appid,
 }
 
 static int _appinfo_get_data_control(sqlite3 *db, const char *appid,
-		datacontrol_x **datacontrol)
+		GList **datacontrol)
 {
 	static const char query_raw[] =
 		"SELECT providerid, access, type "
@@ -470,22 +432,13 @@ static int _appinfo_get_data_control(sqlite3 *db, const char *appid,
 		if (info == NULL) {
 			LOGE("out of memory");
 			sqlite3_finalize(stmt);
-			if (*datacontrol) {
-				LISTHEAD(*datacontrol, info);
-				*datacontrol = info;
-			}
 			return PMINFO_R_ERROR;
 		}
 		idx = 0;
 		_save_column_str(stmt, idx++, &info->providerid);
 		_save_column_str(stmt, idx++, &info->access);
 		_save_column_str(stmt, idx++, &info->type);
-		LISTADD(*datacontrol, info);
-	}
-
-	if (*datacontrol) {
-		LISTHEAD(*datacontrol, info);
-		*datacontrol = info;
+		*datacontrol = g_list_append(*datacontrol, info);
 	}
 
 	sqlite3_finalize(stmt);
@@ -494,7 +447,7 @@ static int _appinfo_get_data_control(sqlite3 *db, const char *appid,
 }
 
 static int _appinfo_get_metadata(sqlite3 *db, const char *appid,
-		metadata_x **metadata)
+		GList **metadata)
 {
 	static const char query_raw[] =
 		"SELECT md_key, md_value "
@@ -523,21 +476,12 @@ static int _appinfo_get_metadata(sqlite3 *db, const char *appid,
 		if (info == NULL) {
 			LOGE("out of memory");
 			sqlite3_finalize(stmt);
-			if (*metadata) {
-				LISTHEAD(*metadata, info);
-				*metadata = info;
-			}
 			return PMINFO_R_ERROR;
 		}
 		idx = 0;
 		_save_column_str(stmt, idx++, &info->key);
 		_save_column_str(stmt, idx++, &info->value);
-		LISTADD(*metadata, info);
-	}
-
-	if (*metadata) {
-		LISTHEAD(*metadata, info);
-		*metadata = info;
+		*metadata = g_list_append(*metadata, info);
 	}
 
 	sqlite3_finalize(stmt);
@@ -941,7 +885,7 @@ API int pkgmgrinfo_appinfo_get_icon(pkgmgrinfo_appinfo_h handle, char **icon)
 {
         const char *locale;
         icon_x *ptr;
-        icon_x *start;
+        GList *tmp;
         pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
@@ -950,17 +894,23 @@ API int pkgmgrinfo_appinfo_get_icon(pkgmgrinfo_appinfo_h handle, char **icon)
 	locale = info->locale;
 	retvm_if(locale == NULL, PMINFO_R_ERROR, "manifest locale is NULL");
 
-	start = info->app_info->icon;
-	for (ptr = start; ptr != NULL; ptr = ptr->next) {
-		if (ptr->text == NULL || ptr->lang == NULL || strcmp(ptr->lang, locale))
+	if (info->app_info == NULL)
+		return PMINFO_R_ERROR;
+
+	for (tmp = info->app_info->icon; tmp; tmp = tmp->next) {
+		ptr = (icon_x *)tmp->data;
+		if (ptr == NULL || ptr->text == NULL || ptr->lang == NULL ||
+				strcmp(ptr->lang, locale))
 			continue;
 		*icon = (char *)ptr->text;
 		return PMINFO_R_OK;
 	}
 
 	locale = DEFAULT_LOCALE;
-	for (ptr = start; ptr != NULL; ptr = ptr->next) {
-		if (ptr->text == NULL || ptr->lang == NULL || strcmp(ptr->lang, locale))
+	for (tmp = info->app_info->icon; tmp; tmp = tmp->next) {
+		ptr = (icon_x *)tmp->data;
+		if (ptr == NULL || ptr->text == NULL || ptr->lang == NULL ||
+				strcmp(ptr->lang, locale))
 			continue;
 		*icon = (char *)ptr->text;
 		return PMINFO_R_OK;
@@ -974,7 +924,7 @@ API int pkgmgrinfo_appinfo_get_label(pkgmgrinfo_appinfo_h handle, char **label)
 {
 	const char *locale;
 	label_x *ptr;
-	label_x *start;
+	GList *tmp;
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
@@ -983,17 +933,23 @@ API int pkgmgrinfo_appinfo_get_label(pkgmgrinfo_appinfo_h handle, char **label)
 	locale = info->locale;
 	retvm_if(locale == NULL, PMINFO_R_ERROR, "manifest locale is NULL");
 
-	start = info->app_info->label;
-	for (ptr = start; ptr != NULL; ptr = ptr->next) {
-		if (ptr->text == NULL || ptr->lang == NULL || strcmp(ptr->lang, locale))
+	if (info->app_info == NULL)
+		return PMINFO_R_ERROR;
+
+	for (tmp = info->app_info->label; tmp; tmp = tmp->next) {
+		ptr = (label_x *)tmp->data;
+		if (ptr == NULL || ptr->text == NULL || ptr->lang == NULL ||
+				strcmp(ptr->lang, locale))
 			continue;
 		*label = (char *)ptr->text;
 		return PMINFO_R_OK;
 	}
 
 	locale = DEFAULT_LOCALE;
-	for (ptr = start; ptr != NULL; ptr = ptr->next) {
-		if (ptr->text == NULL || ptr->lang == NULL || strcmp(ptr->lang, locale))
+	for (tmp = info->app_info->label; tmp; tmp = tmp->next) {
+		ptr = (label_x *)tmp->data;
+		if (ptr == NULL || ptr->text == NULL || ptr->lang == NULL ||
+				strcmp(ptr->lang, locale))
 			continue;
 		*label = (char *)ptr->text;
 		return PMINFO_R_OK;
@@ -1166,13 +1122,18 @@ API int pkgmgrinfo_appinfo_get_setting_icon(pkgmgrinfo_appinfo_h handle, char **
 {
 	char *val;
 	icon_x *ptr;
+	GList *tmp;
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL\n");
 	retvm_if(icon == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 
-	for (ptr = info->app_info->icon; ptr != NULL; ptr = ptr->next) {
-		if (ptr->section == NULL)
+	if (info->app_info == NULL)
+		return PMINFO_R_ERROR;
+
+	for (tmp = info->app_info->icon; tmp; tmp = tmp->next) {
+		ptr = (icon_x *)tmp->data;
+		if (ptr == NULL || ptr->section == NULL)
 			continue;
 
 		val = (char *)ptr->section;
@@ -1190,13 +1151,18 @@ API int pkgmgrinfo_appinfo_get_notification_icon(pkgmgrinfo_appinfo_h handle, ch
 {
 	char *val;
 	icon_x *ptr;
+	GList *tmp;
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL\n");
 	retvm_if(icon == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 
-	for (ptr = info->app_info->icon; ptr != NULL; ptr = ptr->next) {
-		if (ptr->section == NULL)
+	if (info->app_info == NULL)
+		return PMINFO_R_ERROR;
+
+	for (tmp = info->app_info->icon; tmp; tmp = tmp->next) {
+		ptr = (icon_x *)tmp->data;
+		if (ptr == NULL || ptr->section == NULL)
 			continue;
 
 		val = (char *)ptr->section;
@@ -1235,13 +1201,18 @@ API int pkgmgrinfo_appinfo_get_preview_image(pkgmgrinfo_appinfo_h handle, char *
 {
 	char *val;
 	image_x *ptr;
+	GList *tmp;
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL\n");
 	retvm_if(preview_img == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 
-	for (ptr = info->app_info->image; ptr != NULL; ptr = ptr->next) {
-		if (ptr->section == NULL)
+	if (info->app_info == NULL)
+		return PMINFO_R_ERROR;
+
+	for (tmp = info->app_info->image; tmp; tmp = tmp->next) {
+		ptr = (image_x *)tmp->data;
+		if (ptr == NULL || ptr->section == NULL)
 			continue;
 
 		val = (char *)ptr->section;
@@ -1472,13 +1443,17 @@ API int pkgmgrinfo_appinfo_foreach_permission(pkgmgrinfo_appinfo_h handle,
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
 	retvm_if(permission_func == NULL, PMINFO_R_EINVAL, "Callback function is NULL");
 	int ret = -1;
-	permission_x *ptr = NULL;
+	permission_x *ptr;
+	GList *tmp;
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 
 	if (info->app_info == NULL)
 		return PMINFO_R_ERROR;
 
-	for (ptr = info->app_info->permission; ptr; ptr = ptr->next) {
+	for (tmp = info->app_info->permission; tmp; tmp = tmp->next) {
+		ptr = (permission_x *)tmp->data;
+		if (ptr == NULL)
+			continue;
 		if (ptr->value) {
 			ret = permission_func(ptr->value, user_data);
 			if (ret < 0)
@@ -1494,15 +1469,17 @@ API int pkgmgrinfo_appinfo_foreach_category(pkgmgrinfo_appinfo_h handle,
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
 	retvm_if(category_func == NULL, PMINFO_R_EINVAL, "Callback function is NULL");
 	int ret = -1;
-	category_x *ptr = NULL;
+	const char *category;
+	GList *tmp;
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 
 	if (info->app_info == NULL)
 		return PMINFO_R_ERROR;
 
-	for (ptr = info->app_info->category; ptr; ptr = ptr->next) {
-		if (ptr->name) {
-			ret = category_func(ptr->name, user_data);
+	for (tmp = info->app_info->category; tmp; tmp = tmp->next) {
+		category = (const char *)tmp->data;
+		if (category) {
+			ret = category_func(category, user_data);
 			if (ret < 0)
 				break;
 		}
@@ -1516,13 +1493,17 @@ API int pkgmgrinfo_appinfo_foreach_metadata(pkgmgrinfo_appinfo_h handle,
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
 	retvm_if(metadata_func == NULL, PMINFO_R_EINVAL, "Callback function is NULL");
 	int ret = -1;
-	metadata_x *ptr = NULL;
+	metadata_x *ptr;
+	GList *tmp;
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 
 	if (info->app_info == NULL)
 		return PMINFO_R_ERROR;
 
-	for (ptr = info->app_info->metadata; ptr; ptr = ptr->next) {
+	for (tmp = info->app_info->metadata; tmp; tmp = tmp->next) {
+		ptr = (metadata_x *)tmp->data;
+		if (ptr == NULL)
+			continue;
 		if (ptr->key) {
 			ret = metadata_func(ptr->key, ptr->value, user_data);
 			if (ret < 0)
@@ -1540,11 +1521,15 @@ API int pkgmgrinfo_appinfo_foreach_appcontrol(pkgmgrinfo_appinfo_h handle,
 	int ret;
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 	appcontrol_x *appcontrol;
+	GList *tmp;
 
 	if (info->app_info == NULL)
 		return PMINFO_R_ERROR;
 
-	for (appcontrol = info->app_info->appcontrol; appcontrol; appcontrol = appcontrol->next) {
+	for (tmp = info->app_info->appcontrol; tmp; tmp = tmp->next) {
+		appcontrol = (appcontrol_x *)tmp->data;
+		if (appcontrol == NULL)
+			continue;
 		ret = appcontrol_func(appcontrol->operation, appcontrol->uri, appcontrol->mime, user_data);
 		if (ret < 0)
 			break;
@@ -1699,19 +1684,21 @@ API int pkgmgrinfo_appinfo_is_category_exist(pkgmgrinfo_appinfo_h handle, const 
 	retvm_if(category == NULL, PMINFO_R_EINVAL, "category is NULL");
 	retvm_if(exist == NULL, PMINFO_R_EINVAL, "exist is NULL");
 
-	category_x *ptr = NULL;
+	const char *val;
+	GList *tmp;
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 
 	if (info->app_info == NULL)
 		return PMINFO_R_ERROR;
 
 	*exist = 0;
-	for (ptr = info->app_info->category; ptr; ptr = ptr->next) {
-		if (ptr->name) {
-			if (strcasecmp(ptr->name, category) == 0) {
-				*exist = 1;
-				break;
-			}
+	for (tmp = info->app_info->category; tmp; tmp = tmp->next) {
+		val = (const char *)tmp->data;
+		if (val == NULL)
+			continue;
+		if (strcasecmp(val, category) == 0) {
+			*exist = 1;
+			break;
 		}
 	}
 
