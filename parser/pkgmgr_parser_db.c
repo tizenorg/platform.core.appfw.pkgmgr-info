@@ -282,10 +282,10 @@ static int __delete_subpkg_info_from_db(char *appid);
 static int __delete_appinfo_from_db(char *db_table, const char *appid);
 static int __initialize_db(sqlite3 *db_handle, const char *db_query);
 static int __exec_query(char *query);
-static void __extract_data(gpointer data, label_x *lbl, license_x *lcn, icon_x *icn, description_x *dcn, author_x *ath,
+static void __extract_data(gpointer data, GList *lbl, GList *lcn, GList *icn, GList *dcn, GList *ath,
 		char **label, char **license, char **icon, char **description, char **author);
 static gint __comparefunc(gconstpointer a, gconstpointer b, gpointer userdata);
-static GList *__create_locale_list(GList *locale, label_x *lbl, license_x *lcn, icon_x *icn, description_x *dcn, author_x *ath);
+static GList *__create_locale_list(GList *locale, GList *lbl, GList *lcn, GList *icn, GList *dcn, GList *ath);
 static void __preserve_guestmode_visibility_value(manifest_x *mfx);
 static int __guestmode_visibility_cb(void *data, int ncols, char **coltxt, char **colname);
 static int __pkgmgr_parser_create_db(sqlite3 **db_handle, const char *db_path);
@@ -330,10 +330,13 @@ static int __guestmode_visibility_cb(void *data, int ncols, char **coltxt, char 
 	int i = 0;
 	char *appid = NULL;
 	char *status = NULL;
-	application_x *app = NULL;
+	application_x *app;
+	GList *tmp;
+	if (mfx->application == NULL)
+		return -1;
+	app = (application_x *)mfx->application->data;
 	for(i = 0; i < ncols; i++)
 	{
-		app = mfx->application;
 		if (strcmp(colname[i], "app_id") == 0) {
 			if (coltxt[i])
 				appid = strdup(coltxt[i]);
@@ -347,7 +350,10 @@ static int __guestmode_visibility_cb(void *data, int ncols, char **coltxt, char 
 		return -1;
 	}
 	/*update guest mode visibility*/
-	for (; app != NULL; app = app->next) {
+	for (tmp = mfx->application; tmp; tmp = tmp->next) {
+		app = (application_x *)tmp->data;
+		if (app == NULL)
+			continue;
 		if (strcmp(app->appid, appid) == 0) {
 			free((void *)app->guestmode_visibility);
 			app->guestmode_visibility = strdup(status);
@@ -422,61 +428,79 @@ static int __exec_query_no_msg(char *query)
 	return 0;
 }
 
-static GList *__create_locale_list(GList *locale, label_x *lbl, license_x *lcn, icon_x *icn, description_x *dcn, author_x *ath)
+static GList *__create_locale_list(GList *locale, GList *lbls, GList *lcns, GList *icns, GList *dcns, GList *aths)
 {
-
-	while(lbl != NULL)
-	{
+	GList *tmp;
+	label_x *lbl;
+	license_x *lcn;
+	icon_x *icn;
+	description_x *dcn;
+	author_x *ath;
+	for (tmp = lbls; tmp; tmp = tmp->next) {
+		lbl = (label_x *)tmp->data;
+		if (lbl == NULL)
+			continue;
 		if (lbl->lang)
 			locale = g_list_insert_sorted_with_data(locale, (gpointer)lbl->lang, __comparefunc, NULL);
-		lbl = lbl->next;
 	}
-	while(lcn != NULL)
-	{
+	for (tmp = lcns; tmp; tmp = tmp->next) {
+		lcn = (license_x *)tmp->data;
+		if (lcn == NULL)
+			continue;
 		if (lcn->lang)
 			locale = g_list_insert_sorted_with_data(locale, (gpointer)lcn->lang, __comparefunc, NULL);
-		lcn = lcn->next;
 	}
-	while(icn != NULL)
-	{
+	for (tmp = icns; tmp; tmp = tmp->next) {
+		icn = (icon_x *)tmp->data;
+		if (icn == NULL)
+			continue;
 		if (icn->lang)
 			locale = g_list_insert_sorted_with_data(locale, (gpointer)icn->lang, __comparefunc, NULL);
-		icn = icn->next;
 	}
-	while(dcn != NULL)
-	{
+	for (tmp = dcns; tmp; tmp = tmp->next) {
+		dcn = (description_x *)tmp->data;
+		if (dcn == NULL)
+			continue;
 		if (dcn->lang)
 			locale = g_list_insert_sorted_with_data(locale, (gpointer)dcn->lang, __comparefunc, NULL);
-		dcn = dcn->next;
 	}
-	while(ath != NULL)
-	{
+	for (tmp = aths; tmp; tmp = tmp->next) {
+		ath = (author_x *)tmp->data;
+		if (ath == NULL)
+			continue;
 		if (ath->lang)
 			locale = g_list_insert_sorted_with_data(locale, (gpointer)ath->lang, __comparefunc, NULL);
-		ath = ath->next;
 	}
 	return locale;
 
 }
 
-static GList *__create_icon_list(GList *locale, icon_x *icn)
+static GList *__create_icon_list(GList *locale, GList *icns)
 {
-	while(icn != NULL)
-	{
+	GList *tmp;
+	icon_x *icn;
+
+	for (tmp = icns; tmp; tmp = tmp->next) {
+		icn = (icon_x *)tmp->data;
+		if (icn == NULL)
+			continue;
 		if (icn->section)
 			locale = g_list_insert_sorted_with_data(locale, (gpointer)icn->section, __comparefunc, NULL);
-		icn = icn->next;
 	}
 	return locale;
 }
 
-static GList *__create_image_list(GList *locale, image_x *image)
+static GList *__create_image_list(GList *locale, GList *imgs)
 {
-	while(image != NULL)
-	{
-		if (image->section)
-			locale = g_list_insert_sorted_with_data(locale, (gpointer)image->section, __comparefunc, NULL);
-		image = image->next;
+	GList *tmp;
+	image_x *img;
+
+	for (tmp = imgs; tmp; tmp = tmp->next) {
+		img = (image_x *)tmp->data;
+		if (img == NULL)
+			continue;
+		if (img->section)
+			locale = g_list_insert_sorted_with_data(locale, (gpointer)img->section, __comparefunc, NULL);
 	}
 	return locale;
 }
@@ -521,66 +545,81 @@ static gint __comparefunc(gconstpointer a, gconstpointer b, gpointer userdata)
 	return 0;
 }
 
-static void __extract_data(gpointer data, label_x *lbl, license_x *lcn, icon_x *icn, description_x *dcn, author_x *ath,
+static void __extract_data(gpointer data, GList *lbls, GList *lcns, GList *icns, GList *dcns, GList *aths,
 		char **label, char **license, char **icon, char **description, char **author)
 {
-	while(lbl != NULL)
-	{
+	GList *tmp;
+	label_x *lbl;
+	license_x *lcn;
+	icon_x *icn;
+	description_x *dcn;
+	author_x *ath;
+	for (tmp = lbls; tmp; tmp = tmp->next) {
+		lbl = (label_x *)tmp->data;
+		if (lbl == NULL)
+			continue;
 		if (lbl->lang) {
 			if (strcmp(lbl->lang, (char *)data) == 0) {
 				*label = (char*)lbl->text;
 				break;
 			}
 		}
-		lbl = lbl->next;
 	}
-	while(lcn != NULL)
-	{
+	for (tmp = lcns; tmp; tmp = tmp->next) {
+		lcn = (license_x *)tmp->data;
+		if (lcn == NULL)
+			continue;
 		if (lcn->lang) {
 			if (strcmp(lcn->lang, (char *)data) == 0) {
 				*license = (char*)lcn->text;
 				break;
 			}
 		}
-		lcn = lcn->next;
 	}
-	while(icn != NULL)
-	{
+	for (tmp = icns; tmp; tmp = tmp->next) {
+		icn = (icon_x *)tmp->data;
+		if (icn == NULL)
+			continue;
 		if (icn->lang) {
 			if (strcmp(icn->lang, (char *)data) == 0) {
 				*icon = (char*)icn->text;
 				break;
 			}
 		}
-		icn = icn->next;
 	}
-	while(dcn != NULL)
-	{
+	for (tmp = dcns; tmp; tmp = tmp->next) {
+		dcn = (description_x *)tmp->data;
+		if (dcn == NULL)
+			continue;
 		if (dcn->lang) {
 			if (strcmp(dcn->lang, (char *)data) == 0) {
 				*description = (char*)dcn->text;
 				break;
 			}
 		}
-		dcn = dcn->next;
 	}
-	while(ath != NULL)
-	{
+	for (tmp = aths; tmp; tmp = tmp->next) {
+		ath = (author_x *)tmp->data;
+		if (ath == NULL)
+			continue;
 		if (ath->lang) {
 			if (strcmp(ath->lang, (char *)data) == 0) {
 				*author = (char*)ath->text;
 				break;
 			}
 		}
-		ath = ath->next;
 	}
 
 }
 
-static void __extract_icon_data(gpointer data, icon_x *icn, char **icon, char **resolution)
+static void __extract_icon_data(gpointer data, GList *icns, char **icon, char **resolution)
 {
-	while(icn != NULL)
-	{
+	GList *tmp;
+	icon_x *icn;
+	for (tmp = icns; tmp; tmp = tmp->next) {
+		icn = (icon_x *)tmp->data;
+		if (icn == NULL)
+			continue;
 		if (icn->section) {
 			if (strcmp(icn->section, (char *)data) == 0) {
 				*icon = (char*)icn->text;
@@ -588,22 +627,24 @@ static void __extract_icon_data(gpointer data, icon_x *icn, char **icon, char **
 				break;
 			}
 		}
-		icn = icn->next;
 	}
 }
 
-static void __extract_image_data(gpointer data, image_x*image, char **lang, char **img)
+static void __extract_image_data(gpointer data, GList *imgs, char **lang, char **image)
 {
-	while(image != NULL)
-	{
-		if (image->section) {
-			if (strcmp(image->section, (char *)data) == 0) {
-				*lang = (char*)image->lang;
-				*img = (char*)image->text;
+	GList *tmp;
+	image_x *img;
+	for (tmp = imgs; tmp; tmp = tmp->next) {
+		img = (image_x *)tmp->data;
+		if (img == NULL)
+			continue;
+		if (img->section) {
+			if (strcmp(img->section, (char *)data) == 0) {
+				*lang = (char*)img->lang;
+				*image = (char*)img->text;
 				break;
 			}
 		}
-		image = image->next;
 	}
 }
 
@@ -618,11 +659,11 @@ static void __insert_pkglocale_info(gpointer data, gpointer userdata)
 	char query[MAX_QUERY_LEN] = {'\0'};
 
 	manifest_x *mfx = (manifest_x *)userdata;
-	label_x *lbl = mfx->label;
-	license_x *lcn = mfx->license;
-	icon_x *icn = mfx->icon;
-	description_x *dcn = mfx->description;
-	author_x *ath = mfx->author;
+	GList *lbl = mfx->label;
+	GList *lcn = mfx->license;
+	GList *icn = mfx->icon;
+	GList *dcn = mfx->description;
+	GList *ath = mfx->author;
 
 	__extract_data(data, lbl, lcn, icn, dcn, ath, &label, &license, &icon, &description, &author);
 	if (!label && !description && !icon && !license && !author)
@@ -652,8 +693,8 @@ static void __insert_application_locale_info(gpointer data, gpointer userdata)
 	char query[MAX_QUERY_LEN] = {'\0'};
 
 	application_x *app = (application_x*)userdata;
-	label_x *lbl = app->label;
-	icon_x *icn = app->icon;
+	GList *lbl = app->label;
+	GList *icn = app->icon;
 
 	__extract_data(data, lbl, NULL, icn, NULL, NULL, &label, NULL, &icon, NULL, NULL);
 	if (!label && !icon)
@@ -697,7 +738,7 @@ static void __insert_application_icon_section_info(gpointer data, gpointer userd
 	char query[MAX_QUERY_LEN] = {'\0'};
 
 	application_x *app = (application_x*)userdata;
-	icon_x *icn = app->icon;
+	GList *icn = app->icon;
 
 	__extract_icon_data(data, icn, &icon, &resolution);
 	if (!icon && !resolution)
@@ -721,7 +762,7 @@ static void __insert_application_image_info(gpointer data, gpointer userdata)
 	char query[MAX_QUERY_LEN] = {'\0'};
 
 	application_x *app = (application_x*)userdata;
-	image_x *image = app->image;
+	GList *image = app->image;
 
 	__extract_image_data(data, image, &lang, &img);
 	if (!lang && !img)
@@ -739,10 +780,14 @@ static void __insert_application_image_info(gpointer data, gpointer userdata)
 
 static int __insert_mainapp_info(manifest_x *mfx)
 {
-	application_x *app = mfx->application;
+	GList *tmp;
+	application_x *app;
 	int ret = -1;
 	char query[MAX_QUERY_LEN] = {'\0'};
-	while (app != NULL) {
+	for (tmp = mfx->application; tmp; tmp = tmp->next) {
+		app = (application_x *)tmp->data;
+		if (app == NULL)
+			continue;
 		snprintf(query, MAX_QUERY_LEN,
 			"update package_app_info set app_mainapp='%s' where app_id='%s'", app->mainapp, app->appid);
 
@@ -753,14 +798,16 @@ static int __insert_mainapp_info(manifest_x *mfx)
 		}
 		if (strcasecmp(app->mainapp, "True")==0)
 			mfx->mainapp_id = strdup(app->appid);
-
-		app = app->next;
-		memset(query, '\0', MAX_QUERY_LEN);
 	}
 
 	if (mfx->mainapp_id == NULL) {
-		if (mfx->application && mfx->application->appid) {
-			snprintf(query, MAX_QUERY_LEN, "update package_app_info set app_mainapp='true' where app_id='%s'", mfx->application->appid);
+		if (mfx->application == NULL)
+			return -1;
+		app = (application_x *)mfx->application->data;
+		if (app == NULL)
+			return -1;
+		if (app->appid) {
+			snprintf(query, MAX_QUERY_LEN, "update package_app_info set app_mainapp='true' where app_id='%s'", app->appid);
 		} else {
 			_LOGD("Not valid appid\n");
 			return -1;
@@ -772,9 +819,9 @@ static int __insert_mainapp_info(manifest_x *mfx)
 			return -1;
 		}
 
-		free((void *)mfx->application->mainapp);
-		mfx->application->mainapp= strdup("true");
-		mfx->mainapp_id = strdup(mfx->application->appid);
+		free((void *)app->mainapp);
+		app->mainapp= strdup("true");
+		mfx->mainapp_id = strdup(app->appid);
 	}
 
 	memset(query, '\0', MAX_QUERY_LEN);
@@ -793,10 +840,14 @@ static int __insert_mainapp_info(manifest_x *mfx)
 */
 static int __insert_application_info(manifest_x *mfx)
 {
-	application_x *app = mfx->application;
+	GList *tmp;
+	application_x *app;
 	int ret = -1;
 	char query[MAX_QUERY_LEN] = {'\0'};
-	while (app != NULL) {
+	for (tmp = mfx->application; tmp; tmp = tmp->next) {
+		app = (application_x *)tmp->data;
+		if (app == NULL)
+			continue;
 		snprintf(query, MAX_QUERY_LEN,
 			 "insert into package_app_info(app_id, app_component, app_exec, app_nodisplay, app_type, app_onboot, " \
 			"app_multiple, app_autorestart, app_taskmanage, app_enabled, app_hwacceleration, app_screenreader, app_mainapp , app_recentimage, " \
@@ -837,7 +888,6 @@ static int __insert_application_info(manifest_x *mfx)
 			_LOGD("Package UiApp Info DB Insert Failed\n");
 			return -1;
 		}
-		app = app->next;
 		memset(query, '\0', MAX_QUERY_LEN);
 	}
 	return 0;
@@ -845,39 +895,51 @@ static int __insert_application_info(manifest_x *mfx)
 
 static int __insert_application_appcategory_info(manifest_x *mfx)
 {
-	application_x *app = mfx->application;
-	category_x *ct = NULL;
+	GList *app_tmp;
+	application_x *app;
+	GList *ct_tmp;
+	const char *ct;
 	int ret = -1;
 	char query[MAX_QUERY_LEN] = {'\0'};
-	while (app != NULL) {
-		ct = app->category;
-		while (ct != NULL) {
+	for (app_tmp = mfx->application; app_tmp; app_tmp = app_tmp->next) {
+		app = (application_x *)app_tmp->data;
+		if (app == NULL)
+			continue;
+		for (ct_tmp = app->category; ct_tmp; ct_tmp = ct_tmp->next) {
+			ct = (const char *)ct_tmp->data;
+			if (ct == NULL)
+				continue;
 			snprintf(query, MAX_QUERY_LEN,
 				"insert into package_app_app_category(app_id, category) " \
 				"values('%s','%s')",\
-				 app->appid, ct->name);
+				 app->appid, ct);
 			ret = __exec_query(query);
 			if (ret == -1) {
 				_LOGD("Package UiApp Category Info DB Insert Failed\n");
 				return -1;
 			}
-			ct = ct->next;
 			memset(query, '\0', MAX_QUERY_LEN);
 		}
-		app = app->next;
 	}
 	return 0;
 }
 
 static int __insert_application_appmetadata_info(manifest_x *mfx)
 {
-	application_x *app = mfx->application;
-	metadata_x *md = NULL;
+	GList *app_tmp;
+	application_x *app;
+	GList *md_tmp;
+	metadata_x *md;
 	int ret = -1;
 	char query[MAX_QUERY_LEN] = {'\0'};
-	while (app != NULL) {
-		md = app->metadata;
-		while (md != NULL) {
+	for (app_tmp = mfx->application; app_tmp; app_tmp = app_tmp->next) {
+		app = (application_x *)app_tmp->data;
+		if (app == NULL)
+			continue;
+		for (md_tmp = app->metadata; md_tmp; md_tmp = md_tmp->next) {
+			md = (metadata_x *)md_tmp->data;
+			if (md == NULL)
+				continue;
 			if (md->key) {
 				snprintf(query, MAX_QUERY_LEN,
 					"insert into package_app_app_metadata(app_id, md_key, md_value) " \
@@ -889,23 +951,28 @@ static int __insert_application_appmetadata_info(manifest_x *mfx)
 					return -1;
 				}
 			}
-			md = md->next;
 			memset(query, '\0', MAX_QUERY_LEN);
 		}
-		app = app->next;
 	}
 	return 0;
 }
 
 static int __insert_application_apppermission_info(manifest_x *mfx)
 {
-	application_x *app = mfx->application;
-	permission_x *pm = NULL;
+	GList *app_tmp;
+	application_x *app;
+	GList *pm_tmp;
+	permission_x *pm;
 	int ret = -1;
 	char query[MAX_QUERY_LEN] = {'\0'};
-	while (app != NULL) {
-		pm = app->permission;
-		while (pm != NULL) {
+	for (app_tmp = mfx->application; app_tmp; app_tmp = app_tmp->next) {
+		app = (application_x *)app_tmp->data;
+		if (app == NULL)
+			continue;
+		for (pm_tmp = app->permission; pm_tmp; pm_tmp = pm_tmp->next) {
+			pm = (permission_x *)pm_tmp->data;
+			if (pm == NULL)
+				continue;
 			snprintf(query, MAX_QUERY_LEN,
 				"insert into package_app_app_permission(app_id, pm_type, pm_value) " \
 				"values('%s','%s', '%s')",\
@@ -915,24 +982,29 @@ static int __insert_application_apppermission_info(manifest_x *mfx)
 				_LOGD("Package UiApp permission Info DB Insert Failed\n");
 				return -1;
 			}
-			pm = pm->next;
 			memset(query, '\0', MAX_QUERY_LEN);
 		}
-		app = app->next;
 	}
 	return 0;
 }
 
 static int __insert_application_appcontrol_info(manifest_x *mfx)
 {
-	application_x *app = mfx->application;
-	appcontrol_x *acontrol = NULL;
+	GList *app_tmp;
+	application_x *app;
+	GList *acontrol_tmp;
+	appcontrol_x *acontrol;
 	int ret = -1;
 	char query[MAX_QUERY_LEN] = {'\0'};
 	char buf[BUFSIZE] = {'\0'};
-	while (app != NULL) {
-		acontrol = app->appcontrol;
-		while (acontrol != NULL) {
+	for (app_tmp = mfx->application; app_tmp; app_tmp = app_tmp->next) {
+		app = (application_x *)app_tmp->data;
+		if (app == NULL)
+			continue;
+		for (acontrol_tmp = app->appcontrol; acontrol_tmp; acontrol_tmp = acontrol_tmp->next) {
+			acontrol = (appcontrol_x *)acontrol_tmp->data;
+			if (acontrol == NULL)
+				continue;
 			snprintf(buf, BUFSIZE, "%s|%s|%s",\
 					acontrol->operation ? (strlen(acontrol->operation) > 0 ? acontrol->operation : "NULL") : "NULL",
 					acontrol->uri ? (strlen(acontrol->uri) > 0 ? acontrol->uri : "NULL") : "NULL",
@@ -947,9 +1019,7 @@ static int __insert_application_appcontrol_info(manifest_x *mfx)
 				return -1;
 			}
 			memset(query, '\0', MAX_QUERY_LEN);
-			acontrol = acontrol->next;
 		}
-		app = app->next;
 	}
 	return 0;
 }
@@ -957,96 +1027,61 @@ static int __insert_application_appcontrol_info(manifest_x *mfx)
 /* FIXME: should be changed to app_control */
 static int __insert_application_appsvc_info(manifest_x *mfx)
 {
-	application_x *app = mfx->application;
-	appsvc_x *asvc = NULL;
-	operation_x *op = NULL;
-	mime_x *mi = NULL;
-	uri_x *ui = NULL;
-	subapp_x *sub = NULL;
+	GList *app_tmp;
+	application_x *app;
+	GList *asvc_tmp;
+	appsvc_x *asvc;
 	int ret = -1;
 	char query[MAX_QUERY_LEN] = {'\0'};
-	const char *operation = NULL;
-	const char *mime = NULL;
-	const char *uri = NULL;
-	const char *subapp = NULL;
-	while(app != NULL)
-	{
-		asvc = app->appsvc;
-		while(asvc != NULL)
-		{
-			op = asvc->operation;
-			while(op != NULL)
-			{
-				if (op)
-					operation = op->name;
-				mi = asvc->mime;
+	for (app_tmp = mfx->application; app_tmp; app_tmp = app_tmp->next) {
+		app = (application_x *)app_tmp->data;
+		if (app == NULL)
+			continue;
+		for (asvc_tmp = app->appsvc; asvc_tmp; asvc_tmp = asvc_tmp->next) {
+			asvc = (appsvc_x *)asvc_tmp->data;
+			if (asvc == NULL)
+				continue;
+			snprintf(query, MAX_QUERY_LEN,
+					"insert into package_app_app_svc(app_id, operation, uri_scheme, mime_type, subapp_name) " \
+					"values('%s', '%s', '%s', '%s', '%s')",\
+					 app->appid,
+					 asvc->operation,
+					 __get_str(asvc->uri),
+					 __get_str(asvc->mime),
+					 __get_str(asvc->subapp));
 
-				do
-				{
-					if (mi)
-						mime = mi->name;
-					sub = asvc->subapp;
-					do
-					{
-						if (sub)
-							subapp = sub->name;
-						ui = asvc->uri;
-						do
-						{
-							if (ui)
-								uri = ui->name;
-							snprintf(query, MAX_QUERY_LEN,
-								 "insert into package_app_app_svc(app_id, operation, uri_scheme, mime_type, subapp_name) " \
-								"values('%s', '%s', '%s', '%s', '%s')",\
-								 app->appid,
-								 operation,
-								 __get_str(uri),
-								 __get_str(mime),
-								 __get_str(subapp));
-
-							ret = __exec_query(query);
-							if (ret == -1) {
-								_LOGD("Package UiApp AppSvc DB Insert Failed\n");
-								return -1;
-							}
-							memset(query, '\0', MAX_QUERY_LEN);
-							if (ui)
-								ui = ui->next;
-							uri = NULL;
-						} while(ui != NULL);
-						if (sub)
-							sub = sub->next;
-						subapp = NULL;
-					}while(sub != NULL);
-					if (mi)
-						mi = mi->next;
-					mime = NULL;
-				}while(mi != NULL);
-				if (op)
-					op = op->next;
-				operation = NULL;
+			ret = __exec_query(query);
+			if (ret == -1) {
+				_LOGD("Package UiApp AppSvc DB Insert Failed\n");
+				return -1;
 			}
-			asvc = asvc->next;
+			memset(query, '\0', MAX_QUERY_LEN);
 		}
-		app = app->next;
 	}
 	return 0;
 }
 
 static int __insert_application_datacontrol_info(manifest_x *mfx)
 {
-	application_x *app = mfx->application;
-	datacontrol_x *dc = NULL;
+	GList *app_tmp;
+	application_x *app;
+	GList *dc_tmp;
+	datacontrol_x *dc;
 	int ret = -1;
 	char query[MAX_QUERY_LEN] = {'\0'};
 
-	while (app != NULL) {
-		dc = app->datacontrol;
-		while (dc != NULL) {
+	for (app_tmp = mfx->application; app_tmp; app_tmp = app_tmp->next) {
+		app = (application_x *)app_tmp->data;
+		if (app == NULL)
+			continue;
+		for (dc_tmp = app->datacontrol; dc_tmp; dc_tmp = dc_tmp->next) {
+			dc = (datacontrol_x *)dc_tmp->data;
+			if (dc == NULL)
+				continue;
 			snprintf(query, MAX_QUERY_LEN,
 					"insert into package_app_data_control(app_id, providerid, access, type) " \
 					"values('%s', '%s', '%s', '%s')",\
-					mfx->application->appid,
+					app->appid,
 					dc->providerid,
 					dc->access,
 					dc->type);
@@ -1057,94 +1092,102 @@ static int __insert_application_datacontrol_info(manifest_x *mfx)
 				return -1;
 			}
 			memset(query, '\0', MAX_QUERY_LEN);
-			dc = dc->next;
 		}
-		app = app->next;
 	}
 	return 0;
 }
 
 static int __insert_application_share_request_info(manifest_x *mfx)
 {
-	application_x *app = mfx->application;
-	datashare_x *ds = NULL;
-	request_x *rq = NULL;
+	GList *app_tmp;
+	application_x *app;
+	GList *ds_tmp;
+	datashare_x *ds;
+	GList *rq_tmp;
+	const char *rq;
 	int ret = -1;
 	char query[MAX_QUERY_LEN] = {'\0'};
-	while (app != NULL) {
-		ds = app->datashare;
-		while (ds != NULL) {
-			rq = ds->request;
-			while (rq != NULL) {
+	for (app_tmp = mfx->application; app_tmp; app_tmp = app_tmp->next) {
+		app = (application_x *)app_tmp->data;
+		if (app == NULL)
+			continue;
+		for (ds_tmp = app->datashare; ds_tmp; ds_tmp = ds_tmp->next) {
+			ds = (datashare_x *)ds_tmp->data;
+			if (ds == NULL)
+				continue;
+			for (rq_tmp = ds->request; rq_tmp; rq_tmp = rq_tmp->next) {
+				rq = (const char *)rq_tmp->data;
+				if (rq == NULL)
+					continue;
 				snprintf(query, MAX_QUERY_LEN,
 					 "insert into package_app_share_request(app_id, data_share_request) " \
 					"values('%s', '%s')",\
-					 app->appid, rq->text);
+					 app->appid, rq);
 				ret = __exec_query(query);
 				if (ret == -1) {
 					_LOGD("Package UiApp Share Request DB Insert Failed\n");
 					return -1;
 				}
 				memset(query, '\0', MAX_QUERY_LEN);
-				rq = rq->next;
 			}
-			ds = ds->next;
 		}
-		app = app->next;
 	}
 	return 0;
 }
 
 static int __insert_application_share_allowed_info(manifest_x *mfx)
 {
-	application_x *app = mfx->application;
-	datashare_x *ds = NULL;
-	define_x *df = NULL;
-	allowed_x *al = NULL;
+	GList *app_tmp;
+	application_x *app;
+	GList *ds_tmp;
+	datashare_x *ds;
+	GList *df_tmp;
+	define_x *df;
+	GList *al_tmp;
+	const char *al;
 	int ret = -1;
 	char query[MAX_QUERY_LEN] = {'\0'};
-	while (app != NULL) {
-		ds = app->datashare;
-		while (ds != NULL) {
-			df = ds->define;
-			while (df != NULL) {
-				al = df->allowed;
-				while (al != NULL) {
+	for (app_tmp = mfx->application; app_tmp; app_tmp = app_tmp->next) {
+		app = (application_x *)app_tmp->data;
+		if (app == NULL)
+			continue;
+		for (ds_tmp = app->datashare; ds_tmp; ds_tmp = ds_tmp->next) {
+			ds = (datashare_x *)ds_tmp->data;
+			if (ds == NULL)
+				continue;
+			for (df_tmp = ds->define; df_tmp; df_tmp = df_tmp->next) {
+				df = (define_x *)df_tmp->data;
+				if (df == NULL)
+					continue;
+				for (al_tmp = df->allowed; al_tmp; al_tmp = al_tmp->next) {
+					al = (const char *)al_tmp->data;
+					if (al == NULL)
+						continue;
 					snprintf(query, MAX_QUERY_LEN,
 						 "insert into package_app_share_allowed(app_id, data_share_path, data_share_allowed) " \
 						"values('%s', '%s', '%s')",\
-						 app->appid, df->path, al->text);
+						 app->appid, df->path, al);
 					ret = __exec_query(query);
 					if (ret == -1) {
 						_LOGD("Package UiApp Share Allowed DB Insert Failed\n");
 						return -1;
 					}
 					memset(query, '\0', MAX_QUERY_LEN);
-					al = al->next;
 				}
-				df = df->next;
 			}
-			ds = ds->next;
 		}
-		app = app->next;
 	}
 	return 0;
 }
 
 static int __insert_manifest_info_in_db(manifest_x *mfx, uid_t uid)
 {
-	label_x *lbl = mfx->label;
-	license_x *lcn = mfx->license;
-	icon_x *icn = mfx->icon;
-	description_x *dcn = mfx->description;
-	author_x *ath = mfx->author;
-	application_x *app = mfx->application;
-	application_x *app_icn = mfx->application;
-	application_x *app_image = mfx->application;
-	privileges_x *pvs = NULL;
-	privilege_x *pv = NULL;
+	GList *tmp;
+	application_x *app;
+	const char *pv = NULL;
 	char query[MAX_QUERY_LEN] = { '\0' };
 	int ret = -1;
+	author_x *author;
 	const char *auth_name = NULL;
 	const char *auth_email = NULL;
 	const char *auth_href = NULL;
@@ -1154,13 +1197,14 @@ static int __insert_manifest_info_in_db(manifest_x *mfx, uid_t uid)
 	GList *appicon = NULL;
 	GList *appimage = NULL;
 
-	if (ath) {
-		if (ath->text)
-			auth_name = ath->text;
-		if (ath->email)
-			auth_email = ath->email;
-		if (ath->href)
-			auth_href = ath->href;
+	if (mfx->author && mfx->author->data) {
+		author = (author_x *)mfx->author->data;
+		if (author->text)
+			auth_name = author->text;
+		if (author->email)
+			auth_email = author->email;
+		if (author->href)
+			auth_href = author->href;
 	}
 	/*Insert in the package_cert_info CERT_DB*/
 	pkgmgrinfo_instcertinfo_h cert_handle = NULL;
@@ -1215,81 +1259,57 @@ static int __insert_manifest_info_in_db(manifest_x *mfx, uid_t uid)
 	}
 
 	/*Insert in the package_privilege_info DB*/
-	pvs = mfx->privileges;
-	while (pvs != NULL) {
-		pv = pvs->privilege;
-		while (pv != NULL) {
-			memset(query, '\0', MAX_QUERY_LEN);
-			snprintf(query, MAX_QUERY_LEN,
-				"insert into package_privilege_info(package, privilege) " \
-				"values('%s','%s')",\
-				 mfx->package, pv->text);
-			ret = __exec_query(query);
-			if (ret == -1) {
-				_LOGD("Package Privilege Info DB Insert Failed\n");
-				return -1;
-			}
-			pv = pv->next;
+	for (tmp = mfx->privileges; tmp; tmp = tmp->next) {
+		pv = (const char *)tmp->data;
+		if (pv == NULL)
+			continue;
+		memset(query, '\0', MAX_QUERY_LEN);
+		snprintf(query, MAX_QUERY_LEN,
+			"insert into package_privilege_info(package, privilege) " \
+			"values('%s','%s')",\
+			 mfx->package, pv);
+		ret = __exec_query(query);
+		if (ret == -1) {
+			_LOGD("Package Privilege Info DB Insert Failed\n");
+			return -1;
 		}
-		pvs = pvs->next;
 	}
 
-	if (app != NULL) {
+	if (mfx->application != NULL) {
 		ret = __insert_mainapp_info(mfx);
 		if (ret == -1)
 			return -1;
 	}
 
 	/*Insert the package locale*/
-	pkglocale = __create_locale_list(pkglocale, lbl, lcn, icn, dcn, ath);
+	pkglocale = __create_locale_list(pkglocale, mfx->label, mfx->license, mfx->icon, mfx->description, mfx->author);
 	/*remove duplicated data in pkglocale*/
 	__trimfunc(pkglocale);
 
-	/*Insert the app locale info */
-	while (app != NULL) {
+	/*Insert the app locale, icon, image info */
+	for (tmp = mfx->application; tmp; tmp = tmp->next) {
+		app = (application_x *)tmp->data;
+		if (app == NULL)
+			continue;
 		applocale = __create_locale_list(applocale, app->label, NULL, app->icon, NULL, NULL);
-		app = app->next;
+		appicon = __create_icon_list(appicon, app->icon);
+		appimage = __create_image_list(appimage, app->image);
 	}
 	/*remove duplicated data in applocale*/
 	__trimfunc(applocale);
-
-	/*Insert the app icon info */
-	while (app_icn != NULL) {
-		appicon = __create_icon_list(appicon, app_icn->icon);
-		app_icn = app_icn->next;
-	}
-	/*remove duplicated data in appicon*/
 	__trimfunc(appicon);
-
-	/*Insert the image info */
-	while (app_image != NULL) {
-		appimage = __create_image_list(appimage, app_image->image);
-		app_image = app_image->next;
-	}
-	/*remove duplicated data in appimage*/
 	__trimfunc(appimage);
 
 	g_list_foreach(pkglocale, __insert_pkglocale_info, (gpointer)mfx);
 
 	/*native app locale info*/
-	app = mfx->application;
-	while (app != NULL) {
+	for (tmp = mfx->application; tmp; tmp = tmp->next) {
+		app = (application_x *)tmp->data;
+		if (app == NULL)
+			continue;
 		g_list_foreach(applocale, __insert_application_locale_info, (gpointer)app);
-		app = app->next;
-	}
-
-	/*app icon locale info*/
-	app_icn = mfx->application;
-	while (app_icn != NULL) {
-		g_list_foreach(appicon, __insert_application_icon_section_info, (gpointer)app_icn);
-		app_icn = app_icn->next;
-	}
-
-	/*app image info*/
-	app_image = mfx->application;
-	while (app_image != NULL) {
-		g_list_foreach(appimage, __insert_application_image_info, (gpointer)app_image);
-		app_image = app_image->next;
+		g_list_foreach(appicon, __insert_application_icon_section_info, (gpointer)app);
+		g_list_foreach(appimage, __insert_application_image_info, (gpointer)app);
 	}
 
 	g_list_free(pkglocale);
@@ -1430,7 +1450,8 @@ static int __delete_manifest_info_from_db(manifest_x *mfx, uid_t uid)
 {
 	char query[MAX_QUERY_LEN] = { '\0' };
 	int ret = -1;
-	application_x *app = mfx->application;
+	GList *tmp;
+	application_x *app;
 	/*Delete from cert table*/
 	if (uid != GLOBAL_USER)
 		ret = pkgmgrinfo_delete_usr_certinfo(mfx->package, uid);
@@ -1469,7 +1490,10 @@ static int __delete_manifest_info_from_db(manifest_x *mfx, uid_t uid)
 		return -1;
 	}
 
-	while (app != NULL) {
+	for (tmp = mfx->application; tmp; tmp = tmp->next) {
+		app = (application_x *)tmp->data;
+		if (app == NULL)
+			continue;
 		ret = __delete_appinfo_from_db("package_app_info", app->appid);
 		if (ret < 0)
 			return ret;
@@ -1506,7 +1530,6 @@ static int __delete_manifest_info_from_db(manifest_x *mfx, uid_t uid)
 		ret = __delete_appinfo_from_db("package_app_data_control", app->appid);
 		if (ret < 0)
 			return ret;
-		app = app->next;
 	}
 
 	/* if main package has sub pkg, delete sub pkg data*/

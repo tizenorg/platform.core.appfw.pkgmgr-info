@@ -11,6 +11,6 @@ includedir=@INCLUDEDIR@
 Name: package manager parser library
 Description: SLP package manager's installer lib for each backends
 Version: @VERSION@
-Requires: libxml-2.0
+Requires: libxml-2.0 glib-2.0
 Libs: -L${libdir} -lpkgmgr_parser
 Cflags: -I${includedir}/pkgmgr
