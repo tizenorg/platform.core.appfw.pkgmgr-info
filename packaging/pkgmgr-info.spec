@@ -55,12 +55,8 @@ MAJORVER=`echo %{version} | awk 'BEGIN {FS="."}{print $1}'`
 %install
 %make_install
 
-# create the directory for hosting Read-Write application manifest files
-mkdir -p %{buildroot}%{TZ_SYS_RW_PACKAGES}
-
 %post
 /sbin/ldconfig
-chsmack -a '*' %{TZ_SYS_RW_PACKAGES}
 
 %postun -p /sbin/ldconfig
 
@@ -72,7 +68,6 @@ chsmack -a '*' %{TZ_SYS_RW_PACKAGES}
 %manifest %{name}.manifest
 %defattr(-,root,root,-)
 %{_libdir}/libpkgmgr-info.so.*
-%attr(-,tizenglobalapp,root) %dir %{TZ_SYS_RW_PACKAGES}
 
 %files devel
 %manifest %{name}.manifest
