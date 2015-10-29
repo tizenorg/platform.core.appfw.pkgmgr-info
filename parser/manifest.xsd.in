@@ -137,6 +137,8 @@
       <xs:attribute name="multiple" type="xs:boolean"/>
       <xs:attribute name="taskmanage" type="xs:boolean"/>
       <xs:attribute name="permission-type" type="xs:string"/>
+      <xs:attribute name="component-type" type="xs:string"/>
+      <xs:attribute name="nodisplay" type="xs:boolean"/>
     </xs:complexType>
   </xs:element>
   <xs:element name="ui-application">
