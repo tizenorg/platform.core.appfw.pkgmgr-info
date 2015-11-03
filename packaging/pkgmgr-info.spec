@@ -18,6 +18,7 @@ BuildRequires: pkgconfig(libtzplatform-config)
 BuildRequires: pkgconfig(libsmack)
 BuildRequires:	pkgconfig(bundle)
 
+
 %description
 Packager Manager infomation api for packaging
 
@@ -41,7 +42,6 @@ Requires:	pkgconfig(libtzplatform-config)
 
 %description parser-devel
 Dev package for libpkgmgr-parser
-
 
 %prep
 %setup -q

@@ -105,6 +105,33 @@ int pkgmgr_parser_update_manifest_info_in_db(manifest_x *mfx);
 int pkgmgr_parser_update_manifest_info_in_usr_db(manifest_x *mfx, uid_t uid);
 
 /**
+ * @fn int pkgmgr_parser_update_tep_info_in_db(const char * pkgid, const char * tep_path)
+ * @fn int pkgmgr_parser_update_tep_info_in_usr_db(const char * pkgid, const char * tep_path,uid_t uid)
+ * @brief	This API updates the tep info in db
+ *
+ * @par		This API is for package-manager installer backends
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in]	pkgid	pointer to pkgid
+ * @param[in]	tep_path	path of tep file
+ * @return	0 if success, error code(<0) if fail
+ * @pre		None
+ * @post		None
+ * @code
+static int update_tep_data(const char *pkgid, *tep_path)
+{
+	int ret = 0;
+	ret = pkgmgr_parser_update_tep_info_in_db(pkgid, tep_path);
+	if (ret < 0)
+		return -1;
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgr_parser_update_tep_info_in_db(const char *pkgid, const char *tep_path);
+int pkgmgr_parser_update_tep_info_in_usr_db(const char *pkgid, const char *tep_path, uid_t uid);
+
+/**
  * @fn int pkgmgr_parser_delete_manifest_info_from_usr_db(manifest_x *mfx, uid_t uid)
  * @fn int pkgmgr_parser_delete_manifest_info_from_db(manifest_x *mfx)
  * @brief	This API deletes the parsed manifest info from db
