@@ -70,6 +70,7 @@ sqlite3 *pkgmgr_cert_db;
 						"package_type text DEFAULT 'rpm', " \
 						"package_version text, " \
 						"package_api_version text, " \
+						"package_tep_name text, " \
 						"install_location text, " \
 						"package_size text, " \
 						"package_removable text DEFAULT 'true', " \
@@ -141,6 +142,7 @@ sqlite3 *pkgmgr_cert_db;
 						"app_support_disable text DEFAULT 'false', " \
 						"component_type text, " \
 						"package text not null, " \
+						"app_tep_name text, " \
 						"FOREIGN KEY(package) " \
 						"REFERENCES package_info(package) " \
 						"ON DELETE CASCADE)"
@@ -848,12 +850,13 @@ static int __insert_application_info(manifest_x *mfx)
 		app = (application_x *)tmp->data;
 		if (app == NULL)
 			continue;
+
 		snprintf(query, MAX_QUERY_LEN,
 			 "insert into package_app_info(app_id, app_component, app_exec, app_nodisplay, app_type, app_onboot, " \
 			"app_multiple, app_autorestart, app_taskmanage, app_enabled, app_hwacceleration, app_screenreader, app_mainapp , app_recentimage, " \
 			"app_launchcondition, app_indicatordisplay, app_portraitimg, app_landscapeimg, app_guestmodevisibility, app_permissiontype, "\
-			"app_preload, app_submode, app_submode_mainid, app_launch_mode, app_ui_gadget, app_support_disable, component_type, package) " \
-			"values('%s', '%s', '%s', '%s', '%s', '%s', '%s','%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
+			"app_preload, app_submode, app_submode_mainid, app_launch_mode, app_ui_gadget, app_support_disable, component_type, package, app_tep_name) " \
+			"values('%s', '%s', '%s', '%s', '%s', '%s', '%s','%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
 			 app->appid,
 			 app->component_type,
 			 app->exec,
@@ -881,7 +884,8 @@ static int __insert_application_info(manifest_x *mfx)
 			 app->ui_gadget,
 			 mfx->support_disable,
 			 app->component_type,
-			 mfx->package);
+			 mfx->package,
+			 __get_str(mfx->tep_path));
 
 		ret = __exec_query(query);
 		if (ret == -1) {
@@ -1223,14 +1227,15 @@ static int __insert_manifest_info_in_db(manifest_x *mfx, uid_t uid)
 
 	/*Insert in the package_info DB*/
 	snprintf(query, MAX_QUERY_LEN,
-		 "insert into package_info(package, package_type, package_version, package_api_version, install_location, package_size, " \
+		 "insert into package_info(package, package_type, package_version, package_api_version, package_tep_name, install_location, package_size, " \
 		"package_removable, package_preload, package_readonly, package_update, package_appsetting, package_nodisplay, package_system," \
 		"author_name, author_email, author_href, installed_time, installed_storage, storeclient_id, mainapp_id, package_url, root_path, csc_path, package_support_disable) " \
-		"values('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
+		"values('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
 		 mfx->package,
 		 mfx->type,
 		 mfx->version,
 		 __get_str(mfx->api_version),
+       __get_str(mfx->tep_path),
 		 __get_str(mfx->installlocation),
 		 __get_str(mfx->package_size),
 		 mfx->removable,
@@ -1642,7 +1647,7 @@ API int pkgmgr_parser_initialize_db(uid_t uid)
 		_LOGD("package cert index info DB initialization failed\n");
 		return ret;
 	}
-	
+
 	if( 0 != __parserdb_change_perm(getUserPkgCertDBPathUID(uid), uid)) {
 		_LOGD("Failed to change cert db permission\n");
 	}
@@ -1846,6 +1851,86 @@ err:
 	pkgmgr_parser_close_db();
 	return ret;
 }
+
+API int pkgmgr_parser_update_tep_info_in_db(const char *pkgid, const char *tep_path)
+{
+	return pkgmgr_parser_update_tep_info_in_usr_db(pkgid, tep_path, GLOBAL_USER);
+}
+
+API int pkgmgr_parser_update_tep_info_in_usr_db(const char *pkgid, const char *tep_path, uid_t uid)
+{
+	if (pkgid == NULL || tep_path == NULL) {
+		_LOGE("invalid parameter");
+		return -1;
+	}
+
+	int ret = -1;
+	char *query = NULL;
+
+	ret = pkgmgr_parser_check_and_create_db(uid);
+	if (ret == -1) {
+		_LOGD("Failed to open DB\n");
+		return ret;
+	}
+	ret = pkgmgr_parser_initialize_db(uid);
+	if (ret == -1)
+		goto err;
+
+	/*Begin transaction*/
+	ret = sqlite3_exec(pkgmgr_parser_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGD("Failed to begin transaction\n");
+		ret = -1;
+		goto err;
+	}
+	_LOGD("Transaction Begin\n");
+
+
+	/* Updating TEP info in "package_info" table */
+	query = sqlite3_mprintf("UPDATE package_info "\
+						"SET package_tep_name = %Q "\
+						"WHERE package = %Q", tep_path, pkgid);
+
+	ret = __exec_query(query);
+	sqlite3_free(query);
+	if (ret != SQLITE_OK) {
+		ret = PM_PARSER_R_ERROR;
+		_LOGE("sqlite exec failed to insert entries into package_info!!");
+		goto err;
+	}
+
+	/* Updating TEP info in "package_app_info" table */
+	query = sqlite3_mprintf("UPDATE package_app_info "\
+						"SET app_tep_name = %Q "\
+						"WHERE package = %Q", tep_path, pkgid);
+
+	ret = __exec_query(query);
+	sqlite3_free(query);
+	if (ret != SQLITE_OK) {
+		ret = PM_PARSER_R_ERROR;
+		_LOGE("sqlite exec failed to insert entries into package_app_info!!");
+		goto err;
+	}
+
+	/*Commit transaction*/
+	ret = sqlite3_exec(pkgmgr_parser_db, "COMMIT", NULL, NULL, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGE("Failed to commit transaction, Rollback now\n");
+		ret = sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
+		if (ret != SQLITE_OK)
+			_LOGE("Failed to Rollback\n");
+
+		ret = PM_PARSER_R_ERROR;
+		goto err;
+	}
+	_LOGD("Transaction Commit and End\n");
+	ret =  PM_PARSER_R_OK;
+
+err:
+	pkgmgr_parser_close_db();
+	return ret;
+}
+
 
 API int pkgmgr_parser_update_manifest_info_in_usr_db(manifest_x *mfx, uid_t uid)
 {

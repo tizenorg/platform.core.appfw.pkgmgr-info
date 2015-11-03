@@ -372,6 +372,8 @@ API void pkgmgrinfo_basic_free_package(package_x *package)
 		free((void *)package->api_version);
 	if (package->support_disable)
 		free((void *)package->support_disable);
+	if (package->tep_path)
+		free((void *)package->tep_path);
 
 	/*Free Icon*/
 	g_list_free_full(package->icon, __ps_free_icon);
