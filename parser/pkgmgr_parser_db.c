@@ -70,6 +70,7 @@ sqlite3 *pkgmgr_cert_db;
 						"package_type text DEFAULT 'rpm', " \
 						"package_version text, " \
 						"package_api_version text, " \
+						"package_tep_name text, " \
 						"install_location text, " \
 						"package_size text, " \
 						"package_removable text DEFAULT 'true', " \
@@ -141,6 +142,7 @@ sqlite3 *pkgmgr_cert_db;
 						"app_support_disable text DEFAULT 'false', " \
 						"component_type text, " \
 						"package text not null, " \
+						"app_tep_name text, " \
 						"FOREIGN KEY(package) " \
 						"REFERENCES package_info(package) " \
 						"ON DELETE CASCADE)"
@@ -848,12 +850,13 @@ static int __insert_application_info(manifest_x *mfx)
 		app = (application_x *)tmp->data;
 		if (app == NULL)
 			continue;
+
 		snprintf(query, MAX_QUERY_LEN,
 			 "insert into package_app_info(app_id, app_component, app_exec, app_nodisplay, app_type, app_onboot, " \
 			"app_multiple, app_autorestart, app_taskmanage, app_enabled, app_hwacceleration, app_screenreader, app_mainapp , app_recentimage, " \
 			"app_launchcondition, app_indicatordisplay, app_portraitimg, app_landscapeimg, app_guestmodevisibility, app_permissiontype, "\
-			"app_preload, app_submode, app_submode_mainid, app_launch_mode, app_ui_gadget, app_support_disable, component_type, package) " \
-			"values('%s', '%s', '%s', '%s', '%s', '%s', '%s','%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
+			"app_preload, app_submode, app_submode_mainid, app_launch_mode, app_ui_gadget, app_support_disable, component_type, package, app_tep_name) " \
+			"values('%s', '%s', '%s', '%s', '%s', '%s', '%s','%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
 			 app->appid,
 			 app->component_type,
 			 app->exec,
@@ -881,7 +884,8 @@ static int __insert_application_info(manifest_x *mfx)
 			 app->ui_gadget,
 			 mfx->support_disable,
 			 app->component_type,
-			 mfx->package);
+			 mfx->package,
+			 __get_str(mfx->tep_path));
 
 		ret = __exec_query(query);
 		if (ret == -1) {
@@ -1223,14 +1227,15 @@ static int __insert_manifest_info_in_db(manifest_x *mfx, uid_t uid)
 
 	/*Insert in the package_info DB*/
 	snprintf(query, MAX_QUERY_LEN,
-		 "insert into package_info(package, package_type, package_version, package_api_version, install_location, package_size, " \
+		 "insert into package_info(package, package_type, package_version, package_api_version, package_tep_name, install_location, package_size, " \
 		"package_removable, package_preload, package_readonly, package_update, package_appsetting, package_nodisplay, package_system," \
 		"author_name, author_email, author_href, installed_time, installed_storage, storeclient_id, mainapp_id, package_url, root_path, csc_path, package_support_disable) " \
-		"values('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
+		"values('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
 		 mfx->package,
 		 mfx->type,
 		 mfx->version,
 		 __get_str(mfx->api_version),
+       __get_str(mfx->tep_path),
 		 __get_str(mfx->installlocation),
 		 __get_str(mfx->package_size),
 		 mfx->removable,
@@ -1642,7 +1647,7 @@ API int pkgmgr_parser_initialize_db(uid_t uid)
 		_LOGD("package cert index info DB initialization failed\n");
 		return ret;
 	}
-	
+
 	if( 0 != __parserdb_change_perm(getUserPkgCertDBPathUID(uid), uid)) {
 		_LOGD("Failed to change cert db permission\n");
 	}
