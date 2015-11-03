@@ -41,6 +41,11 @@ add_definitions("-DSYSCONFDIR=\"${SYSCONFDIR}\"")
 ### Set current binary dir to be included (for generated *.h files)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
+### Add features
+IF(_APPFW_FEATURE_EXPANSION_PKG_INSTALL)
+	ADD_DEFINITIONS("-D_APPFW_FEATURE_EXPANSION_PKG_INSTALL")
+ENDIF(_APPFW_FEATURE_EXPANSION_PKG_INSTALL)
+
 ### Build modules
 
 ## pkgmgr_parser object (by sewook.park)

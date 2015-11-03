@@ -18,6 +18,8 @@ BuildRequires: pkgconfig(libtzplatform-config)
 BuildRequires: pkgconfig(libsmack)
 BuildRequires:	pkgconfig(bundle)
 
+%define appfw_feature_expansion_pkg_install 1
+
 %description
 Packager Manager infomation api for packaging
 
@@ -42,6 +44,11 @@ Requires:	pkgconfig(libtzplatform-config)
 %description parser-devel
 Dev package for libpkgmgr-parser
 
+%if %{?appfw_feature_expansion_pkg_install}
+_EXPANSION_PKG_INSTALL=ON
+%else
+_EXPANSION_PKG_INSTALL=OFF
+%endif
 
 %prep
 %setup -q
@@ -49,7 +56,7 @@ cp %{SOURCE1001} .
 
 %build
 MAJORVER=`echo %{version} | awk 'BEGIN {FS="."}{print $1}'`
-%cmake . -DFULLVER=%{version} -DMAJORVER=${MAJORVER}
+%cmake . -DFULLVER=%{version} -DMAJORVER=${MAJORVER} -D_APPFW_FEATURE_EXPANSION_PKG_INSTALL:BOOL=_EXPANSION_PKG_INSTALL
 %__make %{?jobs:-j%jobs}
 
 %install

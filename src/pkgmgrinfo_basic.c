@@ -373,6 +373,11 @@ API void pkgmgrinfo_basic_free_package(package_x *package)
 	if (package->support_disable)
 		free((void *)package->support_disable);
 
+#ifdef _APPFW_FEATURE_EXPANSION_PKG_INSTALL
+	if (package->tep_path)
+		free((void *)package->tep_path);
+#endif
+
 	/*Free Icon*/
 	g_list_free_full(package->icon, __ps_free_icon);
 	/*Free Label*/

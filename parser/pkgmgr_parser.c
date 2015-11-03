@@ -2070,6 +2070,93 @@ API manifest_x *pkgmgr_parser_usr_process_manifest_xml(const char *manifest, uid
 }
 
 /* These APIs are intended to call parser directly */
+#ifdef _APPFW_FEATURE_EXPANSION_PKG_INSTALL
+API int pkgmgr_parser_parse_manifest_for_installation_withtep(const char *manifest, const char *tep_path, char *const tagv[])
+{
+	retvm_if(manifest == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
+	_LOGD("parsing manifest for installation: %s\n", manifest);
+
+	manifest_x *mfx = NULL;
+	int ret = -1;
+
+	xmlInitParser();
+	mfx = pkgmgr_parser_process_manifest_xml(manifest);
+	retvm_if(mfx == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
+
+	_LOGD("Parsing Finished\n");
+
+	__add_preload_info(mfx, manifest, GLOBAL_USER);
+
+	_LOGD("Added preload infomation\n");
+
+	__ps_process_tag(mfx, tagv);
+
+	if (tep_path != NULL && strlen(tep_path) != 0)
+		mfx->tep_path = strdup(tep_path);
+	else
+		mfx->tep_path = NULL;
+
+	ret = pkgmgr_parser_insert_manifest_info_in_db(mfx);
+	retvm_if(ret == PMINFO_R_ERROR, PMINFO_R_ERROR, "DB Insert failed");
+
+	_LOGD("DB Insert Success\n");
+
+	__ps_process_tag_parser(mfx, manifest, ACTION_INSTALL);
+	ret = __ps_process_metadata_parser(mfx, ACTION_INSTALL);
+	if (ret == -1)
+		_LOGD("Creating metadata parser failed\n");
+
+	ret = __ps_process_category_parser(mfx, ACTION_INSTALL);
+	if (ret == -1)
+		_LOGD("Creating category parser failed\n");
+
+	pkgmgr_parser_free_manifest_xml(mfx);
+	_LOGD("Free Done\n");
+	xmlCleanupParser();
+
+	return PMINFO_R_OK;
+}
+
+API int pkgmgr_parser_parse_usr_manifest_for_installation_withtep(const char *manifest, const char *tep_path, uid_t uid, char *const tagv[])
+{
+	retvm_if(manifest == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
+	_LOGD("parsing manifest for installation: %s\n", manifest);
+	manifest_x *mfx = NULL;
+	int ret = -1;
+
+	xmlInitParser();
+	mfx = pkgmgr_parser_usr_process_manifest_xml(manifest, uid);
+	retvm_if(mfx == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
+
+	_LOGD("Parsing Finished\n");
+
+	__ps_process_tag(mfx, tagv);
+
+	if (tep_path != NULL && strlen(tep_path) != 0)
+		mfx->tep_path = strdup(tep_path);
+	else
+		mfx->tep_path = NULL;
+
+	ret = pkgmgr_parser_insert_manifest_info_in_usr_db(mfx, uid);
+	retvm_if(ret == PMINFO_R_ERROR, PMINFO_R_ERROR, "DB Insert failed");
+
+	_LOGD("DB Insert Success\n");
+
+	__ps_process_tag_parser(mfx, manifest, ACTION_INSTALL);
+	ret = __ps_process_metadata_parser(mfx, ACTION_INSTALL);
+	if (ret == -1)
+		_LOGD("Creating metadata parser failed\n");
+	ret = __ps_process_category_parser(mfx, ACTION_INSTALL);
+	if (ret == -1)
+		_LOGD("Creating category parser failed\n");
+
+	pkgmgr_parser_free_manifest_xml(mfx);
+	_LOGD("Free Done\n");
+	xmlCleanupParser();
+
+	return PMINFO_R_OK;
+}
+#endif
 
 API int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char *const tagv[])
 {
