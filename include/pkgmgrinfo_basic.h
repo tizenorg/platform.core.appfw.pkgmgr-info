@@ -168,6 +168,8 @@ typedef struct package_x {
 	const char *nodisplay_setting;		/**< package no display setting menu*/
 	const char *api_version;		/**< minimum version of API package using*/
 	const char *support_disable;		/**< package support disable flag*/
+	const char *tep_path;		/**< package tep path if exists*/
+
 	GList *icon;		/**< package icon*/
 	GList *label;		/**< package label*/
 	GList *author;		/**< package author*/
