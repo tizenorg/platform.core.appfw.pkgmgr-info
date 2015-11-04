@@ -14,6 +14,8 @@
           <xs:element ref="packages:profile"/>
           <xs:element ref="packages:service-application"/>
           <xs:element ref="packages:ui-application"/>
+          <xs:element ref="packages:widget"/>
+          <xs:element ref="packages:widget-application"/>
           <xs:element ref="packages:ime-application"/>
           <xs:element ref="packages:shortcut-list"/>
           <xs:element ref="packages:livebox"/>
@@ -154,6 +156,7 @@
           <xs:element ref="packages:metadata"/>
           <xs:element ref="packages:permission"/>
           <xs:element ref="packages:datacontrol"/>
+          <xs:element ref="packages:background-category"/>
         </xs:choice>
       </xs:sequence>
       <xs:attribute name="appid" use="required" type="xs:string"/>
@@ -185,6 +188,10 @@
       <xs:attribute name="process-pool" type="xs:boolean"/>
       <xs:attribute name="ui-gadget" type="xs:boolean"/>
     </xs:complexType>
+  </xs:element>
+  <xs:element name="widget">
+  </xs:element>
+  <xs:element name="widget-application">
   </xs:element>
   <xs:element name="ime-application">
     <xs:complexType>
@@ -333,6 +340,11 @@
   <xs:element name="subapp">
     <xs:complexType>
       <xs:attribute name="name" use="required"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="background-category">
+    <xs:complexType mixed="true">
+      <xs:attribute name="value" type="xs:string"/>
     </xs:complexType>
   </xs:element>
 </xs:schema>
