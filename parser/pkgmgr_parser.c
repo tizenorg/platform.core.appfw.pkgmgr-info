@@ -96,10 +96,6 @@ static int __ps_process_label(xmlTextReaderPtr reader, label_x *label);
 static int __ps_process_privilege(xmlTextReaderPtr reader, const char **privilege);
 static int __ps_process_privileges(xmlTextReaderPtr reader, GList **privileges);
 static int __ps_process_allowed(xmlTextReaderPtr reader, const char **allowed);
-static int __ps_process_operation(xmlTextReaderPtr reader, const char **operation);
-static int __ps_process_uri(xmlTextReaderPtr reader, const char **uri);
-static int __ps_process_mime(xmlTextReaderPtr reader, const char **mime);
-static int __ps_process_subapp(xmlTextReaderPtr reader, const char **subapp);
 static int __ps_process_condition(xmlTextReaderPtr reader, const char **condition);
 static int __ps_process_notification(xmlTextReaderPtr reader, notification_x *notifiation);
 static int __ps_process_category(xmlTextReaderPtr reader, const char **category);
@@ -108,14 +104,13 @@ static int __ps_process_permission(xmlTextReaderPtr reader, permission_x *permis
 static int __ps_process_compatibility(xmlTextReaderPtr reader, compatibility_x *compatibility);
 static int __ps_process_request(xmlTextReaderPtr reader, const char **request);
 static int __ps_process_define(xmlTextReaderPtr reader, define_x *define);
-static int __ps_process_appsvc(xmlTextReaderPtr reader, appsvc_x *appsvc);
 static int __ps_process_launchconditions(xmlTextReaderPtr reader, GList **launchconditions);
 static int __ps_process_datashare(xmlTextReaderPtr reader, datashare_x *datashare);
 static int __ps_process_icon(xmlTextReaderPtr reader, icon_x *icon, uid_t uid);
 static int __ps_process_author(xmlTextReaderPtr reader, author_x *author);
 static int __ps_process_description(xmlTextReaderPtr reader, description_x *description);
 static int __ps_process_license(xmlTextReaderPtr reader, license_x *license);
-static int __ps_process_appcontrol(xmlTextReaderPtr reader, appcontrol_x *appcontrol);
+static int __ps_process_appcontrol(xmlTextReaderPtr reader, GList **appcontrol);
 static int __ps_process_datacontrol(xmlTextReaderPtr reader, datacontrol_x *datacontrol);
 static int __ps_process_application(xmlTextReaderPtr reader, application_x *application, int type, uid_t uid);
 static char *__pkgid_to_manifest(const char *pkgid, uid_t uid);
@@ -1111,30 +1106,6 @@ static int __ps_process_allowed(xmlTextReaderPtr reader, const char **allowed)
 	return 0;
 }
 
-static int __ps_process_operation(xmlTextReaderPtr reader, const char **operation)
-{
-	__save_xml_attribute(reader, "name", operation, NULL);
-	return 0;
-}
-
-static int __ps_process_uri(xmlTextReaderPtr reader, const char **uri)
-{
-	__save_xml_attribute(reader, "name", uri, NULL);
-	return 0;
-}
-
-static int __ps_process_mime(xmlTextReaderPtr reader, const char **mime)
-{
-	__save_xml_attribute(reader, "name", mime, NULL);
-	return 0;
-}
-
-static int __ps_process_subapp(xmlTextReaderPtr reader, const char **subapp)
-{
-	__save_xml_attribute(reader, "name", subapp, NULL);
-	return 0;
-}
-
 static int __ps_process_condition(xmlTextReaderPtr reader, const char **condition)
 {
 	__save_xml_attribute(reader, "name", condition, NULL);
@@ -1225,90 +1196,146 @@ static int __ps_process_define(xmlTextReaderPtr reader, define_x *define)
 	return ret;
 }
 
-static int __ps_process_appcontrol(xmlTextReaderPtr reader, appcontrol_x *appcontrol)
+struct appcontrol_data {
+	GList *operations;
+	GList *uris;
+	GList *mimes;
+	GList *appcontrols;
+	char operation[4096];
+	char uri[4096];
+	char mime[4096];
+};
+
+static void __ps_process_mime(gpointer data, gpointer user_data)
 {
-	const xmlChar *node;
-	int ret = -1;
-	int depth = -1;
+	char *mime = (char *)data;
+	struct appcontrol_data *ad = (struct appcontrol_data *)user_data;
+	appcontrol_x *appcontrol;
 
-	depth = xmlTextReaderDepth(reader);
-	while ((ret = __next_child_element(reader, depth))) {
-		node = xmlTextReaderConstName(reader);
-		if (!node) {
-			_LOGD("xmlTextReaderConstName value is NULL\n");
-			return -1;
-		}
+	snprintf(ad->mime, sizeof(ad->mime), "%s", mime);
 
-		if (!strcmp(ASCII(node), "operation")) {
-			__save_xml_attribute(reader, "name", &appcontrol->operation, NULL);
-			_LOGD("operation processing\n");
-		} else if (!strcmp(ASCII(node), "uri")) {
-			__save_xml_attribute(reader, "name", &appcontrol->uri, NULL);
-			_LOGD("uri processing\n");
-		} else if (!strcmp(ASCII(node), "mime")) {
-			__save_xml_attribute(reader, "name", &appcontrol->mime, NULL);
-			_LOGD("mime processing\n");
-		} else
-			return -1;
-		if (ret < 0) {
-			_LOGD("Processing appcontrol failed\n");
-			return ret;
-		}
-	}
-
-	return ret;
+	appcontrol = calloc(1, sizeof(appcontrol_x));
+	if (strlen(ad->operation))
+		appcontrol->operation = strdup(ad->operation);
+	if (strlen(ad->uri))
+		appcontrol->uri = strdup(ad->uri);
+	appcontrol->mime = strdup(ad->mime);
+	ad->appcontrols = g_list_append(ad->appcontrols, appcontrol);
 }
 
-static int __ps_process_appsvc(xmlTextReaderPtr reader, appsvc_x *appsvc)
+static void __ps_process_uri(gpointer data, gpointer user_data)
+{
+	char *uri = (char *)data;
+	struct appcontrol_data *ad = (struct appcontrol_data *)user_data;
+	appcontrol_x *appcontrol;
+
+	snprintf(ad->uri, sizeof(ad->uri), "%s", uri);
+
+	if (ad->mimes != NULL) {
+		g_list_foreach(ad->mimes, __ps_process_mime, user_data);
+	} else {
+		appcontrol = calloc(1, sizeof(appcontrol_x));
+		if (strlen(ad->operation))
+			appcontrol->operation = strdup(ad->operation);
+		appcontrol->uri = strdup(ad->uri);
+		ad->appcontrols = g_list_append(ad->appcontrols, appcontrol);
+	}
+}
+
+static void __ps_process_operation(gpointer data, gpointer user_data)
+{
+	char *operation = (char *)data;
+	struct appcontrol_data *ad = (struct appcontrol_data *)user_data;
+	appcontrol_x *appcontrol;
+
+	snprintf(ad->operation, sizeof(ad->operation), "%s", operation);
+
+	if (ad->uris != NULL) {
+		g_list_foreach(ad->uris, __ps_process_uri, user_data);
+	} else if (ad->mimes != NULL) {
+		g_list_foreach(ad->mimes, __ps_process_mime, user_data);
+	} else {
+		appcontrol = calloc(1, sizeof(appcontrol_x));
+		appcontrol->operation = strdup(ad->operation);
+		ad->appcontrols = g_list_append(ad->appcontrols, appcontrol);
+	}
+}
+
+static GList *__make_appcontrol_list(GList *operations, GList *uris, GList *mimes)
+{
+	struct appcontrol_data ad = {0, };
+
+	ad.operations = operations;
+	ad.uris = uris;
+	ad.mimes = mimes;
+
+	if (ad.operations != NULL)
+		g_list_foreach(ad.operations, __ps_process_operation, (gpointer)&ad);
+	else if (ad.uris != NULL)
+		g_list_foreach(ad.uris, __ps_process_uri, (gpointer)&ad);
+	else if (ad.mimes != NULL)
+		g_list_foreach(ad.mimes, __ps_process_mime, (gpointer)&ad);
+
+	return ad.appcontrols;
+}
+
+static int __ps_process_appcontrol(xmlTextReaderPtr reader, GList **appcontrol)
 {
 	const xmlChar *node;
 	int ret = -1;
 	int depth = -1;
 	const char *val;
+	GList *operations = NULL;
+	GList *uris = NULL;
+	GList *mimes = NULL;
 
 	depth = xmlTextReaderDepth(reader);
-	while ((ret = __next_child_element(reader, depth))) {
+	while ((ret = __next_child_element(reader, depth)) > 0) {
 		node = xmlTextReaderConstName(reader);
 		if (!node) {
 			_LOGD("xmlTextReaderConstName value is NULL\n");
 			return -1;
 		}
 
+		val = NULL;
 		if (!strcmp(ASCII(node), "operation")) {
-			val = NULL;
-			ret = __ps_process_operation(reader, &val);
-			appsvc->operation = val;
+			__save_xml_attribute(reader, "name", &val, NULL);
+			if (val)
+				operations = g_list_append(operations, (gpointer)val);
 			_LOGD("operation processing\n");
 		} else if (!strcmp(ASCII(node), "uri")) {
-			val = NULL;
-			ret = __ps_process_uri(reader, &val);
-			appsvc->uri = val;
+			__save_xml_attribute(reader, "name", &val, NULL);
+			if (val)
+				uris = g_list_append(uris, (gpointer)val);
 			_LOGD("uri processing\n");
 		} else if (!strcmp(ASCII(node), "mime")) {
-			val = NULL;
-			ret = __ps_process_mime(reader, &val);
-			appsvc->mime = val;
+			__save_xml_attribute(reader, "name", &val, NULL);
+			if (val)
+				mimes = g_list_append(mimes, (gpointer)val);
 			_LOGD("mime processing\n");
 		} else if (!strcmp(ASCII(node), "subapp")) {
-			val = NULL;
-			ret = __ps_process_subapp(reader, &val);
-			appsvc->subapp = val;
-			_LOGD("subapp processing\n");
-		} else
-			return -1;
-		if (ret < 0) {
-			_LOGD("Processing appsvc failed\n");
-			return ret;
+			continue;
+		} else {
+			ret = -1;
 		}
 	}
 
-	xmlTextReaderRead(reader);
-	if (xmlTextReaderValue(reader))
-		appsvc->text = ASCII(xmlTextReaderValue(reader));
+	if (ret < 0) {
+		_LOGD("Processing appcontrol failed\n");
+		g_list_free_full(operations, free);
+		g_list_free_full(uris, free);
+		g_list_free_full(mimes, free);
+		return ret;
+	}
+
+	*appcontrol = g_list_concat(*appcontrol, __make_appcontrol_list(operations, uris, mimes));
+
+	g_list_free_full(operations, free);
+	g_list_free_full(uris, free);
+	g_list_free_full(mimes, free);
 
 	return ret;
 }
-
 
 static int __ps_process_privileges(xmlTextReaderPtr reader, GList **privileges)
 {
@@ -1679,21 +1706,9 @@ static int __ps_process_application(xmlTextReaderPtr reader, application_x *appl
 			application->permission = g_list_append(application->permission, permission);
 			ret = __ps_process_permission(reader, permission);
 		} else if (!strcmp(ASCII(node), "app-control")) {
-			appcontrol_x *appcontrol = calloc(1, sizeof(appcontrol_x));
-			if (appcontrol == NULL) {
-				_LOGD("Malloc Failed\n");
-				return -1;
-			}
-			application->appcontrol = g_list_append(application->appcontrol, appcontrol);
-			ret = __ps_process_appcontrol(reader, appcontrol);
+			ret = __ps_process_appcontrol(reader, &application->appcontrol);
 		} else if (!strcmp(ASCII(node), "application-service")) {
-			appsvc_x *appsvc = calloc(1, sizeof(appsvc_x));
-			if (appsvc == NULL) {
-				_LOGD("Malloc Failed\n");
-				return -1;
-			}
-			application->appsvc = g_list_append(application->appsvc, appsvc);
-			ret = __ps_process_appsvc(reader, appsvc);
+			ret = __ps_process_appcontrol(reader, &application->appcontrol);
 		} else if (!strcmp(ASCII(node), "data-share")) {
 			datashare_x *datashare = calloc(1, sizeof(datashare_x));
 			if (datashare == NULL) {
