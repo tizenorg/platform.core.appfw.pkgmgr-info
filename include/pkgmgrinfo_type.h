@@ -268,6 +268,20 @@ typedef int (*pkgmgrinfo_app_metadata_list_cb ) (const char *metadata_key,
 typedef int (*pkgmgrinfo_app_control_list_cb ) (const char *operation, const char *uri, const char *mime,
 							void *user_data);
 
+/**
+ * @fn int (*pkgmgrinfo_app_background_category_list_cb ) (const char *category_name, void *user_data)
+ *
+ * @brief Specifies the type of function passed to pkgmgrinfo_appinfo_foreach_background_category()
+ *
+ * @param[in] category_name retrieved background category name
+ * @param[in] user_data user data passed to pkgmgrinfo_appinfo_foreach_background_category
+ *
+ * @return 0 if success, negative value(<0) if fail. Callback is not called if return value is negative.\n
+ *
+ * @see  pkgmgrinfo_appinfo_foreach_background_category()
+ */
+typedef int (*pkgmgrinfo_app_background_category_list_cb ) (const char *category_name, void *user_data);
+
 typedef int (*pkgmgrinfo_handler)(uid_t target_uid, int req_id, const char *pkg_type,
 				const char *pkgid, const char *key,
 				const char *val, const void *pmsg, void *data);
