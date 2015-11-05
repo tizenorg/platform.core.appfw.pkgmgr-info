@@ -3039,6 +3039,45 @@ static int get_app_effectimages(const char *appid)
 int pkgmgrinfo_appinfo_get_effectimage(pkgmgrinfo_appinfo_h  handle, char **portrait_img, char **landscape_img);
 
 /**
+ * @fn int pkgmgrinfo_appinfo_get_effectimage_type(pkgmgrinfo_appinfo_h  handle, char **effectimg_type)
+ * @brief	This API gets the application's effect image type
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in]	handle	pointer to application info handle
+ * @param[out]  effectimg_type contains effect image type
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		pkgmgrinfo_appinfo_get_appinfo()
+ * @post		pkgmgrinfo_appinfo_destroy_appinfo()
+ * @see		pkgmgrinfo_appinfo_get_appid()
+ * @see		pkgmgrinfo_appinfo_is_nodisplay()
+ * @code
+static int get_app_effectimage_type(const char *appid)
+{
+	int ret = 0;
+	char *effectimg_type = NULL;
+	pkgmgrinfo_appinfo_h handle = NULL;
+	ret = pkgmgrinfo_appinfo_get_appinfo(appid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_appinfo_get_effectimage_type(handle, &effectimg_type);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_appinfo_destroy_appinfo(handle);
+		return -1;
+	}
+	printf("app effect image type: %s\n", effectimg_type);
+	pkgmgrinfo_appinfo_destroy_appinfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_appinfo_get_effectimage_type(pkgmgrinfo_appinfo_h handle, char **effectimg_type);
+
+/**
  * @fn int pkgmgrinfo_appinfo_get_submode_mainid(pkgmgrinfo_appinfo_h handle, char **submode_mainid)
  * @brief	This API gets the submode_mainid of the application
  *
@@ -3114,6 +3153,82 @@ int pkgmgrinfo_appinfo_usr_get_datacontrol_info(const char *providerid, const ch
  */
 int pkgmgrinfo_appinfo_get_datacontrol_appid(const char *providerid, char **appid);
 int pkgmgrinfo_appinfo_usr_get_datacontrol_appid(const char *providerid, uid_t uid, char **appid);
+
+/**
+ * @fn int pkgmgrinfo_appinfo_get_alias_appid(pkgmgrinfo_appinfo_h  handle, char **alias_appid)
+ * @brief	This API gets the alias_appid of the application
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in] handle		pointer to the application info handle.
+ * @param[out] alias_appid		pointer to hold app alias_appid
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		pkgmgrinfo_appinfo_get_appinfo()
+ * @post		pkgmgrinfo_appinfo_destroy_appinfo()
+ * @see		pkgmgrinfo_appinfo_get_appid()
+ * @code
+static int get_alias_appid(const char *appid)
+{
+	int ret = 0;
+	char *alias_appid= 0;
+	pkgmgrinfo_appinfo_h handle = NULL;
+	ret = pkgmgrinfo_appinfo_get_appinfo(appid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_appinfo_get_alias_appid(handle, &alias_appid);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_appinfo_destroy_appinfo(handle);
+		return -1;
+	}
+	printf("alias_appid: %s\n", alias_appid);
+	pkgmgrinfo_appinfo_destroy_appinfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_appinfo_get_alias_appid(pkgmgrinfo_appinfo_h handle, char **alias_appid);
+
+/**
+ * @fn int pkgmgrinfo_appinfo_get_effective_appid(pkgmgrinfo_appinfo_h  handle, char **effective_appid)
+ * @brief	This API gets the effective_appid of the application
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in] handle		pointer to the application info handle.
+ * @param[out] effective_appid		pointer to hold app effective_appid
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		pkgmgrinfo_appinfo_get_appinfo()
+ * @post		pkgmgrinfo_appinfo_destroy_appinfo()
+ * @see		pkgmgrinfo_appinfo_get_appid()
+ * @code
+static int get_effective_appid(const char *appid)
+{
+	int ret = 0;
+	char *effective_appid= 0;
+	pkgmgrinfo_appinfo_h handle = NULL;
+	ret = pkgmgrinfo_appinfo_get_appinfo(appid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_appinfo_get_effective_appid(handle, &effective_appid);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_appinfo_destroy_appinfo(handle);
+		return -1;
+	}
+	printf("effective_appid: %s\n", effective_appid);
+	pkgmgrinfo_appinfo_destroy_appinfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_appinfo_get_effective_appid(pkgmgrinfo_appinfo_h handle, char **effective_appid);
 
 /**
  * @fn	int pkgmgrinfo_appinfo_foreach_permission(pkgmgrinfo_appinfo_h handle,
@@ -3306,6 +3421,12 @@ static int check_operation(const char *appid, char *operation)
  */
 int pkgmgrinfo_appinfo_foreach_appcontrol(pkgmgrinfo_appinfo_h handle,
 			pkgmgrinfo_app_control_list_cb appcontrol_func, void *user_data);
+
+/**
+ * @brief
+ */
+int pkgmgrinfo_appinfo_foreach_background_category(pkgmgrinfo_appinfo_h handle,
+		pkgmgrinfo_app_background_category_list_cb category_func, void *user_data);
 
 /**
  * @fn int pkgmgrinfo_appinfo_is_nodisplay(pkgmgrinfo_appinfo_h handle, bool *nodisplay)
