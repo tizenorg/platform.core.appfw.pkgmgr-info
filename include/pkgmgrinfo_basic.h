@@ -128,6 +128,8 @@ typedef struct application_x {
 	const char *ui_gadget;	/*attr, default: "false"*/
 	const char *launch_mode;	/*attr, default: "single"*/
 	const char *ambient_support;	/*attr, default: "false"*/
+	const char *alias_appid;	/*attr*/
+	const char *effective_appid;	/*attr*/
 	GList *label;	/*element*/
 	GList *icon;	/*element*/
 	GList *image;	/*element*/

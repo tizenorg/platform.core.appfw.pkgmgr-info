@@ -1327,6 +1327,23 @@ API int pkgmgrinfo_appinfo_get_effectimage(pkgmgrinfo_appinfo_h handle, char **p
 	return PMINFO_R_OK;
 }
 
+API int pkgmgrinfo_appinfo_get_effectimage_type(pkgmgrinfo_appinfo_h handle, char **effectimage_type)
+{
+	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
+
+	if (handle == NULL || effectimage_type == NULL) {
+		LOGE("invalid parameter");
+		return PMINFO_R_EINVAL;
+	}
+
+	if (info->app_info == NULL || info->app_info->effectimage_type == NULL)
+		return PMINFO_R_ERROR;
+
+	*effectimage_type = (char *)info->app_info->effectimage_type;
+
+	return PMINFO_R_OK;
+}
+
 API int pkgmgrinfo_appinfo_get_submode_mainid(pkgmgrinfo_appinfo_h  handle, char **submode_mainid)
 {
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
@@ -1339,24 +1356,6 @@ API int pkgmgrinfo_appinfo_get_submode_mainid(pkgmgrinfo_appinfo_h  handle, char
 
 	*submode_mainid = (char *)info->app_info->submode_mainid;
 
-	return PMINFO_R_OK;
-}
-
-API int pkgmgrinfo_appinfo_is_process_pool(pkgmgrinfo_appinfo_h handle, bool *process_pool)
-{
-	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL\n");
-	retvm_if(process_pool == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
-	char *val = NULL;
-	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
-	val = (char *)info->app_info->process_pool;
-	if (val) {
-		if (strcasecmp(val, "true") == 0)
-			*process_pool = 1;
-		else if (strcasecmp(val, "false") == 0)
-			*process_pool = 0;
-		else
-			*process_pool = 0;
-	}
 	return PMINFO_R_OK;
 }
 
@@ -1389,6 +1388,57 @@ API int pkgmgrinfo_appinfo_get_launch_mode(pkgmgrinfo_appinfo_h handle, char **m
 		return PMINFO_R_ERROR;
 
 	*mode = (char *)(info->app_info->launch_mode);
+
+	return PMINFO_R_OK;
+}
+
+API int pkgmgrinfo_appinfo_get_alias_appid(pkgmgrinfo_appinfo_h handle, char **alias_appid)
+{
+	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
+
+	if (handle == NULL || alias_appid == NULL) {
+		LOGE("invalid parameter");
+		return PMINFO_R_EINVAL;
+	}
+
+	if (info->app_info == NULL || info->app_info->alias_appid == NULL)
+		return PMINFO_R_ERROR;
+
+	*alias_appid = (char *)info->app_info->alias_appid;
+
+	return PMINFO_R_OK;
+}
+
+API int pkgmgrinfo_appinfo_get_effective_appid(pkgmgrinfo_appinfo_h handle, char **effective_appid)
+{
+	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
+
+	if (handle == NULL || effective_appid == NULL) {
+		LOGE("invalid parameter");
+		return PMINFO_R_EINVAL;
+	}
+
+	if (info->app_info == NULL || info->app_info->effective_appid == NULL)
+		return PMINFO_R_ERROR;
+
+	*effective_appid = (char *)info->app_info->effective_appid;
+
+	return PMINFO_R_OK;
+}
+
+API int pkgmgrinfo_appinfo_get_multi_instance_mainid(pkgmgrinfo_appinfo_h handle, char **multi_instance_mainid)
+{
+	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
+
+	if (handle == NULL || multi_instance_mainid == NULL) {
+		LOGE("invalid parameter");
+		return PMINFO_R_EINVAL;
+	}
+
+	if (info->app_info == NULL || info->app_info->multi_instance_mainid == NULL)
+		return PMINFO_R_ERROR;
+
+	*multi_instance_mainid = (char *)info->app_info->multi_instance_mainid;
 
 	return PMINFO_R_OK;
 }
@@ -1577,6 +1627,32 @@ API int pkgmgrinfo_appinfo_foreach_appcontrol(pkgmgrinfo_appinfo_h handle,
 	return PMINFO_R_OK;
 }
 
+API int pkgmgrinfo_appinfo_foreach_background_category(
+		pkgmgrinfo_appinfo_h handle,
+		pkgmgrinfo_app_background_category_list_cb category_func,
+		void *user_data)
+{
+	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
+	GList *tmp;
+	char *category;
+
+	if (handle == NULL || category_func == NULL || info->app_info == NULL) {
+		LOGE("invalid parameter");
+		return PMINFO_R_EINVAL;
+	}
+
+	for (tmp = info->app_info->background_category; tmp; tmp = tmp->next) {
+		category = (char *)tmp->data;
+		if (category == NULL)
+			continue;
+
+		if (category_func(category, user_data) < 0)
+			break;
+	}
+
+	return PMINFO_R_OK;
+}
+
 API int pkgmgrinfo_appinfo_is_nodisplay(pkgmgrinfo_appinfo_h handle, bool *nodisplay)
 {
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
@@ -1713,6 +1789,23 @@ API int pkgmgrinfo_appinfo_is_submode(pkgmgrinfo_appinfo_h handle, bool *submode
 		return PMINFO_R_ERROR;
 
 	*submode = _get_bool_value(info->app_info->submode);
+
+	return PMINFO_R_OK;
+}
+
+API int pkgmgrinfo_appinfo_is_process_pool(pkgmgrinfo_appinfo_h handle, bool *process_pool)
+{
+	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
+
+	if (handle == NULL || process_pool == NULL) {
+		LOGE("invalid parameter");
+		return PMINFO_R_EINVAL;
+	}
+
+	if (info->app_info == NULL)
+		return PMINFO_R_ERROR;
+
+	*process_pool = _get_bool_value(info->app_info->process_pool);
 
 	return PMINFO_R_OK;
 }
