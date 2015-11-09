@@ -183,17 +183,6 @@ sqlite3 *pkgmgr_cert_db;
 						"REFERENCES package_app_info(app_id) " \
 						"ON DELETE CASCADE)"
 
-#define QUERY_CREATE_TABLE_PACKAGE_APP_APP_SVC "create table if not exists package_app_app_svc " \
-						"(app_id text not null, " \
-						"operation text not null, " \
-						"uri_scheme text, " \
-						"mime_type text, " \
-						"subapp_name text, " \
-						"PRIMARY KEY(app_id,operation,uri_scheme,mime_type,subapp_name) " \
-						"FOREIGN KEY(app_id) " \
-						"REFERENCES package_app_info(app_id) " \
-						"ON DELETE CASCADE)"
-
 #define QUERY_CREATE_TABLE_PACKAGE_APP_APP_CATEGORY "create table if not exists package_app_app_category " \
 						"(app_id text not null, " \
 						"category text not null, " \
@@ -267,7 +256,6 @@ sqlite3 *pkgmgr_cert_db;
 						"ON DELETE CASCADE)"
 
 static int __insert_application_info(manifest_x *mfx);
-static int __insert_application_appsvc_info(manifest_x *mfx);
 static int __insert_application_appcategory_info(manifest_x *mfx);
 static int __insert_application_appcontrol_info(manifest_x *mfx);
 static int __insert_application_appmetadata_info(manifest_x *mfx);
@@ -1024,43 +1012,6 @@ static int __insert_application_appcontrol_info(manifest_x *mfx)
 	return 0;
 }
 
-/* FIXME: should be changed to app_control */
-static int __insert_application_appsvc_info(manifest_x *mfx)
-{
-	GList *app_tmp;
-	application_x *app;
-	GList *asvc_tmp;
-	appsvc_x *asvc;
-	int ret = -1;
-	char query[MAX_QUERY_LEN] = {'\0'};
-	for (app_tmp = mfx->application; app_tmp; app_tmp = app_tmp->next) {
-		app = (application_x *)app_tmp->data;
-		if (app == NULL)
-			continue;
-		for (asvc_tmp = app->appsvc; asvc_tmp; asvc_tmp = asvc_tmp->next) {
-			asvc = (appsvc_x *)asvc_tmp->data;
-			if (asvc == NULL)
-				continue;
-			snprintf(query, MAX_QUERY_LEN,
-					"insert into package_app_app_svc(app_id, operation, uri_scheme, mime_type, subapp_name) " \
-					"values('%s', '%s', '%s', '%s', '%s')",\
-					 app->appid,
-					 asvc->operation,
-					 __get_str(asvc->uri),
-					 __get_str(asvc->mime),
-					 __get_str(asvc->subapp));
-
-			ret = __exec_query(query);
-			if (ret == -1) {
-				_LOGD("Package UiApp AppSvc DB Insert Failed\n");
-				return -1;
-			}
-			memset(query, '\0', MAX_QUERY_LEN);
-		}
-	}
-	return 0;
-}
-
 static int __insert_application_datacontrol_info(manifest_x *mfx)
 {
 	GList *app_tmp;
@@ -1345,11 +1296,6 @@ static int __insert_manifest_info_in_db(manifest_x *mfx, uid_t uid)
 	if (ret == -1)
 		return -1;
 
-	/*Insert in the package_app_app_svc DB*/
-	ret = __insert_application_appsvc_info(mfx);
-	if (ret == -1)
-		return -1;
-
 	/*Insert in the package_app_share_allowed DB*/
 	ret = __insert_application_share_allowed_info(mfx);
 	if (ret == -1)
@@ -1398,9 +1344,6 @@ static int __delete_subpkg_info_from_db(char *appid)
 	if (ret < 0)
 		return ret;
 	ret = __delete_appinfo_from_db("package_app_image_info", appid);
-	if (ret < 0)
-		return ret;
-	ret = __delete_appinfo_from_db("package_app_app_svc", appid);
 	if (ret < 0)
 		return ret;
 	ret = __delete_appinfo_from_db("package_app_app_control", appid);
@@ -1506,9 +1449,6 @@ static int __delete_manifest_info_from_db(manifest_x *mfx, uid_t uid)
 		ret = __delete_appinfo_from_db("package_app_image_info", app->appid);
 		if (ret < 0)
 			return ret;
-		ret = __delete_appinfo_from_db("package_app_app_svc", app->appid);
-		if (ret < 0)
-			return ret;
 		ret = __delete_appinfo_from_db("package_app_app_control", app->appid);
 		if (ret < 0)
 			return ret;
@@ -1609,11 +1549,6 @@ API int pkgmgr_parser_initialize_db(uid_t uid)
 	ret = __initialize_db(pkgmgr_parser_db, QUERY_CREATE_TABLE_PACKAGE_APP_APP_PERMISSION);
 	if (ret == -1) {
 		_LOGD("package app app permission DB initialization failed\n");
-		return ret;
-	}
-	ret = __initialize_db(pkgmgr_parser_db, QUERY_CREATE_TABLE_PACKAGE_APP_APP_SVC);
-	if (ret == -1) {
-		_LOGD("package app app svc DB initialization failed\n");
 		return ret;
 	}
 	ret = __initialize_db(pkgmgr_parser_db, QUERY_CREATE_TABLE_PACKAGE_APP_SHARE_ALLOWED);

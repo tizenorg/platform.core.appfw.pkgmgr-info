@@ -74,14 +74,6 @@ typedef struct notification_x {
 	const char *text;
 } notification_x;
 
-typedef struct appsvc_x {
-	const char *text;
-	const char *operation;
-	const char *uri;
-	const char *mime;
-	const char *subapp;
-} appsvc_x;
-
 typedef struct appcontrol_x {
 	const char *operation;
 	const char *uri;
@@ -133,7 +125,6 @@ typedef struct application_x {
 	GList *label;
 	GList *icon;
 	GList *image;
-	GList *appsvc;
 	GList *appcontrol;
 	GList *category;
 	GList *metadata;

@@ -118,28 +118,6 @@ static void __ps_free_appcontrol(gpointer data)
 	free((void*)appcontrol);
 }
 
-static void __ps_free_appsvc(gpointer data)
-{
-	appsvc_x *appsvc = (appsvc_x *)data;
-	if (appsvc == NULL)
-		return;
-	if (appsvc->text)
-		free((void *)appsvc->text);
-	/*Free Operation*/
-	if (appsvc->operation)
-		free((void *)appsvc->operation);
-	/*Free Uri*/
-	if (appsvc->uri)
-		free((void *)appsvc->uri);
-	/*Free Mime*/
-	if (appsvc->mime)
-		free((void *)appsvc->mime);
-	/*Free subapp*/
-	if (appsvc->subapp)
-		free((void *)appsvc->subapp);
-	free((void*)appsvc);
-}
-
 static void __ps_free_define(gpointer data)
 {
 	define_x *define = (define_x *)data;
@@ -296,8 +274,6 @@ static void __ps_free_application(gpointer data)
 	g_list_free_full(application->icon, __ps_free_icon);
 	/*Free image*/
 	g_list_free_full(application->image, __ps_free_image);
-	/*Free AppSvc*/
-	g_list_free_full(application->appsvc, __ps_free_appsvc);
 	/*Free AppControl*/
 	g_list_free_full(application->appcontrol, __ps_free_appcontrol);
 	/*Free Category*/

@@ -94,8 +94,8 @@ static gint _appinfo_get_list(sqlite3 *db, const char *locale,
 		"  AND package_app_localized_info.app_locale=%Q"
 		" LEFT OUTER JOIN package_app_app_category"
 		"  ON package_app_info.app_id=package_app_app_category.app_id"
-		" LEFT OUTER JOIN package_app_app_svc"
-		"  ON package_app_info.app_id=package_app_app_svc.app_id "
+		" LEFT OUTER JOIN package_app_app_control"
+		"  ON package_app_info.app_id=package_app_app_control.app_id"
 		" LEFT OUTER JOIN package_app_app_metadata"
 		"  ON package_app_info.app_id=package_app_app_metadata.app_id ";
 	int ret;

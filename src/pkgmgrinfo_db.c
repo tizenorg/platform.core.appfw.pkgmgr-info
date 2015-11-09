@@ -310,7 +310,6 @@ static const char *parserdb_tables[] = {
 	"package_app_share_allowed",
 	"package_app_app_permission",
 	"package_app_share_request",
-	"package_app_app_svc",
 	"package_info",
 	"package_app_data_control",
 	"package_localized_info",
