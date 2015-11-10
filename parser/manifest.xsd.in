@@ -12,38 +12,35 @@
           <xs:element ref="packages:description"/>
           <xs:element ref="packages:compatibility"/>
           <xs:element ref="packages:profile"/>
+          <xs:element ref="packages:watch-application"/>
+          <xs:element ref="packages:watchface"/> <!-- TBD -->
           <xs:element ref="packages:service-application"/>
           <xs:element ref="packages:ui-application"/>
-          <xs:element ref="packages:widget"/>
-          <xs:element ref="packages:widget-application"/>
-          <xs:element ref="packages:watch-application"/>
-          <xs:element ref="packages:watchface"/>
-          <xs:element ref="packages:ime-application"/>
-          <xs:element ref="packages:shortcut-list"/>
-          <xs:element ref="packages:livebox"/>
-          <xs:element ref="packages:account"/>
-          <xs:element ref="packages:notifications"/>
+          <xs:element ref="packages:ime-application"/> <!-- TBD -->
+          <xs:element ref="packages:shortcut-list"/> <!-- TBD -->
+          <xs:element ref="packages:widget"/> <!-- TBD -->
+          <xs:element ref="packages:widget-application"/> <!-- TBD -->
+          <xs:element ref="packages:account"/> <!-- TBD -->
+          <xs:element ref="packages:notifications"/> <!-- TBD -->
           <xs:element ref="packages:privileges"/>
-          <xs:element ref="packages:font"/>
-          <xs:element ref="packages:ime"/>
-          <xs:element ref="packages:feature"/>
+          <xs:element ref="packages:font"/> <!-- TBD -->
+          <xs:element ref="packages:ime"/> <!-- TBD -->
+          <xs:element ref="packages:feature"/> <!-- TBD -->
         </xs:choice>
       </xs:sequence>
       <xs:attribute name="storeclient-id" type="xs:string"/>
       <xs:attribute name="install-location" type="packages:InstallLocationType"/>
       <xs:attribute name="package" use="required" type="xs:string"/>
       <xs:attribute name="type" type="packages:PackageType"/>
-      <xs:attribute name="version" use="required" type="xs:string"/>
+      <xs:attribute name="version" use="required" type="xs:NMTOKEN"/>
       <xs:attribute name="size" type="xs:NMTOKEN"/>
       <xs:attribute name="root_path" type="xs:string"/>
       <xs:attribute name="csc_path" type="xs:string"/>
       <xs:attribute name="appsetting" type="xs:boolean"/>
       <xs:attribute name="nodisplay-setting" type="xs:boolean"/>
       <xs:attribute name="url" type="xs:string"/>
-      <xs:attribute name="api-version" type="xs:string"/>
       <xs:attribute name="support-disable" type="xs:boolean"/>
-      <xs:attribute name="support-mode" type="xs:string"/>
-      <xs:attribute name="support-reset" type="xs:string"/>
+      <xs:attribute name="api-version" type="xs:string"/>
       <xs:attribute name="backend-installer" type="xs:string"/>
     </xs:complexType>
   </xs:element>
@@ -80,6 +77,9 @@
   </xs:simpleType>
   <xs:simpleType name="HwAccelerationType">
     <xs:restriction base="xs:string">
+      <xs:enumeration value="on"/>
+      <xs:enumeration value="off"/>
+      <xs:enumeration value="default"/>
       <xs:enumeration value="use-GL"/>
       <xs:enumeration value="not-use-GL"/>
       <xs:enumeration value="use-system-setting"/>
@@ -114,13 +114,25 @@
   <xs:element name="compatibility">
     <xs:complexType/>
   </xs:element>
-  <xs:element name="device-profile">
-    <xs:complexType/>
-  </xs:element>
   <xs:element name="profile">
     <xs:complexType>
-      <xs:attribute name="name" type="packages:ProfileType"/>
+      <xs:attribute name="name" use="required" type="packages:ProfileType"/>
     </xs:complexType>
+  </xs:element>
+  <xs:element name="watch-application">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:choice maxOccurs="unbounded" minOccurs="0">
+          <xs:element ref="packages:label"/>
+          <xs:element ref="packages:icon"/>
+        </xs:choice>
+      </xs:sequence>
+      <xs:attribute name="appid" use="required" type="xs:ID"/>
+      <xs:attribute name="exec" use="required"/>
+      <xs:attribute name="ambient-support" type="xs:boolean"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="watchface">
   </xs:element>
   <xs:element name="service-application">
     <xs:complexType>
@@ -134,6 +146,7 @@
           <xs:element ref="packages:metadata"/>
           <xs:element ref="packages:permission"/>
           <xs:element ref="packages:datacontrol"/>
+          <xs:element ref="packages:background-category"/>
         </xs:choice>
       </xs:sequence>
       <xs:attribute name="appid" use="required" type="xs:string"/>
@@ -164,7 +177,7 @@
           <xs:element ref="packages:background-category"/>
         </xs:choice>
       </xs:sequence>
-      <xs:attribute name="appid" use="required" type="xs:string"/>
+      <xs:attribute name="appid" use="required" type="xs:ID"/>
       <xs:attribute name="exec" use="required"/>
       <xs:attribute name="multiple" type="xs:boolean"/>
       <xs:attribute name="nodisplay" type="xs:boolean"/>
@@ -178,31 +191,23 @@
       <xs:attribute name="recentimage" type="packages:RecentImage"/>
       <xs:attribute name="mainapp" type="xs:boolean"/>
       <xs:attribute name="indicatordisplay" type="xs:boolean"/>
-      <xs:attribute name="effectimage-type" type="xs:string"/>
       <xs:attribute name="portrait-effectimage" type="xs:string"/>
       <xs:attribute name="landscape-effectimage" type="xs:string"/>
+      <xs:attribute name="effectimage-type" type="xs:string"/>
       <xs:attribute name="guestmode-visibility" type="xs:string"/>
       <xs:attribute name="launchcondition" type="xs:boolean"/>
       <xs:attribute name="permission-type" type="xs:string"/>
       <xs:attribute name="component-type" type="xs:string"/>
       <xs:attribute name="submode" type="xs:boolean"/>
       <xs:attribute name="submode-mainid" type="xs:string"/>
-      <xs:attribute name="launch_mode" type="packages:LaunchType"/>
-      <xs:attribute name="on-boot" type="xs:boolean"/>
-      <xs:attribute name="auto-restart" type="xs:boolean"/>
       <xs:attribute name="process-pool" type="xs:boolean"/>
+      <xs:attribute name="auto-restart" type="xs:boolean"/>
+      <xs:attribute name="on-boot" type="xs:boolean"/>
       <xs:attribute name="multi-instance" type="xs:boolean"/>
       <xs:attribute name="multi-instance-mainid" type="xs:string"/>
       <xs:attribute name="ui-gadget" type="xs:boolean"/>
+      <xs:attribute name="launch_mode" type="packages:LaunchType"/>
     </xs:complexType>
-  </xs:element>
-  <xs:element name="widget">
-  </xs:element>
-  <xs:element name="widget-application">
-  </xs:element>
-  <xs:element name="watch-application">
-  </xs:element>
-  <xs:element name="watchface">
   </xs:element>
   <xs:element name="ime-application">
     <xs:complexType>
@@ -212,7 +217,7 @@
           <xs:element ref="packages:icon"/>
         </xs:choice>
       </xs:sequence>
-      <xs:attribute name="appid" use="required" type="xs:string"/>
+      <xs:attribute name="appid" use="required" type="xs:ID"/>
       <xs:attribute name="exec" use="required" type="xs:NCName"/>
       <xs:attribute name="multiple" type="xs:boolean"/>
       <xs:attribute name="nodisplay" type="xs:boolean"/>
@@ -221,7 +226,23 @@
   </xs:element>
   <xs:element name="shortcut-list">
   </xs:element>
-  <xs:element name="livebox">
+  <xs:element name="widget">
+  </xs:element>
+  <xs:element name="widget-application">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:choice maxOccurs="unbounded" minOccurs="0">
+          <xs:element ref="packages:label"/>
+          <xs:element ref="packages:icon"/>
+          <xs:element ref="packages:support-size"/>
+        </xs:choice>
+      </xs:sequence>
+      <xs:attribute name="appid" use="required" type="xs:ID"/>
+      <xs:attribute name="exec" use="required"/>
+      <xs:attribute name="main" type="xs:boolean"/>
+      <xs:attribute name="update-period" type="xs:positiveInteger"/>
+      <xs:attribute name="preview" type="xs:string"/>
+    </xs:complexType>
   </xs:element>
   <xs:element name="account">
   </xs:element>
@@ -273,6 +294,7 @@
     <xs:enumeration value="caller"/>
     <xs:enumeration value="single"/>
     <xs:enumeration value="group"/>
+    <xs:enumeration value="singleton"/>
    </xs:restriction>
   </xs:simpleType>
   <xs:simpleType name="ResolutionType">
@@ -355,7 +377,20 @@
   </xs:element>
   <xs:element name="background-category">
     <xs:complexType mixed="true">
-      <xs:attribute name="value" type="xs:string"/>
+      <xs:attribute name="value" type="packages:BackgroundCategoryType"/>
     </xs:complexType>
+  </xs:element>
+  <xs:simpleType name="BackgroundCategoryType">
+    <xs:restriction base="xs:string">
+      <xs:enumeration value="media"/>
+      <xs:enumeration value="download"/>
+      <xs:enumeration value="background-network"/>
+      <xs:enumeration value="location"/>
+      <xs:enumeration value="sensor"/>
+      <xs:enumeration value="iot-communication"/>
+      <xs:enumeration value="system"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:element name="support-size">
   </xs:element>
 </xs:schema>
