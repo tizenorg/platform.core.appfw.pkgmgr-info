@@ -128,6 +128,68 @@ int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char *co
 int pkgmgr_parser_parse_usr_manifest_for_installation(const char *manifest, uid_t uid, char *const tagv[]);
 
 /**
+ * @fn int pkgmgr_parser_parse_manifest_for_installation_withtep(const char *manifest, const char *tep_path, char *const tagv[])
+ * @fn int pkgmgr_parser_parse_usr_manifest_for_installation_withtep(const char *manifest, const char *tep_path, uid_t uid, char *const tagv[])
+ * @brief	This API parses the manifest file of the package after installation and stores the parsed data and tep information in DB if exists.
+ *
+ * @par		This API is for package-manager installer backends.
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in]	manifest	pointer to package manifest file
+ * @param[in]	uid	the addressee user id of the instruction
+ * @param[in]	tagv		array of xml tags or NULL
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		None
+ * @post		None
+ * @code
+static int parse_manifest_file_for_installation(const char *manifest, const char *tep_path)
+{
+	int ret = 0;
+	ret = pkgmgr_parser_parse_manifest_for_installation_withtep(manifest, tep_path, NULL);
+	if (ret)
+		return -1;
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgr_parser_parse_manifest_for_installation_withtep(const char *manifest, const char *tep_path, char *const tagv[]);
+int pkgmgr_parser_parse_usr_manifest_for_installation_withtep(const char *manifest, const char *tep_path, uid_t uid, char *const tagv[]);
+
+/**
+ * @fn int pkgmgr_parser_update_tep(const char* pkgid, const char * tep_path)
+ * @fn int pkgmgr_parser_usr_update_tep(const char* pkgid, const char* tep_path, uid_t uid)
+ * @brief	This API updates tep path information stored in DB.
+ *
+ * @par		This API is for package-manager installer backends.
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in]	pkgid	pointer to package ID
+  * @param[in]tep_path	pointer to path of TEP file
+ * @param[in]	uid	the addressee user id of the instruction
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		None
+ * @post		None
+ * @code
+static int update_tep_info_for_upgrade(const char *pkgid, const char *tep_path)
+{
+	int ret = 0;
+	ret = pkgmgr_parser_update_tep(pkgid, tep_path);
+	if (ret)
+		return -1;
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgr_parser_update_tep(const char* pkgid, const char* tep_path);
+int pkgmgr_parser_usr_update_tep(const char* pkgid, const char* tep_path, uid_t uid);
+
+/**
  * @fn int pkgmgr_parser_parse_usr_manifest_for_upgrade(const char *manifest,  uid_t uid, char *const tagv[])
  * @fn int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *const tagv[])
  * @brief	This API parses the manifest file of the package after upgrade and stores the data in DB.
