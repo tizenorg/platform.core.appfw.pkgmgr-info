@@ -1649,6 +1649,7 @@ static int __ps_process_application(xmlTextReaderPtr reader, application_x *appl
 	retvm_if(((strcmp(application->component_type, "svcapp") != 0) && (strcmp(application->component_type, "uiapp") != 0) && (strcmp(application->component_type, "widgetapp") != 0)), PM_PARSER_R_ERROR, "invalid component_type[%s]", application->component_type);
 	__save_xml_attribute(reader, "submode", &application->submode, "false");
 	__save_xml_attribute(reader, "submode-mainid", &application->submode_mainid, NULL);
+	__save_xml_attribute(reader, "process-pool", &application->process_pool, "false");
 	__save_xml_attribute(reader, "launch_mode", &application->launch_mode, "caller");
 	__save_xml_attribute(reader, "ui-gadget", &application->ui_gadget, "false");
 	__save_xml_attribute(reader, "auto-restart", &application->autorestart, "false");

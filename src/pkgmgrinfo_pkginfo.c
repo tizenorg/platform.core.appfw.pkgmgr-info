@@ -19,7 +19,7 @@
  * limitations under the License.
  *
  */
- 
+
 #define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
@@ -639,7 +639,7 @@ static int _pkginfo_get_package(sqlite3 *db, const char *pkgid,
 		"package_system, package_type, package_size, installed_time, "
 		"installed_storage, storeclient_id, mainapp_id, package_url, "
 		"root_path, csc_path, package_nodisplay, package_api_version, "
-		"package_support_disable "
+		"package_support_disable, package_tep_name "
 		"FROM package_info WHERE package=%Q";
 	int ret;
 	char *query;
@@ -699,6 +699,7 @@ static int _pkginfo_get_package(sqlite3 *db, const char *pkgid,
 	_save_column_str(stmt, idx++, &info->nodisplay_setting);
 	_save_column_str(stmt, idx++, &info->api_version);
 	_save_column_str(stmt, idx++, &info->support_disable);
+	_save_column_str(stmt, idx++, &info->tep_name);
 
 	if (_pkginfo_get_author(db, info->package, &info->author)) {
 		pkgmgrinfo_basic_free_package(info);
@@ -871,6 +872,21 @@ API int pkgmgrinfo_pkginfo_get_version(pkgmgrinfo_pkginfo_h handle, char **versi
 		return PMINFO_R_ERROR;
 
 	*version = (char *)info->pkg_info->version;
+
+	return PMINFO_R_OK;
+}
+
+API int pkgmgrinfo_pkginfo_get_tep_name(pkgmgrinfo_pkginfo_h handle, char **tep_name)
+{
+	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
+
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
+	retvm_if(tep_name == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
+
+	if (info->pkg_info == NULL || info->pkg_info->tep_name == NULL)
+		return PMINFO_R_ERROR;
+
+	*tep_name = (char *)info->pkg_info->tep_name;
 
 	return PMINFO_R_OK;
 }

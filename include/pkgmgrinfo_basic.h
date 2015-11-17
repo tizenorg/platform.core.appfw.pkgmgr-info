@@ -119,6 +119,7 @@ typedef struct application_x {
 	const char *submode;	/*attr, default: "false"*/
 	const char *submode_mainid;	/*attr, default: "false"*/
 	const char *process_pool;	/*attr, default: "false"*/
+	const char *installed_storage;
 	const char *autorestart;	/*attr, default: "false"*/
 	const char *onboot;	/*attr, default: "false"*/
 	const char *multi_instance;	/*attr, default: "false"*/

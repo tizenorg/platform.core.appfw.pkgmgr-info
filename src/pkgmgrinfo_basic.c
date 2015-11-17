@@ -257,6 +257,10 @@ static void __ps_free_application(gpointer data)
 		free((void *)application->submode);
 	if (application->submode_mainid)
 		free((void *)application->submode_mainid);
+	if (application->process_pool)
+		free((void *)application->process_pool);
+	if (application->installed_storage)
+		free((void *)application->installed_storage);
 	if (application->launch_mode)
 		free((void *)application->launch_mode);
 	if (application->ui_gadget)

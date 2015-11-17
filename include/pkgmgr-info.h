@@ -412,6 +412,44 @@ static int get_pkg_version(const char *pkgid)
 int pkgmgrinfo_pkginfo_get_version(pkgmgrinfo_pkginfo_h handle, char **version);
 
 /**
+ * @fn int pkgmgrinfo_pkginfo_get_tep_name(pkgmgrinfo_pkginfo_h handle, char **tep_name)
+ * @brief	This API gets tep(tizen expansion package) file name associated with the package
+ *
+ * @par	This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in] handle 		pointer to the pkginfo handle.
+ * @param[out] tep_name 	pointer to hold tep name
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK success
+ * @retval	PMINFO_R_EINVAL invalid argument
+ * @retval	PMINFO_R_ERROR  internal error
+ * @pre	pkgmgrinfo_pkginfo_get_pkginfo()
+ * @post 		pkgmgrinfo_pkginfo_destroy_pkginfo()
+ * @see	pkgmgrinfo_pkginfo_get_pkgid()
+ * @code
+static int get_tep_name(const char *pkgid)
+{
+	int ret = 0;
+	char *tep_name = NULL;
+	pkgmgrinfo_pkginfo_h handle = NULL;
+	ret = pkgmgrinfo_pkginfo_get_pkginfo(pkgid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_pkginfo_get_tep_name(handle, &tep_name);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_pkginfo_destroy_pkginfo(handle);
+		return -1;
+	}
+	printf("TEP name is: %s\n", tep_name);
+	pkgmgrinfo_pkginfo_destroy_pkginfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_pkginfo_get_tep_name(pkgmgrinfo_pkginfo_h handle, char **tep_name);
+
+/**
  * @fn int pkgmgrinfo_pkginfo_get_install_location(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_install_location *location)
  * @brief	This API gets the package install location from the package ID
  *
@@ -3660,6 +3698,83 @@ static int get_app_submode(const char *appid)
  * @endcode
  */
 int pkgmgrinfo_appinfo_is_submode(pkgmgrinfo_appinfo_h handle, bool *submode);
+
+/**
+ * @fn int int pkgmgrinfo_appinfo_is_process_pool(pkgmgrinfo_appinfo_h handle, bool *process_pool)
+ * @brief	This API gets the value for given application is process_pool or not from handle
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in]	handle	pointer to application info handle
+ * @param[out] process_pool		pointer to hold process_pool is or not
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		pkgmgrinfo_appinfo_get_appinfo()
+ * @post		pkgmgrinfo_appinfo_destroy_appinfo()
+ * @see		pkgmgrinfo_appinfo_get_appid()
+ * @code
+static int get_app_process_pool(const char *appid)
+{
+	int ret = 0;
+	bool process_pool = 0;
+	pkgmgrinfo_appinfo_h handle = NULL;
+	ret = pkgmgrinfo_appinfo_get_appinfo(appid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_appinfo_is_process_pool(handle, &process_pool);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_appinfo_destroy_appinfo(handle);
+		return -1;
+	}
+	printf("process_pool: %d\n", process_pool);
+	pkgmgrinfo_appinfo_destroy_appinfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_appinfo_is_process_pool(pkgmgrinfo_appinfo_h handle, bool *process_pool);
+
+/**
+ * @fn int pkgmgrinfo_appinfo_get_installed_storage_location(pkgmgrinfo_appinfo_h handle, pkgmgrinfo_installed_storage *storage)
+ * @brief	This API gets the installed storage location of the application
+ *
+ * @par	This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in] handle 		pointer to the application info handle.
+ * @param[out] app_type 	pointer to hold installed storage location
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK success
+ * @retval	PMINFO_R_EINVAL invalid argument
+ * @retval	PMINFO_R_ERROR  internal error
+ * @pre	pkgmgrinfo_appinfo_get_appinfo()
+ * @post 		pkgmgrinfo_appinfo_destroy_appinfo()
+ * @see	pkgmgrinfo_appinfo_get_appid()
+ * @code
+static int get_app_installed_location(const char *appid)
+{
+	int ret = 0;
+	pkgmgrinfo_installed_storage storage;
+	pkgmgrinfo_appinfo_h handle = NULL;
+	ret = pkgmgrinfo_appinfo_get_appinfo(appid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_appinfo_get_installed_storage_location(handle, &storage);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_appinfo_destroy_appinfo(handle);
+		return -1;
+	}
+	printf("Installed storage location : %d\n", storage);
+	pkgmgrinfo_appinfo_destroy_appinfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_appinfo_get_installed_storage_location(pkgmgrinfo_appinfo_h handle, pkgmgrinfo_installed_storage *storage);
+
 
 /**
  * @fn int pkgmgrinfo_appinfo_is_category_exist(pkgmgrinfo_appinfo_h handle, const char *category, bool *exist)

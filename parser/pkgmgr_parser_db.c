@@ -137,6 +137,8 @@ sqlite3 *pkgmgr_cert_db;
 						"app_preload text DEFAULT 'false', " \
 						"app_submode text DEFAULT 'false', " \
 						"app_submode_mainid text, " \
+						"app_installed_storage text, " \
+						"app_process_pool text DEFAULT 'false', " \
 						"app_launch_mode text NOT NULL DEFAULT 'caller', " \
 						"app_ui_gadget text DEFAULT 'false', " \
 						"app_support_disable text DEFAULT 'false', " \
@@ -843,8 +845,8 @@ static int __insert_application_info(manifest_x *mfx)
 			 "insert into package_app_info(app_id, app_component, app_exec, app_nodisplay, app_type, app_onboot, " \
 			"app_multiple, app_autorestart, app_taskmanage, app_enabled, app_hwacceleration, app_screenreader, app_mainapp , app_recentimage, " \
 			"app_launchcondition, app_indicatordisplay, app_portraitimg, app_landscapeimg, app_guestmodevisibility, app_permissiontype, "\
-			"app_preload, app_submode, app_submode_mainid, app_launch_mode, app_ui_gadget, app_support_disable, component_type, package, app_tep_name) " \
-			"values('%s', '%s', '%s', '%s', '%s', '%s', '%s','%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
+			"app_preload, app_submode, app_submode_mainid, app_installed_storage, app_process_pool, app_launch_mode, app_ui_gadget, app_support_disable, component_type, package, app_tep_name) " \
+			"values('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
 			 app->appid,
 			 app->component_type,
 			 app->exec,
@@ -868,6 +870,8 @@ static int __insert_application_info(manifest_x *mfx)
 			 mfx->preload,
 			 app->submode,
 			 __get_str(app->submode_mainid),
+			 mfx->installed_storage,
+			 app->process_pool,
 			 app->launch_mode,
 			 app->ui_gadget,
 			 mfx->support_disable,

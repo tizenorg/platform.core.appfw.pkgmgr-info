@@ -503,7 +503,7 @@ static int _appinfo_get_application(sqlite3 *db, const char *appid,
 		"app_permissiontype, app_preload, app_submode, "
 		"app_submode_mainid, app_launch_mode, app_ui_gadget, "
 		"app_support_disable, "
-		"component_type, package "
+		"component_type, package, app_process_pool, app_installed_storage "
 		"FROM package_app_info WHERE app_id=%Q";
 	int ret;
 	char *query;
@@ -569,6 +569,8 @@ static int _appinfo_get_application(sqlite3 *db, const char *appid,
 	_save_column_str(stmt, idx++, &info->support_disable);
 	_save_column_str(stmt, idx++, &info->component_type);
 	_save_column_str(stmt, idx++, &info->package);
+	_save_column_str(stmt, idx++, &info->process_pool);
+	_save_column_str(stmt, idx++, &info->installed_storage);
 
 	if (_appinfo_get_label(db, info->appid, locale, &info->label)) {
 		pkgmgrinfo_basic_free_application(info);
@@ -1335,6 +1337,42 @@ API int pkgmgrinfo_appinfo_get_submode_mainid(pkgmgrinfo_appinfo_h  handle, char
 		return PMINFO_R_ERROR;
 
 	*submode_mainid = (char *)info->app_info->submode_mainid;
+
+	return PMINFO_R_OK;
+}
+
+API int pkgmgrinfo_appinfo_is_process_pool(pkgmgrinfo_appinfo_h handle, bool *process_pool)
+{
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL\n");
+	retvm_if(process_pool == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
+	char *val = NULL;
+	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
+	val = (char *)info->app_info->process_pool;
+	if (val) {
+		if (strcasecmp(val, "true") == 0)
+			*process_pool = 1;
+		else if (strcasecmp(val, "false") == 0)
+			*process_pool = 0;
+		else
+			*process_pool = 0;
+	}
+	return PMINFO_R_OK;
+}
+
+API int pkgmgrinfo_appinfo_get_installed_storage_location(pkgmgrinfo_appinfo_h handle, pkgmgrinfo_installed_storage *storage)
+{
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL\n");
+	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
+
+	if (info->app_info && info->app_info->installed_storage){
+		 if (strcmp(info->app_info->installed_storage,"installed_internal") == 0)
+			*storage = PMINFO_INTERNAL_STORAGE;
+		 else if (strcmp(info->app_info->installed_storage,"installed_external") == 0)
+			 *storage = PMINFO_EXTERNAL_STORAGE;
+		 else
+			 return PMINFO_R_ERROR;
+	}else
+		return PMINFO_R_ERROR;
 
 	return PMINFO_R_OK;
 }
