@@ -126,6 +126,8 @@ static int parse_manifest_file_for_installation(const char *manifest)
  */
 int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char *const tagv[]);
 int pkgmgr_parser_parse_usr_manifest_for_installation(const char *manifest, uid_t uid, char *const tagv[]);
+int pkgmgr_parser_process_manifest_x_for_installation(manifest_x* mfx, const char *manifest);
+int pkgmgr_parser_process_usr_manifest_x_for_installation(manifest_x* mfx, const char *manifest, uid_t uid);
 
 /**
  * @fn int pkgmgr_parser_parse_manifest_for_installation_withtep(const char *manifest, const char *tep_path, char *const tagv[])
@@ -219,6 +221,9 @@ static int parse_manifest_file_for_upgrade(const char *manifest)
  */
 int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *const tagv[]);
 int pkgmgr_parser_parse_usr_manifest_for_upgrade(const char *manifest, uid_t uid, char *const tagv[]);
+int pkgmgr_parser_process_manifest_x_for_upgrade(manifest_x* mfx, const char *manifest);
+int pkgmgr_parser_process_usr_manifest_x_for_upgrade(manifest_x* mfx, const char *manifest, uid_t uid);
+
 /**
  * @fn int pkgmgr_parser_parse_manifest_for_uninstallation(const char *manifest, char *const tagv[])
  * @fn int pkgmgr_parser_parse_usr_manifest_for_uninstallation(const char *manifest, uid_t uid, char *const tagv[])
@@ -249,6 +254,9 @@ static int parse_manifest_file_for_uninstallation(const char *manifest)
  */
 int pkgmgr_parser_parse_manifest_for_uninstallation(const char *manifest, char *const tagv[]);
 int pkgmgr_parser_parse_usr_manifest_for_uninstallation(const char *manifest, uid_t uid, char *const tagv[]);
+int pkgmgr_parser_process_manifest_x_for_uninstallation(manifest_x* mfx, const char *manifest);
+int pkgmgr_parser_process_usr_manifest_x_for_uninstallation(manifest_x* mfx, const char *manifest, uid_t uid);
+
 /**
  * @fn int pkgmgr_parser_parse_manifest_for_preload()
  * @fn int pkgmgr_parser_parse_usr_manifest_for_preload(uid_t uid)
