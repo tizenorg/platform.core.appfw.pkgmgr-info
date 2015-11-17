@@ -119,7 +119,6 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx, uid_t uid)
 static int __process_manifest(xmlTextReaderPtr reader, manifest_x * mfx, uid_t uid);
 static void __str_trim(char *input);
 static char *__get_parser_plugin(const char *type);
-static int __ps_run_parser(xmlDocPtr docPtr, const char *tag, ACTION_TYPE action, const char *pkgid);
 API int __is_admin();
 
 static void __save_xml_attribute(xmlTextReaderPtr reader, char *attribute, const char **xml_attribute, char *default_value)
@@ -526,58 +525,6 @@ static int __ps_run_category_parser(GList *category_list, const char *tag,
 		_LOGD("[appid = %s, libpath = %s plugin fail\n", appid, lib_path);
 	else
 		_LOGD("[appid = %s, libpath = %s plugin success\n", appid, lib_path);
-
-END:
-	if (lib_path)
-		free(lib_path);
-	if (lib_handle)
-		dlclose(lib_handle);
-	return ret;
-}
-
-static int __ps_run_parser(xmlDocPtr docPtr, const char *tag,
-			   ACTION_TYPE action, const char *pkgid)
-{
-	char *lib_path = NULL;
-	void *lib_handle = NULL;
-	int (*plugin_install) (xmlDocPtr, const char *);
-	int ret = -1;
-	char *ac = NULL;
-
-	switch (action) {
-	case ACTION_INSTALL:
-		ac = "PKGMGR_PARSER_PLUGIN_INSTALL";
-		break;
-	case ACTION_UPGRADE:
-		ac = "PKGMGR_PARSER_PLUGIN_UPGRADE";
-		break;
-	case ACTION_UNINSTALL:
-		ac = "PKGMGR_PARSER_PLUGIN_UNINSTALL";
-		break;
-	default:
-		goto END;
-	}
-
-	lib_path = __get_parser_plugin(tag);
-	if (!lib_path) {
-		goto END;
-	}
-
-	if ((lib_handle = dlopen(lib_path, RTLD_LAZY)) == NULL) {
-		_LOGE("dlopen is failed lib_path[%s]\n", lib_path);
-		goto END;
-	}
-	if ((plugin_install =
-		dlsym(lib_handle, ac)) == NULL || dlerror() != NULL) {
-		_LOGE("can not find symbol[%s] \n", ac);
-		goto END;
-	}
-
-	ret = plugin_install(docPtr, pkgid);
-	if (ret < 0)
-		_LOGD("[pkgid = %s, libpath = %s plugin fail\n", pkgid, lib_path);
-	else
-		_LOGD("[pkgid = %s, libpath = %s plugin success\n", pkgid, lib_path);
 
 END:
 	if (lib_path)
@@ -1502,55 +1449,6 @@ static char *__get_icon_with_path(const char *icon, uid_t uid)
 	return strdup(icon_with_path);
 }
 
-static void __ps_process_tag(manifest_x * mfx, char *const tagv[])
-{
-	int i = 0;
-	char delims[] = "=";
-	char *ret_result = NULL;
-	char *tag = NULL;
-
-	if (tagv == NULL)
-		return;
-
-	for (tag = strdup(tagv[0]); tag != NULL; ) {
-		ret_result = strtok(tag, delims);
-
-		/*check tag :  preload */
-		if (strcmp(ret_result, "preload") == 0) {
-			ret_result = strtok(NULL, delims);
-			if (strcmp(ret_result, "true") == 0) {
-				free((void *)mfx->preload);
-				mfx->preload = strdup("true");
-			} else if (strcmp(ret_result, "false") == 0) {
-				free((void *)mfx->preload);
-				mfx->preload = strdup("false");
-			}
-		/*check tag :  removable*/
-		} else if (strcmp(ret_result, "removable") == 0) {
-			ret_result = strtok(NULL, delims);
-			if (strcmp(ret_result, "true") == 0){
-				free((void *)mfx->removable);
-				mfx->removable = strdup("true");
-			} else if (strcmp(ret_result, "false") == 0) {
-				free((void *)mfx->removable);
-				mfx->removable = strdup("false");
-			}
-		/*check tag :  not matched*/
-		} else
-			_LOGD("tag process [%s]is not defined\n", ret_result);
-
-		free(tag);
-
-		/*check next value*/
-		if (tagv[++i] != NULL)
-			tag = strdup(tagv[i]);
-		else {
-			_LOGD("tag process success...\n");
-			return;
-		}
-	}
-}
-
 static int __ps_process_icon(xmlTextReaderPtr reader, icon_x *icon, uid_t uid)
 {
 	__save_xml_attribute(reader, "name", &icon->name, NULL);
@@ -2088,93 +1986,6 @@ API manifest_x *pkgmgr_parser_usr_process_manifest_xml(const char *manifest, uid
 	return mfx;
 }
 
-/* These APIs are intended to call parser directly */
-API int pkgmgr_parser_parse_manifest_for_installation_withtep(const char *manifest, const char *tep_path, char *const tagv[])
-{
-	retvm_if(manifest == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
-	_LOGD("parsing manifest for installation: %s\n", manifest);
-
-	manifest_x *mfx = NULL;
-	int ret = -1;
-
-	xmlInitParser();
-	mfx = pkgmgr_parser_process_manifest_xml(manifest);
-	retvm_if(mfx == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
-
-	_LOGD("Parsing Finished\n");
-
-	__add_preload_info(mfx, manifest, GLOBAL_USER);
-
-	_LOGD("Added preload infomation\n");
-
-	__ps_process_tag(mfx, tagv);
-
-	if (tep_path != NULL && strlen(tep_path) != 0)
-		mfx->tep_name = strdup(tep_path);
-	else
-		mfx->tep_name = NULL;
-
-	ret = pkgmgr_parser_insert_manifest_info_in_db(mfx);
-	retvm_if(ret == PMINFO_R_ERROR, PMINFO_R_ERROR, "DB Insert failed");
-
-	_LOGD("DB Insert Success\n");
-
-	__ps_process_tag_parser(mfx, manifest, ACTION_INSTALL);
-	ret = __ps_process_metadata_parser(mfx, ACTION_INSTALL);
-	if (ret == -1)
-		_LOGD("Creating metadata parser failed\n");
-
-	ret = __ps_process_category_parser(mfx, ACTION_INSTALL);
-	if (ret == -1)
-		_LOGD("Creating category parser failed\n");
-
-	pkgmgr_parser_free_manifest_xml(mfx);
-	_LOGD("Free Done\n");
-	xmlCleanupParser();
-
-	return PMINFO_R_OK;
-}
-
-API int pkgmgr_parser_parse_usr_manifest_for_installation_withtep(const char *manifest, const char *tep_path, uid_t uid, char *const tagv[])
-{
-	retvm_if(manifest == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
-	_LOGD("parsing manifest for installation: %s\n", manifest);
-	manifest_x *mfx = NULL;
-	int ret = -1;
-
-	xmlInitParser();
-	mfx = pkgmgr_parser_usr_process_manifest_xml(manifest, uid);
-	retvm_if(mfx == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
-
-	_LOGD("Parsing Finished\n");
-
-	__ps_process_tag(mfx, tagv);
-
-	if (tep_path != NULL && strlen(tep_path) != 0)
-		mfx->tep_name = strdup(tep_path);
-	else
-		mfx->tep_name = NULL;
-
-	ret = pkgmgr_parser_insert_manifest_info_in_usr_db(mfx, uid);
-	retvm_if(ret == PMINFO_R_ERROR, PMINFO_R_ERROR, "DB Insert failed");
-
-	_LOGD("DB Insert Success\n");
-
-	__ps_process_tag_parser(mfx, manifest, ACTION_INSTALL);
-	ret = __ps_process_metadata_parser(mfx, ACTION_INSTALL);
-	if (ret == -1)
-		_LOGD("Creating metadata parser failed\n");
-	ret = __ps_process_category_parser(mfx, ACTION_INSTALL);
-	if (ret == -1)
-		_LOGD("Creating category parser failed\n");
-
-	pkgmgr_parser_free_manifest_xml(mfx);
-	_LOGD("Free Done\n");
-	xmlCleanupParser();
-
-	return PMINFO_R_OK;
-}
-
 API int pkgmgr_parser_usr_update_tep(const char *pkgid, const char *tep_path, uid_t uid)
 {
 	return pkgmgr_parser_update_tep_info_in_usr_db(pkgid, tep_path, uid);
@@ -2185,31 +1996,24 @@ API int pkgmgr_parser_update_tep(const char *pkgid, const char *tep_path)
 	return pkgmgr_parser_update_tep_info_in_db(pkgid, tep_path);
 }
 
-API int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char *const tagv[])
+API int pkgmgr_parser_parse_manifest_for_installation(manifest_x* mfx, const char *manifest)
 {
+	retvm_if(mfx == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
 	retvm_if(manifest == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
 	_LOGD("parsing manifest for installation: %s\n", manifest);
 
-	manifest_x *mfx = NULL;
 	int ret = -1;
-
-	xmlInitParser();
-	mfx = pkgmgr_parser_process_manifest_xml(manifest);
-	retvm_if(mfx == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
-
-	_LOGD("Parsing Finished\n");
 
 	__add_preload_info(mfx, manifest, GLOBAL_USER);
 
 	_LOGD("Added preload infomation\n");
-
-	__ps_process_tag(mfx, tagv);
 
 	ret = pkgmgr_parser_insert_manifest_info_in_db(mfx);
 	retvm_if(ret == PMINFO_R_ERROR, PMINFO_R_ERROR, "DB Insert failed");
 
 	_LOGD("DB Insert Success\n");
 
+	xmlInitParser();
 	__ps_process_tag_parser(mfx, manifest, ACTION_INSTALL);
 	ret = __ps_process_metadata_parser(mfx, ACTION_INSTALL);
 	if (ret == -1)
@@ -2218,33 +2022,23 @@ API int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char
 	ret = __ps_process_category_parser(mfx, ACTION_INSTALL);
 	if (ret == -1)
 		_LOGD("Creating category parser failed\n");
-
-	pkgmgr_parser_free_manifest_xml(mfx);
-	_LOGD("Free Done\n");
 	xmlCleanupParser();
 
 	return PMINFO_R_OK;
 }
-API int pkgmgr_parser_parse_usr_manifest_for_installation(const char *manifest, uid_t uid, char *const tagv[])
+API int pkgmgr_parser_parse_usr_manifest_for_installation(manifest_x* mfx, const char *manifest, uid_t uid)
 {
+	retvm_if(mfx == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
 	retvm_if(manifest == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
 	_LOGD("parsing manifest for installation: %s\n", manifest);
-	manifest_x *mfx = NULL;
 	int ret = -1;
-
-	xmlInitParser();
-	mfx = pkgmgr_parser_usr_process_manifest_xml(manifest, uid);
-	retvm_if(mfx == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
-
-	_LOGD("Parsing Finished\n");
-
-	__ps_process_tag(mfx, tagv);
 
 	ret = pkgmgr_parser_insert_manifest_info_in_usr_db(mfx, uid);
 	retvm_if(ret == PMINFO_R_ERROR, PMINFO_R_ERROR, "DB Insert failed");
 
 	_LOGD("DB Insert Success\n");
 
+	xmlInitParser();
 	__ps_process_tag_parser(mfx, manifest, ACTION_INSTALL);
 	ret = __ps_process_metadata_parser(mfx, ACTION_INSTALL);
 	if (ret == -1)
@@ -2252,19 +2046,16 @@ API int pkgmgr_parser_parse_usr_manifest_for_installation(const char *manifest, 
 	ret = __ps_process_category_parser(mfx, ACTION_INSTALL);
 	if (ret == -1)
 		_LOGD("Creating category parser failed\n");
-
-	pkgmgr_parser_free_manifest_xml(mfx);
-	_LOGD("Free Done\n");
 	xmlCleanupParser();
 
 	return PMINFO_R_OK;
 }
 
-API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *const tagv[])
+API int pkgmgr_parser_parse_manifest_for_upgrade(manifest_x* mfx, const char *manifest)
 {
+	retvm_if(mfx == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
 	retvm_if(manifest == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
 	_LOGD("pkgmgr_parser_parse_manifest_for_upgrade  parsing manifest for upgradation: %s\n", manifest);
-	manifest_x *mfx = NULL;
 	int ret = -1;
 	bool preload = false;
 	bool system = false;
@@ -2272,10 +2063,6 @@ API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *con
 	pkgmgrinfo_pkginfo_h handle = NULL;
 
 	xmlInitParser();
-	mfx = pkgmgr_parser_process_manifest_xml(manifest);
-	retvm_if(mfx == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
-
-	_LOGD("Parsing Finished\n");
 	__add_preload_info(mfx, manifest, GLOBAL_USER);
 	_LOGD("Added preload infomation\n");
 	__check_preload_updated(mfx, manifest, GLOBAL_USER);
@@ -2324,18 +2111,16 @@ API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *con
 	if (ret == -1)
 		_LOGD("Creating category parser failed\n");
 	pkgmgrinfo_pkginfo_destroy_pkginfo(handle);
-	pkgmgr_parser_free_manifest_xml(mfx);
-	_LOGD("Free Done\n");
 	xmlCleanupParser();
 
 	return PMINFO_R_OK;
 }
 
-API int pkgmgr_parser_parse_usr_manifest_for_upgrade(const char *manifest, uid_t uid, char *const tagv[])
+API int pkgmgr_parser_parse_usr_manifest_for_upgrade(manifest_x* mfx, const char *manifest, uid_t uid)
 {
+	retvm_if(mfx == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
 	retvm_if(manifest == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
 	_LOGD(" pkgmgr_parser_parse_usr_manifest_for_upgrade parsing manifest for upgradation: %s\n", manifest);
-	manifest_x *mfx = NULL;
 	int ret = -1;
 	bool preload = false;
 	bool system = false;
@@ -2343,10 +2128,6 @@ API int pkgmgr_parser_parse_usr_manifest_for_upgrade(const char *manifest, uid_t
 	pkgmgrinfo_pkginfo_h handle = NULL;
 
 	xmlInitParser();
-	mfx = pkgmgr_parser_usr_process_manifest_xml(manifest, uid);
-	retvm_if(mfx == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
-
-	_LOGD("Parsing Finished\n");
 	__check_preload_updated(mfx, manifest, uid);
 
 	ret = pkgmgrinfo_pkginfo_get_usr_pkginfo(mfx->package, uid, &handle);
@@ -2391,26 +2172,19 @@ API int pkgmgr_parser_parse_usr_manifest_for_upgrade(const char *manifest, uid_t
 	if (ret == -1)
 		_LOGD("Creating category parser failed\n");
 	pkgmgrinfo_pkginfo_destroy_pkginfo(handle);
-	pkgmgr_parser_free_manifest_xml(mfx);
-	_LOGD("Free Done\n");
 	xmlCleanupParser();
 
 	return PMINFO_R_OK;
 }
 
-API int pkgmgr_parser_parse_manifest_for_uninstallation(const char *manifest, char *const tagv[])
+API int pkgmgr_parser_parse_manifest_for_uninstallation(manifest_x* mfx, const char *manifest)
 {
+	retvm_if(mfx == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
 	retvm_if(manifest == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
 	_LOGD("parsing manifest for uninstallation: %s\n", manifest);
 
-	manifest_x *mfx = NULL;
 	int ret = -1;
 	xmlInitParser();
-	mfx = pkgmgr_parser_process_manifest_xml(manifest);
-	retvm_if(mfx == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
-
-	_LOGD("Parsing Finished\n");
-
 	__ps_process_tag_parser(mfx, manifest, ACTION_UNINSTALL);
 
 	__add_preload_info(mfx, manifest, GLOBAL_USER);
@@ -2429,28 +2203,20 @@ API int pkgmgr_parser_parse_manifest_for_uninstallation(const char *manifest, ch
 		_LOGD("DB Delete failed\n");
 	else
 		_LOGD("DB Delete Success\n");
-
-	pkgmgr_parser_free_manifest_xml(mfx);
-	_LOGD("Free Done\n");
 	xmlCleanupParser();
 
 	return PMINFO_R_OK;
 }
 
 
-API int pkgmgr_parser_parse_usr_manifest_for_uninstallation(const char *manifest, uid_t uid, char *const tagv[])
+API int pkgmgr_parser_parse_usr_manifest_for_uninstallation(manifest_x* mfx, const char *manifest, uid_t uid)
 {
+	retvm_if(mfx == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
 	retvm_if(manifest == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
 	_LOGD("parsing manifest for uninstallation: %s\n", manifest);
 
-	manifest_x *mfx = NULL;
 	int ret = -1;
 	xmlInitParser();
-	mfx = pkgmgr_parser_usr_process_manifest_xml(manifest, uid);
-	retvm_if(mfx == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
-
-	_LOGD("Parsing Finished\n");
-
 	__ps_process_tag_parser(mfx, manifest, ACTION_UNINSTALL);
 
 	ret = __ps_process_metadata_parser(mfx, ACTION_UNINSTALL);
@@ -2472,9 +2238,6 @@ API int pkgmgr_parser_parse_usr_manifest_for_uninstallation(const char *manifest
 		_LOGD("Removing appsvc_db failed\n");
 	else
 		_LOGD("Removing appsvc_db Success\n");
-
-	pkgmgr_parser_free_manifest_xml(mfx);
-	_LOGD("Free Done\n");
 	xmlCleanupParser();
 
 	return PMINFO_R_OK;
@@ -2499,21 +2262,6 @@ API char *pkgmgr_parser_get_usr_manifest_file(const char *pkgid, uid_t uid)
 API char *pkgmgr_parser_get_manifest_file(const char *pkgid)
 {
 	return __pkgid_to_manifest(pkgid, GLOBAL_USER);
-}
-
-API int pkgmgr_parser_run_parser_for_installation(xmlDocPtr docPtr, const char *tag, const char *pkgid)
-{
-	return __ps_run_parser(docPtr, tag, ACTION_INSTALL, pkgid);
-}
-
-API int pkgmgr_parser_run_parser_for_upgrade(xmlDocPtr docPtr, const char *tag, const char *pkgid)
-{
-	return __ps_run_parser(docPtr, tag, ACTION_UPGRADE, pkgid);
-}
-
-API int pkgmgr_parser_run_parser_for_uninstallation(xmlDocPtr docPtr, const char *tag, const char *pkgid)
-{
-	return __ps_run_parser(docPtr, tag, ACTION_UNINSTALL, pkgid);
 }
 
 #define SCHEMA_FILE SYSCONFDIR "/package-manager/preload/manifest.xsd"
