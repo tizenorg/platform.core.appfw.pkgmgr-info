@@ -172,9 +172,21 @@ static void __save_xml_root_path(manifest_x *mfx, uid_t uid)
 	if (mfx->root_path)
 		return;
 
-	tzplatform_set_user(uid);
-	path = tzplatform_getenv((uid == OWNER_ROOT || uid == GLOBAL_USER) ? TZ_SYS_RO_APP : TZ_USER_APP);
-	snprintf(root, PKG_STRING_LEN_MAX - 1, "%s/%s", path, mfx->package);
+	if (strcmp(mfx->type, "rpm") == 0) {
+		snprintf(root, PKG_STRING_LEN_MAX - 1, "/opt/share/packages/%s.xml", mfx->package);
+		if (access(root, F_OK) == 0) {
+			memset(root, '\0', PKG_STRING_LEN_MAX);
+			snprintf(root, PKG_STRING_LEN_MAX - 1, "/opt/usr/apps/%s", mfx->package);
+		} else {
+			memset(root, '\0', PKG_STRING_LEN_MAX);
+			snprintf(root, PKG_STRING_LEN_MAX - 1, "/usr/apps/%s", mfx->package);
+		}
+	} else {
+		tzplatform_set_user(uid);
+		path = tzplatform_getenv((uid == OWNER_ROOT || uid == GLOBAL_USER) ? TZ_SYS_RO_APP : TZ_USER_APP);
+		snprintf(root, PKG_STRING_LEN_MAX - 1, "%s/%s", path, mfx->package);
+	}
+
 
 	mfx->root_path = strdup(root);
 
@@ -1490,6 +1502,12 @@ static char *__get_icon_with_path(const char *icon, uid_t uid)
 		/* since 2.3 tpk package */
 		snprintf(icon_with_path, sizeof(icon_with_path),
 				"%s/%s/shared/res/%s", app_path, package, icon);
+		if (access(icon_with_path, F_OK) == 0)
+			break;
+
+		/* for RPM-packed apps */
+		snprintf(icon_with_path, sizeof(icon_with_path),
+				"/usr/apps/%s/res/icons/%s", package, icon);
 		if (access(icon_with_path, F_OK) == 0)
 			break;
 
