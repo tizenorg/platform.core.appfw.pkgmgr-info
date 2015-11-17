@@ -902,6 +902,7 @@ API int pkgmgrinfo_appinfo_get_icon(pkgmgrinfo_appinfo_h handle, char **icon)
 	for (tmp = info->app_info->icon; tmp; tmp = tmp->next) {
 		ptr = (icon_x *)tmp->data;
 		if (ptr == NULL || ptr->text == NULL || ptr->lang == NULL ||
+				!strcasecmp(ptr->text, "(null)") ||
 				strcmp(ptr->lang, locale))
 			continue;
 		*icon = (char *)ptr->text;

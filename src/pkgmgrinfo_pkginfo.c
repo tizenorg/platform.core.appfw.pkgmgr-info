@@ -1105,6 +1105,7 @@ API int pkgmgrinfo_pkginfo_get_icon(pkgmgrinfo_pkginfo_h handle, char **icon)
 	for (tmp = info->pkg_info->icon; tmp; tmp = tmp->next) {
 		ptr = (icon_x *)tmp->data;
 		if (ptr == NULL || ptr->text == NULL || ptr->lang == NULL ||
+				!strcasecmp(ptr->text, "(null)") ||
 				strcmp(ptr->lang, locale))
 			continue;
 		*icon = (char *)ptr->text;
