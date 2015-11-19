@@ -122,8 +122,6 @@ typedef struct application_x {
 	const char *installed_storage;
 	const char *autorestart;	/*attr, default: "false"*/
 	const char *onboot;	/*attr, default: "false"*/
-	const char *multi_instance;	/*attr, default: "false"*/
-	const char *multi_instance_mainid;	/*attr*/
 	const char *support_disable;	/*set from package_x*/
 	const char *ui_gadget;	/*attr, default: "false"*/
 	const char *launch_mode;	/*attr, default: "single"*/
