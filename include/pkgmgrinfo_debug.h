@@ -25,6 +25,7 @@
 #include <dlog.h>
 
 #define _LOGE(fmt, arg...) LOGE(fmt, ##arg)
+#define _LOGI(fmt, arg...) LOGI(fmt, ##arg)
 #define _LOGD(fmt, arg...) LOGD(fmt, ##arg)
 
 #define PKGMGR_INFO_ENABLE_DLOG

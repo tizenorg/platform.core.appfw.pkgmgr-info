@@ -1740,7 +1740,7 @@ static int __ps_process_application(xmlTextReaderPtr reader, application_x *appl
 			application->datacontrol = g_list_append(application->datacontrol, datacontrol);
 			ret = __ps_process_datacontrol(reader, datacontrol);
 		} else
-			return -1;
+			continue;
 		if (ret < 0) {
 			_LOGD("Processing application failed\n");
 			return ret;
@@ -1844,8 +1844,8 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx, uid_t uid)
 		} else if (!strcmp(ASCII(node), "feature")) {
 			continue;
 		} else {
-			_LOGE("Unknown element: %s", ASCII(node));
-			return -1;
+			_LOGI("Unknown element: %s", ASCII(node));
+			continue;
 		}
 
 		if (ret < 0) {
