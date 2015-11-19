@@ -27,7 +27,6 @@
           <xs:element ref="packages:ime"/> <!-- TBD -->
           <xs:element ref="packages:feature"/> <!-- TBD -->
         </xs:choice>
-        <xs:any minOccurs="0" maxOccurs="unbounded" namespace="##any" processContents="lax"/>
       </xs:sequence>
       <xs:attribute name="storeclient-id" type="xs:string"/>
       <xs:attribute name="install-location" type="packages:InstallLocationType"/>
@@ -43,7 +42,6 @@
       <xs:attribute name="support-disable" type="xs:boolean"/>
       <xs:attribute name="api-version" type="xs:string"/>
       <xs:attribute name="backend-installer" type="xs:string"/>
-      <xs:anyAttribute namespace="##any" processContents="lax"/>
     </xs:complexType>
   </xs:element>
 
@@ -106,24 +104,19 @@
       <xs:attribute name="email"/>
       <xs:attribute name="href"/>
       <xs:attribute ref="xml:lang"/>
-      <xs:anyAttribute namespace="##any" processContents="lax"/>
     </xs:complexType>
   </xs:element>
   <xs:element name="description">
     <xs:complexType mixed="true">
       <xs:attribute ref="xml:lang"/>
-      <xs:anyAttribute namespace="##any" processContents="lax"/>
     </xs:complexType>
   </xs:element>
   <xs:element name="compatibility">
-    <xs:complexType>
-      <xs:anyAttribute namespace="##any" processContents="lax"/>
-    </xs:complexType>
+    <xs:complexType/>
   </xs:element>
   <xs:element name="profile">
     <xs:complexType>
       <xs:attribute name="name" use="required" type="packages:ProfileType"/>
-      <xs:anyAttribute namespace="##any" processContents="lax"/>
     </xs:complexType>
   </xs:element>
   <xs:element name="watch-application">
@@ -133,12 +126,10 @@
           <xs:element ref="packages:label"/>
           <xs:element ref="packages:icon"/>
         </xs:choice>
-        <xs:any minOccurs="0" maxOccurs="unbounded" namespace="##any" processContents="lax"/>
       </xs:sequence>
       <xs:attribute name="appid" use="required" type="xs:ID"/>
       <xs:attribute name="exec" use="required"/>
       <xs:attribute name="ambient-support" type="xs:boolean"/>
-      <xs:anyAttribute namespace="##any" processContents="lax"/>
     </xs:complexType>
   </xs:element>
   <xs:element name="watchface">
@@ -157,7 +148,6 @@
           <xs:element ref="packages:datacontrol"/>
           <xs:element ref="packages:background-category"/>
         </xs:choice>
-        <xs:any minOccurs="0" maxOccurs="unbounded" namespace="##any" processContents="lax"/>
       </xs:sequence>
       <xs:attribute name="appid" use="required" type="xs:string"/>
       <xs:attribute name="auto-restart" type="xs:boolean"/>
@@ -169,7 +159,6 @@
       <xs:attribute name="permission-type" type="xs:string"/>
       <xs:attribute name="component-type" type="xs:string"/>
       <xs:attribute name="nodisplay" type="xs:boolean"/>
-      <xs:anyAttribute namespace="##any" processContents="lax"/>
     </xs:complexType>
   </xs:element>
   <xs:element name="ui-application">
@@ -187,7 +176,6 @@
           <xs:element ref="packages:datacontrol"/>
           <xs:element ref="packages:background-category"/>
         </xs:choice>
-        <xs:any minOccurs="0" maxOccurs="unbounded" namespace="##any" processContents="lax"/>
       </xs:sequence>
       <xs:attribute name="appid" use="required" type="xs:ID"/>
       <xs:attribute name="exec" use="required"/>
@@ -219,7 +207,6 @@
       <xs:attribute name="multi-instance-mainid" type="xs:string"/>
       <xs:attribute name="ui-gadget" type="xs:boolean"/>
       <xs:attribute name="launch_mode" type="packages:LaunchType"/>
-      <xs:anyAttribute namespace="##any" processContents="lax"/>
     </xs:complexType>
   </xs:element>
   <xs:element name="ime-application">
@@ -229,14 +216,12 @@
           <xs:element ref="packages:label"/>
           <xs:element ref="packages:icon"/>
         </xs:choice>
-        <xs:any minOccurs="0" maxOccurs="unbounded" namespace="##any" processContents="lax"/>
       </xs:sequence>
       <xs:attribute name="appid" use="required" type="xs:ID"/>
       <xs:attribute name="exec" use="required" type="xs:NCName"/>
       <xs:attribute name="multiple" type="xs:boolean"/>
       <xs:attribute name="nodisplay" type="xs:boolean"/>
       <xs:attribute name="type" use="required" type="packages:TypeType"/>
-      <xs:anyAttribute namespace="##any" processContents="lax"/>
     </xs:complexType>
   </xs:element>
   <xs:element name="shortcut-list">
@@ -251,14 +236,12 @@
           <xs:element ref="packages:icon"/>
           <xs:element ref="packages:support-size"/>
         </xs:choice>
-        <xs:any minOccurs="0" maxOccurs="unbounded" namespace="##any" processContents="lax"/>
       </xs:sequence>
       <xs:attribute name="appid" use="required" type="xs:ID"/>
       <xs:attribute name="exec" use="required"/>
       <xs:attribute name="main" type="xs:boolean"/>
       <xs:attribute name="update-period" type="xs:positiveInteger"/>
       <xs:attribute name="preview" type="xs:string"/>
-      <xs:anyAttribute namespace="##any" processContents="lax"/>
     </xs:complexType>
   </xs:element>
   <xs:element name="account">
@@ -285,7 +268,6 @@
   <xs:element name="label">
     <xs:complexType mixed="true">
       <xs:attribute ref="xml:lang"/>
-      <xs:anyAttribute namespace="##any" processContents="lax"/>
     </xs:complexType>
   </xs:element>
   <xs:element name="icon">
@@ -293,14 +275,12 @@
     <xs:attribute ref="xml:lang"/>
     <xs:attribute name="section" type="xs:string"/>
     <xs:attribute name="resolution" type="packages:ResolutionType"/>
-      <xs:anyAttribute namespace="##any" processContents="lax"/>
   </xs:complexType>
   </xs:element>
   <xs:element name="image">
   <xs:complexType mixed="true">
     <xs:attribute ref="xml:lang"/>
     <xs:attribute name="section" type="xs:string"/>
-      <xs:anyAttribute namespace="##any" processContents="lax"/>
   </xs:complexType>
   </xs:element>
   <xs:simpleType name="SectionType">
@@ -331,7 +311,6 @@
           <xs:element ref="packages:uri"/>
           <xs:element ref="packages:mime"/>
           <xs:element ref="packages:subapp"/>
-          <xs:any minOccurs="0" maxOccurs="unbounded" namespace="##any" processContents="lax"/>
         </xs:choice>
       </xs:sequence>
     </xs:complexType>
@@ -344,7 +323,6 @@
           <xs:element ref="packages:uri"/>
           <xs:element ref="packages:mime"/>
           <xs:element ref="packages:subapp"/>
-          <xs:any minOccurs="0" maxOccurs="unbounded" namespace="##any" processContents="lax"/>
         </xs:choice>
       </xs:sequence>
     </xs:complexType>
@@ -363,13 +341,11 @@
     <xs:complexType>
       <xs:attribute name="key" use="required" type="xs:string"/>
       <xs:attribute name="value" type="xs:string"/>
-      <xs:anyAttribute processContents="lax"/>
     </xs:complexType>
   </xs:element>
   <xs:element name="permission">
   <xs:complexType>
     <xs:attribute name="type" type="xs:string"/>
-    <xs:anyAttribute processContents="lax"/>
   </xs:complexType>
   </xs:element>
   <xs:element name="datacontrol">
@@ -377,37 +353,31 @@
     <xs:attribute name="providerid" type="xs:string"/>
     <xs:attribute name="access" type="xs:string"/>
     <xs:attribute name="type" type="xs:string"/>
-    <xs:anyAttribute processContents="lax"/>
   </xs:complexType>
   </xs:element>
   <xs:element name="operation">
     <xs:complexType>
       <xs:attribute name="name" use="required"/>
-      <xs:anyAttribute processContents="lax"/>
     </xs:complexType>
   </xs:element>
   <xs:element name="uri">
     <xs:complexType>
       <xs:attribute name="name" use="required"/>
-      <xs:anyAttribute processContents="lax"/>
     </xs:complexType>
   </xs:element>
   <xs:element name="mime">
     <xs:complexType>
       <xs:attribute name="name" use="required"/>
-      <xs:anyAttribute processContents="lax"/>
     </xs:complexType>
   </xs:element>
   <xs:element name="subapp">
     <xs:complexType>
       <xs:attribute name="name" use="required"/>
-      <xs:anyAttribute namespace="##any" processContents="lax"/>
     </xs:complexType>
   </xs:element>
   <xs:element name="background-category">
     <xs:complexType mixed="true">
       <xs:attribute name="value" type="packages:BackgroundCategoryType"/>
-      <xs:anyAttribute namespace="##any" processContents="lax"/>
     </xs:complexType>
   </xs:element>
   <xs:simpleType name="BackgroundCategoryType">
