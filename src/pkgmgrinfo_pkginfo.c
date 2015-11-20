@@ -876,6 +876,21 @@ API int pkgmgrinfo_pkginfo_get_version(pkgmgrinfo_pkginfo_h handle, char **versi
 	return PMINFO_R_OK;
 }
 
+API int pkgmgrinfo_pkginfo_get_api_version(pkgmgrinfo_pkginfo_h handle, char **api_version)
+{
+	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
+
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
+	retvm_if(api_version == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
+
+	if (info->pkg_info == NULL || info->pkg_info->api_version == NULL)
+		return PMINFO_R_ERROR;
+
+	*api_version = (char *)info->pkg_info->api_version;
+
+	return PMINFO_R_OK;
+}
+
 API int pkgmgrinfo_pkginfo_get_tep_name(pkgmgrinfo_pkginfo_h handle, char **tep_name)
 {
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
