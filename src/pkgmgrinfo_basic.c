@@ -294,6 +294,8 @@ static void __ps_free_application(gpointer data)
 	g_list_free_full(application->datashare, __ps_free_datashare);
 	/*Free DataControl*/
 	g_list_free_full(application->datacontrol, __ps_free_datacontrol);
+  /*Free BackgroundCategory*/
+  g_list_free_full(application->background_category, free);
 	free((void *)application);
 }
 
