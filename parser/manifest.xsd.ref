@@ -127,7 +127,7 @@
           <xs:element ref="packages:icon"/>
         </xs:choice>
       </xs:sequence>
-      <xs:attribute name="appid" use="required" type="xs:ID"/>
+      <xs:attribute name="appid" use="required" type="xs:string"/>
       <xs:attribute name="exec" use="required"/>
       <xs:attribute name="ambient-support" type="xs:boolean"/>
     </xs:complexType>
@@ -177,7 +177,7 @@
           <xs:element ref="packages:background-category"/>
         </xs:choice>
       </xs:sequence>
-      <xs:attribute name="appid" use="required" type="xs:ID"/>
+      <xs:attribute name="appid" use="required" type="xs:string"/>
       <xs:attribute name="exec" use="required"/>
       <xs:attribute name="multiple" type="xs:boolean"/>
       <xs:attribute name="nodisplay" type="xs:boolean"/>
@@ -217,7 +217,7 @@
           <xs:element ref="packages:icon"/>
         </xs:choice>
       </xs:sequence>
-      <xs:attribute name="appid" use="required" type="xs:ID"/>
+      <xs:attribute name="appid" use="required" type="xs:string"/>
       <xs:attribute name="exec" use="required" type="xs:NCName"/>
       <xs:attribute name="multiple" type="xs:boolean"/>
       <xs:attribute name="nodisplay" type="xs:boolean"/>

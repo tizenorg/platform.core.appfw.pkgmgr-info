@@ -135,7 +135,7 @@
         </xs:choice>
         <xs:any minOccurs="0" maxOccurs="unbounded" namespace="##any" processContents="lax"/>
       </xs:sequence>
-      <xs:attribute name="appid" use="required" type="xs:ID"/>
+      <xs:attribute name="appid" use="required" type="xs:string"/>
       <xs:attribute name="exec" use="required"/>
       <xs:attribute name="ambient-support" type="xs:boolean"/>
       <xs:anyAttribute namespace="##any" processContents="lax"/>
@@ -189,7 +189,7 @@
         </xs:choice>
         <xs:any minOccurs="0" maxOccurs="unbounded" namespace="##any" processContents="lax"/>
       </xs:sequence>
-      <xs:attribute name="appid" use="required" type="xs:ID"/>
+      <xs:attribute name="appid" use="required" type="xs:string"/>
       <xs:attribute name="exec" use="required"/>
       <xs:attribute name="multiple" type="xs:boolean"/>
       <xs:attribute name="nodisplay" type="xs:boolean"/>
@@ -231,7 +231,7 @@
         </xs:choice>
         <xs:any minOccurs="0" maxOccurs="unbounded" namespace="##any" processContents="lax"/>
       </xs:sequence>
-      <xs:attribute name="appid" use="required" type="xs:ID"/>
+      <xs:attribute name="appid" use="required" type="xs:string"/>
       <xs:attribute name="exec" use="required" type="xs:NCName"/>
       <xs:attribute name="multiple" type="xs:boolean"/>
       <xs:attribute name="nodisplay" type="xs:boolean"/>
@@ -253,7 +253,7 @@
         </xs:choice>
         <xs:any minOccurs="0" maxOccurs="unbounded" namespace="##any" processContents="lax"/>
       </xs:sequence>
-      <xs:attribute name="appid" use="required" type="xs:ID"/>
+      <xs:attribute name="appid" use="required" type="xs:string"/>
       <xs:attribute name="exec" use="required"/>
       <xs:attribute name="main" type="xs:boolean"/>
       <xs:attribute name="update-period" type="xs:positiveInteger"/>
