@@ -406,7 +406,7 @@
   </xs:element>
   <xs:element name="background-category">
     <xs:complexType mixed="true">
-      <xs:attribute name="value" type="packages:BackgroundCategoryType"/>
+      <xs:attribute name="value" type="xs:string"/>
       <xs:anyAttribute namespace="##any" processContents="lax"/>
     </xs:complexType>
   </xs:element>
