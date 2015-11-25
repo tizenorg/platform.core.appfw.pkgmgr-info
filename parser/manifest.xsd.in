@@ -406,21 +406,10 @@
   </xs:element>
   <xs:element name="background-category">
     <xs:complexType mixed="true">
-      <xs:attribute name="value" type="packages:BackgroundCategoryType"/>
+      <xs:attribute name="value" type="xs:string"/>
       <xs:anyAttribute namespace="##any" processContents="lax"/>
     </xs:complexType>
   </xs:element>
-  <xs:simpleType name="BackgroundCategoryType">
-    <xs:restriction base="xs:string">
-      <xs:enumeration value="media"/>
-      <xs:enumeration value="download"/>
-      <xs:enumeration value="background-network"/>
-      <xs:enumeration value="location"/>
-      <xs:enumeration value="sensor"/>
-      <xs:enumeration value="iot-communication"/>
-      <xs:enumeration value="system"/>
-    </xs:restriction>
-  </xs:simpleType>
   <xs:element name="support-size">
   </xs:element>
 </xs:schema>
