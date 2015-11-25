@@ -406,10 +406,11 @@
   </xs:element>
   <xs:element name="background-category">
     <xs:complexType mixed="true">
-      <xs:attribute name="value" type="packages:BackgroundCategoryType"/>
+      <xs:attribute name="value" type="xs:string"/>
       <xs:anyAttribute namespace="##any" processContents="lax"/>
     </xs:complexType>
   </xs:element>
+   <!-- not used anymore. Just for reference -->
   <xs:simpleType name="BackgroundCategoryType">
     <xs:restriction base="xs:string">
       <xs:enumeration value="media"/>
