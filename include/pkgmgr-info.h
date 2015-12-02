@@ -5666,6 +5666,36 @@ static int set_app_guestmode_visibility(const char *appid, bool value)
  */
  int pkgmgrinfo_appinfo_set_guestmode_visibility(pkgmgrinfo_appinfo_h handle, bool status);
  int pkgmgrinfo_appinfo_set_usr_guestmode_visibility(pkgmgrinfo_appinfo_h handle, uid_t uid, bool status);
+
+/**
+* @fn int pkgmgrinfo_pkginfo_set_installed_storage(const char *pkgid, INSTALL_LOCATION location)
+* @brief	 This API sets the package 'installed_storage' value in db
+*
+* @par 	 This API is for package-manager client application
+* @par Sync (or) Async : Synchronous API
+*
+* @param[in] pkgid 	 pointer to the package ID.
+* @param[in] location  package install location
+* @return  0 if success, error code(<0) if fail
+* @retval  PMINFO_R_OK success
+* @retval  PMINFO_R_EINVAL	 invalid argument
+* @retval  PMINFO_R_ERROR internal error
+* @code
+static int set_app_installed_storage(const char *appid, INSTALL_LOCATION location)
+{
+	int ret = 0;
+
+	ret = pkgmgrinfo_pkginfo_set_installed_storage(handle, INSTALL_EXTERNAL);
+	if (ret != PMINFO_R_OK) {
+		return -1;
+	}
+	return 0;
+}
+* @endcode
+*/
+ int pkgmgrinfo_pkginfo_set_installed_storage(const char *pkgid, INSTALL_LOCATION location);
+ int pkgmgrinfo_pkginfo_set_usr_installed_storage(const char * pkgid,INSTALL_LOCATION location, uid_t uid);
+
 /**
  * @pkgmgrinfo client API
 **/
