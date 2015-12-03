@@ -373,6 +373,8 @@ API void pkgmgrinfo_basic_free_package(package_x *package)
 	g_list_free_full(package->application, __ps_free_application);
 	/*Free Compatibility*/
 	g_list_free_full(package->compatibility, __ps_free_compatibility);
+	/*Free Device profiles*/
+	g_list_free_full(package->deviceprofile, free);
 	free((void*)package);
 	return;
 }
