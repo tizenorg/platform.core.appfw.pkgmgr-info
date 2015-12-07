@@ -30,9 +30,9 @@
         <xs:any minOccurs="0" maxOccurs="unbounded" namespace="##any" processContents="lax"/>
       </xs:sequence>
       <xs:attribute name="storeclient-id" type="xs:string"/>
-      <xs:attribute name="install-location" type="packages:InstallLocationType"/>
+      <xs:attribute name="install-location" type="xs:string"/>
       <xs:attribute name="package" use="required" type="xs:string"/>
-      <xs:attribute name="type" type="packages:PackageType"/>
+      <xs:attribute name="type" type="xs:string"/>
       <xs:attribute name="version" use="required" type="xs:NMTOKEN"/>
       <xs:attribute name="size" type="xs:NMTOKEN"/>
       <xs:attribute name="root_path" type="xs:string"/>
@@ -46,60 +46,6 @@
       <xs:anyAttribute namespace="##any" processContents="lax"/>
     </xs:complexType>
   </xs:element>
-
-  <xs:simpleType name="InstallLocationType">
-    <xs:restriction base="xs:string">
-      <xs:enumeration value="auto"/>
-      <xs:enumeration value="internal-only"/>
-      <xs:enumeration value="prefer-external"/>
-    </xs:restriction>
-  </xs:simpleType>
-  <xs:simpleType name="PackageType">
-    <xs:restriction base="xs:string">
-      <xs:enumeration value="rpm"/>
-      <xs:enumeration value="tpk"/>
-      <xs:enumeration value="wgt"/>
-      <xs:enumeration value="apk"/>
-      <xs:enumeration value="coretpk"/>
-    </xs:restriction>
-  </xs:simpleType>
-  <xs:simpleType name="ProfileType">
-    <xs:restriction base="xs:string">
-      <xs:enumeration value="mobile"/>
-      <xs:enumeration value="wearable"/>
-      <xs:enumeration value="TV"/>
-    </xs:restriction>
-  </xs:simpleType>
-  <xs:simpleType name="TypeType">
-    <xs:restriction base="xs:string">
-      <xs:enumeration value="capp"/>
-      <xs:enumeration value="c++app"/>
-      <xs:enumeration value="webapp"/>
-    </xs:restriction>
-  </xs:simpleType>
-  <xs:simpleType name="HwAccelerationType">
-    <xs:restriction base="xs:string">
-      <xs:enumeration value="on"/>
-      <xs:enumeration value="off"/>
-      <xs:enumeration value="default"/>
-      <xs:enumeration value="use-GL"/>
-      <xs:enumeration value="not-use-GL"/>
-      <xs:enumeration value="use-system-setting"/>
-    </xs:restriction>
-  </xs:simpleType>
-  <xs:simpleType name="ScreenReaderType">
-    <xs:restriction base="xs:string">
-      <xs:enumeration value="screenreader-off"/>
-      <xs:enumeration value="screenreader-on"/>
-      <xs:enumeration value="use-system-setting"/>
-    </xs:restriction>
-  </xs:simpleType>
-  <xs:simpleType name="RecentImage">
-    <xs:restriction base="xs:string">
-    <xs:enumeration value="icon"/>
-    <xs:enumeration value="capture"/>
-     </xs:restriction>
-  </xs:simpleType>
 
   <xs:element name="author">
     <xs:complexType mixed="true">
@@ -122,7 +68,7 @@
   </xs:element>
   <xs:element name="profile">
     <xs:complexType>
-      <xs:attribute name="name" use="required" type="packages:ProfileType"/>
+      <xs:attribute name="name" use="required" type="xs:string"/>
       <xs:anyAttribute namespace="##any" processContents="lax"/>
     </xs:complexType>
   </xs:element>
@@ -163,7 +109,7 @@
       <xs:attribute name="auto-restart" type="xs:boolean"/>
       <xs:attribute name="exec" use="required"/>
       <xs:attribute name="on-boot" type="xs:boolean"/>
-      <xs:attribute name="type" use="required" type="packages:TypeType"/>
+      <xs:attribute name="type" use="required" type="xs:string"/>
       <xs:attribute name="multiple" type="xs:boolean"/>
       <xs:attribute name="taskmanage" type="xs:boolean"/>
       <xs:attribute name="permission-type" type="xs:string"/>
@@ -195,12 +141,12 @@
       <xs:attribute name="nodisplay" type="xs:boolean"/>
       <xs:attribute name="taskmanage" type="xs:boolean"/>
       <xs:attribute name="enabled" type="xs:boolean"/>
-      <xs:attribute name="type" use="required" type="packages:TypeType"/>
+      <xs:attribute name="type" use="required" type="xs:string"/>
       <xs:attribute name="categories" type="xs:NCName"/>
       <xs:attribute name="extraid"/>
-      <xs:attribute name="hw-acceleration" type="packages:HwAccelerationType"/>
-      <xs:attribute name="screen-reader" type="packages:ScreenReaderType"/>
-      <xs:attribute name="recentimage" type="packages:RecentImage"/>
+      <xs:attribute name="hw-acceleration" type="xs:string"/>
+      <xs:attribute name="screen-reader" type="xs:string"/>
+      <xs:attribute name="recentimage" type="xs:string"/>
       <xs:attribute name="mainapp" type="xs:boolean"/>
       <xs:attribute name="indicatordisplay" type="xs:boolean"/>
       <xs:attribute name="portrait-effectimage" type="xs:string"/>
@@ -218,7 +164,7 @@
       <xs:attribute name="multi-instance" type="xs:boolean"/>
       <xs:attribute name="multi-instance-mainid" type="xs:string"/>
       <xs:attribute name="ui-gadget" type="xs:boolean"/>
-      <xs:attribute name="launch_mode" type="packages:LaunchType"/>
+      <xs:attribute name="launch_mode" type="xs:string"/>
       <xs:anyAttribute namespace="##any" processContents="lax"/>
     </xs:complexType>
   </xs:element>
@@ -235,7 +181,7 @@
       <xs:attribute name="exec" use="required" type="xs:NCName"/>
       <xs:attribute name="multiple" type="xs:boolean"/>
       <xs:attribute name="nodisplay" type="xs:boolean"/>
-      <xs:attribute name="type" use="required" type="packages:TypeType"/>
+      <xs:attribute name="type" use="required" type="xs:string"/>
       <xs:anyAttribute namespace="##any" processContents="lax"/>
     </xs:complexType>
   </xs:element>
@@ -292,7 +238,7 @@
   <xs:complexType mixed="true">
     <xs:attribute ref="xml:lang"/>
     <xs:attribute name="section" type="xs:string"/>
-    <xs:attribute name="resolution" type="packages:ResolutionType"/>
+    <xs:attribute name="resolution" type="xs:string"/>
       <xs:anyAttribute namespace="##any" processContents="lax"/>
   </xs:complexType>
   </xs:element>
@@ -303,26 +249,6 @@
       <xs:anyAttribute namespace="##any" processContents="lax"/>
   </xs:complexType>
   </xs:element>
-  <xs:simpleType name="SectionType">
-  <xs:restriction base="xs:string">
-    <xs:enumeration value="notification"/>
-    <xs:enumeration value="setting"/>
-   </xs:restriction>
-  </xs:simpleType>
-  <xs:simpleType name="LaunchType">
-  <xs:restriction base="xs:string">
-    <xs:enumeration value="caller"/>
-    <xs:enumeration value="single"/>
-    <xs:enumeration value="group"/>
-    <xs:enumeration value="singleton"/>
-   </xs:restriction>
-  </xs:simpleType>
-  <xs:simpleType name="ResolutionType">
-  <xs:restriction base="xs:string">
-    <xs:enumeration value="xhigh"/>
-    <xs:enumeration value="high"/>
-   </xs:restriction>
-  </xs:simpleType>
   <xs:element name="application-service">
     <xs:complexType>
       <xs:sequence>

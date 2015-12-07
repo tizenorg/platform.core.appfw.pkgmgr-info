@@ -73,6 +73,7 @@
       <xs:enumeration value="capp"/>
       <xs:enumeration value="c++app"/>
       <xs:enumeration value="webapp"/>
+      <xs:enumeration value="jsapp"/>
     </xs:restriction>
   </xs:simpleType>
   <xs:simpleType name="HwAccelerationType">
