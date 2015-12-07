@@ -901,6 +901,9 @@ API int pkgmgrinfo_pkginfo_get_tep_name(pkgmgrinfo_pkginfo_h handle, char **tep_
 	if (info->pkg_info == NULL || info->pkg_info->tep_name == NULL)
 		return PMINFO_R_ERROR;
 
+	if (strlen(info->pkg_info->tep_name) == 0)
+		return PMINFO_R_ERROR;
+
 	*tep_name = (char *)info->pkg_info->tep_name;
 
 	return PMINFO_R_OK;
