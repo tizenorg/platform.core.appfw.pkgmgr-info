@@ -877,7 +877,7 @@ static int __insert_application_info(manifest_x *mfx)
 			 mfx->support_disable,
 			 app->component_type,
 			 mfx->package,
-			 __get_str(mfx->tep_name));
+			 mfx->tep_name);
 
 		ret = __exec_query(query);
 		if (ret == -1) {
@@ -1190,7 +1190,7 @@ static int __insert_manifest_info_in_db(manifest_x *mfx, uid_t uid)
 		 mfx->type,
 		 mfx->version,
 		 __get_str(mfx->api_version),
-		 __get_str(mfx->tep_name),
+		 mfx->tep_name,
 		 __get_str(mfx->installlocation),
 		 __get_str(mfx->package_size),
 		 mfx->removable,
