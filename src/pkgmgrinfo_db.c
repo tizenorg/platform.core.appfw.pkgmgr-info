@@ -564,3 +564,55 @@ API int pkgmgrinfo_appinfo_set_guestmode_visibility(pkgmgrinfo_appinfo_h handle,
 {
 	return pkgmgrinfo_appinfo_set_usr_guestmode_visibility(handle, GLOBAL_USER, status);
 }
+
+API int pkgmgrinfo_pkginfo_set_usr_installed_storage(const char *pkgid, INSTALL_LOCATION location, uid_t uid)
+{
+	retvm_if(pkgid == NULL, PMINFO_R_EINVAL, "pkgid is NULL\n");
+	int ret = -1;
+	int exist = 0;
+	sqlite3 *pkgmgr_parser_db = NULL;
+	char *query = NULL;
+
+	ret = db_util_open_with_options(getUserPkgParserDBPathUID(uid), &pkgmgr_parser_db,
+			SQLITE_OPEN_READWRITE, NULL);
+	retvm_if(ret != SQLITE_OK, PMINFO_R_ERROR, "connect db failed!");
+
+	/*Begin transaction*/
+	// Setting Manifest DB
+	ret = sqlite3_exec(pkgmgr_parser_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
+	tryvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "Failed to begin transaction\n");
+	_LOGD("Transaction Begin\n");
+
+	// pkgcakge_info table
+	query = sqlite3_mprintf("update package_info set installed_storage=%Q where package=%Q", location?"installed_external":"installed_internal", pkgid);
+
+	ret = sqlite3_exec(pkgmgr_parser_db, query, NULL, NULL, NULL);
+	tryvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "Don't execute query = %s\n", query);
+	sqlite3_free(query);
+
+	// package_app_info table
+	query = sqlite3_mprintf("update package_app_info set app_installed_storage=%Q where package=%Q", location?"installed_external":"installed_internal", pkgid);
+
+	ret = sqlite3_exec(pkgmgr_parser_db, query, NULL, NULL, NULL);
+	tryvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "Don't execute query = %s\n", query);
+
+	/*Commit transaction*/
+	ret = sqlite3_exec(pkgmgr_parser_db, "COMMIT", NULL, NULL, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGE("Failed to commit transaction. Rollback now\n");
+		ret = sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
+		tryvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "Don't execute query = %s\n", query);
+	}
+	_LOGD("Transaction Commit and End\n");
+
+	ret = PMINFO_R_OK;
+catch:
+	sqlite3_close(pkgmgr_parser_db);
+	sqlite3_free(query);
+	return ret;
+}
+
+API int pkgmgrinfo_pkginfo_set_installed_storage(const char *pkgid, INSTALL_LOCATION location)
+{
+	return pkgmgrinfo_pkginfo_set_usr_installed_storage(pkgid, location, GLOBAL_USER);
+}
