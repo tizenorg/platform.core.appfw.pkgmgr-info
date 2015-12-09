@@ -33,7 +33,7 @@
       <xs:attribute name="install-location" type="xs:string"/>
       <xs:attribute name="package" use="required" type="xs:string"/>
       <xs:attribute name="type" type="xs:string"/>
-      <xs:attribute name="version" use="required" type="xs:NMTOKEN"/>
+      <xs:attribute name="version" use="required" type="xs:string"/>
       <xs:attribute name="size" type="xs:NMTOKEN"/>
       <xs:attribute name="root_path" type="xs:string"/>
       <xs:attribute name="csc_path" type="xs:string"/>
