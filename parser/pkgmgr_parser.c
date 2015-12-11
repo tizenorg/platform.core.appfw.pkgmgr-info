@@ -2692,7 +2692,7 @@ API int pkgmgr_parser_check_manifest_validation(const char *manifest)
 		_LOGE("xmlSchemaValidateFile() failed\n");
 		return PMINFO_R_ERROR;
 	} else if (ret == 0) {
-		_LOGE("Manifest is Valid\n");
+		_LOGD("Manifest is Valid\n");
 		return PMINFO_R_OK;
 	} else {
 		_LOGE("Manifest Validation Failed with error code %d\n", ret);
