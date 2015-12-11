@@ -25,6 +25,27 @@
 
 #include <sys/types.h>
 
+/* app background category value */
+#define APP_BG_CATEGORY_USER_DISABLE_FALSE_VAL		0x00000
+#define APP_BG_CATEGORY_USER_DISABLE_TRUE_VAL		0x00001
+#define APP_BG_CATEGORY_MEDIA_VAL			0x00002
+#define APP_BG_CATEGORY_DOWNLOAD_VAL			0x00004
+#define APP_BG_CATEGORY_BGNETWORK_VAL			0x00008
+#define APP_BG_CATEGORY_LOCATION_VAL			0x00010
+#define APP_BG_CATEGORY_SENSOR_VAL			0x00020
+#define APP_BG_CATEGORY_IOTCOMM_VAL			0x00040
+#define APP_BG_CATEGORY_SYSTEM_VAL			0x00080
+
+#define APP_BG_CATEGORY_USER_DISABLE_FALSE_STR		"enable"
+#define APP_BG_CATEGORY_USER_DISABLE_TRUE_STR		"disable"
+#define APP_BG_CATEGORY_MEDIA_STR			"media"
+#define APP_BG_CATEGORY_DOWNLOAD_STR			"download"
+#define APP_BG_CATEGORY_BGNETWORK_STR			"background-network"
+#define APP_BG_CATEGORY_LOCATION_STR			"location"
+#define APP_BG_CATEGORY_SENSOR_STR			"sensor"
+#define APP_BG_CATEGORY_IOTCOMM_STR			"iot-communication"
+#define APP_BG_CATEGORY_SYSTEM				"system"
+
 /**
  * @brief A type to retrieve uid information from the manifest handle
  */

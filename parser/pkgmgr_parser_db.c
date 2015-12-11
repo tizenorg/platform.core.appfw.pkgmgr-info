@@ -144,6 +144,7 @@ sqlite3 *pkgmgr_cert_db;
 						"app_support_disable text DEFAULT 'false', " \
 						"component_type text, " \
 						"package text not null, " \
+						"app_background_category INTEGER DEFAULT 0, " \
 						"app_tep_name text, " \
 						"FOREIGN KEY(package) " \
 						"REFERENCES package_info(package) " \
@@ -827,6 +828,41 @@ static int __insert_mainapp_info(manifest_x *mfx)
 
 	return 0;
 }
+
+static int __convert_background_category(GList *category_list)
+{
+	int ret = 0;
+	GList *tmp_list = category_list;
+	char *category_data = NULL;
+
+	if (category_list == NULL)
+		return 0;
+
+	while (tmp_list != NULL) {
+		category_data = (char *)tmp_list->data;
+		if (strcmp(category_data, APP_BG_CATEGORY_MEDIA_STR) == 0) {
+			ret = ret | APP_BG_CATEGORY_MEDIA_VAL;
+		} else if (strcmp(category_data, APP_BG_CATEGORY_DOWNLOAD_STR) == 0) {
+			ret = ret | APP_BG_CATEGORY_DOWNLOAD_VAL;
+		} else if (strcmp(category_data, APP_BG_CATEGORY_BGNETWORK_STR) == 0) {
+			ret = ret | APP_BG_CATEGORY_BGNETWORK_VAL;
+		} else if (strcmp(category_data, APP_BG_CATEGORY_LOCATION_STR) == 0) {
+			ret = ret | APP_BG_CATEGORY_LOCATION_VAL;
+		} else if (strcmp(category_data, APP_BG_CATEGORY_SENSOR_STR) == 0) {
+			ret = ret | APP_BG_CATEGORY_SENSOR_VAL;
+		} else if (strcmp(category_data, APP_BG_CATEGORY_IOTCOMM_STR) == 0) {
+			ret = ret | APP_BG_CATEGORY_IOTCOMM_VAL;
+		} else if (strcmp(category_data, APP_BG_CATEGORY_SYSTEM) == 0) {
+			ret = ret | APP_BG_CATEGORY_SYSTEM_VAL;
+		} else {
+			_LOGE("Unidentified category [%s]", category_data);
+		}
+		tmp_list = g_list_next(tmp_list);
+	}
+
+	return ret;
+}
+
 /* _PRODUCT_LAUNCHING_ENHANCED_
 *  app->indicatordisplay, app->portraitimg, app->landscapeimg, app->guestmode_appstatus
 */
@@ -835,49 +871,47 @@ static int __insert_application_info(manifest_x *mfx)
 	GList *tmp;
 	application_x *app;
 	int ret = -1;
+	int background_value = 0;
 	char query[MAX_QUERY_LEN] = {'\0'};
+
 	for (tmp = mfx->application; tmp; tmp = tmp->next) {
 		app = (application_x *)tmp->data;
 		if (app == NULL)
 			continue;
 
+		background_value = __convert_background_category(app->background_category);
+		if (background_value < 0) {
+			_LOGE("Failed to retrieve background value[%d]", background_value);
+			background_value = 0;
+		}
+
 		snprintf(query, MAX_QUERY_LEN,
-			 "insert into package_app_info(app_id, app_component, app_exec, app_nodisplay, app_type, app_onboot, " \
-			"app_multiple, app_autorestart, app_taskmanage, app_enabled, app_hwacceleration, app_screenreader, app_mainapp , app_recentimage, " \
-			"app_launchcondition, app_indicatordisplay, app_portraitimg, app_landscapeimg, app_guestmodevisibility, app_permissiontype, "\
-			"app_preload, app_submode, app_submode_mainid, app_installed_storage, app_process_pool, app_launch_mode, app_ui_gadget, app_support_disable, component_type, package, app_tep_name) " \
-			"values('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
-			 app->appid,
-			 app->component_type,
-			 app->exec,
-			 app->nodisplay,
-			 app->type,
-			 app->onboot,
-			 app->multiple,
-			 app->autorestart,
-			 app->taskmanage,
-			 app->enabled,
-			 app->hwacceleration,
-			 app->screenreader,
-			 app->mainapp,
-			 __get_str(app->recentimage),
-			 app->launchcondition,
-			 app->indicatordisplay,
-			 __get_str(app->portraitimg),
-			 __get_str(app->landscapeimg),
-			 app->guestmode_visibility,
-			 app->permission_type,
-			 mfx->preload,
-			 app->submode,
-			 __get_str(app->submode_mainid),
-			 mfx->installed_storage,
-			 app->process_pool,
-			 app->launch_mode,
-			 app->ui_gadget,
-			 mfx->support_disable,
-			 app->component_type,
-			 mfx->package,
-			 __get_str(mfx->tep_name));
+			"insert into package_app_info(" \
+			"app_id, app_component, app_exec, app_nodisplay, app_type, " \
+			"app_onboot, app_multiple, app_autorestart, app_taskmanage, app_enabled, " \
+			"app_hwacceleration, app_screenreader, app_mainapp, app_recentimage, app_launchcondition, " \
+			"app_indicatordisplay, app_portraitimg, app_landscapeimg, app_guestmodevisibility, app_permissiontype, " \
+			"app_preload, app_submode, app_submode_mainid, app_installed_storage, app_process_pool, " \
+			"app_launch_mode, app_ui_gadget, app_support_disable, component_type, package, " \
+			"app_background_category, app_tep_name) " \
+			"values(" \
+			"'%s', '%s', '%s', '%s', '%s', " \
+			"'%s', '%s', '%s', '%s', '%s', " \
+			"'%s', '%s', '%s', '%s', '%s', " \
+			"'%s', '%s', '%s', '%s', '%s', " \
+			"'%s', '%s', '%s', '%s', '%s', " \
+			"'%s', '%s', '%s', '%s', '%s', " \
+			"'%s', '%s')", \
+			app->appid, app->component_type, app->exec, app->nodisplay, app->type,
+			app->onboot, app->multiple, app->autorestart, app->taskmanage, app->enabled,
+			app->hwacceleration, app->screenreader, app->mainapp, __get_str(app->recentimage),
+			app->launchcondition,
+			app->indicatordisplay, __get_str(app->portraitimg), __get_str(app->landscapeimg),
+			app->guestmode_visibility, app->permission_type,
+			mfx->preload, app->submode, __get_str(app->submode_mainid),
+			mfx->installed_storage, app->process_pool,
+			app->launch_mode, app->ui_gadget, mfx->support_disable, app->component_type, mfx->package,
+			background_value, __get_str(mfx->tep_name));
 
 		ret = __exec_query(query);
 		if (ret == -1) {
