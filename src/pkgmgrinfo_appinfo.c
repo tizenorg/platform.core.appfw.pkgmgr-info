@@ -490,6 +490,47 @@ static int _appinfo_get_metadata(sqlite3 *db, const char *appid,
 
 }
 
+static GList *__get_background_category(char *value)
+{
+	GList *category_list = NULL;
+	int convert_value = 0;
+	if (!value || strlen(value) == 0)
+		return NULL;
+
+	convert_value = atoi(value);
+	if (convert_value < 0)
+		return NULL;
+
+	if (convert_value & APP_BG_CATEGORY_USER_DISABLE_TRUE_VAL)
+		category_list = g_list_append(category_list, strdup(APP_BG_CATEGORY_USER_DISABLE_TRUE_STR));
+	else
+		category_list = g_list_append(category_list, strdup(APP_BG_CATEGORY_USER_DISABLE_FALSE_STR));
+
+	if (convert_value & APP_BG_CATEGORY_MEDIA_VAL)
+		category_list = g_list_append(category_list, strdup(APP_BG_CATEGORY_MEDIA_STR));
+
+	if (convert_value & APP_BG_CATEGORY_DOWNLOAD_VAL)
+		category_list = g_list_append(category_list, strdup(APP_BG_CATEGORY_DOWNLOAD_STR));
+
+	if (convert_value & APP_BG_CATEGORY_BGNETWORK_VAL)
+		category_list = g_list_append(category_list, strdup(APP_BG_CATEGORY_BGNETWORK_STR));
+
+	if (convert_value & APP_BG_CATEGORY_LOCATION_VAL)
+		category_list = g_list_append(category_list, strdup(APP_BG_CATEGORY_LOCATION_STR));
+
+	if (convert_value & APP_BG_CATEGORY_SENSOR_VAL)
+		category_list = g_list_append(category_list, strdup(APP_BG_CATEGORY_SENSOR_STR));
+
+	if (convert_value & APP_BG_CATEGORY_IOTCOMM_VAL)
+		category_list = g_list_append(category_list, strdup(APP_BG_CATEGORY_IOTCOMM_STR));
+
+	if (convert_value & APP_BG_CATEGORY_SYSTEM_VAL)
+		category_list = g_list_append(category_list, strdup(APP_BG_CATEGORY_SYSTEM));
+
+	return category_list;
+
+}
+
 static int _appinfo_get_application(sqlite3 *db, const char *appid,
 		const char *locale, application_x **application)
 {
@@ -504,12 +545,14 @@ static int _appinfo_get_application(sqlite3 *db, const char *appid,
 		"app_submode_mainid, app_launch_mode, app_ui_gadget, "
 		"app_support_disable, "
 		"component_type, package, app_process_pool, app_installed_storage "
+		"app_background_category, "
 		"FROM package_app_info WHERE app_id=%Q";
 	int ret;
 	char *query;
 	sqlite3_stmt *stmt;
 	int idx;
 	application_x *info;
+	char *bg_category_str = NULL;
 
 	query = sqlite3_mprintf(query_raw, appid);
 	if (query == NULL) {
@@ -571,6 +614,9 @@ static int _appinfo_get_application(sqlite3 *db, const char *appid,
 	_save_column_str(stmt, idx++, &info->package);
 	_save_column_str(stmt, idx++, &info->process_pool);
 	_save_column_str(stmt, idx++, &info->installed_storage);
+	_save_column_str(stmt, idx++, &bg_category_str);
+
+	info->background_category = __get_background_category(bg_category_str);
 
 	if (_appinfo_get_label(db, info->appid, locale, &info->label)) {
 		pkgmgrinfo_basic_free_application(info);
