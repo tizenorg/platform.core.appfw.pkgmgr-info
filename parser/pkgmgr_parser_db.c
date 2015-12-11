@@ -145,6 +145,7 @@ sqlite3 *pkgmgr_cert_db;
 						"component_type text, " \
 						"package text not null, " \
 						"app_tep_name text, " \
+						"app_background_category INTEGER DEFAULT 0, " \
 						"FOREIGN KEY(package) " \
 						"REFERENCES package_info(package) " \
 						"ON DELETE CASCADE)"
@@ -399,7 +400,7 @@ static int __exec_query(char *query)
 	char *error_message = NULL;
 	if (SQLITE_OK !=
 	    sqlite3_exec(pkgmgr_parser_db, query, NULL, NULL, &error_message)) {
-		_LOGD("Don't execute query = %s error message = %s\n", query,
+		_LOGE("Don't execute query = %s error message = %s\n", query,
 		       error_message);
 		sqlite3_free(error_message);
 		return -1;
@@ -827,6 +828,41 @@ static int __insert_mainapp_info(manifest_x *mfx)
 
 	return 0;
 }
+
+static int __convert_background_category(GList *category_list)
+{
+	int ret = 0;
+	GList *tmp_list = category_list;
+	char *category_data = NULL;
+
+	if (category_list == NULL)
+		return 0;
+
+	while (tmp_list != NULL) {
+		category_data = (char *)tmp_list->data;
+		if (strcmp(category_data, APP_BG_CATEGORY_MEDIA_STR) == 0) {
+			ret = ret | APP_BG_CATEGORY_MEDIA_VAL;
+		} else if (strcmp(category_data, APP_BG_CATEGORY_DOWNLOAD_STR) == 0) {
+			ret = ret | APP_BG_CATEGORY_DOWNLOAD_VAL;
+		} else if (strcmp(category_data, APP_BG_CATEGORY_BGNETWORK_STR) == 0) {
+			ret = ret | APP_BG_CATEGORY_BGNETWORK_VAL;
+		} else if (strcmp(category_data, APP_BG_CATEGORY_LOCATION_STR) == 0) {
+			ret = ret | APP_BG_CATEGORY_LOCATION_VAL;
+		} else if (strcmp(category_data, APP_BG_CATEGORY_SENSOR_STR) == 0) {
+			ret = ret | APP_BG_CATEGORY_SENSOR_VAL;
+		} else if (strcmp(category_data, APP_BG_CATEGORY_IOTCOMM_STR) == 0) {
+			ret = ret | APP_BG_CATEGORY_IOTCOMM_VAL;
+		} else if (strcmp(category_data, APP_BG_CATEGORY_SYSTEM) == 0) {
+			ret = ret | APP_BG_CATEGORY_SYSTEM_VAL;
+		} else {
+			_LOGE("Unidentified category [%s]", category_data);
+		}
+		tmp_list = g_list_next(tmp_list);
+	}
+
+	return ret;
+}
+
 /* _PRODUCT_LAUNCHING_ENHANCED_
 *  app->indicatordisplay, app->portraitimg, app->landscapeimg, app->guestmode_appstatus
 */
@@ -835,49 +871,45 @@ static int __insert_application_info(manifest_x *mfx)
 	GList *tmp;
 	application_x *app;
 	int ret = -1;
+	int background_value = 0;
 	char query[MAX_QUERY_LEN] = {'\0'};
+
 	for (tmp = mfx->application; tmp; tmp = tmp->next) {
 		app = (application_x *)tmp->data;
 		if (app == NULL)
 			continue;
 
+		background_value = __convert_background_category(app->background_category);
+		if (background_value < 0) {
+			_LOGE("Failed to retrieve background value[%d]", background_value);
+			background_value = 0;
+		}
+
 		snprintf(query, MAX_QUERY_LEN,
-			 "insert into package_app_info(app_id, app_component, app_exec, app_nodisplay, app_type, app_onboot, " \
-			"app_multiple, app_autorestart, app_taskmanage, app_enabled, app_hwacceleration, app_screenreader, app_mainapp , app_recentimage, " \
-			"app_launchcondition, app_indicatordisplay, app_portraitimg, app_landscapeimg, app_guestmodevisibility, app_permissiontype, "\
-			"app_preload, app_submode, app_submode_mainid, app_installed_storage, app_process_pool, app_launch_mode, app_ui_gadget, app_support_disable, component_type, package, app_tep_name) " \
-			"values('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
-			 app->appid,
-			 app->component_type,
-			 app->exec,
-			 app->nodisplay,
-			 app->type,
-			 app->onboot,
-			 app->multiple,
-			 app->autorestart,
-			 app->taskmanage,
-			 app->enabled,
-			 app->hwacceleration,
-			 app->screenreader,
-			 app->mainapp,
-			 __get_str(app->recentimage),
-			 app->launchcondition,
-			 app->indicatordisplay,
-			 __get_str(app->portraitimg),
-			 __get_str(app->landscapeimg),
-			 app->guestmode_visibility,
-			 app->permission_type,
-			 mfx->preload,
-			 app->submode,
-			 __get_str(app->submode_mainid),
-			 mfx->installed_storage,
-			 app->process_pool,
-			 app->launch_mode,
-			 app->ui_gadget,
-			 mfx->support_disable,
-			 app->component_type,
-			 mfx->package,
-			 __get_str(mfx->tep_name));
+			"insert into package_app_info(" \
+			"app_id, app_component, app_exec, app_nodisplay, app_type, " \
+			"app_onboot, app_multiple, app_autorestart, app_taskmanage, app_enabled, " \
+			"app_hwacceleration, app_screenreader, app_mainapp, app_recentimage, app_launchcondition, " \
+			"app_indicatordisplay, app_portraitimg, app_landscapeimg, app_guestmodevisibility, app_permissiontype, " \
+			"app_preload, app_submode, app_submode_mainid, app_installed_storage, app_process_pool, " \
+			"app_launch_mode, app_ui_gadget, app_support_disable, component_type, package, " \
+			"app_tep_name, app_background_category) " \
+			"values(" \
+			"'%s', '%s', '%s', '%s', '%s', " \
+			"'%s', '%s', '%s', '%s', '%s', " \
+			"'%s', '%s', '%s', '%s', '%s', " \
+			"'%s', '%s', '%s', '%s', '%s', " \
+			"'%s', '%s', '%s', '%s', '%s', " \
+			"'%s', '%s', '%s', '%s', '%s', " \
+			"'%s', '%d')", \
+			app->appid, app->component_type, app->exec, app->nodisplay, app->type,
+			app->onboot, app->multiple, app->autorestart, app->taskmanage, app->enabled,
+			app->hwacceleration, app->screenreader, app->mainapp, __get_str(app->recentimage), app->launchcondition,
+			app->indicatordisplay, __get_str(app->portraitimg), __get_str(app->landscapeimg),
+			app->guestmode_visibility, app->permission_type,
+			mfx->preload, app->submode, __get_str(app->submode_mainid), mfx->installed_storage, app->process_pool,
+			app->launch_mode, app->ui_gadget, mfx->support_disable, app->component_type, mfx->package,
+			__get_str(mfx->tep_name), background_value);
 
 		ret = __exec_query(query);
 		if (ret == -1) {
@@ -1182,35 +1214,24 @@ static int __insert_manifest_info_in_db(manifest_x *mfx, uid_t uid)
 
 	/*Insert in the package_info DB*/
 	snprintf(query, MAX_QUERY_LEN,
-		 "insert into package_info(package, package_type, package_version, package_api_version, package_tep_name, install_location, package_size, " \
-		"package_removable, package_preload, package_readonly, package_update, package_appsetting, package_nodisplay, package_system," \
-		"author_name, author_email, author_href, installed_time, installed_storage, storeclient_id, mainapp_id, package_url, root_path, csc_path, package_support_disable) " \
-		"values('%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s')",\
-		 mfx->package,
-		 mfx->type,
-		 mfx->version,
-		 __get_str(mfx->api_version),
-		 __get_str(mfx->tep_name),
-		 __get_str(mfx->installlocation),
-		 __get_str(mfx->package_size),
-		 mfx->removable,
-		 mfx->preload,
-		 mfx->readonly,
-		 mfx->update,
-		 mfx->appsetting,
-		 mfx->nodisplay_setting,
-		 mfx->system,
-		 __get_str(auth_name),
-		 __get_str(auth_email),
-		 __get_str(auth_href),
-		 mfx->installed_time,
-		 mfx->installed_storage,
-		 __get_str(mfx->storeclient_id),
-		 mfx->mainapp_id,
-		 __get_str(mfx->package_url),
-		 mfx->root_path,
-		 __get_str(mfx->csc_path),
-		 mfx->support_disable);
+		"insert into package_info(" \
+		"package, package_type, package_version, package_api_version, package_tep_name, " \
+		"install_location, package_size, package_removable, package_preload, package_readonly, " \
+		"package_update, package_appsetting, package_nodisplay, package_system, author_name, " \
+		"author_email, author_href, installed_time, installed_storage, storeclient_id, " \
+		"mainapp_id, package_url, root_path, csc_path, package_support_disable) " \
+		"values(" \
+		"'%s', '%s', '%s', '%s', '%s', " \
+		"'%s', '%s', '%s', '%s', '%s', " \
+		"'%s', '%s', '%s', '%s', '%s', " \
+		"'%s', '%s', '%s', '%s', '%s', " \
+		"'%s', '%s', '%s', '%s', '%s')", \
+		mfx->package, mfx->type, mfx->version, __get_str(mfx->api_version), __get_str(mfx->tep_name),
+		__get_str(mfx->installlocation), __get_str(mfx->package_size), mfx->removable, mfx->preload, mfx->readonly,
+		mfx->update, mfx->appsetting, mfx->nodisplay_setting, mfx->system, __get_str(auth_name),
+		__get_str(auth_email), __get_str(auth_href), mfx->installed_time, mfx->installed_storage,
+		__get_str(mfx->storeclient_id),
+		mfx->mainapp_id, __get_str(mfx->package_url), mfx->root_path, __get_str(mfx->csc_path), mfx->support_disable);
 
 	ret = __exec_query(query);
 	if (ret == -1) {
