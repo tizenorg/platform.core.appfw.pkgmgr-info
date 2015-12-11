@@ -335,6 +335,7 @@
           <xs:any minOccurs="0" processContents="lax"/>
         </xs:choice>
       </xs:sequence>
+      <xs:attribute name="name" use="required"/>
       <xs:anyAttribute processContents="lax"/>
     </xs:complexType>
   </xs:element>
