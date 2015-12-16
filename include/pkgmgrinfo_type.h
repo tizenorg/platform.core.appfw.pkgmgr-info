@@ -324,6 +324,7 @@ typedef enum {
 	PMINFO_ALL_APP = 0,	/**< All Application*/
 	PMINFO_UI_APP,		/**< UI Application*/
 	PMINFO_SVC_APP,		/**< Service Application*/
+	PMINFO_WIDGET_APP,	/**< Widget Application*/
 } pkgmgrinfo_app_component;
 
 /**

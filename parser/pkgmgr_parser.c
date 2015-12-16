@@ -1644,7 +1644,7 @@ static int __ps_process_application(xmlTextReaderPtr reader, application_x *appl
 	__save_xml_attribute(reader, "landscape-effectimage", &application->landscapeimg, NULL);
 	__save_xml_attribute(reader, "guestmode-visibility", &application->guestmode_visibility, "true");
 	__save_xml_attribute(reader, "permission-type", &application->permission_type, "normal");
-	__save_xml_attribute(reader, "component-type", &application->component_type, type == PMINFO_UI_APP ? "uiapp" : "svcapp");
+	__save_xml_attribute(reader, "component-type", &application->component_type, type == PMINFO_UI_APP ? "uiapp" : type == PMINFO_SVC_APP ? "svcapp" : "widgetapp");
 	/*component_type has "svcapp" or "uiapp", if it is not, parsing manifest is fail*/
 	retvm_if(((strcmp(application->component_type, "svcapp") != 0) && (strcmp(application->component_type, "uiapp") != 0) && (strcmp(application->component_type, "widgetapp") != 0)), PM_PARSER_R_ERROR, "invalid component_type[%s]", application->component_type);
 	__save_xml_attribute(reader, "submode", &application->submode, "false");
@@ -1656,6 +1656,19 @@ static int __ps_process_application(xmlTextReaderPtr reader, application_x *appl
 	__save_xml_attribute(reader, "on-boot", &application->onboot, "false");
 
 	application->package= strdup(package);
+	/* overwrite some attributes if the app is widgetapp */
+	if (type == PMINFO_WIDGET_APP) {
+		free((void *)application->nodisplay);
+		application->nodisplay = strdup("true");
+		free((void *)application->multiple);
+		application->multiple = strdup("true");
+		free((void *)application->type);
+		application->type = strdup("capp");
+		free((void *)application->taskmanage);
+		application->taskmanage = strdup("false");
+		free((void *)application->indicatordisplay);
+		application->indicatordisplay = strdup("false");
+	}
 
 	depth = xmlTextReaderDepth(reader);
 	while ((ret = __next_child_element(reader, depth))) {
@@ -1822,7 +1835,7 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx, uid_t uid)
 				return -1;
 			}
 			mfx->application = g_list_append(mfx->application, application);
-			ret = __ps_process_application(reader, application, PMINFO_UI_APP, uid);
+			ret = __ps_process_application(reader, application, PMINFO_WIDGET_APP, uid);
 		} else if (!strcmp(ASCII(node), "icon")) {
 			icon_x *icon = calloc(1, sizeof(icon_x));
 			if (icon == NULL) {
