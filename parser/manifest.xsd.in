@@ -202,7 +202,7 @@
       <xs:attribute name="appid" use="required" type="xs:string"/>
       <xs:attribute name="exec" use="required"/>
       <xs:attribute name="main" type="xs:boolean"/>
-      <xs:attribute name="update-period" type="xs:positiveInteger"/>
+      <xs:attribute name="update-period" type="xs:nonNegativeInteger"/>
       <xs:attribute name="preview" type="xs:string"/>
       <xs:anyAttribute namespace="##any" processContents="lax"/>
     </xs:complexType>
