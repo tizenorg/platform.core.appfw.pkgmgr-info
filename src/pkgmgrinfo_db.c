@@ -400,6 +400,11 @@ int __open_cert_db(uid_t uid, bool readonly)
 	return 0;
 }
 
+void _save_column_int(sqlite3_stmt *stmt, int idx, int *i)
+{
+	*i = sqlite3_column_int(stmt, idx);
+}
+
 void _save_column_str(sqlite3_stmt *stmt, int idx, const char **str)
 {
 	const char *val;

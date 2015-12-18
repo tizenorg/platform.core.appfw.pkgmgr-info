@@ -648,69 +648,182 @@ API int pkgmgrinfo_pkginfo_create_certinfo(pkgmgrinfo_certinfo_h *handle)
 	return PMINFO_R_OK;
 }
 
+static int _pkginfo_get_cert(sqlite3 *db, int cert_id[],
+		char *cert_info[])
+{
+	static const char query[] =
+		"SELECT cert_info FROM package_cert_index_info WHERE cert_id=?";
+	int ret;
+	sqlite3_stmt *stmt;
+	int i;
+
+	ret = sqlite3_prepare_v2(db, query, strlen(query), &stmt, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGE("prepare failed: %s", sqlite3_errmsg(db));
+		return PMINFO_R_ERROR;
+	}
+
+	for (i = 0; i < MAX_CERT_TYPE; i++) {
+		ret = sqlite3_bind_int(stmt, 1, cert_id[i]);
+		if (ret != SQLITE_OK) {
+			sqlite3_finalize(stmt);
+			_LOGE("bind failed: %s", sqlite3_errmsg(db));
+			return PMINFO_R_ERROR;
+		}
+
+		ret = sqlite3_step(stmt);
+		if (ret == SQLITE_DONE) {
+			sqlite3_reset(stmt);
+			sqlite3_clear_bindings(stmt);
+			continue;
+		} else if (ret != SQLITE_ROW) {
+			_LOGE("step failed: %s", sqlite3_errmsg(db));
+			sqlite3_finalize(stmt);
+			return PMINFO_R_ERROR;
+		}
+
+		_save_column_str(stmt, 0, (const char **)&cert_info[i]);
+		sqlite3_reset(stmt);
+		sqlite3_clear_bindings(stmt);
+	}
+
+	sqlite3_finalize(stmt);
+
+	return PMINFO_R_OK;
+}
+
+static int _pkginfo_get_certid(sqlite3 *db, const char *pkgid, int cert_id[])
+{
+	static const char query[] =
+		"SELECT author_root_cert, author_im_cert, author_signer_cert, "
+		"dist_root_cert, dist_im_cert, dist_signer_cert, "
+		"dist2_root_cert, dist2_im_cert, dist2_signer_cert "
+		"FROM package_cert_info WHERE package=?";
+	int ret;
+	sqlite3_stmt *stmt;
+	int idx;
+
+	ret = sqlite3_prepare_v2(db, query, strlen(query), &stmt, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGE("prepare failed: %s", sqlite3_errmsg(db));
+		return PMINFO_R_ERROR;
+	}
+
+	ret = sqlite3_bind_text(stmt, 1, pkgid, -1, SQLITE_STATIC);
+	if (ret != SQLITE_OK) {
+		sqlite3_finalize(stmt);
+		_LOGE("bind failed: %s", sqlite3_errmsg(db));
+		return PMINFO_R_ERROR;
+	}
+
+	ret = sqlite3_step(stmt);
+	if (ret == SQLITE_DONE) {
+		sqlite3_finalize(stmt);
+		return PMINFO_R_ENOENT;
+	} else if (ret != SQLITE_ROW) {
+		_LOGE("step failed: %s", sqlite3_errmsg(db));
+		sqlite3_finalize(stmt);
+		return PMINFO_R_ERROR;
+	}
+
+	idx = 0;
+	_save_column_int(stmt, idx++, &cert_id[PMINFO_AUTHOR_ROOT_CERT]);
+	_save_column_int(stmt, idx++,
+			&cert_id[PMINFO_AUTHOR_INTERMEDIATE_CERT]);
+	_save_column_int(stmt, idx++, &cert_id[PMINFO_AUTHOR_SIGNER_CERT]);
+	_save_column_int(stmt, idx++, &cert_id[PMINFO_DISTRIBUTOR_ROOT_CERT]);
+	_save_column_int(stmt, idx++,
+			&cert_id[PMINFO_DISTRIBUTOR_INTERMEDIATE_CERT]);
+	_save_column_int(stmt, idx++, &cert_id[PMINFO_DISTRIBUTOR_SIGNER_CERT]);
+	_save_column_int(stmt, idx++, &cert_id[PMINFO_DISTRIBUTOR2_ROOT_CERT]);
+	_save_column_int(stmt, idx++,
+			&cert_id[PMINFO_DISTRIBUTOR2_INTERMEDIATE_CERT]);
+	_save_column_int(stmt, idx++,
+			&cert_id[PMINFO_DISTRIBUTOR2_SIGNER_CERT]);
+
+	sqlite3_finalize(stmt);
+
+	return PMINFO_R_OK;
+}
+
+static int _pkginfo_get_certinfo(const char *pkgid, uid_t uid,
+		pkgmgr_certinfo_x *info)
+{
+	int ret;
+	sqlite3 *db;
+	const char *dbpath;
+
+	dbpath = getUserPkgCertDBPathUID(uid);
+	if (dbpath == NULL)
+		return PMINFO_R_ERROR;
+
+	ret = sqlite3_open_v2(dbpath, &db, SQLITE_OPEN_READONLY, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGE("failed to open db: %d", ret);
+		return PMINFO_R_ERROR;
+	}
+
+	ret = _pkginfo_get_certid(db, pkgid, info->cert_id);
+	if (ret != PMINFO_R_OK) {
+		sqlite3_close_v2(db);
+		return ret;
+	}
+
+	ret = _pkginfo_get_cert(db, info->cert_id, info->cert_info);
+	if (ret != PMINFO_R_OK) {
+		sqlite3_close_v2(db);
+		return ret;
+	}
+
+	return PMINFO_R_OK;
+}
+
+API int pkgmgrinfo_pkginfo_get_certinfo(const char *pkgid,
+		pkgmgrinfo_certinfo_h *handle, uid_t uid)
+{
+	int ret;
+	pkgmgr_certinfo_x *info;
+
+	if (pkgid == NULL || handle == NULL) {
+		_LOGE("invalid parameter");
+		return PMINFO_R_EINVAL;
+	}
+
+	info = calloc(1, sizeof(pkgmgr_certinfo_x));
+	if (info == NULL)
+		return PMINFO_R_ERROR;
+
+	ret = _pkginfo_get_certinfo(pkgid, uid, info);
+	if (ret == PMINFO_R_ENOENT && uid != GLOBAL_USER)
+		ret = _pkginfo_get_certinfo(pkgid, GLOBAL_USER, info);
+
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_pkginfo_destroy_certinfo(info);
+		_LOGE("failed to get certinfo of %s for user %d", pkgid, uid);
+	}
+
+	info->pkgid = strdup(pkgid);
+	*handle = info;
+
+	return ret;
+}
+
 API int pkgmgrinfo_pkginfo_load_certinfo(const char *pkgid, pkgmgrinfo_certinfo_h handle, uid_t uid)
 {
-	retvm_if(pkgid == NULL, PMINFO_R_EINVAL, "package ID is NULL\n");
-	retvm_if(handle == NULL, PMINFO_R_EINVAL, "Certinfo handle is NULL\n");
-	pkgmgr_certinfo_x *certinfo = NULL;
-	char *error_message = NULL;
-	int ret = PMINFO_R_OK;
-	char query[MAX_QUERY_LEN] = {'\0'};
-	int exist = 0;
-	int i = 0;
+	int ret;
 
-	/*Open db.*/
-	ret = __open_cert_db(uid, true);
-	if (ret != SQLITE_OK) {
-		_LOGE("connect db [%s] failed!\n");
-		ret = PMINFO_R_ERROR;
-		goto err;
+	if (pkgid == NULL || handle == NULL) {
+		_LOGE("invalid parameter");
+		return PMINFO_R_EINVAL;
 	}
-	_check_create_cert_db(GET_DB(cert_db));
-	/*validate pkgid*/
-	snprintf(query, MAX_QUERY_LEN, "select exists(select * from package_cert_info where package='%s')", pkgid);
-	if (SQLITE_OK !=
-	    sqlite3_exec(GET_DB(cert_db), query, __validate_cb, (void *)&exist, &error_message)) {
-		_LOGE("Don't execute query = %s error message = %s\n", query,
-		       error_message);
-		sqlite3_free(error_message);
-		ret = PMINFO_R_ERROR;
-		goto err;
-	}
-	if (exist == 0) {
-		_LOGE("Package for user[%d] is not found in DB\n", uid);
-		ret = PMINFO_R_ERROR;
-		goto err;
-	}
-	certinfo = (pkgmgr_certinfo_x *)handle;
-	/*populate certinfo from DB*/
-	snprintf(query, MAX_QUERY_LEN, "select * from package_cert_info where package='%s' ", pkgid);
-	ret = __exec_certinfo_query(query, (void *)certinfo);
-	if (ret == -1) {
-		_LOGE("Package Cert Info DB Information retrieval failed\n");
-		ret = PMINFO_R_ERROR;
-		goto err;
-	}
-	for (i = 0; i < MAX_CERT_TYPE; i++) {
-		memset(query, '\0', MAX_QUERY_LEN);
-		if (uid == GLOBAL_USER || uid == ROOT_UID)
-			snprintf(query, MAX_QUERY_LEN, "select cert_info from package_cert_index_info where cert_id=%d", (certinfo->cert_id)[i]);
-		else
-			snprintf(query, MAX_QUERY_LEN, "select cert_info from package_cert_index_info where cert_id=%d and for_all_users=%d", (certinfo->cert_id)[i], certinfo->for_all_users);
-		ret = __exec_certinfo_query(query, (void *)certinfo);
-		if (ret == -1) {
-			_LOGE("Cert Info DB Information retrieval failed\n");
-			ret = PMINFO_R_ERROR;
-			goto err;
-		}
-		if (certinfo->cert_value) {
-			(certinfo->cert_info)[i] = strdup(certinfo->cert_value);
-			free(certinfo->cert_value);
-			certinfo->cert_value = NULL;
-		}
-	}
-err:
-	__close_cert_db();
+
+	ret = _pkginfo_get_certinfo(pkgid, uid, handle);
+	if (ret == PMINFO_R_ENOENT && uid != GLOBAL_USER)
+		ret = _pkginfo_get_certinfo(pkgid, GLOBAL_USER, handle);
+
+	if (ret != PMINFO_R_OK)
+		_LOGE("failed to get certinfo of %s for user %d", pkgid, uid);
+
 	return ret;
 }
 
