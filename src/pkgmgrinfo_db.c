@@ -20,24 +20,50 @@
 #include "pkgmgr_parser.h"
 #include "pkgmgr_parser_internal.h"
 
-#define QUERY_CREATE_TABLE_PACKAGE_CERT_INDEX_INFO "create table if not exists package_cert_index_info " \
-						"(cert_info text not null, " \
-						"cert_id integer, " \
-						"cert_ref_count integer, " \
-						"PRIMARY KEY(cert_id)) "
+#define QUERY_CREATE_TABLE_PACKAGE_CERT_INDEX_INFO \
+	"CREATE TABLE IF NOT EXISTS package_cert_index_info( " \
+	" cert_info TEXT UNIQUE, " \
+	" cert_id INTEGER PRIMARY_KEY, " \
+	" cert_ref_count INTEGER NOT NULL)"
 
-#define QUERY_CREATE_TABLE_PACKAGE_CERT_INFO "create table if not exists package_cert_info " \
-						"(package text not null, " \
-						"author_root_cert integer, " \
-						"author_im_cert integer, " \
-						"author_signer_cert integer, " \
-						"dist_root_cert integer, " \
-						"dist_im_cert integer, " \
-						"dist_signer_cert integer, " \
-						"dist2_root_cert integer, " \
-						"dist2_im_cert integer, " \
-						"dist2_signer_cert integer, " \
-						"PRIMARY KEY(package)) "
+#define QUERY_CREATE_TABLE_PACKAGE_CERT_INFO \
+	"CREATE TABLE IF NOT EXISTS package_cert_info( " \
+	" package TEXT PRIMARY KEY, " \
+	" author_root_cert INTEGER NOT NULL, " \
+	" author_im_cert INTEGER NOT NULL, " \
+	" author_singer_cert INTEGER NOT NULL, " \
+	" dist_root_cert INTEGER NOT NULL, " \
+	" dist_im_cert INTEGER NOT NULL, " \
+	" dist_singer_cert INTEGER NOT NULL, " \
+	" dist2_root_cert INTEGER NOT NULL, " \
+	" dist2_im_cert INTEGER NOT NULL, " \
+	" dist2_singer_cert INTEGER NOT NULL)"
+
+#define QUERY_CREATE_TRIGGER_DELETE_CERT_INFO \
+	"CREATE TRIGGER IF NOT EXISTS delete_cert_info " \
+	"AFTER DELETE ON package_cert_info " \
+	"BEGIN" \
+	" UPDATE package_cert_index_info SET" \
+	"  cert_ref_count = cert_ref_count - 1" \
+	" WHERE cert_id = OLD.author_root_cert" \
+	"  OR cert_id = OLD.author_im_cert" \
+	"  OR cert_id = OLD.author_signer_cert" \
+	"  OR cert_id = OLD.dist_root_cert" \
+	"  OR cert_id = OLD.dist_im_cert" \
+	"  OR cert_id = OLD.dist_signer_cert" \
+	"  OR cert_id = OLD.dist2_root_cert" \
+	"  OR cert_id = OLD.dist2_im_cert" \
+	"  OR cert_id = OLD.dist2_signer_cert;" \
+	"END;"
+
+#define QUERY_CREATE_TRIGGER_UPDATE_CERT_INDEX_INFO \
+	"CREATE TRIGGER IF NOT EXISTS update_cert_index_info " \
+	"AFTER UPDATE ON package_cert_index_info " \
+	"WHEN ((SELECT cert_ref_count FROM package_cert_index_info " \
+	"       WHERE cert_id = OLD.cert_id) = 0) "\
+	"BEGIN" \
+	" DELETE FROM package_cert_index_info WHERE cert_id = OLD.cert_id;" \
+	"END;"
 __thread db_handle manifest_db;
 __thread db_handle cert_db;
 
@@ -149,6 +175,12 @@ int _check_create_cert_db(sqlite3 *certdb)
 	if (ret < 0)
 		return ret;
 	ret = __exec_db_query(certdb, QUERY_CREATE_TABLE_PACKAGE_CERT_INFO, NULL, NULL);
+	if (ret < 0)
+		return ret;
+	ret = __exec_db_query(certdb, QUERY_CREATE_TRIGGER_DELETE_CERT_INFO, NULL, NULL);
+	if (ret < 0)
+		return ret;
+	ret = __exec_db_query(certdb, QUERY_CREATE_TRIGGER_UPDATE_CERT_INDEX_INFO, NULL, NULL);
 	return ret;
 }
 static gid_t _get_gid(const char *name)
@@ -398,6 +430,11 @@ int __open_cert_db(uid_t uid, bool readonly)
 				user_cert_parser);
 	}
 	return 0;
+}
+
+void _save_column_int(sqlite3_stmt *stmt, int idx, int *i)
+{
+	*i = sqlite3_column_int(stmt, idx);
 }
 
 void _save_column_str(sqlite3_stmt *stmt, int idx, const char **str)
