@@ -231,24 +231,50 @@ sqlite3 *pkgmgr_cert_db;
 						"REFERENCES package_app_info(app_id) " \
 						"ON DELETE CASCADE)"
 
-#define QUERY_CREATE_TABLE_PACKAGE_CERT_INDEX_INFO "create table if not exists package_cert_index_info " \
-						"(cert_info text not null, " \
-						"cert_id integer, " \
-						"cert_ref_count integer, " \
-						"PRIMARY KEY(cert_id)) "
+#define QUERY_CREATE_TABLE_PACKAGE_CERT_INDEX_INFO \
+	"CREATE TABLE IF NOT EXISTS package_cert_index_info( " \
+	" cert_info TEXT UNIQUE, " \
+	" cert_id INTEGER PRIMARY_KEY, " \
+	" cert_ref_count INTEGER NOT NULL)"
 
-#define QUERY_CREATE_TABLE_PACKAGE_CERT_INFO "create table if not exists package_cert_info " \
-						"(package text not null, " \
-						"author_root_cert integer, " \
-						"author_im_cert integer, " \
-						"author_signer_cert integer, " \
-						"dist_root_cert integer, " \
-						"dist_im_cert integer, " \
-						"dist_signer_cert integer, " \
-						"dist2_root_cert integer, " \
-						"dist2_im_cert integer, " \
-						"dist2_signer_cert integer, " \
-						"PRIMARY KEY(package)) "
+#define QUERY_CREATE_TABLE_PACKAGE_CERT_INFO \
+	"CREATE TABLE IF NOT EXISTS package_cert_info( " \
+	" package TEXT PRIMARY KEY, " \
+	" author_root_cert INTEGER NOT NULL, " \
+	" author_im_cert INTEGER NOT NULL, " \
+	" author_singer_cert INTEGER NOT NULL, " \
+	" dist_root_cert INTEGER NOT NULL, " \
+	" dist_im_cert INTEGER NOT NULL, " \
+	" dist_singer_cert INTEGER NOT NULL, " \
+	" dist2_root_cert INTEGER NOT NULL, " \
+	" dist2_im_cert INTEGER NOT NULL, " \
+	" dist2_singer_cert INTEGER NOT NULL)"
+
+#define QUERY_CREATE_TRIGGER_DELETE_CERT_INFO \
+	"CREATE TRIGGER IF NOT EXISTS delete_cert_info " \
+	"AFTER DELETE ON package_cert_info " \
+	"BEGIN" \
+	" UPDATE package_cert_index_info SET" \
+	"  cert_ref_count = cert_ref_count - 1" \
+	" WHERE cert_id = OLD.author_root_cert" \
+	"  OR cert_id = OLD.author_im_cert" \
+	"  OR cert_id = OLD.author_signer_cert" \
+	"  OR cert_id = OLD.dist_root_cert" \
+	"  OR cert_id = OLD.dist_im_cert" \
+	"  OR cert_id = OLD.dist_signer_cert" \
+	"  OR cert_id = OLD.dist2_root_cert" \
+	"  OR cert_id = OLD.dist2_im_cert" \
+	"  OR cert_id = OLD.dist2_signer_cert;" \
+	"END;"
+
+#define QUERY_CREATE_TRIGGER_UPDATE_CERT_INDEX_INFO \
+	"CREATE TRIGGER IF NOT EXISTS update_cert_index_info " \
+	"AFTER UPDATE ON package_cert_index_info " \
+	"WHEN ((SELECT cert_ref_count FROM package_cert_index_info " \
+	"       WHERE cert_id = OLD.cert_id) = 0) "\
+	"BEGIN" \
+	" DELETE FROM package_cert_index_info WHERE cert_id = OLD.cert_id;" \
+	"END;"
 
 #define QUERY_CREATE_TABLE_PACKAGE_APP_DATA_CONTROL "create table if not exists package_app_data_control " \
 						"(app_id text not null, " \
@@ -1597,12 +1623,23 @@ API int pkgmgr_parser_initialize_db(uid_t uid)
 		return ret;
 	}
 	/*Cert DB*/
+	/* TODO: refactor this code */
 	ret = __initialize_db(pkgmgr_cert_db, QUERY_CREATE_TABLE_PACKAGE_CERT_INFO);
 	if (ret == -1) {
 		_LOGD("package cert info DB initialization failed\n");
 		return ret;
 	}
 	ret = __initialize_db(pkgmgr_cert_db, QUERY_CREATE_TABLE_PACKAGE_CERT_INDEX_INFO);
+	if (ret == -1) {
+		_LOGD("package cert index info DB initialization failed\n");
+		return ret;
+	}
+	ret = __initialize_db(pkgmgr_cert_db, QUERY_CREATE_TRIGGER_DELETE_CERT_INFO);
+	if (ret == -1) {
+		_LOGD("package cert info DB initialization failed\n");
+		return ret;
+	}
+	ret = __initialize_db(pkgmgr_cert_db, QUERY_CREATE_TRIGGER_UPDATE_CERT_INDEX_INFO);
 	if (ret == -1) {
 		_LOGD("package cert index info DB initialization failed\n");
 		return ret;
