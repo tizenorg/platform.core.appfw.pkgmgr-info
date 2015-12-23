@@ -1453,10 +1453,7 @@ static int __delete_manifest_info_from_db(manifest_x *mfx, uid_t uid)
 	GList *tmp;
 	application_x *app;
 	/*Delete from cert table*/
-	if (uid != GLOBAL_USER)
-		ret = pkgmgrinfo_delete_usr_certinfo(mfx->package, uid);
-	else
-		ret = pkgmgrinfo_delete_certinfo(mfx->package);
+	ret = pkgmgrinfo_delete_certinfo(mfx->package);
 	if (ret) {
 		_LOGD("Cert Info  DB Delete Failed\n");
 		return -1;
@@ -1646,7 +1643,7 @@ API int pkgmgr_parser_initialize_db(uid_t uid)
 		return ret;
 	}
 
-	if( 0 != __parserdb_change_perm(getUserPkgCertDBPathUID(uid), uid)) {
+	if( 0 != __parserdb_change_perm(getUserPkgCertDBPathUID(GLOBAL_USER), uid)) {
 		_LOGD("Failed to change cert db permission\n");
 	}
 	if( 0 != __parserdb_change_perm(getUserPkgParserDBPathUID(uid), uid)) {
@@ -1747,7 +1744,7 @@ API int pkgmgr_parser_check_and_create_db(uid_t uid)
 	}
 
 	/*Cert DB*/
-	ret = __pkgmgr_parser_create_db(&pkgmgr_cert_db, getUserPkgCertDBPathUID(uid));
+	ret = __pkgmgr_parser_create_db(&pkgmgr_cert_db, getUserPkgCertDBPathUID(GLOBAL_USER));
 	if (ret) {
 		_LOGD("Cert DB creation Failed\n");
 		return -1;
