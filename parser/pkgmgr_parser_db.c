@@ -231,24 +231,25 @@ sqlite3 *pkgmgr_cert_db;
 						"REFERENCES package_app_info(app_id) " \
 						"ON DELETE CASCADE)"
 
+/* FIXME: duplicated at pkgmgrinfo_db.c */
 #define QUERY_CREATE_TABLE_PACKAGE_CERT_INDEX_INFO \
 	"CREATE TABLE IF NOT EXISTS package_cert_index_info( " \
 	" cert_info TEXT UNIQUE, " \
-	" cert_id INTEGER PRIMARY_KEY, " \
+	" cert_id INTEGER PRIMARY KEY, " \
 	" cert_ref_count INTEGER NOT NULL)"
 
 #define QUERY_CREATE_TABLE_PACKAGE_CERT_INFO \
 	"CREATE TABLE IF NOT EXISTS package_cert_info( " \
 	" package TEXT PRIMARY KEY, " \
-	" author_root_cert INTEGER NOT NULL, " \
-	" author_im_cert INTEGER NOT NULL, " \
-	" author_signer_cert INTEGER NOT NULL, " \
-	" dist_root_cert INTEGER NOT NULL, " \
-	" dist_im_cert INTEGER NOT NULL, " \
-	" dist_signer_cert INTEGER NOT NULL, " \
-	" dist2_root_cert INTEGER NOT NULL, " \
-	" dist2_im_cert INTEGER NOT NULL, " \
-	" dist2_signer_cert INTEGER NOT NULL)"
+	" author_root_cert INTEGER, " \
+	" author_im_cert INTEGER, " \
+	" author_signer_cert INTEGER, " \
+	" dist_root_cert INTEGER, " \
+	" dist_im_cert INTEGER, " \
+	" dist_signer_cert INTEGER, " \
+	" dist2_root_cert INTEGER, " \
+	" dist2_im_cert INTEGER, " \
+	" dist2_signer_cert INTEGER)"
 
 #define QUERY_CREATE_TRIGGER_DELETE_CERT_INFO \
 	"CREATE TRIGGER IF NOT EXISTS delete_cert_info " \
