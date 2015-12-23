@@ -124,7 +124,8 @@ API int pkgmgrinfo_pkginfo_compare_usr_pkg_cert_info(const char *lhs_package_id,
 		return PMINFO_R_EINVAL;
 	}
 
-	dbpath = getUserPkgCertDBPathUID(uid);
+	/* open unified global cert db */
+	dbpath = getUserPkgCertDBPathUID(GLOBAL_USER);
 	if (dbpath == NULL)
 		return PMINFO_R_ERROR;
 
@@ -351,14 +352,14 @@ static int _pkginfo_get_certid(sqlite3 *db, const char *pkgid, int cert_id[])
 	return PMINFO_R_OK;
 }
 
-static int _pkginfo_get_certinfo(const char *pkgid, uid_t uid,
-		pkgmgr_certinfo_x *info)
+static int _pkginfo_get_certinfo(const char *pkgid, pkgmgr_certinfo_x *info)
 {
 	int ret;
 	sqlite3 *db;
 	const char *dbpath;
 
-	dbpath = getUserPkgCertDBPathUID(uid);
+	/* open unified global cert db */
+	dbpath = getUserPkgCertDBPathUID(GLOBAL_USER);
 	if (dbpath == NULL)
 		return PMINFO_R_ERROR;
 
@@ -393,12 +394,9 @@ API int pkgmgrinfo_pkginfo_load_certinfo(const char *pkgid, pkgmgrinfo_certinfo_
 		return PMINFO_R_EINVAL;
 	}
 
-	ret = _pkginfo_get_certinfo(pkgid, uid, info);
-	if (ret == PMINFO_R_ENOENT && uid != GLOBAL_USER)
-		ret = _pkginfo_get_certinfo(pkgid, GLOBAL_USER, info);
-
+	ret = _pkginfo_get_certinfo(pkgid, info);
 	if (ret != PMINFO_R_OK)
-		_LOGE("failed to get certinfo of %s for user %d", pkgid, uid);
+		_LOGE("failed to get certinfo of %s ", pkgid);
 
 	return ret;
 }
@@ -614,7 +612,8 @@ API int pkgmgrinfo_save_certinfo(const char *pkgid, pkgmgrinfo_instcertinfo_h ha
 		return PMINFO_R_EINVAL;
 	}
 
-	dbpath = getUserPkgCertDBPathUID(uid);
+	/* open unified global cert db */
+	dbpath = getUserPkgCertDBPathUID(GLOBAL_USER);
 	if (dbpath == NULL)
 		return PMINFO_R_ERROR;
 
@@ -719,7 +718,8 @@ API int pkgmgrinfo_delete_usr_certinfo(const char *pkgid, uid_t uid)
 		return PMINFO_R_EINVAL;
 	}
 
-	dbpath = getUserPkgCertDBPathUID(uid);
+	/* open unified global cert db */
+	dbpath = getUserPkgCertDBPathUID(GLOBAL_USER);
 	if (dbpath == NULL)
 		return PMINFO_R_ERROR;
 
