@@ -1689,7 +1689,7 @@ static int __parserdb_change_perm(const char *db_file, uid_t uid)
 			return -1;
 		}
 
-		ret = chmod(files[i], S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
+		ret = chmod(files[i], S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
 		if (ret == -1) {
 			if (strerror_r(errno, buf, sizeof(buf)))
 				strcpy(buf, "");
