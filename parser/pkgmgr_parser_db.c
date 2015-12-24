@@ -1643,7 +1643,7 @@ API int pkgmgr_parser_initialize_db(uid_t uid)
 		return ret;
 	}
 
-	if( 0 != __parserdb_change_perm(getUserPkgCertDBPathUID(GLOBAL_USER), uid)) {
+	if( 0 != __parserdb_change_perm(getUserPkgCertDBPathUID(GLOBAL_USER), GLOBAL_USER)) {
 		_LOGD("Failed to change cert db permission\n");
 	}
 	if( 0 != __parserdb_change_perm(getUserPkgParserDBPathUID(uid), uid)) {
