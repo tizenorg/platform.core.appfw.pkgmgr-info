@@ -1663,6 +1663,7 @@ static int __parserdb_change_perm(const char *db_file, uid_t uid)
 	files[0] = (char *)db_file;
 	files[1] = journal_file;
 	files[2] = NULL;
+	mode_t mode;
 
 	if (db_file == NULL)
 		return -1;
@@ -1689,7 +1690,10 @@ static int __parserdb_change_perm(const char *db_file, uid_t uid)
 			return -1;
 		}
 
-		ret = chmod(files[i], S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
+		mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH;
+		if (!strcmp(db_file, getUserPkgCertDBPathUID(GLOBAL_USER)))
+			mode |= S_IWOTH;
+		ret = chmod(files[i], mode);
 		if (ret == -1) {
 			if (strerror_r(errno, buf, sizeof(buf)))
 				strcpy(buf, "");
