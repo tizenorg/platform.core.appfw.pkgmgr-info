@@ -55,6 +55,10 @@ MAJORVER=`echo %{version} | awk 'BEGIN {FS="."}{print $1}'`
 %install
 %make_install
 
+mkdir -p %{buildroot}/usr/share/license
+cp LICENSE %{buildroot}/usr/share/license/%{name}
+cp LICENSE %{buildroot}/usr/share/license/%{name}-parser
+
 %post
 /sbin/ldconfig
 
@@ -68,6 +72,7 @@ MAJORVER=`echo %{version} | awk 'BEGIN {FS="."}{print $1}'`
 %manifest %{name}.manifest
 %defattr(-,root,root,-)
 %{_libdir}/libpkgmgr-info.so.*
+/usr/share/license/%{name}
 
 %files devel
 %manifest %{name}.manifest
@@ -91,6 +96,7 @@ MAJORVER=`echo %{version} | awk 'BEGIN {FS="."}{print $1}'`
 %config %{_sysconfdir}/package-manager/parserlib/metadata/mdparser_list.txt
 %config %{_sysconfdir}/package-manager/parserlib/category/category_parser_list.txt
 %config %{_sysconfdir}/package-manager/parserlib/tag_parser_list.txt
+/usr/share/license/%{name}-parser
 
 %files parser-devel
 %manifest %{name}.manifest
