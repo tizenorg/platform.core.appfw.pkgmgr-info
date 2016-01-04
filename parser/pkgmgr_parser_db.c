@@ -90,7 +90,8 @@ sqlite3 *pkgmgr_cert_db;
 						"package_url text," \
 						"root_path text," \
 						"csc_path text," \
-						"package_support_disable text DEFAULT 'false')"
+						"package_support_disable text DEFAULT 'false', " \
+						"package_disable text DEFAULT 'false')"
 
 #define QUERY_CREATE_TABLE_PACKAGE_LOCALIZED_INFO "create table if not exists package_localized_info " \
 						"(package text not null, " \
@@ -142,6 +143,7 @@ sqlite3 *pkgmgr_cert_db;
 						"app_launch_mode text NOT NULL DEFAULT 'caller', " \
 						"app_ui_gadget text DEFAULT 'false', " \
 						"app_support_disable text DEFAULT 'false', " \
+						"app_disable text DEFAULT 'false', " \
 						"component_type text, " \
 						"package text not null, " \
 						"app_tep_name text, " \
@@ -1372,6 +1374,40 @@ static int __insert_manifest_info_in_db(manifest_x *mfx, uid_t uid)
 
 }
 
+static int __update_pkg_info_for_disable(const char *pkgid, bool disable)
+{
+	char *query = NULL;
+	int ret = -1;
+
+	/*Update from package info*/
+	query = sqlite3_mprintf("update package_info set package_disable=%Q where package=%Q", disable?"true":"false", pkgid);
+	ret = __exec_query(query);
+	sqlite3_free(query);
+	retvm_if(ret < 0, PMINFO_R_ERROR, "__exec_query() failed.\n");
+
+	/*Update from app info*/
+	query = sqlite3_mprintf("update package_app_info set app_disable=%Q where package=%Q", disable?"true":"false", pkgid);
+	ret = __exec_query(query);
+	sqlite3_free(query);
+	retvm_if(ret < 0, PMINFO_R_ERROR, "__exec_query() failed.\n");
+
+	return PMINFO_R_OK;
+}
+
+static int __update_app_info_for_disable(const char *appid, bool disable)
+{
+	char *query = NULL;
+	int ret = -1;
+
+	/*Update from app info*/
+	query = sqlite3_mprintf("update package_app_info set app_disable=%Q where app_id=%Q", disable?"true":"false", appid);
+	ret = __exec_query(query);
+	sqlite3_free(query);
+	retvm_if(ret < 0, PMINFO_R_ERROR, "__exec_query() failed.\n");
+
+	return PMINFO_R_OK;
+}
+
 static int __delete_appinfo_from_db(char *db_table, const char *appid)
 {
 	char query[MAX_QUERY_LEN] = { '\0' };
@@ -1544,6 +1580,135 @@ static int __update_preload_condition_in_db()
 		_LOGD("Package preload_condition update failed\n");
 
 	return ret;
+}
+
+static int __update_disable_pkg_condition_in_db_with_appid(const char *appid, bool is_disable)
+{
+	int ret = -1;
+	char query[MAX_QUERY_LEN] = { '\0' };
+
+	sqlite3_snprintf(MAX_QUERY_LEN, query, "update package_info set package_disable=%Q where package=(select package from package_app_info where app_id=%Q)", is_disable ? "true" : "false", appid);
+	ret = __exec_query(query);
+	if (ret == -1)
+		_LOGE("Updating disable status of pkg using appid[%s] has failed\n", appid);
+
+	return ret;
+}
+
+static bool __check_pkg_support_disable_in_db(const char *pkgid)
+{
+	char query[MAX_QUERY_LEN] = { '\0' };
+	char support_disable_value[BUFSIZE] = { '\0' };
+	bool is_support_disable = false;
+	int ret = -1;
+	sqlite3_stmt *stmt = NULL;
+
+	if (pkgid == NULL || strlen(pkgid) == 0) {
+		_LOGE("Invalid parameter");
+		return is_support_disable;
+	}
+
+	sqlite3_snprintf(MAX_QUERY_LEN, query, "select package_support_disable from package_info where package=%Q", pkgid);
+	ret = sqlite3_prepare_v2(pkgmgr_parser_db, query, strlen(query), &stmt, NULL);
+	if (ret != PMINFO_R_OK) {
+		_LOGE("sqlite3_prepare_v2 failed[%s]\n", query);
+		return is_support_disable;
+	}
+
+	while(1) {
+		ret = sqlite3_step(stmt);
+		if (ret == SQLITE_ROW) {
+			strncpy(support_disable_value, (const char *)sqlite3_column_text(stmt, 0), BUFSIZE - 1);
+
+			if (strncmp(support_disable_value, "false", strlen("false")) == 0) {
+				_LOGE("pkg[%s] doesn't support disable\n", pkgid);
+				goto err;
+			} else
+				is_support_disable = true;
+		} else
+			break;
+	}
+
+err:
+	sqlite3_finalize(stmt);
+	return is_support_disable;
+}
+
+static int __check_app_disable_status_in_pkg(const char *appid, bool *is_all_app_disabled)
+{
+	/* TODO(jungh.yeon) : check return value */
+	int ret = -1;
+	char query[MAX_QUERY_LEN] = { '\0' };
+	char disable_value[BUFSIZE] = { '\0' };
+	sqlite3_stmt *stmt = NULL;
+
+	if (appid == NULL || strlen(appid) == 0) {
+		_LOGE("Invalid parameter");
+		return PMINFO_R_EINVAL;
+	}
+
+	*is_all_app_disabled = true;
+
+	sqlite3_snprintf(MAX_QUERY_LEN, query, "select app_disable from package_app_info where package=(select package from package_app_info where app_id=%Q)", appid);
+	ret = sqlite3_prepare_v2(pkgmgr_parser_db, query, strlen(query), &stmt, NULL);
+	if (ret != PMINFO_R_OK) {
+		_LOGE("sqlite3_prepare_v2 failed[%s]\n", query);
+		return PMINFO_R_ERROR;
+	}
+
+	while(1) {
+		ret = sqlite3_step(stmt);
+		if (ret == SQLITE_ROW) {
+			strncpy(disable_value, (const char *)sqlite3_column_text(stmt, 0), BUFSIZE - 1);
+			if (strncmp(disable_value, "false", strlen("false")) == 0) {
+				*is_all_app_disabled = false;
+				goto err;
+			}
+		} else
+			break;
+	}
+
+err:
+	sqlite3_finalize(stmt);
+	return PMINFO_R_OK;
+}
+
+static int __check_app_support_disable_in_db(const char *appid, bool *is_support_disable)
+{
+	char query[MAX_QUERY_LEN] = { '\0' };
+	char support_disable_value[BUFSIZE] = { '\0' };
+	int ret = -1;
+	sqlite3_stmt *stmt = NULL;
+
+	if (appid == NULL || strlen(appid) == 0) {
+		_LOGE("Invalid parameter");
+		return PMINFO_R_EINVAL;
+	}
+
+	sqlite3_snprintf(MAX_QUERY_LEN, query, "select app_support_disable from package_app_info where appid=%Q", appid);
+	ret = sqlite3_prepare_v2(pkgmgr_parser_db, query, strlen(query), &stmt, NULL);
+	if (ret != PMINFO_R_OK) {
+		_LOGE("sqlite3_prepare_v2 failed[%s]\n", query);
+		return PMINFO_R_ERROR;
+	}
+
+	while(1) {
+		ret = sqlite3_step(stmt);
+		if (ret == SQLITE_ROW) {
+			strncpy(support_disable_value, (const char *)sqlite3_column_text(stmt, 0), BUFSIZE - 1);
+			if (strncmp(support_disable_value, "false", strlen("false")) == 0) {
+				_LOGE("app[%s] doesn't support disable\n", appid);
+				*is_support_disable = false;
+				goto err;
+			} else
+				is_support_disable = true;
+		} else
+			break;
+	}
+
+err:
+	sqlite3_finalize(stmt);
+	return PMINFO_R_OK;
 }
 
 API int pkgmgr_parser_initialize_db(uid_t uid)
@@ -2031,6 +2196,236 @@ err:
 API int pkgmgr_parser_delete_manifest_info_from_db(manifest_x *mfx)
 {
 	return pkgmgr_parser_delete_manifest_info_from_usr_db(mfx, GLOBAL_USER);
+}
+
+API int pkgmgr_parser_update_enabled_pkg_info_in_db(const char *pkgid)
+{
+	return pkgmgr_parser_update_enabled_pkg_info_in_usr_db(pkgid, GLOBAL_USER);
+}
+
+API int pkgmgr_parser_update_enabled_pkg_info_in_usr_db(const char *pkgid, uid_t uid)
+{
+	int ret = 0;
+	ret = pkgmgr_parser_check_and_create_db(uid);
+	if (ret == -1) {
+		_LOGD("Failed to open DB\n");
+		return ret;
+	}
+
+	/*Begin transaction*/
+	ret = sqlite3_exec(pkgmgr_parser_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGD("Failed to begin transaction\n");
+		ret = -1;
+		goto err;
+	}
+
+	if (__check_pkg_support_disable_in_db(pkgid) == false) {
+		_LOGE("Package[%s] doesn't support disable/enable\n", pkgid);
+		ret = -1;
+		goto err;
+	}
+
+	_LOGD("Transaction Begin\n");
+	ret = __update_pkg_info_for_disable(pkgid, false);
+	if (ret == -1) {
+		_LOGD("__update_preload_condition_in_db failed. Rollback now\n");
+		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
+		goto err;
+	}
+
+	/*Commit transaction*/
+	ret = sqlite3_exec(pkgmgr_parser_db, "COMMIT", NULL, NULL, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGD("Failed to commit transaction, Rollback now\n");
+		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
+		ret = -1;
+		goto err;
+	}
+	_LOGD("Transaction Commit and End\n");
+err:
+	pkgmgr_parser_close_db();
+	return ret;
+}
+
+API int pkgmgr_parser_update_disabled_pkg_info_in_db(const char *pkgid)
+{
+	return pkgmgr_parser_update_disabled_pkg_info_in_usr_db(pkgid, GLOBAL_USER);
+}
+
+API int pkgmgr_parser_update_disabled_pkg_info_in_usr_db(const char *pkgid, uid_t uid)
+{
+	int ret = 0;
+	ret = pkgmgr_parser_check_and_create_db(uid);
+	if (ret == -1) {
+		_LOGD("Failed to open DB\n");
+		return ret;
+	}
+
+	/*Begin transaction*/
+	ret = sqlite3_exec(pkgmgr_parser_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGD("Failed to begin transaction\n");
+		ret = -1;
+		goto err;
+	}
+
+	if (__check_pkg_support_disable_in_db(pkgid) == false) {
+		_LOGE("Package[%s] doesn't support disable/enable\n", pkgid);
+		ret = -1;
+		goto err;
+	}
+
+	_LOGD("Transaction Begin\n");
+	ret = __update_pkg_info_for_disable(pkgid, true);
+	if (ret == -1) {
+		_LOGD("__update_preload_condition_in_db failed. Rollback now\n");
+		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
+		goto err;
+	}
+
+	/*Commit transaction*/
+	ret = sqlite3_exec(pkgmgr_parser_db, "COMMIT", NULL, NULL, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGD("Failed to commit transaction, Rollback now\n");
+		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
+		ret = -1;
+		goto err;
+	}
+	_LOGD("Transaction Commit and End\n");
+err:
+	pkgmgr_parser_close_db();
+	return ret;
+}
+
+
+API int pkgmgr_parser_update_enabled_app_info_in_db(const char *appid)
+{
+	return pkgmgr_parser_update_enabled_app_info_in_usr_db(appid, GLOBAL_USER);
+}
+
+API int pkgmgr_parser_update_enabled_app_info_in_usr_db(const char *appid, uid_t uid)
+{
+	int ret = 0;
+	ret = pkgmgr_parser_check_and_create_db(uid);
+	bool is_support_disable = true;
+	if (ret == -1) {
+		_LOGD("Failed to open DB\n");
+		return ret;
+	}
+
+	/*Begin transaction*/
+	ret = sqlite3_exec(pkgmgr_parser_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGD("Failed to begin transaction\n");
+		ret = -1;
+		goto err;
+	}
+
+	ret = __check_app_support_disable_in_db(appid, &is_support_disable);
+	if (ret != 0) {
+		_LOGE("Failed to app is_support_disable for app[%s]\n", appid);
+		goto err;
+	}
+
+	if (is_support_disable != true) {
+		_LOGE("App[%s] is not support app disable\n", appid);
+		ret = -1;
+		goto err;
+	}
+
+	_LOGD("Transaction Begin\n");
+	ret = __update_app_info_for_disable(appid, false);
+	if (ret == -1) {
+		_LOGD("__update_preload_condition_in_db failed. Rollback now\n");
+		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
+		goto err;
+	}
+
+	/*Commit transaction*/
+	ret = sqlite3_exec(pkgmgr_parser_db, "COMMIT", NULL, NULL, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGD("Failed to commit transaction, Rollback now\n");
+		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
+		ret = -1;
+		goto err;
+	}
+	_LOGD("Transaction Commit and End\n");
+
+err:
+	pkgmgr_parser_close_db();
+	return ret;
+}
+
+API int pkgmgr_parser_update_disabled_app_info_in_db(const char *appid)
+{
+	return pkgmgr_parser_update_disabled_app_info_in_usr_db(appid, GLOBAL_USER);
+}
+
+API int pkgmgr_parser_update_disabled_app_info_in_usr_db(const char *appid, uid_t uid)
+{
+	int ret = 0;
+	ret = pkgmgr_parser_check_and_create_db(uid);
+	bool is_support_disable = false;
+	bool is_all_app_disabled = false;
+	if (ret == -1) {
+		_LOGD("Failed to open DB\n");
+		return ret;
+	}
+
+	/*Begin transaction*/
+	ret = sqlite3_exec(pkgmgr_parser_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGD("Failed to begin transaction\n");
+		ret = -1;
+		goto err;
+	}
+
+	ret = __check_app_support_disable_in_db(appid, &is_support_disable);
+	if (ret != 0) {
+		_LOGE("Failed to app is_support_disable for app[%s]\n", appid);
+		goto err;
+	}
+
+	if (is_support_disable != true) {
+		_LOGE("App[%s] is not support app disable\n", appid);
+		ret = -1;
+		goto err;
+	}
+
+	_LOGD("Transaction Begin\n");
+	ret = __update_app_info_for_disable(appid, true);
+	if (ret == -1) {
+		_LOGD("__update_preload_condition_in_db failed. Rollback now\n");
+		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
+		goto err;
+	}
+
+	ret = __check_app_disable_status_in_pkg(appid, &is_all_app_disabled);
+	if (ret == -1) {
+		_LOGE("failed to get app's disable status in pkg\n");
+		/* should we rollback all changes even if we can't get additional info about this app and pkg?
+		* or just ignore about this? */
+	} else if (is_all_app_disabled) {
+		ret = __update_disable_pkg_condition_in_db_with_appid(appid, true);
+		if (ret != 0) {
+			_LOGE("failed to set pkg's disable info");
+			/* Should we do nothing even if changing disable status of package has failed? */
+		}
+	}
+
+	/*Commit transaction*/
+	ret = sqlite3_exec(pkgmgr_parser_db, "COMMIT", NULL, NULL, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGD("Failed to commit transaction, Rollback now\n");
+		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
+		ret = -1;
+		goto err;
+	}
+	_LOGD("Transaction Commit and End\n");
+err:
+	pkgmgr_parser_close_db();
+	return ret;
 }
 
 API int pkgmgr_parser_update_preload_info_in_db()

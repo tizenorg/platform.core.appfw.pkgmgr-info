@@ -477,6 +477,129 @@ static int create_desktop_file(char *manifest)
 int pkgmgr_parser_create_desktop_file(manifest_x *mfx);
 int pkgmgr_parser_create_usr_desktop_file(manifest_x *mfx, uid_t uid);
 
+/**
+ * @fn int pkgmgr_parser_update_enabled_pkg_info_in_db(const char *pkgid)
+ * @fn int pkgmgr_parser_update_enabled_pkg_info_in_usr_db(const char *pkgid, uid_t uid)
+ * @brief	This API update information about package disable in DB to "enable"
+ *
+ * @par		This API is for package-manager installer backends.
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in]pkgid	Package ID
+ * @param[in]	uid	the addressee user id of the instruction
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		None
+ * @post		None
+ * @code
+static int enable_pkg(const char *pkgid)
+{
+	int ret = 0;
+	ret = pkgmgr_parser_update_enabled_pkg_info_in_db(pkgid, NULL);
+	if (ret)
+		return -1;
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgr_parser_update_enabled_pkg_info_in_db(const char *pkgid);
+int pkgmgr_parser_update_enabled_pkg_info_in_usr_db(const char *pkgid, uid_t uid);
+
+/**
+ * @fn int pkgmgr_parser_update_disabled_pkg_info_in_db(const char *pkgid)
+ * @fn int pkgmgr_parser_update_disabled_pkg_info_in_usr_db(const char *pkgid, uid_t uid)
+ * @brief	This API update information about package disable in DB to "disable"
+ *
+ * @par		This API is for package-manager installer backends.
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in]pkgid	Package ID
+ * @param[in]	uid	the addressee user id of the instruction
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		None
+ * @post		None
+ * @code
+static int disable_pkg(const char *pkgid)
+{
+	int ret = 0;
+	ret = pkgmgr_parser_update_disabled_pkg_info_in_db(pkgid, NULL);
+	if (ret)
+		return -1;
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgr_parser_update_disabled_pkg_info_in_db(const char *pkgid);
+int pkgmgr_parser_update_disabled_pkg_info_in_usr_db(const char *pkgid, uid_t uid);
+
+/**
+ * @fn int pkgmgr_parser_update_enabled_app_info_in_db(const char *appid)
+ * @fn int pkgmgr_parser_update_enabled_app_info_in_usr_db(const char *appid, uid_t uid)
+ * @brief	This API update information about app disable in DB to "enable"
+ *
+ * @par		This API is for package-manager installer backends.
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in]appid	App ID
+ * @param[in]	uid	the addressee user id of the instruction
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		None
+ * @post		None
+ * @code
+static int enable_app(const char *appid)
+{
+	int ret = 0;
+	ret = pkgmgr_parser_update_enabled_app_info_in_db(appid, NULL);
+	if (ret)
+		return -1;
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgr_parser_update_enabled_app_info_in_usr_db(const char *appid, uid_t uid);
+int pkgmgr_parser_update_enabled_app_info_in_db(const char *appid);
+
+/**
+ * @fn int pkgmgr_parser_update_disabled_app_info_in_db(const char *appid)
+ * @fn int pkgmgr_parser_update_disabled_app_info_in_usr_db(const char *appid, uid_t uid)
+ * @brief	This API update information about app disable in DB to "disable"
+ *
+ * @par		This API is for package-manager installer backends.
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in]appid	App ID
+ * @param[in]	uid	the addressee user id of the instruction
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		None
+ * @post		None
+ * @code
+static int disable_app(const char *appid)
+{
+	int ret = 0;
+	ret = pkgmgr_parser_update_disabled_app_info_in_db(appid, NULL);
+	if (ret)
+		return -1;
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgr_parser_update_disabled_app_info_in_usr_db(const char *appid, uid_t uid);
+int pkgmgr_parser_update_disabled_app_info_in_db(const char *appid);
+
+
+
+
 /** @} */
 #ifdef __cplusplus
 }

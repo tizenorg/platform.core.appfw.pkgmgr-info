@@ -203,7 +203,8 @@ static int _pkginfo_get_list(sqlite3 *db, const char *locale,
 		"  ON package_info.package=package_localized_info.package"
 		"  AND package_localized_info.package_locale=%Q "
 		" LEFT OUTER JOIN package_privilege_info"
-		"  ON package_info.package=package_privilege_info.package";
+		"  ON package_info.package=package_privilege_info.package"
+		" WHERE package_info.package_disable='false'";
 	int ret;
 	char *query;
 	char *query_localized;
@@ -640,7 +641,7 @@ static int _pkginfo_get_package(sqlite3 *db, const char *pkgid,
 		"installed_storage, storeclient_id, mainapp_id, package_url, "
 		"root_path, csc_path, package_nodisplay, package_api_version, "
 		"package_support_disable, package_tep_name "
-		"FROM package_info WHERE package=%Q";
+		"FROM package_info WHERE package=%Q and package_disable='false'";
 	int ret;
 	char *query;
 	sqlite3_stmt *stmt;
