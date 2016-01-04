@@ -477,6 +477,22 @@ static int create_desktop_file(char *manifest)
 int pkgmgr_parser_create_desktop_file(manifest_x *mfx);
 int pkgmgr_parser_create_usr_desktop_file(manifest_x *mfx, uid_t uid);
 
+
+int pkgmgr_parser_update_enabled_pkg_info_in_db(const char *pkgid);
+int pkgmgr_parser_update_enabled_pkg_info_in_usr_db(const char *pkgid, uid_t uid);
+
+int pkgmgr_parser_update_disabled_pkg_info_in_db(const char *pkgid);
+int pkgmgr_parser_update_disabled_pkg_info_in_usr_db(const char *pkgid, uid_t uid);
+
+int pkgmgr_parser_update_enabled_app_info_in_usr_db(const char *appid, uid_t uid);
+int pkgmgr_parser_update_enabled_app_info_in_db(const char *appid);
+
+int pkgmgr_parser_update_disabled_app_info_in_usr_db(const char *appid, uid_t uid);
+int pkgmgr_parser_update_disabled_app_info_in_db(const char *appid);
+
+
+
+
 /** @} */
 #ifdef __cplusplus
 }
