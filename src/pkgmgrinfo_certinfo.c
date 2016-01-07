@@ -463,63 +463,67 @@ API int pkgmgrinfo_set_cert_value(pkgmgrinfo_instcertinfo_h handle, pkgmgrinfo_i
 static int _pkginfo_save_cert_info(sqlite3 *db, const char *pkgid,
 		char *cert_info[])
 {
-	static const char query[] =
-		"INSERT OR REPLACE INTO package_cert_info (package,"
+	static const char query_insert[] =
+		"INSERT INTO package_cert_info (package,"
 		" author_root_cert, author_im_cert, author_signer_cert,"
 		" dist_root_cert, dist_im_cert, dist_signer_cert,"
 		" dist2_root_cert, dist2_im_cert, dist2_signer_cert) "
 		"VALUES(?, "
-		" (COALESCE( "
-		"   (SELECT cert_id FROM package_cert_index_info"
-		"    WHERE cert_info=?),"
-		"   (SELECT author_root_cert FROM package_cert_info"
-		"    WHERE package=?))),"
-		" (COALESCE( "
-		"   (SELECT cert_id FROM package_cert_index_info"
-		"    WHERE cert_info=?),"
-		"   (SELECT author_im_cert FROM package_cert_info"
-		"    WHERE package=?))),"
-		" (COALESCE( "
-		"   (SELECT cert_id FROM package_cert_index_info"
-		"    WHERE cert_info=?),"
-		"   (SELECT author_signer_cert FROM package_cert_info"
-		"    WHERE package=?))),"
-		" (COALESCE( "
-		"   (SELECT cert_id FROM package_cert_index_info"
-		"    WHERE cert_info=?),"
-		"   (SELECT dist_root_cert FROM package_cert_info"
-		"    WHERE package=?))),"
-		" (COALESCE( "
-		"   (SELECT cert_id FROM package_cert_index_info"
-		"    WHERE cert_info=?),"
-		"   (SELECT dist_im_cert FROM package_cert_info"
-		"    WHERE package=?))),"
-		" (COALESCE( "
-		"   (SELECT cert_id FROM package_cert_index_info"
-		"    WHERE cert_info=?),"
-		"   (SELECT dist_signer_cert FROM package_cert_info"
-		"    WHERE package=?))),"
-		" (COALESCE( "
-		"   (SELECT cert_id FROM package_cert_index_info"
-		"    WHERE cert_info=?),"
-		"   (SELECT dist2_root_cert FROM package_cert_info"
-		"    WHERE package=?))),"
-		" (COALESCE( "
-		"   (SELECT cert_id FROM package_cert_index_info"
-		"    WHERE cert_info=?),"
-		"   (SELECT dist2_im_cert FROM package_cert_info"
-		"    WHERE package=?))),"
-		" (COALESCE( "
-		"   (SELECT cert_id FROM package_cert_index_info"
-		"    WHERE cert_info=?),"
-		"   (SELECT dist2_signer_cert FROM package_cert_info"
-		"    WHERE package=?))))";
+		" (SELECT cert_id FROM package_cert_index_info"
+		"  WHERE cert_info=?),"
+		" (SELECT cert_id FROM package_cert_index_info"
+		"  WHERE cert_info=?),"
+		" (SELECT cert_id FROM package_cert_index_info"
+		"  WHERE cert_info=?),"
+		" (SELECT cert_id FROM package_cert_index_info"
+		"  WHERE cert_info=?),"
+		" (SELECT cert_id FROM package_cert_index_info"
+		"  WHERE cert_info=?),"
+		" (SELECT cert_id FROM package_cert_index_info"
+		"  WHERE cert_info=?),"
+		" (SELECT cert_id FROM package_cert_index_info"
+		"  WHERE cert_info=?),"
+		" (SELECT cert_id FROM package_cert_index_info"
+		"  WHERE cert_info=?),"
+		" (SELECT cert_id FROM package_cert_index_info"
+		"  WHERE cert_info=?))";
+	static const char query_update[] =
+		"UPDATE package_cert_info SET "
+		" author_root_cert= "
+		"  (SELECT cert_id FROM package_cert_index_info"
+		"   WHERE cert_info=?),"
+		" author_im_cert= "
+		"  (SELECT cert_id FROM package_cert_index_info"
+		"   WHERE cert_info=?),"
+		" author_signer_cert= "
+		"  (SELECT cert_id FROM package_cert_index_info"
+		"   WHERE cert_info=?),"
+		" dist_root_cert= "
+		"  (SELECT cert_id FROM package_cert_index_info"
+		"   WHERE cert_info=?),"
+		" dist_im_cert= "
+		"  (SELECT cert_id FROM package_cert_index_info"
+		"   WHERE cert_info=?),"
+		" dist_signer_cert= "
+		"  (SELECT cert_id FROM package_cert_index_info"
+		"   WHERE cert_info=?),"
+		" dist2_root_cert= "
+		"  (SELECT cert_id FROM package_cert_index_info"
+		"   WHERE cert_info=?),"
+		"dist2_im_cert= "
+		"  (SELECT cert_id FROM package_cert_index_info"
+		"   WHERE cert_info=?),"
+		"dist2_signer_cert= "
+		"  (SELECT cert_id FROM package_cert_index_info"
+		"   WHERE cert_info=?) "
+		"WHERE package=?";
 	int ret;
 	sqlite3_stmt *stmt;
 	int i;
 	int idx;
 
-	ret = sqlite3_prepare_v2(db, query, strlen(query), &stmt, NULL);
+	ret = sqlite3_prepare_v2(db, query_insert, strlen(query_insert),
+			&stmt, NULL);
 	if (ret != SQLITE_OK) {
 		_LOGE("prepare error: %s", sqlite3_errmsg(db));
 		return PMINFO_R_ERROR;
@@ -528,23 +532,37 @@ static int _pkginfo_save_cert_info(sqlite3 *db, const char *pkgid,
 	idx = 1;
 	sqlite3_bind_text(stmt, idx++, pkgid, -1, SQLITE_STATIC);
 	for (i = 0; i < MAX_CERT_TYPE; i++) {
-		ret = sqlite3_bind_text(stmt, idx++, cert_info[i], -1,
-				SQLITE_STATIC);
-		if (ret != SQLITE_OK) {
-			_LOGE("bind error: %s", sqlite3_errmsg(db));
-			sqlite3_finalize(stmt);
-			return PMINFO_R_ERROR;
-		}
-		ret = sqlite3_bind_text(stmt, idx++, pkgid, -1,
-				SQLITE_STATIC);
-		if (ret != SQLITE_OK) {
+		if (sqlite3_bind_text(stmt, idx++, cert_info[i], -1,
+				SQLITE_STATIC)) {
 			_LOGE("bind error: %s", sqlite3_errmsg(db));
 			sqlite3_finalize(stmt);
 			return PMINFO_R_ERROR;
 		}
 	}
+
 	ret = sqlite3_step(stmt);
 	sqlite3_finalize(stmt);
+	if (ret == SQLITE_CONSTRAINT) {
+		ret = sqlite3_prepare_v2(db, query_update, strlen(query_update),
+				&stmt, NULL);
+		if (ret != SQLITE_OK) {
+			_LOGE("prepare error: %s", sqlite3_errmsg(db));
+			return PMINFO_R_ERROR;
+		}
+		idx = 1;
+		for (i = 0; i < MAX_CERT_TYPE; i++) {
+			if (sqlite3_bind_text(stmt, idx++, cert_info[i], -1,
+					SQLITE_STATIC)) {
+				_LOGE("bind error: %s", sqlite3_errmsg(db));
+				sqlite3_finalize(stmt);
+				return PMINFO_R_ERROR;
+			}
+		}
+		sqlite3_bind_text(stmt, idx++, pkgid, -1, SQLITE_STATIC);
+		ret = sqlite3_step(stmt);
+		sqlite3_finalize(stmt);
+	}
+
 	if (ret != SQLITE_DONE) {
 		_LOGE("step error: %s", sqlite3_errmsg(db));
 		return PMINFO_R_ERROR;
