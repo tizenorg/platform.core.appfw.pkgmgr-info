@@ -64,6 +64,17 @@
 	"BEGIN" \
 	" DELETE FROM package_cert_index_info WHERE cert_id = OLD.cert_id;" \
 	"END;"
+
+#define QUERY_CREATE_TRIGGER_UPDATE_CERT_INFO_FORMAT \
+	"CREATE TRIGGER IF NOT EXISTS update_%s_info " \
+	"AFTER UPDATE ON package_cert_info " \
+	"WHEN (OLD.%s IS NOT NULL) " \
+	"BEGIN" \
+	" UPDATE package_cert_index_info SET" \
+	"  cert_ref_count = cert_ref_count - 1" \
+	" WHERE cert_id = OLD.%s;" \
+	"END;"
+
 __thread db_handle manifest_db;
 __thread db_handle cert_db;
 
@@ -170,6 +181,13 @@ static int __exec_db_query(sqlite3 *db, char *query, sqlite_query_callback callb
 
 int _check_create_cert_db(sqlite3 *certdb)
 {
+	int i;
+	char buf[BUFSIZE];
+	static const char *columns[] = {
+		"author_root_cert", "author_im_cert", "author_signer_cert",
+		"dist_root_cert", "dist_im_cert", "dist_signer_cert",
+		"dist2_root_cert", "dist2_im_cert", "dist2_signer_cert",
+		NULL};
 	int ret = 0;
 	ret = __exec_db_query(certdb, QUERY_CREATE_TABLE_PACKAGE_CERT_INDEX_INFO, NULL, NULL);
 	if (ret < 0)
@@ -181,6 +199,15 @@ int _check_create_cert_db(sqlite3 *certdb)
 	if (ret < 0)
 		return ret;
 	ret = __exec_db_query(certdb, QUERY_CREATE_TRIGGER_UPDATE_CERT_INDEX_INFO, NULL, NULL);
+
+	for (i = 0; columns[i] != NULL; i++) {
+		snprintf(buf, sizeof(buf),
+				QUERY_CREATE_TRIGGER_UPDATE_CERT_INFO_FORMAT,
+				columns[i], columns[i], columns[i], columns[i]);
+		ret = __exec_db_query(certdb, buf, NULL, NULL);
+		if (ret < 0)
+			return ret;
+	}
 	return ret;
 }
 static gid_t _get_gid(const char *name)

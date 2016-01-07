@@ -277,6 +277,16 @@ sqlite3 *pkgmgr_cert_db;
 	" DELETE FROM package_cert_index_info WHERE cert_id = OLD.cert_id;" \
 	"END;"
 
+#define QUERY_CREATE_TRIGGER_UPDATE_CERT_INFO_FORMAT \
+	"CREATE TRIGGER IF NOT EXISTS update_%s_info " \
+	"AFTER UPDATE ON package_cert_info " \
+	"WHEN (OLD.%s IS NOT NULL) " \
+	"BEGIN" \
+	" UPDATE package_cert_index_info SET" \
+	"  cert_ref_count = cert_ref_count - 1" \
+	" WHERE cert_id = OLD.%s;" \
+	"END;"
+
 #define QUERY_CREATE_TABLE_PACKAGE_APP_DATA_CONTROL "create table if not exists package_app_data_control " \
 						"(app_id text not null, " \
 						"providerid text not null, " \
@@ -1549,6 +1559,14 @@ static int __update_preload_condition_in_db()
 API int pkgmgr_parser_initialize_db(uid_t uid)
 {
 	int ret = -1;
+	int i;
+	char query[MAX_QUERY_LEN];
+	static const char *columns[] = {
+		"author_root_cert", "author_im_cert", "author_signer_cert",
+		"dist_root_cert", "dist_im_cert", "dist_signer_cert",
+		"dist2_root_cert", "dist2_im_cert", "dist2_signer_cert",
+		NULL};
+
 	/*Manifest DB*/
 	ret = __initialize_db(pkgmgr_parser_db, QUERY_CREATE_TABLE_PACKAGE_INFO);
 	if (ret == -1) {
@@ -1641,6 +1659,16 @@ API int pkgmgr_parser_initialize_db(uid_t uid)
 	if (ret == -1) {
 		_LOGD("package cert index info DB initialization failed\n");
 		return ret;
+	}
+	for (i = 0; columns[i] != NULL; i++) {
+		snprintf(query, sizeof(query),
+				QUERY_CREATE_TRIGGER_UPDATE_CERT_INFO_FORMAT,
+				columns[i], columns[i], columns[i], columns[i]);
+		ret = __initialize_db(pkgmgr_cert_db, query);
+		if (ret == -1) {
+			_LOGD("package cert index info DB initialization failed\n");
+			return ret;
+		}
 	}
 
 	if( 0 != __parserdb_change_perm(getUserPkgCertDBPathUID(GLOBAL_USER), GLOBAL_USER)) {
