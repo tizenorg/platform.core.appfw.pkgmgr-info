@@ -633,12 +633,14 @@ API int pkgmgrinfo_save_certinfo(const char *pkgid, pkgmgrinfo_instcertinfo_h ha
 	_check_create_cert_db(db);
 
 	if (_pkginfo_save_cert_index_info(db, info->cert_info)) {
-		_LOGE("failed to save cert index info");
+		_LOGE("failed to save cert index info, rollback now");
+		sqlite3_exec(GET_DB(cert_db), "ROLLBACK", NULL, NULL, NULL);
 		sqlite3_close_v2(db);
 		return PMINFO_R_ERROR;
 	}
 	if (_pkginfo_save_cert_info(db, pkgid, info->cert_info)) {
-		_LOGE("failed to save cert info");
+		_LOGE("failed to save cert info, rollback now");
+		sqlite3_exec(GET_DB(cert_db), "ROLLBACK", NULL, NULL, NULL);
 		sqlite3_close_v2(db);
 		return PMINFO_R_ERROR;
 	}
@@ -736,8 +738,12 @@ API int pkgmgrinfo_delete_usr_certinfo(const char *pkgid, uid_t uid)
 		return PMINFO_R_ERROR;
 	}
 
-	if (_pkginfo_delete_certinfo(db, pkgid))
-		_LOGE("failed to delete certinfo of %s", pkgid);
+	if (_pkginfo_delete_certinfo(db, pkgid)) {
+		_LOGE("failed to delete certinfo of %s, rollback now", pkgid);
+		sqlite3_exec(GET_DB(cert_db), "ROLLBACK", NULL, NULL, NULL);
+		sqlite3_close_v2(db);
+		return PMINFO_R_ERROR;
+	}
 
 	ret = sqlite3_exec(db, "COMMIT", NULL, NULL, NULL);
 	if (ret != SQLITE_OK) {
