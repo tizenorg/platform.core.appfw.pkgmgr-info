@@ -103,7 +103,7 @@ struct _appinfo_int_map_t {
 };
 
 static struct _appinfo_int_map_t appinfo_int_prop_map[] = {
-	/*Currently No Fields*/
+	{E_PMINFO_APPINFO_PROP_APP_DISABLE_FOR_USER,		PMINFO_APPINFO_PROP_APP_DISABLE_FOR_USER}
 };
 
 struct _appinfo_bool_map_t {
@@ -357,6 +357,10 @@ void __get_filter_condition(gpointer data, char **condition)
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_SUPPORT_DISABLE:
 		snprintf(buf, MAX_QUERY_LEN, "package_app_info.app_support_disable IN %s", node->value);
+		break;
+	case E_PMINFO_APPINFO_PROP_APP_DISABLE_FOR_USER:
+		snprintf(buf, MAX_QUERY_LEN, "package_app_info.app_id NOT IN "
+				"(SELECT app_id from package_app_disable_for_user WHERE uid='%s')", node->value);
 		break;
 	default:
 		_LOGE("Invalid Property Type\n");
