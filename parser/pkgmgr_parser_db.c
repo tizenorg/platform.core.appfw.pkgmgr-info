@@ -90,7 +90,8 @@ sqlite3 *pkgmgr_cert_db;
 						"package_url text," \
 						"root_path text," \
 						"csc_path text," \
-						"package_support_disable text DEFAULT 'false')"
+						"package_support_disable text DEFAULT 'false', " \
+						"package_disable text DEFAULT 'false')"
 
 #define QUERY_CREATE_TABLE_PACKAGE_LOCALIZED_INFO "create table if not exists package_localized_info " \
 						"(package text not null, " \
@@ -142,6 +143,7 @@ sqlite3 *pkgmgr_cert_db;
 						"app_launch_mode text NOT NULL DEFAULT 'caller', " \
 						"app_ui_gadget text DEFAULT 'false', " \
 						"app_support_disable text DEFAULT 'false', " \
+						"app_disable text DEFAULT 'false', " \
 						"component_type text, " \
 						"package text not null, " \
 						"app_tep_name text, " \
@@ -296,6 +298,11 @@ sqlite3 *pkgmgr_cert_db;
 						"FOREIGN KEY(app_id) " \
 						"REFERENCES package_app_info(app_id) " \
 						"ON DELETE CASCADE)"
+
+#define QUERY_CREATE_TABLE_PACKAGE_APP_DISABLE_FOR_USER "CREATE TABLE IF NOT EXISTS package_app_disable_for_user " \
+						"(app_id text not null, " \
+						"uid text not null, " \
+						"PRIMARY KEY(app_id, uid))"
 
 static int __insert_application_info(manifest_x *mfx);
 static int __insert_application_appcategory_info(manifest_x *mfx);
@@ -1542,6 +1549,36 @@ static int __delete_manifest_info_from_db(manifest_x *mfx, uid_t uid)
 	return 0;
 }
 
+static int __disable_global_app_for_user(const char *appid, uid_t uid)
+{
+	int ret = -1;
+	char query[MAX_QUERY_LEN] = {'\0'};
+
+	sqlite3_snprintf(MAX_QUERY_LEN, query, "INSERT INTO " \
+			"package_app_disable_for_user(app_id, uid) VALUES(%Q, %Q)",
+			appid, (int)uid);
+	ret = __exec_query(query);
+	if (ret == -1)
+		_LOGD("Insert global app disable failed\n");
+
+	return ret;
+}
+
+static int __enable_global_app_for_user(const char *appid, uid_t uid)
+{
+	int ret = -1;
+	char query[MAX_QUERY_LEN] = {'\0'};
+
+	sqlite3_snprintf(MAX_QUERY_LEN, query, "DELETE FROM " \
+			"package_app_disable_for_user WHERE app_id=%Q AND uid=%Q",
+			appid, (int)uid);
+	ret = __exec_query(query);
+	if (ret == -1)
+		_LOGD("Delete global app disable failed\n");
+
+	return ret;
+}
+
 static int __update_preload_condition_in_db()
 {
 	int ret = -1;
@@ -1638,6 +1675,13 @@ API int pkgmgr_parser_initialize_db(uid_t uid)
 		_LOGD("package app data control DB initialization failed\n");
 		return ret;
 	}
+
+	ret = __initialize_db(pkgmgr_parser_db, QUERY_CREATE_TABLE_PACKAGE_APP_DISABLE_FOR_USER);
+	if (ret == -1) {
+		_LOGD("package app disable for user DB initialization failed\n");
+		return ret;
+	}
+
 	/*Cert DB*/
 	/* TODO: refactor this code */
 	ret = __initialize_db(pkgmgr_cert_db, QUERY_CREATE_TABLE_PACKAGE_CERT_INFO);
@@ -2131,4 +2175,46 @@ API int pkgmgr_parser_update_preload_info_in_usr_db(uid_t uid)
 err:
 	pkgmgr_parser_close_db();
 	return ret;
+}
+
+API int pkgmgr_parser_update_global_app_disable_info_in_db(const char *appid, uid_t uid, int is_disable)
+{
+	int ret = -1;
+
+	ret = pkgmgr_parser_check_and_create_db(GLOBAL_USER);
+	if (ret == -1) {
+		_LOGD("Failed to open DB\n");
+		return ret;
+	}
+
+	/*Begin transaction*/
+	ret = sqlite3_exec(pkgmgr_parser_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGD("Failed to begin transaction\n");
+		ret = -1;
+		goto err;
+	}
+	_LOGD("Transaction Begin\n");
+	if (is_disable)
+		ret = __disable_global_app_for_user(appid, uid);
+	else
+		ret = __enable_global_app_for_user(appid, uid);
+	if (ret == -1) {
+		_LOGD("__update_preload_condition_in_db failed. Rollback now\n");
+		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
+		goto err;
+	}
+	/*Commit transaction*/
+	ret = sqlite3_exec(pkgmgr_parser_db, "COMMIT", NULL, NULL, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGD("Failed to commit transaction, Rollback now\n");
+		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
+		ret = -1;
+		goto err;
+	}
+	_LOGD("Transaction Commit and End\n");
+err:
+	pkgmgr_parser_close_db();
+	return ret;
+
 }
