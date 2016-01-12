@@ -90,7 +90,8 @@ sqlite3 *pkgmgr_cert_db;
 						"package_url text," \
 						"root_path text," \
 						"csc_path text," \
-						"package_support_disable text DEFAULT 'false')"
+						"package_support_disable text DEFAULT 'false', " \
+						"package_disable text DEFAULT 'false')"
 
 #define QUERY_CREATE_TABLE_PACKAGE_LOCALIZED_INFO "create table if not exists package_localized_info " \
 						"(package text not null, " \
@@ -142,6 +143,7 @@ sqlite3 *pkgmgr_cert_db;
 						"app_launch_mode text NOT NULL DEFAULT 'caller', " \
 						"app_ui_gadget text DEFAULT 'false', " \
 						"app_support_disable text DEFAULT 'false', " \
+						"app_disable text DEFAULT 'false', " \
 						"component_type text, " \
 						"package text not null, " \
 						"app_tep_name text, " \
@@ -296,6 +298,10 @@ sqlite3 *pkgmgr_cert_db;
 						"FOREIGN KEY(app_id) " \
 						"REFERENCES package_app_info(app_id) " \
 						"ON DELETE CASCADE)"
+
+#define QUERY_CREATE_TABLE_PACKAGE_APP_DISABLE_FOR_USER "CREATE TABLE IF NOT EXISTS package_app_disable_for_user " \
+						"(app_id text not null, " \
+						"uid text not null)"
 
 static int __insert_application_info(manifest_x *mfx);
 static int __insert_application_appcategory_info(manifest_x *mfx);
@@ -1638,6 +1644,13 @@ API int pkgmgr_parser_initialize_db(uid_t uid)
 		_LOGD("package app data control DB initialization failed\n");
 		return ret;
 	}
+
+	ret = __initialize_db(pkgmgr_parser_db, QUERY_CREATE_TABLE_PACKAGE_APP_DISABLE_FOR_USER);
+	if (ret == -1) {
+		_LOGD("package app disable for user DB initialization failed\n");
+		return ret;
+	}
+
 	/*Cert DB*/
 	/* TODO: refactor this code */
 	ret = __initialize_db(pkgmgr_cert_db, QUERY_CREATE_TABLE_PACKAGE_CERT_INFO);
