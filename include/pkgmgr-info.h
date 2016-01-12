@@ -140,6 +140,9 @@ extern "C" {
  /** String property for filtering based on app info*/
 #define	PMINFO_APPINFO_PROP_APP_METADATA_VALUE	"PMINFO_APPINFO_PROP_APP_METADATA_VALUE"
 
+ /** Integer property for filtering app disabled by user*/
+#define	PMINFO_APPINFO_PROP_APP_DISABLE_FOR_USER	"PMINFO_APPINFO_PROP_APP_DISABLE_FOR_USER_VALUE"
+
  /** Boolean property for filtering based on app info*/
 #define	PMINFO_APPINFO_PROP_APP_NODISPLAY		"PMINFO_APPINFO_PROP_APP_NODISPLAY"
  /** Boolean property for filtering based on app info*/
