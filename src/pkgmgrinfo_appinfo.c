@@ -562,7 +562,7 @@ static int _appinfo_get_application(sqlite3 *db, const char *appid,
 		"app_support_disable, "
 		"component_type, package, app_process_pool, app_installed_storage, "
 		"app_background_category "
-		"FROM package_app_info WHERE app_id=%Q";
+		"FROM package_app_info WHERE app_id=%Q AND app_disable='false'";
 	int ret;
 	char *query;
 	sqlite3_stmt *stmt;
@@ -819,6 +819,13 @@ API int pkgmgrinfo_appinfo_get_usr_list(pkgmgrinfo_pkginfo_h handle,
 		return PMINFO_R_ERROR;
 	}
 
+	if (uid == GLOBAL_USER) {
+		if (pkgmgrinfo_appinfo_filter_add_int(filter,
+					PMINFO_APPINFO_PROP_APP_DISABLE_FOR_USER, (int)getuid())) {
+			pkgmgrinfo_appinfo_filter_destroy(filter);
+			return PMINFO_R_ERROR;
+		}
+	}
 
 	switch (component) {
 	case PMINFO_UI_APP:
