@@ -88,7 +88,6 @@ cp LICENSE %{buildroot}/usr/share/license/%{name}-parser
 %manifest %{name}.manifest
 %defattr(-,root,root,-)
 %{_libdir}/libpkgmgr_parser.so.*
-%config %{_sysconfdir}/package-manager/preload/preload_list.txt
 %config %{_sysconfdir}/package-manager/preload/manifest.xsd
 %config %{_sysconfdir}/package-manager/preload/xml.xsd
 %config %{_sysconfdir}/package-manager/preload/res.xsd

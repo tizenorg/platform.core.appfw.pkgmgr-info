@@ -54,7 +54,6 @@ target_link_libraries(pkgmgr_parser ${parser_pkgs_LDFLAGS})
 
 ### Create pc file
 configure_file(pkgmgr-parser.pc.in ${CMAKE_CURRENT_BINARY_DIR}/pkgmgr-parser.pc @ONLY)
-configure_file(preload_list.txt.in preload_list.txt @ONLY)
 configure_file(manifest.xsd.in manifest.xsd @ONLY)
 configure_file(xml.xsd.in xml.xsd @ONLY)
 configure_file(res.xsd.in res.xsd @ONLY)
@@ -77,7 +76,6 @@ INSTALL(FILES
 		${CMAKE_CURRENT_BINARY_DIR}/pkgmgr-parser.pc
 		DESTINATION ${LIB_INSTALL_DIR}/pkgconfig)
 
-INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/preload_list.txt DESTINATION ${SYSCONFDIR}/package-manager/preload/)
 INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/manifest.xsd DESTINATION ${SYSCONFDIR}/package-manager/preload/)
 INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/xml.xsd DESTINATION ${SYSCONFDIR}/package-manager/preload/)
 INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/res.xsd DESTINATION ${SYSCONFDIR}/package-manager/preload/)
