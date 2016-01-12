@@ -1957,72 +1957,6 @@ END:
 	return ret;
 }
 
-#define PRELOAD_PACKAGE_LIST SYSCONFDIR "/package-manager/preload/preload_list.txt"
-static int __add_preload_info(manifest_x * mfx, const char *manifest, uid_t uid)
-{
-	FILE *fp = NULL;
-	char buffer[1024] = { 0 };
-	int state = 0;
-
-	if(strstr(manifest, getUserManifestPath(uid))) {
-		free((void *)mfx->readonly);
-		mfx->readonly = strdup("True");
-
-		free((void *)mfx->preload);
-		mfx->preload = strdup("True");
-
-		free((void *)mfx->removable);
-		mfx->removable = strdup("False");
-
-		free((void *)mfx->system);
-		mfx->system = strdup("True");
-
-		return 0;
-	}
-
-	fp = fopen(PRELOAD_PACKAGE_LIST, "r");
-	if (fp == NULL) {
-		_LOGE("no preload list\n");
-		return -1;
-	}
-
-	while (fgets(buffer, sizeof(buffer), fp) != NULL) {
-		if (buffer[0] == '#') {
-			if(strcasestr(buffer, "RW_NORM"))
-				state = 2;
-			else if(strcasestr(buffer, "RW_RM"))
-				state = 3;
-			else
-				continue;
-		}
-
-		__str_trim(buffer);
-
-		if(!strcmp(mfx->package, buffer)) {
-			free((void *)mfx->preload);
-			mfx->preload = strdup("True");
-			if(state == 2){
-				free((void *)mfx->readonly);
-				mfx->readonly = strdup("False");
-				free((void *)mfx->removable);
-				mfx->removable = strdup("False");
-			} else if(state == 3){
-				free((void *)mfx->readonly);
-				mfx->readonly = strdup("False");
-				free((void *)mfx->removable);
-				mfx->removable = strdup("True");
-			}
-		}
-
-		memset(buffer, 0x00, sizeof(buffer));
-	}
-
-	if (fp != NULL)
-		fclose(fp);
-
-	return 0;
-}
-
 static int __check_preload_updated(manifest_x * mfx, const char *manifest, uid_t uid)
 {
 	if (!strstr(manifest, getUserManifestPath(uid))) {
@@ -2033,51 +1967,6 @@ static int __check_preload_updated(manifest_x * mfx, const char *manifest, uid_t
 	}
 
 	return 0;
-}
-
-
-API int pkgmgr_parser_preload_package_type(const char *package)
-{
-	FILE *fp = NULL;
-	char buffer[1024] = { 0 };
-	int state = 0;
-	int ret = PM_PRELOAD_NONE;
-
-	fp = fopen(PRELOAD_PACKAGE_LIST, "r");
-	if (fp == NULL) {
-		_LOGE("no preload list\n");
-		return -1;
-	}
-
-	while (fgets(buffer, sizeof(buffer), fp) != NULL) {
-		if (buffer[0] == '#') {
-			if(strcasestr(buffer, "RW_NORM"))
-				state = 2;
-			else if(strcasestr(buffer, "RW_RM"))
-				state = 3;
-			else
-				continue;
-		}
-
-		__str_trim(buffer);
-
-		if(!strcmp(package, buffer)) {
-			if(state == 2){
-				ret = PM_PRELOAD_RW_NORM;
-				break;
-			} else if(state == 3){
-				ret = PM_PRELOAD_RW_RM;
-				break;
-			}
-		}
-
-		memset(buffer, 0x00, sizeof(buffer));
-	}
-
-	if (fp != NULL)
-		fclose(fp);
-
-	return ret;
 }
 
 API int pkgmgr_parser_create_desktop_file(manifest_x *mfx)
@@ -2515,9 +2404,6 @@ API int pkgmgr_parser_parse_manifest_for_uninstallation(const char *manifest, ch
 	_LOGD("Parsing Finished\n");
 
 	__ps_process_tag_parser(mfx, manifest, ACTION_UNINSTALL);
-
-	__add_preload_info(mfx, manifest, GLOBAL_USER);
-	_LOGD("Added preload infomation\n");
 
 	ret = __ps_process_metadata_parser(mfx, ACTION_UNINSTALL);
 	if (ret == -1)
