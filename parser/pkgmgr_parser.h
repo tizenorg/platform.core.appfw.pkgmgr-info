@@ -70,26 +70,6 @@ enum {
 };
 
 /**
- * @brief Preload application type
- */
-enum {
-	PM_PRELOAD_NONE,			/**< not preload */
-	PM_PRELOAD_RW_NORM,			/**< not removable */
-	PM_PRELOAD_RW_RM			/**< removable */
-};
-
-/**
- * @fn int pkgmgr_parser_preload_package_type(const char *package)
- * @brief	This API gets type of preload that package is expected to be
- *
- * @par		This API is for package-manager installer backends.
- *
- * @param[in]	package	pointer to package ID
- * @return	PM_PRELOAD defining what type of preload package it should be, -1 on failure
- */
-int pkgmgr_parser_preload_package_type(const char *package);
-
-/**
  * @fn char *pkgmgr_parser_get_manifest_file(const char *pkgid)
  * @brief	This API gets the manifest file of the package.
  *

@@ -43,6 +43,8 @@
       <xs:attribute name="support-disable" type="xs:boolean"/>
       <xs:attribute name="api-version" type="xs:string"/>
       <xs:attribute name="backend-installer" type="xs:string"/>
+      <xs:attribute name="preload" type="xs:boolean"/>
+      <xs:attribute name="preload-removable" type="xs:boolean"/>
       <xs:anyAttribute namespace="##any" processContents="lax"/>
     </xs:complexType>
   </xs:element>
