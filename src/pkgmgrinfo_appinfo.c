@@ -562,22 +562,17 @@ static int _appinfo_get_application(sqlite3 *db, const char *appid,
 		"app_support_disable, "
 		"component_type, package, app_process_pool, app_installed_storage, "
 		"app_background_category "
-		"FROM package_app_info WHERE app_id=%Q";
+		"FROM package_app_info WHERE app_id='%s' AND app_disable='false' "
+		"AND app_id NOT IN "
+		"(SELECT app_id from package_app_disable_for_user WHERE uid='%d')";
 	int ret;
-	char *query;
+	char query[MAX_QUERY_LEN] = { '\0' };
 	sqlite3_stmt *stmt;
 	int idx;
 	application_x *info;
 	char *bg_category_str = NULL;
-
-	query = sqlite3_mprintf(query_raw, appid);
-	if (query == NULL) {
-		LOGE("out of memory");
-		return PMINFO_R_ERROR;
-	}
-
+	snprintf(query, MAX_QUERY_LEN - 1, query_raw, appid, (int)getuid());
 	ret = sqlite3_prepare_v2(db, query, strlen(query), &stmt, NULL);
-	sqlite3_free(query);
 	if (ret != SQLITE_OK) {
 		LOGE("prepare failed: %s", sqlite3_errmsg(db));
 		return PMINFO_R_ERROR;
@@ -819,6 +814,13 @@ API int pkgmgrinfo_appinfo_get_usr_list(pkgmgrinfo_pkginfo_h handle,
 		return PMINFO_R_ERROR;
 	}
 
+	if (uid == GLOBAL_USER) {
+		if (pkgmgrinfo_appinfo_filter_add_int(filter,
+					PMINFO_APPINFO_PROP_APP_DISABLE_FOR_USER, (int)getuid())) {
+			pkgmgrinfo_appinfo_filter_destroy(filter);
+			return PMINFO_R_ERROR;
+		}
+	}
 
 	switch (component) {
 	case PMINFO_UI_APP:
