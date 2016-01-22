@@ -786,6 +786,41 @@ static int _appinfo_get_filtered_foreach_appinfo(uid_t uid,
 	return PMINFO_R_OK;
 }
 
+API int pkgmgrinfo_appinfo_get_clone(pkgmgrinfo_appinfo_h *clone,
+		pkgmgrinfo_appinfo_h handle)
+{
+	pkgmgr_appinfo_x *info;
+	pkgmgr_appinfo_x *temp = (pkgmgr_appinfo_x *)handle;
+
+	if (handle == NULL)
+		return PMINFO_R_EINVAL;
+
+	info = calloc(1, sizeof(pkgmgr_appinfo_x));
+	if (info == NULL) {
+		LOGE("memory alloc failed");
+		return PMINFO_R_ERROR;
+	}
+
+	info->package = strdup(temp->package);
+	info->locale = strdup(temp->locale);
+	info->app_component = temp->app_component;
+
+	info->app_info = calloc(1, sizeof(application_x));
+	if (info == NULL) {
+		LOGE("memory alloc failed");
+		free(info->package);
+		free(info->locale);
+		free(info);
+		return PMINFO_R_ERROR;
+	}
+
+	memcpy(info->app_info, temp->app_info, sizeof(application_x));
+
+	*clone = info;
+
+	return PMINFO_R_OK;
+}
+
 API int pkgmgrinfo_appinfo_get_usr_list(pkgmgrinfo_pkginfo_h handle,
 		pkgmgrinfo_app_component component,
 		pkgmgrinfo_app_list_cb app_func, void *user_data, uid_t uid)
@@ -796,7 +831,7 @@ API int pkgmgrinfo_appinfo_get_usr_list(pkgmgrinfo_pkginfo_h handle,
 	const char *comp_str = NULL;
 
 	if (handle == NULL || app_func == NULL) {
-		LOGE("invalied parameter");
+		LOGE("invalid parameter");
 		return PMINFO_R_EINVAL;
 	}
 
