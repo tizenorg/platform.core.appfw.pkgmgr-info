@@ -128,6 +128,7 @@ typedef struct application_x {
 	const char *ambient_support;	/*attr, default: "false"*/
 	const char *alias_appid;	/*attr*/
 	const char *effective_appid;	/*attr*/
+	const char *package_type;	/*set from package_x*/
 	GList *label;	/*element*/
 	GList *icon;	/*element*/
 	GList *image;	/*element*/

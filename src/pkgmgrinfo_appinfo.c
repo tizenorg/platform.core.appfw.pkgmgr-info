@@ -561,7 +561,7 @@ static int _appinfo_get_application(sqlite3 *db, const char *appid,
 		"app_submode_mainid, app_launch_mode, app_ui_gadget, "
 		"app_support_disable, "
 		"component_type, package, app_process_pool, app_installed_storage, "
-		"app_background_category "
+		"app_background_category, app_package_type "
 		"FROM package_app_info WHERE app_id='%s' AND app_disable='false' "
 		"AND app_id NOT IN "
 		"(SELECT app_id from package_app_disable_for_user WHERE uid='%d')";
@@ -626,6 +626,7 @@ static int _appinfo_get_application(sqlite3 *db, const char *appid,
 	_save_column_str(stmt, idx++, &info->process_pool);
 	_save_column_str(stmt, idx++, &info->installed_storage);
 	_save_column_str(stmt, idx++, &bg_category_str);
+	_save_column_str(stmt, idx++, &info->package_type);
 
 	info->background_category = __get_background_category(bg_category_str);
 
@@ -928,6 +929,17 @@ API int pkgmgrinfo_appinfo_get_pkgid(pkgmgrinfo_appinfo_h handle, char **pkgid)
 		return PMINFO_R_ERROR;
 
 	*pkgid = (char *)info->package;
+
+	return PMINFO_R_OK;
+}
+
+API int pkgmgrinfo_appinfo_get_pkgtype(pkgmgrinfo_appinfo_h  handle, char **pkgtype)
+{
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
+	retvm_if(pkgtype == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
+	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
+
+	*pkgtype = (char *)info->app_info->package_type;
 
 	return PMINFO_R_OK;
 }

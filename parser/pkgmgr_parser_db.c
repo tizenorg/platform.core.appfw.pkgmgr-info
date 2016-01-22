@@ -144,6 +144,7 @@ sqlite3 *pkgmgr_cert_db;
 						"app_ui_gadget text DEFAULT 'false', " \
 						"app_support_disable text DEFAULT 'false', " \
 						"app_disable text DEFAULT 'false', " \
+						"app_package_type text DEFAULT 'tpk', " \
 						"component_type text, " \
 						"package text not null, " \
 						"app_tep_name text, " \
@@ -917,6 +918,12 @@ static int __insert_application_info(manifest_x *mfx)
 	int ret = -1;
 	int background_value = 0;
 	char query[MAX_QUERY_LEN] = {'\0'};
+	char *type = NULL;
+
+	if (mfx->type)
+		type = strdup(mfx->type);
+	else
+		type = strdup("tpk");
 
 	for (tmp = mfx->application; tmp; tmp = tmp->next) {
 		app = (application_x *)tmp->data;
@@ -937,7 +944,7 @@ static int __insert_application_info(manifest_x *mfx)
 			"app_indicatordisplay, app_portraitimg, app_landscapeimg, app_guestmodevisibility, app_permissiontype, " \
 			"app_preload, app_submode, app_submode_mainid, app_installed_storage, app_process_pool, " \
 			"app_launch_mode, app_ui_gadget, app_support_disable, component_type, package, " \
-			"app_tep_name, app_background_category) " \
+			"app_tep_name, app_background_category, app_package_type) " \
 			"values(" \
 			"'%s', '%s', '%s', '%s', '%s', " \
 			"'%s', '%s', '%s', '%s', '%s', " \
@@ -945,7 +952,7 @@ static int __insert_application_info(manifest_x *mfx)
 			"'%s', '%s', '%s', '%s', '%s', " \
 			"'%s', '%s', '%s', '%s', '%s', " \
 			"'%s', '%s', '%s', '%s', '%s', " \
-			"'%s', '%d')", \
+			"'%s', '%d', '%s')", \
 			app->appid, app->component_type, app->exec, app->nodisplay, app->type,
 			app->onboot, app->multiple, app->autorestart, app->taskmanage, app->enabled,
 			app->hwacceleration, app->screenreader, app->mainapp, __get_str(app->recentimage), app->launchcondition,
@@ -953,15 +960,21 @@ static int __insert_application_info(manifest_x *mfx)
 			app->guestmode_visibility, app->permission_type,
 			mfx->preload, app->submode, __get_str(app->submode_mainid), mfx->installed_storage, app->process_pool,
 			app->launch_mode, app->ui_gadget, mfx->support_disable, app->component_type, mfx->package,
-			__get_str(mfx->tep_name), background_value);
+			__get_str(mfx->tep_name), background_value, type);
 
 		ret = __exec_query(query);
 		if (ret == -1) {
 			_LOGD("Package UiApp Info DB Insert Failed\n");
+			if (type)
+				free(type);
 			return -1;
 		}
 		memset(query, '\0', MAX_QUERY_LEN);
 	}
+
+	if (type)
+		free(type);
+
 	return 0;
 }
 
