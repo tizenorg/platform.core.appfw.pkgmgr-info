@@ -787,6 +787,117 @@ static int _appinfo_get_filtered_foreach_appinfo(uid_t uid,
 	return PMINFO_R_OK;
 }
 
+API int pkgmgrinfo_appinfo_get_clone(pkgmgrinfo_appinfo_h *clone,
+		pkgmgrinfo_appinfo_h handle)
+{
+	pkgmgr_appinfo_x *info;
+	pkgmgr_appinfo_x *temp = (pkgmgr_appinfo_x *)handle;
+
+	if (handle == NULL)
+		return PMINFO_R_EINVAL;
+
+	info = calloc(1, sizeof(pkgmgr_appinfo_x));
+	if (info == NULL) {
+		LOGE("memory alloc failed");
+		return PMINFO_R_ERROR;
+	}
+
+	if (temp->package != NULL)
+		info->package = strdup(temp->package);
+	if (temp->locale != NULL)
+		info->locale = strdup(temp->locale);
+
+	info->app_component = temp->app_component;
+
+	info->app_info = calloc(1, sizeof(application_x));
+	if (info == NULL) {
+		LOGE("memory alloc failed");
+		free(info->package);
+		free(info->locale);
+		free(info);
+		return PMINFO_R_ERROR;
+	}
+
+	if (temp->app_info->appid != NULL)
+		info->app_info->appid = strdup(temp->app_info->appid);
+	if (temp->app_info->exec != NULL)
+		info->app_info->exec = strdup(temp->app_info->exec);
+	if (temp->app_info->nodisplay != NULL)
+		info->app_info->nodisplay = strdup(temp->app_info->nodisplay);
+	if (temp->app_info->multiple != NULL)
+		info->app_info->multiple = strdup(temp->app_info->multiple);
+	if (temp->app_info->taskmanage != NULL)
+		info->app_info->taskmanage = strdup(temp->app_info->taskmanage);
+	if (temp->app_info->enabled != NULL)
+		info->app_info->enabled = strdup(temp->app_info->enabled);
+	if (temp->app_info->type != NULL)
+		info->app_info->type = strdup(temp->app_info->type);
+	if (temp->app_info->categories != NULL)
+		info->app_info->categories = strdup(temp->app_info->categories);
+	if (temp->app_info->extraid != NULL)
+		info->app_info->extraid = strdup(temp->app_info->extraid);
+	if (temp->app_info->hwacceleration != NULL)
+		info->app_info->hwacceleration = strdup(temp->app_info->hwacceleration);
+	if (temp->app_info->screenreader != NULL)
+		info->app_info->screenreader = strdup(temp->app_info->screenreader);
+	if (temp->app_info->mainapp != NULL)
+		info->app_info->mainapp = strdup(temp->app_info->mainapp);
+	if (temp->app_info->package != NULL)
+		info->app_info->package = strdup(temp->app_info->package);
+	if (temp->app_info->recentimage != NULL)
+		info->app_info->recentimage = strdup(temp->app_info->recentimage);
+	if (temp->app_info->launchcondition != NULL)
+		info->app_info->launchcondition = strdup(temp->app_info->launchcondition);
+	if (temp->app_info->indicatordisplay != NULL)
+		info->app_info->indicatordisplay = strdup(temp->app_info->indicatordisplay);
+	if (temp->app_info->portraitimg != NULL)
+		info->app_info->portraitimg = strdup(temp->app_info->portraitimg);
+	if (temp->app_info->landscapeimg != NULL)
+		info->app_info->landscapeimg = strdup(temp->app_info->landscapeimg);
+	if (temp->app_info->effectimage_type != NULL)
+		info->app_info->effectimage_type = strdup(temp->app_info->effectimage_type);
+	if (temp->app_info->guestmode_visibility != NULL)
+		info->app_info->guestmode_visibility = strdup(temp->app_info->guestmode_visibility);
+	if (temp->app_info->component != NULL)
+		info->app_info->component = strdup(temp->app_info->component);
+	if (temp->app_info->permission_type != NULL)
+		info->app_info->permission_type = strdup(temp->app_info->permission_type);
+	if (temp->app_info->component_type != NULL)
+		info->app_info->component_type = strdup(temp->app_info->component_type);
+	if (temp->app_info->preload != NULL)
+		info->app_info->preload = strdup(temp->app_info->preload);
+	if (temp->app_info->submode != NULL)
+		info->app_info->submode = strdup(temp->app_info->submode);
+	if (temp->app_info->submode_mainid != NULL)
+		info->app_info->submode_mainid = strdup(temp->app_info->submode_mainid);
+	if (temp->app_info->process_pool != NULL)
+		info->app_info->process_pool = strdup(temp->app_info->process_pool);
+	if (temp->app_info->installed_storage != NULL)
+		info->app_info->installed_storage = strdup(temp->app_info->installed_storage);
+	if (temp->app_info->autorestart != NULL)
+		info->app_info->autorestart = strdup(temp->app_info->autorestart);
+	if (temp->app_info->onboot != NULL)
+		info->app_info->onboot = strdup(temp->app_info->onboot);
+	if (temp->app_info->support_disable != NULL)
+		info->app_info->support_disable = strdup(temp->app_info->support_disable);
+	if (temp->app_info->ui_gadget != NULL)
+		info->app_info->ui_gadget = strdup(temp->app_info->ui_gadget);
+	if (temp->app_info->launch_mode != NULL)
+		info->app_info->launch_mode = strdup(temp->app_info->launch_mode);
+	if (temp->app_info->ambient_support != NULL)
+		info->app_info->ambient_support = strdup(temp->app_info->ambient_support);
+	if (temp->app_info->alias_appid != NULL)
+		info->app_info->alias_appid = strdup(temp->app_info->alias_appid);
+	if (temp->app_info->effective_appid != NULL)
+		info->app_info->effective_appid = strdup(temp->app_info->effective_appid);
+
+	/* To do - copy GList */
+
+	*clone = info;
+
+	return PMINFO_R_OK;
+}
+
 API int pkgmgrinfo_appinfo_get_usr_list(pkgmgrinfo_pkginfo_h handle,
 		pkgmgrinfo_app_component component,
 		pkgmgrinfo_app_list_cb app_func, void *user_data, uid_t uid)
@@ -797,7 +908,7 @@ API int pkgmgrinfo_appinfo_get_usr_list(pkgmgrinfo_pkginfo_h handle,
 	const char *comp_str = NULL;
 
 	if (handle == NULL || app_func == NULL) {
-		LOGE("invalied parameter");
+		LOGE("invalid parameter");
 		return PMINFO_R_EINVAL;
 	}
 
