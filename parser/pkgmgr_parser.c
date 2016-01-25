@@ -2137,7 +2137,6 @@ API int pkgmgr_parser_process_manifest_x_for_installation(manifest_x* mfx, const
 	retvm_if(ret == PMINFO_R_ERROR, PMINFO_R_ERROR, "DB Insert failed");
 	_LOGD("DB Insert Success\n");
 
-	__ps_process_tag_parser(mfx, manifest, ACTION_INSTALL);
 	ret = __ps_process_metadata_parser(mfx, ACTION_INSTALL);
 	if (ret == -1)
 		_LOGD("Creating metadata parser failed\n");
@@ -2161,7 +2160,6 @@ API int pkgmgr_parser_process_usr_manifest_x_for_installation(manifest_x* mfx, c
 	retvm_if(ret == PMINFO_R_ERROR, PMINFO_R_ERROR, "DB Insert failed");
 	_LOGD("DB Insert Success\n");
 
-	__ps_process_tag_parser(mfx, manifest, ACTION_INSTALL);
 	ret = __ps_process_metadata_parser(mfx, ACTION_INSTALL);
 	if (ret == -1)
 		_LOGD("Creating metadata parser failed\n");
@@ -2346,7 +2344,6 @@ API int pkgmgr_parser_process_manifest_x_for_upgrade(manifest_x* mfx, const char
 	retvm_if(ret == PMINFO_R_ERROR, PMINFO_R_ERROR, "DB Insert failed");
 	_LOGD("DB Update Success\n");
 
-	__ps_process_tag_parser(mfx, manifest, ACTION_UPGRADE);
 	ret = __ps_process_metadata_parser(mfx, ACTION_UPGRADE);
 	if (ret == -1){
 		_LOGD("Upgrade metadata parser failed\n");
@@ -2377,7 +2374,6 @@ API int pkgmgr_parser_process_usr_manifest_x_for_upgrade(manifest_x* mfx, const 
 	retvm_if(ret == PMINFO_R_ERROR, PMINFO_R_ERROR, "DB Insert failed");
 	_LOGD("DB Update Success\n");
 
-	__ps_process_tag_parser(mfx, manifest, ACTION_UPGRADE);
 	ret = __ps_process_metadata_parser(mfx, ACTION_UPGRADE);
 	if (ret == -1)
 		_LOGD("Upgrade metadata parser failed\n");
@@ -2476,7 +2472,6 @@ API int pkgmgr_parser_process_manifest_x_for_uninstallation(manifest_x* mfx, con
 
 	int ret = -1;
 	xmlInitParser();
-	__ps_process_tag_parser(mfx, manifest, ACTION_UNINSTALL);
 
 	ret = __ps_process_metadata_parser(mfx, ACTION_UNINSTALL);
 	if (ret == -1)
@@ -2503,8 +2498,6 @@ API int pkgmgr_parser_process_usr_manifest_x_for_uninstallation(manifest_x* mfx,
 
 	int ret = -1;
 	xmlInitParser();
-
-	__ps_process_tag_parser(mfx, manifest, ACTION_UNINSTALL);
 
 	ret = __ps_process_metadata_parser(mfx, ACTION_UNINSTALL);
 	if (ret == -1)
