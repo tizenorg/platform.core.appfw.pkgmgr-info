@@ -28,10 +28,8 @@ static bool _get_bool_value(const char *str)
 static void __cleanup_appinfo(pkgmgr_appinfo_x *data)
 {
 	pkgmgr_appinfo_x *info = data;
-	pkgmgr_appinfo_x *tmp;
 
-	while (info != NULL) {
-		tmp = info->next;
+	if (info != NULL) {
 		if (info->package)
 			free((void *)info->package);
 		if (info->locale)
@@ -39,7 +37,6 @@ static void __cleanup_appinfo(pkgmgr_appinfo_x *data)
 
 		pkgmgrinfo_basic_free_application(info->app_info);
 		free((void *)info);
-		info = tmp;
 	}
 	return;
 }
@@ -258,7 +255,7 @@ static void _appinfo_modify_icon(const char *appid, const char **icon)
 	char buf[PKG_VALUE_STRING_LEN_MAX];
 	const char *tmp;
 
-	if (*icon == NULL || (*icon)[0] == '/' || !strcasecmp(*icon, "(null)"))
+	if (*icon == NULL || (*icon)[0] == '/' || !strcasecmp(*icon, ""))
 		return;
 
 	tmp = *icon;
@@ -978,7 +975,7 @@ API int pkgmgrinfo_appinfo_get_icon(pkgmgrinfo_appinfo_h handle, char **icon)
 	for (tmp = info->app_info->icon; tmp; tmp = tmp->next) {
 		ptr = (icon_x *)tmp->data;
 		if (ptr == NULL || ptr->text == NULL || ptr->lang == NULL ||
-				!strcasecmp(ptr->text, "(null)") ||
+				!strcasecmp(ptr->text, "") ||
 				strcmp(ptr->lang, locale))
 			continue;
 		*icon = (char *)ptr->text;
