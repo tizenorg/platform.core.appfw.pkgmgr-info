@@ -1562,13 +1562,41 @@ static int __delete_manifest_info_from_db(manifest_x *mfx, uid_t uid)
 	return 0;
 }
 
+static int __disable_app(const char *appid)
+{
+	int ret = -1;
+	char query[MAX_QUERY_LEN] = {'\0'};
+	sqlite3_snprintf(MAX_QUERY_LEN, query,
+			"UPDATE package_app_info set app_disable='true' where app_id=%Q",
+			appid);
+	ret = __exec_query(query);
+	if (ret == -1)
+		_LOGD("Insert global app disable failed\n");
+
+	return ret;
+}
+
+static int __enable_app(const char *appid)
+{
+	int ret = -1;
+	char query[MAX_QUERY_LEN] = {'\0'};
+	sqlite3_snprintf(MAX_QUERY_LEN, query,
+			"UPDATE package_app_info set app_disable='false' where app_id=%Q",
+			appid);
+	ret = __exec_query(query);
+	if (ret == -1)
+		_LOGD("Insert global app disable failed\n");
+
+	return ret;
+}
+
 static int __disable_global_app_for_user(const char *appid, uid_t uid)
 {
 	int ret = -1;
 	char query[MAX_QUERY_LEN] = {'\0'};
 
 	sqlite3_snprintf(MAX_QUERY_LEN, query, "INSERT INTO " \
-			"package_app_disable_for_user(app_id, uid) VALUES(%Q, %Q)",
+			"package_app_disable_for_user(app_id, uid) VALUES(%Q, '%d')",
 			appid, (int)uid);
 	ret = __exec_query(query);
 	if (ret == -1)
@@ -1583,7 +1611,7 @@ static int __enable_global_app_for_user(const char *appid, uid_t uid)
 	char query[MAX_QUERY_LEN] = {'\0'};
 
 	sqlite3_snprintf(MAX_QUERY_LEN, query, "DELETE FROM " \
-			"package_app_disable_for_user WHERE app_id=%Q AND uid=%Q",
+			"package_app_disable_for_user WHERE app_id=%Q AND uid='%d'",
 			appid, (int)uid);
 	ret = __exec_query(query);
 	if (ret == -1)
@@ -2213,7 +2241,49 @@ API int pkgmgr_parser_update_global_app_disable_info_in_db(const char *appid, ui
 	else
 		ret = __enable_global_app_for_user(appid, uid);
 	if (ret == -1) {
-		_LOGD("__update_preload_condition_in_db failed. Rollback now\n");
+		_LOGD("__update_global_app_disable_condition_in_db failed. Rollback now\n");
+		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
+		goto err;
+	}
+	/*Commit transaction*/
+	ret = sqlite3_exec(pkgmgr_parser_db, "COMMIT", NULL, NULL, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGD("Failed to commit transaction, Rollback now\n");
+		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
+		ret = -1;
+		goto err;
+	}
+	_LOGD("Transaction Commit and End\n");
+err:
+	pkgmgr_parser_close_db();
+	return ret;
+
+}
+
+API int pkgmgr_parser_update_app_disable_info_in_db(const char *appid, uid_t uid, int is_disable)
+{
+	int ret = -1;
+
+	ret = pkgmgr_parser_check_and_create_db(uid);
+	if (ret == -1) {
+		_LOGD("Failed to open DB\n");
+		return ret;
+	}
+
+	/*Begin transaction*/
+	ret = sqlite3_exec(pkgmgr_parser_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGD("Failed to begin transaction\n");
+		ret = -1;
+		goto err;
+	}
+	_LOGD("Transaction Begin\n");
+	if (is_disable)
+		ret = __disable_app(appid);
+	else
+		ret = __enable_app(appid);
+	if (ret == -1) {
+		_LOGD("__update_app_disable_condition_in_db failed. Rollback now\n");
 		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
 		goto err;
 	}
