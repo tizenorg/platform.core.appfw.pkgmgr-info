@@ -696,7 +696,7 @@ static void __insert_pkglocale_info(gpointer data, gpointer userdata)
 	char *description = NULL;
 	char *license = NULL;
 	char *author = NULL;
-	char query[MAX_QUERY_LEN] = {'\0'};
+	char *query = NULL;
 
 	manifest_x *mfx = (manifest_x *)userdata;
 	GList *lbl = mfx->label;
@@ -709,13 +709,13 @@ static void __insert_pkglocale_info(gpointer data, gpointer userdata)
 	if (!label && !description && !icon && !license && !author)
 		return;
 
-	sqlite3_snprintf(MAX_QUERY_LEN, query, "insert into package_localized_info(package, package_locale, " \
+	query = sqlite3_mprintf("insert into package_localized_info(package, package_locale, " \
 		"package_label, package_icon, package_description, package_license, package_author) values " \
-		"('%q', '%q', '%q', '%q', '%s', '%s', '%s')",
+		"(%Q, %Q, %Q, %Q, %Q, %Q, %Q)",
 		mfx->package,
 		(char*)data,
-		label,
-		icon,
+		__get_str(label),
+		__get_str(icon),
 		__get_str(description),
 		__get_str(license),
 		__get_str(author));
@@ -723,6 +723,8 @@ static void __insert_pkglocale_info(gpointer data, gpointer userdata)
 	ret = __exec_query(query);
 	if (ret == -1)
 		_LOGD("Package Localized Info DB Insert failed\n");
+
+	sqlite3_free(query);
 }
 
 static void __insert_application_locale_info(gpointer data, gpointer userdata)
@@ -730,7 +732,7 @@ static void __insert_application_locale_info(gpointer data, gpointer userdata)
 	int ret = -1;
 	char *label = NULL;
 	char *icon = NULL;
-	char query[MAX_QUERY_LEN] = {'\0'};
+	char *query = NULL;
 
 	application_x *app = (application_x*)userdata;
 	GList *lbl = app->label;
@@ -739,33 +741,38 @@ static void __insert_application_locale_info(gpointer data, gpointer userdata)
 	__extract_data(data, lbl, NULL, icn, NULL, NULL, &label, NULL, &icon, NULL, NULL);
 	if (!label && !icon)
 		return;
-	sqlite3_snprintf(MAX_QUERY_LEN, query, "insert into package_app_localized_info(app_id, app_locale, " \
+
+	query = sqlite3_mprintf("insert into package_app_localized_info(app_id, app_locale, " \
 		"app_label, app_icon) values " \
-		"('%q', '%q', '%q', '%q')", app->appid, (char*)data,
-		label, icon);
+		"(%Q, %Q, %Q, %Q)", app->appid, (char*)data,
+		__get_str(label), __get_str(icon));
 	ret = __exec_query(query);
 	if (ret == -1)
 		_LOGD("Package UiApp Localized Info DB Insert failed\n");
 
+	sqlite3_free(query);
+
 	/*insert ui app locale info to pkg locale to get mainapp data */
 	if (strcasecmp(app->mainapp, "true")==0) {
-		sqlite3_snprintf(MAX_QUERY_LEN, query, "insert into package_localized_info(package, package_locale, " \
+		query = sqlite3_mprintf("insert into package_localized_info(package, package_locale, " \
 			"package_label, package_icon, package_description, package_license, package_author) values " \
-			"('%q', '%q', '%q', '%q', '%q', '%q', '%q')",
+			"(%Q, %Q, %Q, %Q, %Q, %Q, %Q)",
 			app->package,
 			(char*)data,
-			label,
-			icon,
+			__get_str(label),
+			__get_str(icon),
 			PKGMGR_PARSER_EMPTY_STR,
 			PKGMGR_PARSER_EMPTY_STR,
 			PKGMGR_PARSER_EMPTY_STR);
 
 		ret = __exec_query_no_msg(query);
+		sqlite3_free(query);
 
 		if (icon != NULL) {
-			sqlite3_snprintf(MAX_QUERY_LEN, query, "update package_localized_info set package_icon='%s' "\
-				"where package='%s' and package_locale='%s'", icon, app->package, (char*)data);
+			query = sqlite3_mprintf("update package_localized_info set package_icon=%Q "\
+				"where package=%Q and package_locale=%Q", icon, app->package, (char*)data);
 			ret = __exec_query_no_msg(query);
+			sqlite3_free(query);
 		}
 	}
 }
