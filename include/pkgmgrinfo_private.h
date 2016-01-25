@@ -163,9 +163,6 @@ typedef struct _pkgmgr_pkginfo_x {
 	uid_t uid;
 	package_x *pkg_info;
 	char *locale;
-
-	struct _pkgmgr_pkginfo_x *prev;
-	struct _pkgmgr_pkginfo_x *next;
 } pkgmgr_pkginfo_x;
 
 typedef struct _pkgmgr_appinfo_x {
@@ -173,8 +170,6 @@ typedef struct _pkgmgr_appinfo_x {
 	char *locale;
 	pkgmgrinfo_app_component app_component;
 	application_x *app_info;
-	struct _pkgmgr_appinfo_x *prev;
-	struct _pkgmgr_appinfo_x *next;
 } pkgmgr_appinfo_x;
 
 /*For filter APIs*/
