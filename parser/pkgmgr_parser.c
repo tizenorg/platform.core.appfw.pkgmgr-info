@@ -920,51 +920,6 @@ static void __process_tag(void *lib_handle, xmlTextReaderPtr reader, ACTION_TYPE
 	}
 }
 
-static int __parser_send_tag(void *lib_handle, ACTION_TYPE action, PLUGIN_PROCESS_TYPE process, const char *pkgid)
-{
-	int (*plugin_install) (const char *);
-	int ret = -1;
-	char *ac = NULL;
-
-	if (process == PLUGIN_PRE_PROCESS) {
-		switch (action) {
-		case ACTION_INSTALL:
-			ac = "PKGMGR_PARSER_PLUGIN_PRE_INSTALL";
-			break;
-		case ACTION_UPGRADE:
-			ac = "PKGMGR_PARSER_PLUGIN_PRE_UPGRADE";
-			break;
-		case ACTION_UNINSTALL:
-			ac = "PKGMGR_PARSER_PLUGIN_PRE_UNINSTALL";
-			break;
-		default:
-			return -1;
-		}
-	} else if (process == PLUGIN_POST_PROCESS) {
-		switch (action) {
-		case ACTION_INSTALL:
-			ac = "PKGMGR_PARSER_PLUGIN_POST_INSTALL";
-			break;
-		case ACTION_UPGRADE:
-			ac = "PKGMGR_PARSER_PLUGIN_POST_UPGRADE";
-			break;
-		case ACTION_UNINSTALL:
-			ac = "PKGMGR_PARSER_PLUGIN_POST_UNINSTALL";
-			break;
-		default:
-			return -1;
-		}
-	} else
-		return -1;
-
-	if ((plugin_install =
-		dlsym(lib_handle, ac)) == NULL || dlerror() != NULL) {
-		return -1;
-	}
-
-	ret = plugin_install(pkgid);
-	return ret;
-}
 
 static int __next_child_element(xmlTextReaderPtr reader, int depth)
 {
@@ -995,58 +950,6 @@ static int __next_child_element(xmlTextReaderPtr reader, int depth)
 		cur = xmlTextReaderDepth(reader);
 	}
 	return ret;
-}
-int __ps_process_tag_parser(manifest_x *mfx, const char *filename, ACTION_TYPE action)
-{
-	xmlTextReaderPtr reader;
-	xmlDocPtr docPtr;
-	int ret = -1;
-	FILE *fp = NULL;
-	void *lib_handle = NULL;
-	char tag[PKG_STRING_LEN_MAX] = { 0 };
-
-	fp = fopen(TAG_PARSER_LIST, "r");
-	retvm_if(fp == NULL, PMINFO_R_ERROR, "no preload list");
-
-	while (fgets(tag, sizeof(tag), fp) != NULL) {
-		__str_trim(tag);
-
-		lib_handle = __open_lib_handle(tag);
-		if (lib_handle == NULL)
-			continue;
-
-		ret = __parser_send_tag(lib_handle, action, PLUGIN_PRE_PROCESS, mfx->package);
-		_LOGD("PLUGIN_PRE_PROCESS[%s, %s] ACTION_TYPE[%d] result[%d]\n", mfx->package, tag, action, ret);
-
-		docPtr = xmlReadFile(filename, NULL, 0);
-		reader = xmlReaderWalker(docPtr);
-		if (reader != NULL) {
-			ret = xmlTextReaderRead(reader);
-			while (ret == 1) {
-				__process_tag(lib_handle, reader, action, tag, mfx->package);
-				ret = xmlTextReaderRead(reader);
-			}
-			xmlFreeTextReader(reader);
-
-			if (ret != 0) {
-				_LOGD("%s : failed to parse", filename);
-			}
-		} else {
-			_LOGD("Unable to open %s", filename);
-		}
-
-		ret = __parser_send_tag(lib_handle, action, PLUGIN_POST_PROCESS, mfx->package);
-		_LOGD("PLUGIN_POST_PROCESS[%s, %s] ACTION_TYPE[%d] result[%d]\n", mfx->package, tag, action, ret);
-
-		__close_lib_handle(lib_handle);
-
-		memset(tag, 0x00, sizeof(tag));
-	}
-
-	if (fp != NULL)
-		fclose(fp);
-
-	return 0;
 }
 
 int __ps_process_metadata_parser(manifest_x *mfx, ACTION_TYPE action)
@@ -2073,8 +1976,7 @@ API int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char
 
 	_LOGD("DB Insert Success\n");
 
-	__ps_process_tag_parser(mfx, manifest, ACTION_INSTALL);
-	ret = __ps_process_metadata_parser(mfx, ACTION_INSTALL);
+    ret = __ps_process_metadata_parser(mfx, ACTION_INSTALL);
 	if (ret == -1)
 		_LOGD("Creating metadata parser failed\n");
 
@@ -2108,7 +2010,6 @@ API int pkgmgr_parser_parse_usr_manifest_for_installation(const char *manifest, 
 
 	_LOGD("DB Insert Success\n");
 
-	__ps_process_tag_parser(mfx, manifest, ACTION_INSTALL);
 	ret = __ps_process_metadata_parser(mfx, ACTION_INSTALL);
 	if (ret == -1)
 		_LOGD("Creating metadata parser failed\n");
@@ -2137,7 +2038,6 @@ API int pkgmgr_parser_process_manifest_x_for_installation(manifest_x* mfx, const
 	retvm_if(ret == PMINFO_R_ERROR, PMINFO_R_ERROR, "DB Insert failed");
 	_LOGD("DB Insert Success\n");
 
-	__ps_process_tag_parser(mfx, manifest, ACTION_INSTALL);
 	ret = __ps_process_metadata_parser(mfx, ACTION_INSTALL);
 	if (ret == -1)
 		_LOGD("Creating metadata parser failed\n");
@@ -2161,7 +2061,6 @@ API int pkgmgr_parser_process_usr_manifest_x_for_installation(manifest_x* mfx, c
 	retvm_if(ret == PMINFO_R_ERROR, PMINFO_R_ERROR, "DB Insert failed");
 	_LOGD("DB Insert Success\n");
 
-	__ps_process_tag_parser(mfx, manifest, ACTION_INSTALL);
 	ret = __ps_process_metadata_parser(mfx, ACTION_INSTALL);
 	if (ret == -1)
 		_LOGD("Creating metadata parser failed\n");
@@ -2225,7 +2124,6 @@ API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *con
 
 	_LOGD("DB Update Success\n");
 
-	__ps_process_tag_parser(mfx, manifest, ACTION_UPGRADE);
 	ret = __ps_process_metadata_parser(mfx, ACTION_UPGRADE);
 	if (ret == -1){
 		_LOGD("Upgrade metadata parser failed\n");
@@ -2293,7 +2191,6 @@ API int pkgmgr_parser_parse_usr_manifest_for_upgrade(const char *manifest, uid_t
 	retvm_if(ret == PMINFO_R_ERROR, PMINFO_R_ERROR, "DB Insert failed");
 	_LOGD("DB Update Success\n");
 
-	__ps_process_tag_parser(mfx, manifest, ACTION_UPGRADE);
 	ret = __ps_process_metadata_parser(mfx, ACTION_UPGRADE);
 	if (ret == -1)
 		_LOGD("Upgrade metadata parser failed\n");
@@ -2346,7 +2243,6 @@ API int pkgmgr_parser_process_manifest_x_for_upgrade(manifest_x* mfx, const char
 	retvm_if(ret == PMINFO_R_ERROR, PMINFO_R_ERROR, "DB Insert failed");
 	_LOGD("DB Update Success\n");
 
-	__ps_process_tag_parser(mfx, manifest, ACTION_UPGRADE);
 	ret = __ps_process_metadata_parser(mfx, ACTION_UPGRADE);
 	if (ret == -1){
 		_LOGD("Upgrade metadata parser failed\n");
@@ -2377,7 +2273,6 @@ API int pkgmgr_parser_process_usr_manifest_x_for_upgrade(manifest_x* mfx, const 
 	retvm_if(ret == PMINFO_R_ERROR, PMINFO_R_ERROR, "DB Insert failed");
 	_LOGD("DB Update Success\n");
 
-	__ps_process_tag_parser(mfx, manifest, ACTION_UPGRADE);
 	ret = __ps_process_metadata_parser(mfx, ACTION_UPGRADE);
 	if (ret == -1)
 		_LOGD("Upgrade metadata parser failed\n");
@@ -2403,9 +2298,7 @@ API int pkgmgr_parser_parse_manifest_for_uninstallation(const char *manifest, ch
 
 	_LOGD("Parsing Finished\n");
 
-	__ps_process_tag_parser(mfx, manifest, ACTION_UNINSTALL);
-
-	ret = __ps_process_metadata_parser(mfx, ACTION_UNINSTALL);
+    ret = __ps_process_metadata_parser(mfx, ACTION_UNINSTALL);
 	if (ret == -1)
 		_LOGD("Removing metadata parser failed\n");
 
@@ -2439,8 +2332,6 @@ API int pkgmgr_parser_parse_usr_manifest_for_uninstallation(const char *manifest
 	retvm_if(mfx == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
 
 	_LOGD("Parsing Finished\n");
-
-	__ps_process_tag_parser(mfx, manifest, ACTION_UNINSTALL);
 
 	ret = __ps_process_metadata_parser(mfx, ACTION_UNINSTALL);
 	if (ret == -1)
@@ -2476,7 +2367,6 @@ API int pkgmgr_parser_process_manifest_x_for_uninstallation(manifest_x* mfx, con
 
 	int ret = -1;
 	xmlInitParser();
-	__ps_process_tag_parser(mfx, manifest, ACTION_UNINSTALL);
 
 	ret = __ps_process_metadata_parser(mfx, ACTION_UNINSTALL);
 	if (ret == -1)
@@ -2503,8 +2393,6 @@ API int pkgmgr_parser_process_usr_manifest_x_for_uninstallation(manifest_x* mfx,
 
 	int ret = -1;
 	xmlInitParser();
-
-	__ps_process_tag_parser(mfx, manifest, ACTION_UNINSTALL);
 
 	ret = __ps_process_metadata_parser(mfx, ACTION_UNINSTALL);
 	if (ret == -1)
