@@ -559,7 +559,7 @@ static int _appinfo_get_application(sqlite3 *db, const char *appid,
 		"app_support_disable, "
 		"component_type, package, app_process_pool, app_installed_storage, "
 		"app_background_category, app_package_type "
-		"FROM package_app_info WHERE app_id='%s' AND app_disable='false' "
+		"FROM package_app_info WHERE app_id='%s' "
 		"AND app_id NOT IN "
 		"(SELECT app_id from package_app_disable_for_user WHERE uid='%d')";
 	int ret;
