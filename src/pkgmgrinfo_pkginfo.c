@@ -203,8 +203,7 @@ static int _pkginfo_get_list(sqlite3 *db, const char *locale,
 		"  ON package_info.package=package_localized_info.package"
 		"  AND package_localized_info.package_locale=%Q "
 		" LEFT OUTER JOIN package_privilege_info"
-		"  ON package_info.package=package_privilege_info.package"
-		" WHERE package_info.package_disable='false'";
+		"  ON package_info.package=package_privilege_info.package";
 	int ret;
 	char *query;
 	char *query_localized;
