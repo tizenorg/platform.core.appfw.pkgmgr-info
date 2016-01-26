@@ -203,7 +203,7 @@ int _check_create_cert_db(sqlite3 *certdb)
 	for (i = 0; columns[i] != NULL; i++) {
 		snprintf(buf, sizeof(buf),
 				QUERY_CREATE_TRIGGER_UPDATE_CERT_INFO_FORMAT,
-				columns[i], columns[i], columns[i], columns[i]);
+				columns[i], columns[i], columns[i]);
 		ret = __exec_db_query(certdb, buf, NULL, NULL);
 		if (ret < 0)
 			return ret;
@@ -633,7 +633,6 @@ API int pkgmgrinfo_pkginfo_set_usr_installed_storage(const char *pkgid, INSTALL_
 {
 	retvm_if(pkgid == NULL, PMINFO_R_EINVAL, "pkgid is NULL\n");
 	int ret = -1;
-	int exist = 0;
 	sqlite3 *pkgmgr_parser_db = NULL;
 	char *query = NULL;
 

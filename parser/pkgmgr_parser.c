@@ -2313,7 +2313,6 @@ API int pkgmgr_parser_process_manifest_x_for_upgrade(manifest_x* mfx, const char
 	retvm_if(manifest == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
 	_LOGD("pkgmgr_parser_process_manifest_x_for_upgrade  parsing manifest for upgradation: %s\n", manifest);
 	int ret = -1;
-	bool preload = false;
 	bool system = false;
 	char *csc_path = NULL;
 	pkgmgrinfo_pkginfo_h handle = NULL;

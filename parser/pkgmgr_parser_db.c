@@ -384,6 +384,8 @@ static int __guestmode_visibility_cb(void *data, int ncols, char **coltxt, char 
 		}
 	}
 	if (appid == NULL) {
+		if(status != NULL)
+			free(status);
 		_LOGD("app id is NULL\n");
 		return -1;
 	}
@@ -1720,7 +1722,7 @@ API int pkgmgr_parser_initialize_db(uid_t uid)
 	for (i = 0; columns[i] != NULL; i++) {
 		snprintf(query, sizeof(query),
 				QUERY_CREATE_TRIGGER_UPDATE_CERT_INFO_FORMAT,
-				columns[i], columns[i], columns[i], columns[i]);
+				columns[i], columns[i], columns[i]);
 		ret = __initialize_db(pkgmgr_cert_db, query);
 		if (ret == -1) {
 			_LOGD("package cert index info DB initialization failed\n");
