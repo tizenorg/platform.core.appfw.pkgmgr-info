@@ -723,9 +723,165 @@ static int _appinfo_get_appinfo(const char *appid, uid_t uid,
 	return ret;
 }
 
+API int pkgmgrinfo_appinfo_get_usr_appinfo(const char *appid, uid_t uid,
+		pkgmgrinfo_appinfo_h *handle)
+{
+	int ret;
+
+	if (appid == NULL || handle == NULL) {
+		LOGE("invalid parameter");
+		return PMINFO_R_EINVAL;
+	}
+
+	ret = _appinfo_get_appinfo(appid, uid, (pkgmgr_appinfo_x **)handle);
+	if (ret == PMINFO_R_ENOENT && uid != GLOBAL_USER)
+		ret = _appinfo_get_appinfo(appid, GLOBAL_USER,
+				(pkgmgr_appinfo_x **)handle);
+
+	if (ret != PMINFO_R_OK)
+		_LOGE("failed to get appinfo of %s for user %d", appid, uid);
+
+	return ret;
+}
+
+API int pkgmgrinfo_appinfo_get_appinfo(const char *appid, pkgmgrinfo_appinfo_h *handle)
+{
+	return pkgmgrinfo_appinfo_get_usr_appinfo(appid, GLOBAL_USER, handle);
+}
+
+static gpointer __copy_str(gconstpointer src, gpointer data)
+{
+	const char *tmp = (const char *)src;
+	const char *buffer;
+
+	buffer = strdup(tmp);
+	if (buffer == NULL) {
+		LOGE("memory alloc failed");
+		*(int *)data = -1;
+		return NULL;
+	}
+
+	return buffer;
+}
+
+static gpointer __copy_label(gconstpointer src, gpointer data)
+{
+	label_x *tmp = (label_x *)src;
+	label_x *label;
+
+	label = calloc(1, sizeof(label_x));
+	if (label == NULL) {
+		LOGE("memory alloc failed");
+		*(int *)data = -1;
+		return NULL;
+	}
+
+	if (tmp->name)
+		label->name = strdup(tmp->name);
+	if (tmp->text)
+		label->text = strdup(tmp->text);
+	if (tmp->lang)
+		label->lang = strdup(tmp->lang);
+
+	return label;
+}
+
+static gpointer __copy_icon(gconstpointer src, gpointer data)
+{
+	icon_x *tmp = (icon_x *)src;
+	icon_x *icon;
+
+	icon = calloc(1, sizeof(icon_x));
+	if (icon== NULL) {
+		LOGE("memory alloc failed");
+		*(int *)data = -1;
+		return NULL;
+	}
+
+	if (tmp->text)
+		icon->text = strdup(tmp->text);
+	if (tmp->lang)
+		icon->lang = strdup(tmp->lang);
+	if (tmp->name)
+		icon->name = strdup(tmp->name);
+	if (tmp->section)
+		icon->section = strdup(tmp->section);
+	if (tmp->size)
+		icon->size = strdup(tmp->size);
+	if (tmp->resolution)
+		icon->resolution = strdup(tmp->resolution);
+
+	return icon;
+}
+
+static gpointer __copy_metadata(gconstpointer src, gpointer data)
+{
+	metadata_x *tmp = (metadata_x *)src;
+	metadata_x *metadata;
+
+	metadata = calloc(1, sizeof(metadata_x));
+	if (metadata == NULL) {
+		LOGE("memory alloc failed");
+		*(int *)data = -1;
+		return NULL;
+	}
+
+	if (tmp->key)
+		metadata->key = strdup(tmp->key);
+	if (tmp->value)
+		metadata->value = strdup(tmp->value);
+
+	return metadata;
+}
+
+static gpointer __copy_datacontrol(gconstpointer src, gpointer data)
+{
+	datacontrol_x *tmp = (datacontrol_x *)src;
+	datacontrol_x *datacontrol;
+
+	datacontrol = calloc(1, sizeof(datacontrol_x));
+	if (datacontrol == NULL) {
+		LOGE("memory alloc failed");
+		*(int *)data = -1;
+		return NULL;
+	}
+
+	if (tmp->providerid)
+		datacontrol->providerid = strdup(tmp->providerid);
+	if (tmp->access)
+		datacontrol->access = strdup(tmp->access);
+	if (tmp->type)
+		datacontrol->type = strdup(tmp->type);
+
+	return datacontrol;
+}
+
+static gpointer __copy_appcontrol(gconstpointer src, gpointer data)
+{
+	appcontrol_x *tmp = (appcontrol_x *)src;
+	appcontrol_x *appcontrol;
+
+	appcontrol = calloc(1, sizeof(appcontrol_x));
+	if (appcontrol ==NULL) {
+		LOGE("memory alloc failed");
+		*(int *)data = -1;
+		return NULL;
+	}
+
+	if (tmp->operation)
+		appcontrol->operation = strdup(tmp->operation);
+	if (tmp->uri)
+		appcontrol->uri = strdup(tmp->uri);
+	if (tmp->mime)
+		appcontrol->mime = strdup(tmp->mime);
+
+	return appcontrol;
+}
+
 static int _appinfo_copy_appinfo(application_x **application, application_x *data)
 {
 	application_x *app_info;
+	int ret;
 
 	app_info = calloc(1, sizeof(application_x));
 	if (app_info == NULL) {
@@ -749,8 +905,6 @@ static int _appinfo_copy_appinfo(application_x **application, application_x *dat
 		app_info->type = strdup(data->type);
 	if (data->categories != NULL)
 		app_info->categories = strdup(data->categories);
-	if (data->extraid != NULL)
-		app_info->extraid = strdup(data->extraid);
 	if (data->hwacceleration != NULL)
 		app_info->hwacceleration = strdup(data->hwacceleration);
 	if (data->screenreader != NULL)
@@ -769,8 +923,6 @@ static int _appinfo_copy_appinfo(application_x **application, application_x *dat
 		app_info->portraitimg = strdup(data->portraitimg);
 	if (data->landscapeimg != NULL)
 		app_info->landscapeimg = strdup(data->landscapeimg);
-	if (data->effectimage_type != NULL)
-		app_info->effectimage_type = strdup(data->effectimage_type);
 	if (data->guestmode_visibility != NULL)
 		app_info->guestmode_visibility = strdup(data->guestmode_visibility);
 	if (data->component != NULL)
@@ -799,55 +951,98 @@ static int _appinfo_copy_appinfo(application_x **application, application_x *dat
 		app_info->ui_gadget = strdup(data->ui_gadget);
 	if (data->launch_mode != NULL)
 		app_info->launch_mode = strdup(data->launch_mode);
-	if (data->ambient_support != NULL)
-		app_info->ambient_support = strdup(data->ambient_support);
-	if (data->alias_appid != NULL)
-		app_info->alias_appid = strdup(data->alias_appid);
-	if (data->effective_appid != NULL)
-		app_info->effective_appid = strdup(data->effective_appid);
+	if (data->package_type != NULL)
+		app_info->package_type = strdup(data->package_type);
 
-	app_info->label = g_list_copy(data->label);
-	app_info->icon = g_list_copy(data->icon);
-	app_info->image = g_list_copy(data->image);
-	app_info->category = g_list_copy(data->category);
-	app_info->metadata = g_list_copy(data->metadata);
-	app_info->permission = g_list_copy(data->permission);
-	app_info->launchconditions = g_list_copy(data->launchconditions);
-	app_info->notification = g_list_copy(data->notification);
-	app_info->datashare = g_list_copy(data->datashare);
-	app_info->datacontrol = g_list_copy(data->datacontrol);
-	app_info->background_category = g_list_copy(data->background_category);
-	app_info->appcontrol = g_list_copy(data->appcontrol);
+	/* GList */
+	ret = 0;
+	app_info->label = g_list_copy_deep(data->label, __copy_label, &ret);
+	if (ret < 0) {
+		LOGE("memory alloc failed");
+		return PMINFO_R_ERROR;
+	}
+	ret = 0;
+	app_info->icon = g_list_copy_deep(data->icon, __copy_icon, &ret);
+	if (ret < 0) {
+		LOGE("memory alloc failed");
+		return PMINFO_R_ERROR;
+	}
+
+	ret = 0;
+	app_info->category = g_list_copy_deep(data->category, __copy_str, &ret);
+	if (ret < 0) {
+		LOGE("memory alloc failed");
+		return PMINFO_R_ERROR;
+	}
+
+	ret = 0;
+	app_info->metadata = g_list_copy_deep(data->metadata, __copy_metadata, &ret);
+	if (ret < 0) {
+		LOGE("memory alloc failed");
+		return PMINFO_R_ERROR;
+	}
+
+	ret = 0;
+	app_info->datacontrol = g_list_copy_deep(data->datacontrol, __copy_datacontrol, &ret);
+	if (ret < 0) {
+		LOGE("memory alloc failed");
+		return PMINFO_R_ERROR;
+	}
+
+	ret = 0;
+	app_info->appcontrol = g_list_copy_deep(data->appcontrol, __copy_appcontrol, &ret);
+	if (ret < 0) {
+		LOGE("memory alloc failed");
+		return PMINFO_R_ERROR;
+	}
+
+	ret = 0;
+	app_info->background_category = g_list_copy_deep(data->background_category, __copy_str, &ret);
+	if (ret < 0) {
+		LOGE("memory alloc failed");
+		return PMINFO_R_ERROR;
+	}
 
 	*application = app_info;
 
 	return PMINFO_R_OK;
 }
 
-API int pkgmgrinfo_appinfo_get_usr_appinfo(const char *appid, uid_t uid,
-		pkgmgrinfo_appinfo_h *handle)
+API int pkgmgrinfo_appinfo_clone_appinfo(pkgmgrinfo_appinfo_h handle,
+		pkgmgrinfo_appinfo_h *clone)
 {
-	int ret;
+	pkgmgr_appinfo_x *info;
+	pkgmgr_appinfo_x *temp = (pkgmgr_appinfo_x *)handle;
 
-	if (appid == NULL || handle == NULL) {
-		LOGE("invalid parameter");
+	if (handle == NULL)
 		return PMINFO_R_EINVAL;
+
+	info = calloc(1, sizeof(pkgmgr_appinfo_x));
+	if (info == NULL) {
+		LOGE("memory alloc failed");
+		return PMINFO_R_ERROR;
 	}
 
-	ret = _appinfo_get_appinfo(appid, uid, (pkgmgr_appinfo_x **)handle);
-	if (ret == PMINFO_R_ENOENT && uid != GLOBAL_USER)
-		ret = _appinfo_get_appinfo(appid, GLOBAL_USER,
-				(pkgmgr_appinfo_x **)handle);
+	if (temp->package != NULL)
+		info->package = strdup(temp->package);
+	if (temp->locale != NULL)
+		info->locale = strdup(temp->locale);
 
-	if (ret != PMINFO_R_OK)
-		_LOGE("failed to get appinfo of %s for user %d", appid, uid);
+	info->app_component = temp->app_component;
 
-	return ret;
-}
+	if (_appinfo_copy_appinfo(&info->app_info, temp->app_info) < 0) {
+		LOGE("appinfo copy failed");
+		if (info->package)
+			free((void *)info->package);
+		if (info->locale)
+			free(info->locale);
+		free(info);
+		return PMINFO_R_ERROR;
+	}
 
-API int pkgmgrinfo_appinfo_get_appinfo(const char *appid, pkgmgrinfo_appinfo_h *handle)
-{
-	return pkgmgrinfo_appinfo_get_usr_appinfo(appid, GLOBAL_USER, handle);
+	*clone = info;
+
+	return PMINFO_R_OK;
 }
 
 static int _appinfo_get_filtered_foreach_appinfo(uid_t uid,
@@ -884,43 +1079,6 @@ static int _appinfo_get_filtered_foreach_appinfo(uid_t uid,
 	}
 
 	g_list_free(list);
-
-	return PMINFO_R_OK;
-}
-
-API int pkgmgrinfo_appinfo_get_clone(pkgmgrinfo_appinfo_h *clone,
-		pkgmgrinfo_appinfo_h handle)
-{
-	pkgmgr_appinfo_x *info;
-	pkgmgr_appinfo_x *temp = (pkgmgr_appinfo_x *)handle;
-
-	if (handle == NULL)
-		return PMINFO_R_EINVAL;
-
-	info = calloc(1, sizeof(pkgmgr_appinfo_x));
-	if (info == NULL) {
-		LOGE("memory alloc failed");
-		return PMINFO_R_ERROR;
-	}
-
-	if (temp->package != NULL)
-		info->package = strdup(temp->package);
-	if (temp->locale != NULL)
-		info->locale = strdup(temp->locale);
-
-	info->app_component = temp->app_component;
-
-	if (_appinfo_copy_appinfo(&info->app_info, temp->app_info) < 0) {
-		LOGE("appinfo copy failed");
-		if (info->package)
-			free(info->package);
-		if (info->locale)
-			free(info->locale);
-		free(info);
-		return PMINFO_R_ERROR;
-	}
-
-	*clone = info;
 
 	return PMINFO_R_OK;
 }
