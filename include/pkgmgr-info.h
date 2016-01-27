@@ -1994,14 +1994,14 @@ int pkgmgrinfo_appinfo_set_default_label(const char *appid, const char *label);
 int pkgmgrinfo_appinfo_set_usr_default_label(const char *appid, const char *label, uid_t uid);
 
 /**
- * @fn int pkgmgrinfo_appinfo_get_clone(pkgmgrinfo_pkginfo_h *clone, pkgmgrinfo_pkginfo_h handle)
+ * @fn int pkgmgrinfo_appinfo_clone_appinfo(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_pkginfo_h *clone)
  * @brief	This API copy the application information handle
  *
  * @par		This API is for package-manager client application
  * @par Sync (or) Async : Synchronous API
  *
- * @param[out]	handle	pointer to the package info handle.
  * @param[in]	handle	pointer to the package info handle.
+ * @param[out]	handle	pointer to the package info handle.
  * @return	0 if success, error code(<0) if fail
  * @retval	PMINFO_R_OK	success
  * @retval	PMINFO_R_EINVAL	invalid argument
@@ -2015,7 +2015,7 @@ static int get_appinfo_clone(pkgmgrinfo_pkginfo_h handle)
 
 	pkgmgrinfo_pkginfo_h clone;
 
-	ret = pkgmgrinfo_appinfo_get_clone(&clone, handle);
+	ret = pkgmgrinfo_appinfo_clone_appinfo(handle, &clone);
 	if (ret != PMINFO_R_OK)
 		return -1;
 
@@ -2026,7 +2026,7 @@ static int get_appinfo_clone(pkgmgrinfo_pkginfo_h handle)
 }
  * @endcode
  */
-int pkgmgrinfo_appinfo_get_clone(pkgmgrinfo_pkginfo_h *clone, pkgmgrinfo_pkginfo_h handle);
+int pkgmgrinfo_appinfo_clone_appinfo(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_pkginfo_h *clone);
 
 
 /**
