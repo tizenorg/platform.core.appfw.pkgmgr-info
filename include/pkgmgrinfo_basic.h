@@ -20,6 +20,7 @@ typedef struct icon_x {
 	const char *section;
 	const char *size;
 	const char *resolution;
+	const char *dpi;
 } icon_x;
 
 typedef struct image_x {

@@ -32,6 +32,8 @@
 
 #include <db-util.h>
 #include <glib.h>
+#include <system_info.h>
+
 /* For multi-user support */
 #include <tzplatform_config.h>
 
@@ -51,6 +53,23 @@
 #define MAX_QUERY_LEN		4096
 #define BUFSIZE 4096
 #define OWNER_ROOT 0
+
+#define LDPI "ldpi"
+#define MDPI "mdpi"
+#define HDPI "hdpi"
+#define XHDPI "xhdpi"
+#define XXHDPI "xxhdpi"
+
+#define LDPI_MIN 0
+#define LDPI_MAX 240
+#define MDPI_MIN 241
+#define MDPI_MAX 300
+#define HDPI_MIN 301
+#define HDPI_MAX 380
+#define XHDPI_MIN 381
+#define XHDPI_MAX 480
+#define XXHDPI_MIN 481
+#define XXHDPI_MAX 600
 
 #define DB_LABEL "User::Home"
 #define SET_SMACK_LABEL(x) \
@@ -515,7 +534,7 @@ static GList *__create_locale_list(GList *locale, GList *lbls, GList *lcns, GLis
 
 }
 
-static GList *__create_icon_list(GList *locale, GList *icns)
+static GList *__create_icon_list(GList *appicon, GList *icns)
 {
 	GList *tmp;
 	icon_x *icn;
@@ -525,12 +544,12 @@ static GList *__create_icon_list(GList *locale, GList *icns)
 		if (icn == NULL)
 			continue;
 		if (icn->section)
-			locale = g_list_insert_sorted_with_data(locale, (gpointer)icn->section, __comparefunc, NULL);
+			appicon = g_list_insert_sorted_with_data(appicon, (gpointer)icn->section, __comparefunc, NULL);
 	}
-	return locale;
+	return appicon;
 }
 
-static GList *__create_image_list(GList *locale, GList *imgs)
+static GList *__create_image_list(GList *appimage, GList *imgs)
 {
 	GList *tmp;
 	image_x *img;
@@ -540,9 +559,9 @@ static GList *__create_image_list(GList *locale, GList *imgs)
 		if (img == NULL)
 			continue;
 		if (img->section)
-			locale = g_list_insert_sorted_with_data(locale, (gpointer)img->section, __comparefunc, NULL);
+			appimage = g_list_insert_sorted_with_data(appimage, (gpointer)img->section, __comparefunc, NULL);
 	}
-	return locale;
+	return appimage;
 }
 
 static void __trimfunc(GList* trim_list)
@@ -585,13 +604,146 @@ static gint __comparefunc(gconstpointer a, gconstpointer b, gpointer userdata)
 	return 0;
 }
 
+static int __check_dpi(const char *dpi_char, int dpi_int)
+{
+	if (dpi_char == NULL)
+		return -1;
+
+	if (strcasecmp(dpi_char, LDPI) == 0) {
+		if (dpi_int >= LDPI_MIN && dpi_int <= LDPI_MAX)
+			return 0;
+		else
+			return -1;
+	} else if (strcasecmp(dpi_char, MDPI) == 0) {
+		if (dpi_int >= MDPI_MIN && dpi_int <= MDPI_MAX)
+			return 0;
+		else
+			return -1;
+	} else if (strcasecmp(dpi_char, HDPI) == 0) {
+		if (dpi_int >= HDPI_MIN && dpi_int <= HDPI_MAX)
+			return 0;
+		else
+			return -1;
+	} else if (strcasecmp(dpi_char, XHDPI) == 0) {
+		if (dpi_int >= XHDPI_MIN && dpi_int <= XHDPI_MAX)
+			return 0;
+		else
+			return -1;
+	} else if (strcasecmp(dpi_char, XXHDPI) == 0) {
+		if (dpi_int >= XXHDPI_MIN && dpi_int <= XXHDPI_MAX)
+			return 0;
+		else
+			return -1;
+	} else
+		return -1;
+}
+
+static gint __compare_icon(gconstpointer a, gconstpointer b)
+{
+	icon_x *icon = (icon_x *)a;
+
+	if (icon->lang != NULL && strcasecmp(icon->lang, DEFAULT_LOCALE) != 0)
+		return -1;
+
+	if (icon->dpi != NULL)
+		return -1;
+
+	return 0;
+}
+
+static gint __compare_icon_with_dpi(gconstpointer a, gconstpointer b)
+{
+	icon_x *icon = (icon_x *)a;
+	int dpi = GPOINTER_TO_INT(b);
+
+	if (icon->lang != NULL && strcasecmp(icon->lang, DEFAULT_LOCALE) != 0)
+		return -1;
+
+	if (icon->dpi == NULL)
+		return -1;
+
+	if (__check_dpi(icon->dpi, dpi) == 0)
+		return 0;
+
+	return -1;
+}
+
+static gint __compare_icon_with_lang(gconstpointer a, gconstpointer b)
+{
+	icon_x *icon = (icon_x *)a;
+	char *lang = (char *)b;
+
+	if (icon->dpi != NULL)
+		return -1;
+
+	if (strcasecmp(icon->lang, lang) == 0)
+		return 0;
+
+	return -1;
+}
+
+static gint __compare_icon_with_lang_dpi(gconstpointer a, gconstpointer b)
+{
+	icon_x *icon = (icon_x *)a;
+	char *lang = (char *)b;
+	int dpi = -1;
+
+	system_info_get_platform_int("http://tizen.org/feature/screen.dpi", &dpi);
+	if (!dpi)
+		return -1;
+
+	if (strcasecmp(icon->lang, lang) == 0 && __check_dpi(icon->dpi, dpi) == 0)
+		return 0;
+
+	return -1;
+}
+
+static char *__find_icon(GList *icons, const char *lang)
+{
+	GList *tmp;
+	icon_x *icon = NULL;
+	int dpi = 0;
+
+	// first, find icon whose locale and dpi with given lang and system's dpi has matched
+	tmp = g_list_find_custom(icons, lang, (GCompareFunc)__compare_icon_with_lang_dpi);
+	if (tmp != NULL) {
+		icon = (icon_x *)tmp->data;
+		return (char *)icon->text;
+	}
+
+	// if first has failed, find icon whose locale has matched
+	tmp = g_list_find_custom(icons, lang, (GCompareFunc)__compare_icon_with_lang);
+	if (tmp != NULL) {
+		icon = (icon_x *)tmp->data;
+		return (char *)icon->text;
+	}
+
+	// if second has failed, find icon whose dpi has matched with system's dpi
+	system_info_get_platform_int("http://tizen.org/feature/screen.dpi", &dpi);
+	if (!dpi)
+		return NULL;
+	tmp = g_list_find_custom(icons, GINT_TO_POINTER(dpi), (GCompareFunc)__compare_icon_with_dpi);
+	if (tmp != NULL) {
+		icon = (icon_x *)tmp->data;
+		return (char *)icon->text;
+	}
+
+	// last, find default icon marked as "No Locale"
+	tmp = g_list_find_custom(icons, NULL, (GCompareFunc)__compare_icon);
+	if (tmp != NULL) {
+		icon = (icon_x *)tmp->data;
+		return (char *)icon->text;
+	}
+
+	return NULL;
+}
+
 static void __extract_data(gpointer data, GList *lbls, GList *lcns, GList *icns, GList *dcns, GList *aths,
 		char **label, char **license, char **icon, char **description, char **author)
 {
 	GList *tmp;
 	label_x *lbl;
 	license_x *lcn;
-	icon_x *icn;
 	description_x *dcn;
 	author_x *ath;
 	for (tmp = lbls; tmp; tmp = tmp->next) {
@@ -616,17 +768,9 @@ static void __extract_data(gpointer data, GList *lbls, GList *lcns, GList *icns,
 			}
 		}
 	}
-	for (tmp = icns; tmp; tmp = tmp->next) {
-		icn = (icon_x *)tmp->data;
-		if (icn == NULL)
-			continue;
-		if (icn->lang) {
-			if (strcmp(icn->lang, (char *)data) == 0) {
-				*icon = (char*)icn->text;
-				break;
-			}
-		}
-	}
+
+	*icon = __find_icon(icns, (char *)data);
+
 	for (tmp = dcns; tmp; tmp = tmp->next) {
 		dcn = (description_x *)tmp->data;
 		if (dcn == NULL)
