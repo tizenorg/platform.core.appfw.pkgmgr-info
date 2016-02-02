@@ -44,6 +44,8 @@ static void __ps_free_icon(gpointer data)
 		free((void *)icon->size);
 	if (icon->resolution)
 		free((void *)icon->resolution);
+	if (icon->dpi)
+		free((void *)icon->dpi);
 	free((void*)icon);
 }
 

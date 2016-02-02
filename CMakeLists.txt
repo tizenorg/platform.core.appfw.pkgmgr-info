@@ -21,7 +21,7 @@ FOREACH(flag ${pkgs_CFLAGS})
 ENDFOREACH(flag)
 
 
-pkg_check_modules(libpkgs REQUIRED glib-2.0 dlog vconf sqlite3 db-util libxml-2.0 dbus-1 dbus-glib-1 libtzplatform-config libsmack bundle)
+pkg_check_modules(libpkgs REQUIRED glib-2.0 dlog vconf sqlite3 db-util libxml-2.0 dbus-1 dbus-glib-1 libtzplatform-config libsmack bundle capi-system-info)
 
 FOREACH(flag ${libpkgs_CFLAGS})
 	SET(EXTRA_CFLAGS "${EXTRA_CFLAGS} ${flag}")
