@@ -47,7 +47,7 @@
 #include "pkgmgr_parser_internal.h"
 
 static int _pkginfo_get_pkginfo(const char *pkgid, uid_t uid,
-		pkgmgr_pkginfo_x **pkginfo);
+		bool is_disable, pkgmgr_pkginfo_x **pkginfo);
 static char *_get_filtered_query(const char *query_raw,
 		pkgmgrinfo_filter_x *filter);
 
@@ -333,10 +333,10 @@ static int _pkginfo_get_filtered_foreach_pkginfo(pkgmgrinfo_filter_x *filter,
 	for (tmp = list; tmp; tmp = tmp->next) {
 		pkgid = (char *)tmp->data;
 		if (stop == 0) {
-			ret = _pkginfo_get_pkginfo(pkgid, uid, &info);
+			ret = _pkginfo_get_pkginfo(pkgid, uid, false, &info);
 			if (ret == PMINFO_R_ENOENT && uid != GLOBAL_USER)
 				ret = _pkginfo_get_pkginfo(pkgid, GLOBAL_USER,
-						&info);
+						false, &info);
 			if (ret != PMINFO_R_OK) {
 				free(pkgid);
 				continue;
@@ -630,7 +630,7 @@ static char *_get_filtered_query(const char *query_raw,
 }
 
 static int _pkginfo_get_package(sqlite3 *db, const char *pkgid,
-		const char *locale, package_x **package)
+		const char *locale, bool is_disable, package_x **package)
 {
 	static const char query_raw[] =
 		"SELECT package, package_version, "
@@ -640,14 +640,14 @@ static int _pkginfo_get_package(sqlite3 *db, const char *pkgid,
 		"installed_storage, storeclient_id, mainapp_id, package_url, "
 		"root_path, csc_path, package_nodisplay, package_api_version, "
 		"package_support_disable, package_tep_name "
-		"FROM package_info WHERE package=%Q AND package_disable='false'";
+		"FROM package_info WHERE package=%Q AND package_disable=%Q";
 	int ret;
 	char *query;
 	sqlite3_stmt *stmt;
 	int idx;
 	package_x *info;
 
-	query = sqlite3_mprintf(query_raw, pkgid);
+	query = sqlite3_mprintf(query_raw, pkgid, (is_disable) ? "true" : "false");
 	if (query == NULL) {
 		LOGE("out of memory");
 		return PMINFO_R_ERROR;
@@ -739,7 +739,7 @@ static int _pkginfo_get_package(sqlite3 *db, const char *pkgid,
 }
 
 static int _pkginfo_get_pkginfo(const char *pkgid, uid_t uid,
-		pkgmgr_pkginfo_x **pkginfo)
+		bool is_disable, pkgmgr_pkginfo_x **pkginfo)
 {
 	int ret;
 	sqlite3 *db;
@@ -770,7 +770,7 @@ static int _pkginfo_get_pkginfo(const char *pkgid, uid_t uid,
 		return PMINFO_R_ERROR;
 	}
 
-	ret = _pkginfo_get_package(db, pkgid, locale, &info->pkg_info);
+	ret = _pkginfo_get_package(db, pkgid, locale, is_disable, &info->pkg_info);
 	if (ret != PMINFO_R_OK) {
 		free(info);
 		free(locale);
@@ -800,10 +800,10 @@ API int pkgmgrinfo_pkginfo_get_usr_pkginfo(const char *pkgid, uid_t uid,
 		return PMINFO_R_EINVAL;
 	}
 
-	ret = _pkginfo_get_pkginfo(pkgid, uid, (pkgmgr_pkginfo_x **)handle);
+	ret = _pkginfo_get_pkginfo(pkgid, uid, false, (pkgmgr_pkginfo_x **)handle);
 	if (ret == PMINFO_R_ENOENT && uid != GLOBAL_USER)
 		ret = _pkginfo_get_pkginfo(pkgid, GLOBAL_USER,
-				(pkgmgr_pkginfo_x **)handle);
+				false, (pkgmgr_pkginfo_x **)handle);
 
 	if (ret != PMINFO_R_OK)
 		_LOGE("failed to get pkginfo of %s for user %d", pkgid, uid);
