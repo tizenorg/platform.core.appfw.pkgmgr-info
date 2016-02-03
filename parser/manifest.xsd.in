@@ -241,7 +241,8 @@
     <xs:attribute ref="xml:lang"/>
     <xs:attribute name="section" type="xs:string"/>
     <xs:attribute name="resolution" type="xs:string"/>
-      <xs:anyAttribute namespace="##any" processContents="lax"/>
+    <xs:attribute name="dpi" type="xs:string"/>
+    <xs:anyAttribute namespace="##any" processContents="lax"/>
   </xs:complexType>
   </xs:element>
   <xs:element name="image">
