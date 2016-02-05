@@ -61,6 +61,31 @@ extern "C" {
 #define GLOBAL_USER tzplatform_getuid(TZ_SYS_GLOBALAPP_USER)
 
 /**
+ * @brief Structure which is used by metadata plugin
+ */
+typedef struct {
+	const char *key;
+	const char *value;
+} __metadata_t;
+
+
+/**
+ * @brief Structure which is used by category plugin
+ */
+typedef struct {
+	const char *name;
+} __category_t;
+
+/* operation_type */
+typedef enum {
+  ACTION_INSTALL = 0,
+  ACTION_UPGRADE,
+  ACTION_UNINSTALL,
+  ACTION_FOTA,
+  ACTION_MAX
+} ACTION_TYPE;
+
+/**
  * @brief API return values
  */
 enum {
