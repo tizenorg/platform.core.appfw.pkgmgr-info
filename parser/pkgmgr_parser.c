@@ -66,29 +66,11 @@
 #define BUFSIZE 4096
 #define GLOBAL_USER tzplatform_getuid(TZ_SYS_GLOBALAPP_USER)
 
-/* operation_type */
-typedef enum {
-	ACTION_INSTALL = 0,
-	ACTION_UPGRADE,
-	ACTION_UNINSTALL,
-	ACTION_FOTA,
-	ACTION_MAX
-} ACTION_TYPE;
-
 /* plugin process_type */
 typedef enum {
 	PLUGIN_PRE_PROCESS = 0,
 	PLUGIN_POST_PROCESS
 } PLUGIN_PROCESS_TYPE;
-
-typedef struct {
-	const char *key;
-	const char *value;
-} __metadata_t;
-
-typedef struct {
-	const char *name;
-} __category_t;
 
 const char *package;
 
@@ -2136,14 +2118,6 @@ API int pkgmgr_parser_process_manifest_x_for_installation(manifest_x* mfx, const
 	ret = pkgmgr_parser_insert_manifest_info_in_db(mfx);
 	retvm_if(ret == PMINFO_R_ERROR, PMINFO_R_ERROR, "DB Insert failed");
 	_LOGD("DB Insert Success\n");
-
-	ret = __ps_process_metadata_parser(mfx, ACTION_INSTALL);
-	if (ret == -1)
-		_LOGD("Creating metadata parser failed\n");
-
-	ret = __ps_process_category_parser(mfx, ACTION_INSTALL);
-	if (ret == -1)
-		_LOGD("Creating category parser failed\n");
 	xmlCleanupParser();
 
 	return PMINFO_R_OK;
@@ -2159,13 +2133,6 @@ API int pkgmgr_parser_process_usr_manifest_x_for_installation(manifest_x* mfx, c
 	ret = pkgmgr_parser_insert_manifest_info_in_usr_db(mfx, uid);
 	retvm_if(ret == PMINFO_R_ERROR, PMINFO_R_ERROR, "DB Insert failed");
 	_LOGD("DB Insert Success\n");
-
-	ret = __ps_process_metadata_parser(mfx, ACTION_INSTALL);
-	if (ret == -1)
-		_LOGD("Creating metadata parser failed\n");
-	ret = __ps_process_category_parser(mfx, ACTION_INSTALL);
-	if (ret == -1)
-		_LOGD("Creating category parser failed\n");
 	xmlCleanupParser();
 	return PMINFO_R_OK;
 }
@@ -2342,14 +2309,6 @@ API int pkgmgr_parser_process_manifest_x_for_upgrade(manifest_x* mfx, const char
 	ret = pkgmgr_parser_update_manifest_info_in_db(mfx);
 	retvm_if(ret == PMINFO_R_ERROR, PMINFO_R_ERROR, "DB Insert failed");
 	_LOGD("DB Update Success\n");
-
-	ret = __ps_process_metadata_parser(mfx, ACTION_UPGRADE);
-	if (ret == -1){
-		_LOGD("Upgrade metadata parser failed\n");
-	}
-	ret = __ps_process_category_parser(mfx, ACTION_UPGRADE);
-	if (ret == -1)
-		_LOGD("Creating category parser failed\n");
 	pkgmgrinfo_pkginfo_destroy_pkginfo(handle);
 	xmlCleanupParser();
 
@@ -2372,13 +2331,6 @@ API int pkgmgr_parser_process_usr_manifest_x_for_upgrade(manifest_x* mfx, const 
 	ret = pkgmgr_parser_update_manifest_info_in_usr_db(mfx, uid);
 	retvm_if(ret == PMINFO_R_ERROR, PMINFO_R_ERROR, "DB Insert failed");
 	_LOGD("DB Update Success\n");
-
-	ret = __ps_process_metadata_parser(mfx, ACTION_UPGRADE);
-	if (ret == -1)
-		_LOGD("Upgrade metadata parser failed\n");
-	ret = __ps_process_category_parser(mfx, ACTION_UPGRADE);
-	if (ret == -1)
-		_LOGD("Creating category parser failed\n");
 	pkgmgrinfo_pkginfo_destroy_pkginfo(handle);
 	xmlCleanupParser();
 
@@ -2471,15 +2423,6 @@ API int pkgmgr_parser_process_manifest_x_for_uninstallation(manifest_x* mfx, con
 
 	int ret = -1;
 	xmlInitParser();
-
-	ret = __ps_process_metadata_parser(mfx, ACTION_UNINSTALL);
-	if (ret == -1)
-		_LOGD("Removing metadata parser failed\n");
-
-	ret = __ps_process_category_parser(mfx, ACTION_UNINSTALL);
-	if (ret == -1)
-		_LOGD("Creating category parser failed\n");
-
 	ret = pkgmgr_parser_delete_manifest_info_from_db(mfx);
 	if (ret == -1)
 		_LOGD("DB Delete failed\n");
@@ -2497,14 +2440,6 @@ API int pkgmgr_parser_process_usr_manifest_x_for_uninstallation(manifest_x* mfx,
 
 	int ret = -1;
 	xmlInitParser();
-
-	ret = __ps_process_metadata_parser(mfx, ACTION_UNINSTALL);
-	if (ret == -1)
-		_LOGD("Removing metadata parser failed\n");
-
-	ret = __ps_process_category_parser(mfx, ACTION_UNINSTALL);
-	if (ret == -1)
-		_LOGD("Creating category parser failed\n");
 
 	ret = pkgmgr_parser_delete_manifest_info_from_usr_db(mfx, uid);
 	if (ret == -1)
