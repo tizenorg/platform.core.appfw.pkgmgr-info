@@ -1694,8 +1694,7 @@ API int pkgmgrinfo_appinfo_get_effectimage(pkgmgrinfo_appinfo_h handle, char **p
 	retvm_if(portrait_img == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 	retvm_if(landscape_img == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 
-	if (info->app_info == NULL || info->app_info->portraitimg ||
-			info->app_info->landscapeimg == NULL)
+	if (info->app_info == NULL)
 		return PMINFO_R_ERROR;
 
 	*portrait_img = (char *)info->app_info->portraitimg;
