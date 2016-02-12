@@ -81,7 +81,6 @@ cp LICENSE %{buildroot}/usr/share/license/%{name}-parser
 %{_includedir}/pkgmgr-info.h
 %{_includedir}/pkgmgrinfo_type.h
 %{_includedir}/pkgmgrinfo_basic.h
-%{_includedir}/pkgmgrinfo_resource.h
 %{_libdir}/pkgconfig/pkgmgr-info.pc
 %{_libdir}/libpkgmgr-info.so
 
@@ -91,7 +90,6 @@ cp LICENSE %{buildroot}/usr/share/license/%{name}-parser
 %{_libdir}/libpkgmgr_parser.so.*
 %config %{_sysconfdir}/package-manager/preload/manifest.xsd
 %config %{_sysconfdir}/package-manager/preload/xml.xsd
-%config %{_sysconfdir}/package-manager/preload/res.xsd
 %config %{_sysconfdir}/package-manager/parser_path.conf
 %config %{_sysconfdir}/package-manager/parserlib/metadata/mdparser_list.txt
 %config %{_sysconfdir}/package-manager/parserlib/category/category_parser_list.txt
@@ -103,6 +101,5 @@ cp LICENSE %{buildroot}/usr/share/license/%{name}-parser
 %defattr(-,root,root,-)
 %{_includedir}/pkgmgr/pkgmgr_parser.h
 %{_includedir}/pkgmgr/pkgmgr_parser_db.h
-%{_includedir}/pkgmgr/pkgmgr_parser_resource.h
 %{_libdir}/pkgconfig/pkgmgr-parser.pc
 %{_libdir}/libpkgmgr_parser.so
