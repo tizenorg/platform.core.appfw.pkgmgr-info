@@ -45,8 +45,7 @@ ADD_LIBRARY(pkgmgr-info SHARED
 	src/pkgmgrinfo_pkginfo.c
 	src/pkgmgrinfo_appinfo.c
 	src/pkgmgrinfo_basic.c
-	src/pkgmgrinfo_private.c
-	src/pkgmgrinfo_resource.c)
+	src/pkgmgrinfo_private.c)
 
 SET_TARGET_PROPERTIES(pkgmgr-info PROPERTIES SOVERSION ${MAJORVER})
 SET_TARGET_PROPERTIES(pkgmgr-info PROPERTIES VERSION ${FULLVER})
@@ -63,7 +62,6 @@ INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/pkgmgr-info.pc DESTINATION ${LIB_INSTA
 INSTALL(FILES ${CMAKE_CURRENT_SOURCE_DIR}/include/pkgmgr-info.h DESTINATION include)
 INSTALL(FILES ${CMAKE_CURRENT_SOURCE_DIR}/include/pkgmgrinfo_type.h DESTINATION include)
 INSTALL(FILES ${CMAKE_CURRENT_SOURCE_DIR}/include/pkgmgrinfo_basic.h DESTINATION include)
-INSTALL(FILES ${CMAKE_CURRENT_SOURCE_DIR}/include/pkgmgrinfo_resource.h DESTINATION include)
 INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/parser_path.conf DESTINATION ${SYSCONFDIR}/package-manager/)
 INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/mdparser_list.txt DESTINATION ${SYSCONFDIR}/package-manager/parserlib/metadata)
 INSTALL(FILES ${CMAKE_CURRENT_BINARY_DIR}/category_parser_list.txt DESTINATION ${SYSCONFDIR}/package-manager/parserlib/category)
