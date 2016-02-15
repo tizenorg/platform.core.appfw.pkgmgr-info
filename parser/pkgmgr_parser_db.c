@@ -324,6 +324,18 @@ sqlite3 *pkgmgr_cert_db;
 						"uid text not null, " \
 						"PRIMARY KEY(app_id, uid))"
 
+#define QUERY_CREATE_TABLE_PACKAGE_APP_SPLASH_SCREEN \
+	"create table if not exists package_app_splash_screen " \
+	"(app_id text not null, " \
+	"src text not null, " \
+	"type text not null, " \
+	"orientation text not null, " \
+	"indicatordisplay text, " \
+	"PRIMARY KEY(app_id, orientation) " \
+	"FOREIGN KEY(app_id) " \
+	"REFERENCES package_app_info(app_id) " \
+	"ON DELETE CASCADE)"
+
 static int __insert_application_info(manifest_x *mfx);
 static int __insert_application_appcategory_info(manifest_x *mfx);
 static int __insert_application_appcontrol_info(manifest_x *mfx);
@@ -1381,6 +1393,105 @@ static int __insert_application_share_allowed_info(manifest_x *mfx)
 	return 0;
 }
 
+static int __insert_application_splashscreen_info(manifest_x *mfx)
+{
+	GList *app_tmp;
+	application_x *app;
+	GList *ss_tmp;
+	splashscreen_x *ss;
+	int ret = -1;
+	char query[MAX_QUERY_LEN];
+	int dpi = -1;
+
+	system_info_get_platform_int("http://tizen.org/feature/screen.dpi", &dpi);
+	if (!dpi)
+		return -1;
+
+	for (app_tmp = mfx->application; app_tmp; app_tmp = app_tmp->next) {
+		app = (application_x *)app_tmp->data;
+		if (app == NULL)
+			continue;
+		for (ss_tmp = app->splashscreens; ss_tmp; ss_tmp = ss_tmp->next) {
+			ss = (splashscreen_x *)ss_tmp->data;
+			if (ss == NULL || __check_dpi(ss->dpi, dpi) != 0)
+				continue;
+
+			snprintf(query, sizeof(query),
+					"insert into package_app_splash_screen" \
+					"(app_id, src, type, orientation, indicatordisplay) " \
+					"values('%s', '%s', '%s', '%s', '%s')",
+					app->appid, ss->src, ss->type, ss->orientation,
+					ss->indicatordisplay);
+			ret = __exec_query(query);
+			if (ret == -1) {
+				_LOGD("Package UiApp Splash Screen DB Insert Failed");
+				return -1;
+			}
+			memset(query, '\0', MAX_QUERY_LEN);
+		}
+	}
+	return 0;
+}
+
+static int __insert_application_legacy_splashscreen_info(manifest_x *mfx)
+{
+	GList *app_tmp;
+	application_x *app;
+	int ret = -1;
+	char query[MAX_QUERY_LEN];
+	const char *image_type;
+	const char *indicatordisplay;
+	const char *orientation;
+
+	for (app_tmp = mfx->application; app_tmp; app_tmp = app_tmp->next) {
+		app = (application_x *)app_tmp->data;
+		if (app == NULL ||
+			(app->portraitimg == NULL && app->landscapeimg == NULL))
+			continue;
+		image_type = "img"; /* default */
+		if (app->effectimage_type) {
+			image_type = strstr(app->effectimage_type, "edj");
+			if (image_type)
+				image_type = "edj";
+			else
+				image_type = "img";
+		}
+		indicatordisplay = "true"; /* default */
+		if (app->indicatordisplay)
+			indicatordisplay = app->indicatordisplay;
+		if (app->portraitimg) {
+			orientation = "portrait";
+			snprintf(query, sizeof(query),
+					"insert into package_app_splash_screen" \
+					"(app_id, src, type, orientation, indicatordisplay) " \
+					"values('%s', '%s', '%s', '%s', '%s')",
+					app->appid, app->portraitimg, image_type,
+					orientation, indicatordisplay);
+			ret = __exec_query(query);
+			if (ret == -1) {
+				_LOGD("Package UiApp Splash Screen DB Insert Failed");
+				return -1;
+			}
+			memset(query, '\0', MAX_QUERY_LEN);
+		} else if (app->landscapeimg) {
+			orientation = "landscape";
+			snprintf(query, sizeof(query),
+					"insert into package_app_splash_screen" \
+					"(app_id, src, type, orientation, indicatordisplay) " \
+					"values('%s', '%s', '%s', '%s', '%s')",
+					app->appid, app->landscapeimg, image_type,
+					orientation, indicatordisplay);
+			ret = __exec_query(query);
+			if (ret == -1) {
+				_LOGD("Package UiApp Splash Screen DB Insert Failed");
+				return -1;
+			}
+			memset(query, '\0', MAX_QUERY_LEN);
+		}
+	}
+	return 0;
+}
+
 static int __insert_manifest_info_in_db(manifest_x *mfx, uid_t uid)
 {
 	GList *tmp;
@@ -1551,6 +1662,16 @@ static int __insert_manifest_info_in_db(manifest_x *mfx, uid_t uid)
 	if (ret == -1)
 		return -1;
 
+	/*Insert in the package_app_splash_screen DB*/
+	ret = __insert_application_legacy_splashscreen_info(mfx);
+	if (ret == -1)
+		return -1;
+
+	/*Insert in the package_app_splash_screen DB*/
+	ret = __insert_application_splashscreen_info(mfx);
+	if (ret == -1)
+		return -1;
+
 	return 0;
 
 }
@@ -1605,6 +1726,9 @@ static int __delete_subpkg_info_from_db(char *appid)
 	if (ret < 0)
 		return ret;
 	ret = __delete_appinfo_from_db("package_app_data_control", appid);
+	if (ret < 0)
+		return ret;
+	ret = __delete_appinfo_from_db("package_app_splash_screen", appid);
 	if (ret < 0)
 		return ret;
 
@@ -1705,6 +1829,9 @@ static int __delete_manifest_info_from_db(manifest_x *mfx, uid_t uid)
 		if (ret < 0)
 			return ret;
 		ret = __delete_appinfo_from_db("package_app_data_control", app->appid);
+		if (ret < 0)
+			return ret;
+		ret = __delete_appinfo_from_db("package_app_splash_screen", app->appid);
 		if (ret < 0)
 			return ret;
 	}
@@ -1873,6 +2000,12 @@ API int pkgmgr_parser_initialize_db(uid_t uid)
 	ret = __initialize_db(pkgmgr_parser_db, QUERY_CREATE_TABLE_PACKAGE_APP_DISABLE_FOR_USER);
 	if (ret == -1) {
 		_LOGD("package app disable for user DB initialization failed\n");
+		return ret;
+	}
+
+	ret = __initialize_db(pkgmgr_parser_db, QUERY_CREATE_TABLE_PACKAGE_APP_SPLASH_SCREEN);
+	if (ret == -1) {
+		_LOGD("package app splash screen DB initialization failed\n");
 		return ret;
 	}
 
