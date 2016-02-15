@@ -503,6 +503,51 @@ static int _appinfo_get_metadata(sqlite3 *db, const char *appid,
 
 }
 
+static int _appinfo_get_splashscreens(sqlite3 *db, const char *appid,
+		GList **splashscreens)
+{
+	static const char query_raw[] =
+		"SELECT * "
+		"FROM package_app_splash_screen WHERE app_id=%Q";
+	int ret;
+	char *query;
+	sqlite3_stmt *stmt;
+	int idx;
+	splashscreen_x *info;
+
+	query = sqlite3_mprintf(query_raw, appid);
+	if (query == NULL) {
+		LOGE("out of memory");
+		return PMINFO_R_ERROR;
+	}
+
+	ret = sqlite3_prepare_v2(db, query, strlen(query), &stmt, NULL);
+	sqlite3_free(query);
+	if (ret != SQLITE_OK) {
+		LOGE("prepare failed: %s", sqlite3_errmsg(db));
+		return PMINFO_R_ERROR;
+	}
+
+	while (sqlite3_step(stmt) == SQLITE_ROW) {
+		info = calloc(1, sizeof(splashscreen_x));
+		if (info == NULL) {
+			LOGE("out of memory");
+			sqlite3_finalize(stmt);
+			return PMINFO_R_ERROR;
+		}
+		idx = 0;
+		_save_column_str(stmt, idx++, &info->src);
+		_save_column_str(stmt, idx++, &info->type);
+		_save_column_str(stmt, idx++, &info->orientation);
+		_save_column_str(stmt, idx++, &info->indicatordisplay);
+		*splashscreens = g_list_append(*splashscreens, info);
+	}
+
+	sqlite3_finalize(stmt);
+
+	return PMINFO_R_OK;
+}
+
 static GList *__get_background_category(char *value)
 {
 	GList *category_list = NULL;
@@ -658,6 +703,12 @@ static int _appinfo_get_application(sqlite3 *db, const char *appid,
 	}
 
 	if (_appinfo_get_metadata(db, info->appid, &info->metadata)) {
+		pkgmgrinfo_basic_free_application(info);
+		sqlite3_finalize(stmt);
+		return PMINFO_R_ERROR;
+	}
+
+	if (_appinfo_get_splashscreens(db, info->appid, &info->splashscreens)) {
 		pkgmgrinfo_basic_free_application(info);
 		sqlite3_finalize(stmt);
 		return PMINFO_R_ERROR;
@@ -875,6 +926,30 @@ static gpointer __copy_appcontrol(gconstpointer src, gpointer data)
 	return appcontrol;
 }
 
+static gpointer __copy_splashscreens(gconstpointer src, gpointer data)
+{
+	splashscreen_x *tmp = (splashscreen_x *)src;
+	splashscreen_x *splashscreen;
+
+	splashscreen = (splashscreen_x *)calloc(1, sizeof(splashscreen_x));
+	if (splashscreen == NULL) {
+		LOGE("memory alloc failed");
+		*(int *)data = -1;
+		return NULL;
+	}
+
+	if (tmp->src)
+		splashscreen->src = strdup(tmp->src);
+	if (tmp->type)
+		splashscreen->type = strdup(tmp->type);
+	if (tmp->orientation)
+		splashscreen->orientation = strdup(tmp->orientation);
+	if (tmp->indicatordisplay)
+		splashscreen->indicatordisplay = strdup(tmp->indicatordisplay);
+
+	return splashscreen;
+}
+
 static int _appinfo_copy_appinfo(application_x **application, application_x *data)
 {
 	application_x *app_info;
@@ -1002,6 +1077,14 @@ static int _appinfo_copy_appinfo(application_x **application, application_x *dat
 
 	ret = 0;
 	app_info->background_category = g_list_copy_deep(data->background_category, __copy_str, &ret);
+	if (ret < 0) {
+		LOGE("memory alloc failed");
+		pkgmgrinfo_basic_free_application(app_info);
+		return PMINFO_R_ERROR;
+	}
+
+	ret = 0;
+	app_info->splashscreens = g_list_copy_deep(data->splashscreens, __copy_splashscreens, &ret);
 	if (ret < 0) {
 		LOGE("memory alloc failed");
 		pkgmgrinfo_basic_free_application(app_info);
@@ -2007,6 +2090,37 @@ API int pkgmgrinfo_appinfo_foreach_background_category(
 			continue;
 
 		if (category_func(category, user_data) < 0)
+			break;
+	}
+
+	return PMINFO_R_OK;
+}
+
+API int pkgmgrinfo_appinfo_foreach_splash_screen(pkgmgrinfo_appinfo_h handle,
+		pkgmgrinfo_app_splash_screen_list_cb splash_screen_func,
+		void *user_data)
+{
+	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
+	splashscreen_x *splashscreen;
+	GList *tmp;
+	int ret;
+
+	if (info == NULL || info->app_info == NULL
+			|| splash_screen_func == NULL) {
+		LOGE("invalid parameter");
+		return PMINFO_R_EINVAL;
+	}
+
+	for (tmp = info->app_info->splashscreens; tmp; tmp = tmp->next) {
+		splashscreen = (splashscreen_x *)tmp->data;
+		if (splashscreen == NULL)
+			continue;
+		ret = splash_screen_func(splashscreen->src,
+				splashscreen->type,
+				splashscreen->orientation,
+				splashscreen->indicatordisplay,
+				user_data);
+		if (ret < 0)
 			break;
 	}
 
