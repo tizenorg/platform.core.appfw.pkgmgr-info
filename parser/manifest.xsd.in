@@ -25,7 +25,8 @@
           <xs:element ref="packages:privileges"/>
           <xs:element ref="packages:font"/> <!-- TBD -->
           <xs:element ref="packages:ime"/> <!-- TBD -->
-          <xs:element ref="packages:feature"/> <!-- TBD -->
+	  <xs:element ref="packages:feature"/> <!-- TBD -->
+	  <xs:element ref="packages:splash-screens"/>
         </xs:choice>
         <xs:any minOccurs="0" maxOccurs="unbounded" namespace="##any" processContents="lax"/>
       </xs:sequence>
@@ -133,7 +134,8 @@
           <xs:element ref="packages:metadata"/>
           <xs:element ref="packages:permission"/>
           <xs:element ref="packages:datacontrol"/>
-          <xs:element ref="packages:background-category"/>
+	  <xs:element ref="packages:background-category"/>
+	  <xs:element ref="packages:splash-screens"/>
         </xs:choice>
         <xs:any minOccurs="0" maxOccurs="unbounded" namespace="##any" processContents="lax"/>
       </xs:sequence>
@@ -341,5 +343,26 @@
     </xs:complexType>
   </xs:element>
   <xs:element name="support-size">
+  </xs:element>
+  <xs:element name="splash-screens">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:choice maxOccurs="unbounded" minOccurs="0">
+        <xs:element ref="packages:splash-screen"/>
+	<xs:any minOccurs="0" maxOccurs="unbounded" namespace="##any" processContents="lax"/>
+        </xs:choice>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="splash-screen">
+    <xs:complexType>
+      <xs:attribute name="src" use="required" type="xs:string"/>
+      <xs:attribute name="type" use="required" type="xs:string"/>
+      <xs:attribute name="dpi" use="required" type="xs:string"/>
+      <xs:attribute name="orientation" use="required" type="xs:string"/>
+      <xs:attribute name="indicator-display" type="xs:string"/>
+      <xs:attribute name="operation" type="xs:string"/>
+      <xs:anyAttribute processContents="lax"/>
+    </xs:complexType>
   </xs:element>
 </xs:schema>
