@@ -1553,7 +1553,6 @@ static void __ps_process_tag(manifest_x * mfx, char *const tagv[])
 
 static int __ps_process_icon(xmlTextReaderPtr reader, icon_x *icon, uid_t uid)
 {
-	__save_xml_attribute(reader, "name", &icon->name, NULL);
 	__save_xml_attribute(reader, "section", &icon->section, NULL);
 	__save_xml_attribute(reader, "size", &icon->size, NULL);
 	__save_xml_attribute(reader, "resolution", &icon->resolution, NULL);
@@ -1571,7 +1570,6 @@ static int __ps_process_icon(xmlTextReaderPtr reader, icon_x *icon, uid_t uid)
 
 static int __ps_process_image(xmlTextReaderPtr reader, image_x *image)
 {
-	__save_xml_attribute(reader, "name", &image->name, NULL);
 	__save_xml_attribute(reader, "section", &image->section, NULL);
 	__save_xml_lang(reader, &image->lang);
 	__save_xml_value(reader, &image->text);

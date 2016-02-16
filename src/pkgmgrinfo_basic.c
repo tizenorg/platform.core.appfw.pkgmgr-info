@@ -36,8 +36,6 @@ static void __ps_free_icon(gpointer data)
 		free((void *)icon->text);
 	if (icon->lang)
 		free((void *)icon->lang);
-	if (icon->name)
-		free((void *)icon->name);
 	if (icon->section)
 		free((void *)icon->section);
 	if (icon->size)
@@ -58,8 +56,6 @@ static void __ps_free_image(gpointer data)
 		free((void *)image->text);
 	if (image->lang)
 		free((void *)image->lang);
-	if (image->name)
-		free((void *)image->name);
 	if (image->section)
 		free((void *)image->section);
 	free((void*)image);
