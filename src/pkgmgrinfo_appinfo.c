@@ -799,8 +799,6 @@ static gpointer __copy_icon(gconstpointer src, gpointer data)
 		icon->text = strdup(tmp->text);
 	if (tmp->lang)
 		icon->lang = strdup(tmp->lang);
-	if (tmp->name)
-		icon->name = strdup(tmp->name);
 	if (tmp->section)
 		icon->section = strdup(tmp->section);
 	if (tmp->size)

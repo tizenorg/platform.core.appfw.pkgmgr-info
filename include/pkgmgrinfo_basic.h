@@ -14,7 +14,6 @@ typedef struct permission_x {
 } permission_x;
 
 typedef struct icon_x {
-	const char *name;
 	const char *text;
 	const char *lang;
 	const char *section;
@@ -24,7 +23,6 @@ typedef struct icon_x {
 } icon_x;
 
 typedef struct image_x {
-	const char *name;
 	const char *text;
 	const char *lang;
 	const char *section;

@@ -13,19 +13,19 @@
           <xs:element ref="packages:compatibility"/>
           <xs:element ref="packages:profile"/>
           <xs:element ref="packages:watch-application"/>
-          <xs:element ref="packages:watchface"/> <!-- TBD -->
+          <xs:element ref="packages:watchface"/>
           <xs:element ref="packages:service-application"/>
           <xs:element ref="packages:ui-application"/>
-          <xs:element ref="packages:ime-application"/> <!-- TBD -->
-          <xs:element ref="packages:shortcut-list"/> <!-- TBD -->
-          <xs:element ref="packages:widget"/> <!-- TBD -->
-          <xs:element ref="packages:widget-application"/> <!-- TBD -->
-          <xs:element ref="packages:account"/> <!-- TBD -->
-          <xs:element ref="packages:notifications"/> <!-- TBD -->
+          <xs:element ref="packages:ime-application"/>
+          <xs:element ref="packages:shortcut-list"/>
+          <xs:element ref="packages:widget"/>
+          <xs:element ref="packages:widget-application"/>
+          <xs:element ref="packages:account"/>
+          <xs:element ref="packages:notifications"/>
           <xs:element ref="packages:privileges"/>
-          <xs:element ref="packages:font"/> <!-- TBD -->
-          <xs:element ref="packages:ime"/> <!-- TBD -->
-          <xs:element ref="packages:feature"/> <!-- TBD -->
+          <xs:element ref="packages:font"/>
+          <xs:element ref="packages:ime"/>
+          <xs:element ref="packages:feature"/>
         </xs:choice>
         <xs:any minOccurs="0" maxOccurs="unbounded" namespace="##any" processContents="lax"/>
       </xs:sequence>
@@ -44,7 +44,6 @@
       <xs:attribute name="api-version" type="xs:string"/>
       <xs:attribute name="backend-installer" type="xs:string"/>
       <xs:attribute name="preload" type="xs:boolean"/>
-      <xs:attribute name="preload-removable" type="xs:boolean"/>
       <xs:anyAttribute namespace="##any" processContents="lax"/>
     </xs:complexType>
   </xs:element>
