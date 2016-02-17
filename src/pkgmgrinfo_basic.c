@@ -199,6 +199,24 @@ static void __ps_free_license(gpointer data)
 	free((void*)license);
 }
 
+static void __ps_free_splashscreen(gpointer data)
+{
+	splashscreen_x *splashscreen = (splashscreen_x *)data;
+	if (splashscreen == NULL)
+		return;
+	if (splashscreen->src)
+		free((void *)splashscreen->src);
+	if (splashscreen->type)
+		free((void *)splashscreen->type);
+	if (splashscreen->dpi)
+		free((void *)splashscreen->dpi);
+	if (splashscreen->orientation)
+		free((void *)splashscreen->orientation);
+	if (splashscreen->indicatordisplay)
+		free((void *)splashscreen->indicatordisplay);
+	free((void *)splashscreen);
+}
+
 static void __ps_free_application(gpointer data)
 {
 	application_x *application = (application_x *)data;
@@ -294,6 +312,9 @@ static void __ps_free_application(gpointer data)
 	g_list_free_full(application->datacontrol, __ps_free_datacontrol);
 	/*Free BackgroundCategory*/
 	g_list_free_full(application->background_category, free);
+	/*Free SplashScreen*/
+	g_list_free_full(application->splashscreens, __ps_free_splashscreen);
+
 	free((void *)application);
 }
 

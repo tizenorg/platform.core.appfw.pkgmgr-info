@@ -303,6 +303,26 @@ typedef int (*pkgmgrinfo_app_control_list_cb ) (const char *operation, const cha
  */
 typedef int (*pkgmgrinfo_app_background_category_list_cb ) (const char *category_name, void *user_data);
 
+/**
+ * @fn int (*pkgmgrinfo_app_splash_screen_list_cb) (const char *src,
+ *		const char *type, const char *orientation,
+ *		const char *indicatordisplay, void *user_data);
+ * @brief Specifies the type of function passed to pkgmgrinfo_appinfo_foreach_splash_screen()
+ *
+ * @param[in] src the source of the splashscreen
+ * @param[in] type the type of the splashscreen
+ * @param[in] orientation the orientation of the splashscreen
+ * @param[in] indicatordisplay the indicator-display of the splashscreen
+ * @param[in] user_data user data passed to pkgmgrinfo_appinfo_foreach_splash_screen()
+ *
+ * @return 0 if success, negative value(<0) if fail, Callback is not called if return value is negative.\n
+ *
+ * @see	pkgmgrinfo_appinfo_foreach_splash_screen()
+ */
+typedef int (*pkgmgrinfo_app_splash_screen_list_cb) (const char *src,
+		const char *type, const char *orientation,
+		const char *indicatordisplay, void *user_data);
+
 typedef int (*pkgmgrinfo_handler)(uid_t target_uid, int req_id, const char *pkg_type,
 				const char *pkgid, const char *key,
 				const char *val, const void *pmsg, void *data);
