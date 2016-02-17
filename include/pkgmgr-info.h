@@ -2162,6 +2162,46 @@ int pkgmgrinfo_appinfo_get_installed_list(pkgmgrinfo_app_list_cb app_func, void 
 int pkgmgrinfo_appinfo_get_usr_installed_list(pkgmgrinfo_app_list_cb app_func, uid_t uid, void *user_data);
 
 /**
+ * @fn int pkgmgrinfo_appinfo_get_disabled_appinfo(const char *appid, pkgmgrinfo_appinfo_h *handle)
+ * @brief	This API creates the disabled application information handle from db
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in]	appid	pointer to appid
+ * @param[out] handle		pointer to the application info handle.
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		None
+ * @post		pkgmgrinfo_appinfo_destroy_appinfo()
+ * @see		pkgmgrinfo_appinfo_get_pkgid()
+ * @see		pkgmgrinfo_appinfo_is_multiple()
+ * @code
+static int get_disabled_app_type(const char *appid)
+{
+	int ret = 0;
+	char *type = NULL;
+	pkgmgrinfo_appinfo_h handle;
+	ret = pkgmgrinfo_appinfo_get_disabled_appinfo(appid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_appinfo_get_apptype(handle, &type);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_appinfo_destroy_appinfo(handle);
+		return -1;
+	}
+	printf("apptype: %s\n", type);
+	pkgmgrinfo_appinfo_destroy_appinfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_appinfo_get_disabled_appinfo(const char *appid, pkgmgrinfo_appinfo_h *handle);
+int pkgmgrinfo_appinfo_get_usr_disabled_appinfo(const char *appid, uid_t uid, pkgmgrinfo_appinfo_h *handle);
+
+/**
  * @fn int pkgmgrinfo_appinfo_get_appinfo(const char *appid, pkgmgrinfo_appinfo_h *handle)
  * @brief	This API creates the application information handle from db
  *
@@ -2200,6 +2240,7 @@ static int get_app_type(const char *appid)
  */
 int pkgmgrinfo_appinfo_get_appinfo(const char *appid, pkgmgrinfo_appinfo_h *handle);
 int pkgmgrinfo_appinfo_get_usr_appinfo(const char *appid, uid_t uid, pkgmgrinfo_appinfo_h *handle);
+
 /**
  * @fn int pkgmgrinfo_appinfo_get_appid(pkgmgrinfo_appinfo_h handle, char **appid)
  * @brief	This API gets the application ID

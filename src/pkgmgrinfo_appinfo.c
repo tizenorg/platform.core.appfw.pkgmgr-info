@@ -590,7 +590,7 @@ static GList *__get_background_category(char *value)
 }
 
 static int _appinfo_get_application(sqlite3 *db, const char *appid,
-		const char *locale, application_x **application)
+		const char *locale, application_x **application, bool is_disabled)
 {
 	static const char query_raw[] =
 		"SELECT app_id, app_component, app_exec, app_nodisplay, "
@@ -605,15 +605,22 @@ static int _appinfo_get_application(sqlite3 *db, const char *appid,
 		"component_type, package, app_process_pool, app_installed_storage, "
 		"app_background_category, app_package_type "
 		"FROM package_app_info WHERE app_id='%s' "
-		"AND app_id NOT IN "
-		"(SELECT app_id from package_app_disable_for_user WHERE uid='%d')";
+		"AND (app_disable='%s' "
+		"%s app_id %s IN "
+		"(SELECT app_id from package_app_disable_for_user WHERE uid='%d'))";
 	int ret;
 	char query[MAX_QUERY_LEN] = { '\0' };
 	sqlite3_stmt *stmt;
 	int idx;
 	application_x *info;
 	char *bg_category_str = NULL;
-	snprintf(query, MAX_QUERY_LEN - 1, query_raw, appid, (int)getuid());
+	snprintf(query, MAX_QUERY_LEN - 1, query_raw,
+			appid,
+			is_disabled ? "true" : "false",
+			is_disabled ? "OR" : "AND",
+			is_disabled ? "" : "NOT",
+			(int)getuid());
+
 	ret = sqlite3_prepare_v2(db, query, strlen(query), &stmt, NULL);
 	if (ret != SQLITE_OK) {
 		LOGE("prepare failed: %s", sqlite3_errmsg(db));
@@ -722,7 +729,7 @@ static int _appinfo_get_application(sqlite3 *db, const char *appid,
 }
 
 static int _appinfo_get_appinfo(const char *appid, uid_t uid,
-		pkgmgr_appinfo_x **appinfo)
+		pkgmgr_appinfo_x **appinfo, bool is_disabled)
 {
 	int ret;
 	sqlite3 *db;
@@ -753,7 +760,7 @@ static int _appinfo_get_appinfo(const char *appid, uid_t uid,
 		return PMINFO_R_ERROR;
 	}
 
-	ret = _appinfo_get_application(db, appid, locale, &info->app_info);
+	ret = _appinfo_get_application(db, appid, locale, &info->app_info, is_disabled);
 	if (ret != PMINFO_R_OK) {
 		free(info);
 		free(locale);
@@ -771,6 +778,32 @@ static int _appinfo_get_appinfo(const char *appid, uid_t uid,
 	return ret;
 }
 
+API int pkgmgrinfo_appinfo_get_usr_disabled_appinfo(const char *appid, uid_t uid,
+		pkgmgrinfo_appinfo_h *handle)
+{
+	int ret;
+
+	if (appid == NULL || handle == NULL) {
+		LOGE("invalid parameter");
+		return PMINFO_R_EINVAL;
+	}
+
+	ret = _appinfo_get_appinfo(appid, uid, (pkgmgr_appinfo_x **)handle, true);
+	if (ret == PMINFO_R_ENOENT && uid != GLOBAL_USER)
+		ret = _appinfo_get_appinfo(appid, GLOBAL_USER,
+				(pkgmgr_appinfo_x **)handle, true);
+
+	if (ret != PMINFO_R_OK)
+		_LOGE("failed to get appinfo of %s for user %d", appid, uid);
+
+	return ret;
+}
+
+API int pkgmgrinfo_appinfo_get_disabled_appinfo(const char *appid, pkgmgrinfo_appinfo_h *handle)
+{
+	return pkgmgrinfo_appinfo_get_usr_disabled_appinfo(appid, GLOBAL_USER, handle);
+}
+
 API int pkgmgrinfo_appinfo_get_usr_appinfo(const char *appid, uid_t uid,
 		pkgmgrinfo_appinfo_h *handle)
 {
@@ -781,10 +814,10 @@ API int pkgmgrinfo_appinfo_get_usr_appinfo(const char *appid, uid_t uid,
 		return PMINFO_R_EINVAL;
 	}
 
-	ret = _appinfo_get_appinfo(appid, uid, (pkgmgr_appinfo_x **)handle);
+	ret = _appinfo_get_appinfo(appid, uid, (pkgmgr_appinfo_x **)handle, false);
 	if (ret == PMINFO_R_ENOENT && uid != GLOBAL_USER)
 		ret = _appinfo_get_appinfo(appid, GLOBAL_USER,
-				(pkgmgr_appinfo_x **)handle);
+				(pkgmgr_appinfo_x **)handle, false);
 
 	if (ret != PMINFO_R_OK)
 		_LOGE("failed to get appinfo of %s for user %d", appid, uid);
@@ -1149,10 +1182,10 @@ static int _appinfo_get_filtered_foreach_appinfo(uid_t uid,
 	for (tmp = list; tmp; tmp = tmp->next) {
 		appid = (char *)tmp->data;
 		if (stop == 0) {
-			ret = _appinfo_get_appinfo(appid, uid, &info);
+			ret = _appinfo_get_appinfo(appid, uid, &info, false);
 			if (ret == PMINFO_R_ENOENT && uid != GLOBAL_USER)
 				ret = _appinfo_get_appinfo(appid, GLOBAL_USER,
-						&info);
+						&info, false);
 			if (ret != PMINFO_R_OK) {
 				free(appid);
 				continue;
