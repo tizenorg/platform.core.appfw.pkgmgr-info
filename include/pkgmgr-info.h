@@ -3546,6 +3546,27 @@ int pkgmgrinfo_appinfo_foreach_background_category(pkgmgrinfo_appinfo_h handle,
 		pkgmgrinfo_app_background_category_list_cb category_func, void *user_data);
 
 /**
+ * @fn	int pkgmgrinfo_appinfo_foreach_splash_screen(pkgmgrinfo_appinfo_h handle,
+			pkgmgrinfo_app_splash_screen_list_cb splash_screen_func, void *user_data);
+ * @brief	This API gets the list of splashscreen for a particular application
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ * @param[in]	handle		pointer to the application info handle.
+ * @param[in]	splash_screen_func		callback function for list
+ * @param[in]	user_data	user data to be passed to callback function
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ * @pre		pkgmgrinfo_appinfo_get_appinfo()
+ * @post		pkgmgrinfo_appinfo_destroy_appinfo()
+ * @code
+ */
+int pkgmgrinfo_appinfo_foreach_splash_screen(pkgmgrinfo_appinfo_h handle,
+		pkgmgrinfo_app_splash_screen_list_cb splash_screen_func, void *user_data);
+
+/**
  * @fn int pkgmgrinfo_appinfo_is_nodisplay(pkgmgrinfo_appinfo_h handle, bool *nodisplay)
  * @brief	This API gets the application 'nodisplay' value from the app ID
  *

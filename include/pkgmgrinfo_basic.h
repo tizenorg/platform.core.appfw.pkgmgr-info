@@ -90,6 +90,14 @@ typedef struct datacontrol_x {
 	const char *type;
 } datacontrol_x;
 
+typedef struct splashscreen_x {
+	const char *src;
+	const char *type;
+	const char *dpi;
+	const char *orientation;
+	const char *indicatordisplay;
+} splashscreen_x;
+
 typedef struct application_x {
 	const char *appid;	/*attr*/
 	const char *exec;	/*attr*/
@@ -140,6 +148,7 @@ typedef struct application_x {
 	GList *datacontrol; /*element*/
 	GList *background_category; /*element*/
 	GList *appcontrol; /*element*/
+	GList *splashscreens; /*element*/
 } application_x;
 
 typedef struct package_x {

@@ -1615,6 +1615,51 @@ static int __ps_process_datacontrol(xmlTextReaderPtr reader, datacontrol_x *data
 	return 0;
 }
 
+static int __ps_process_splashscreen(xmlTextReaderPtr reader, splashscreen_x *splashscreen)
+{
+	__save_xml_attribute(reader, "src", &splashscreen->src, NULL);
+	__save_xml_attribute(reader, "type", &splashscreen->type, NULL);
+	__save_xml_attribute(reader, "dpi", &splashscreen->dpi, NULL);
+	__save_xml_attribute(reader, "orientation", &splashscreen->orientation, NULL);
+	__save_xml_attribute(reader, "indicator-display", &splashscreen->indicatordisplay, NULL);
+	return 0;
+}
+
+static int __ps_process_splashscreens(xmlTextReaderPtr reader, GList **splashscreens)
+{
+	const xmlChar *node;
+	int ret = -1;
+	int depth = -1;
+	splashscreen_x *splashscreen;
+
+	depth = xmlTextReaderDepth(reader);
+	while ((ret = __next_child_element(reader, depth))) {
+		node = xmlTextReaderConstName(reader);
+		if (!node) {
+			_LOGD("xmlTextReaderConstName value is NULL\n");
+			return -1;
+		}
+
+		if (strcmp(ASCII(node), "splash-screen") == 0) {
+			splashscreen = calloc(1, sizeof(splashscreen_x));
+			if (splashscreen == NULL) {
+				_LOGD("Malloc Failed\n");
+				return -1;
+			}
+			*splashscreens = g_list_append(*splashscreens, splashscreen);
+			ret = __ps_process_splashscreen(reader, splashscreen);
+		} else {
+			return -1;
+		}
+
+		if (ret < 0) {
+			_LOGD("Processing splash-screen failed\n");
+			return ret;
+		}
+	}
+	return 0;
+}
+
 static int __ps_process_application(xmlTextReaderPtr reader, application_x *application, int type, uid_t uid)
 {
 	const xmlChar *node;
@@ -1750,6 +1795,8 @@ static int __ps_process_application(xmlTextReaderPtr reader, application_x *appl
 			}
 			application->datacontrol = g_list_append(application->datacontrol, datacontrol);
 			ret = __ps_process_datacontrol(reader, datacontrol);
+		} else if (!strcmp(ASCII(node), "splash-screens") == 0) {
+			ret = __ps_process_splashscreens(reader, &application->splashscreens);
 		} else
 			continue;
 		if (ret < 0) {
