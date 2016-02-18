@@ -86,7 +86,7 @@ sqlite3 *pkgmgr_cert_db;
 
 #define QUERY_CREATE_TABLE_PACKAGE_INFO "create table if not exists package_info " \
 						"(package text primary key not null, " \
-						"package_type text DEFAULT 'rpm', " \
+						"package_type text DEFAULT 'tpk', " \
 						"package_version text, " \
 						"package_api_version text, " \
 						"package_tep_name text, " \

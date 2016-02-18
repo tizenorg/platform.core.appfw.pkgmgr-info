@@ -1634,7 +1634,7 @@ int pkgmgrinfo_pkginfo_destroy_pkginfo(pkgmgrinfo_pkginfo_h handle);
  * @see		pkgmgrinfo_pkginfo_filter_count()
  * @see		pkgmgrinfo_pkginfo_filter_foreach_pkginfo()
  * @code
-static int get_rpm_pkg_count()
+static int get_tpk_pkg_count()
 {
 	int ret = 0;
 	int count = 0;
@@ -1642,7 +1642,7 @@ static int get_rpm_pkg_count()
 	ret = pkgmgrinfo_pkginfo_filter_create(&handle);
 	if (ret != PMINFO_R_OK)
 		return -1;
-	ret = pkgmgrinfo_pkginfo_filter_add_string(handle, PMINFO_PKGINFO_PROP_PACKAGE_TYPE, "rpm");
+	ret = pkgmgrinfo_pkginfo_filter_add_string(handle, PMINFO_PKGINFO_PROP_PACKAGE_TYPE, "tpk");
 	if (ret != PMINFO_R_OK) {
 		pkgmgrinfo_pkginfo_filter_destroy(handle);
 		return -1;
@@ -1652,7 +1652,7 @@ static int get_rpm_pkg_count()
 		pkgmgrinfo_pkginfo_filter_destroy(handle);
 		return -1;
 	}
-	printf("No of rpm pkgs: %d\n", count);
+	printf("No of tpk pkgs: %d\n", count);
 	pkgmgrinfo_pkginfo_filter_destroy(handle);
 	return 0;
 }
@@ -1677,7 +1677,7 @@ int pkgmgrinfo_pkginfo_filter_create(pkgmgrinfo_pkginfo_filter_h *handle);
  * @see		pkgmgrinfo_pkginfo_filter_count()
  * @see		pkgmgrinfo_pkginfo_filter_foreach_pkginfo()
  * @code
-static int get_rpm_pkg_count()
+static int get_tpk_pkg_count()
 {
 	int ret = 0;
 	int count = 0;
@@ -1685,7 +1685,7 @@ static int get_rpm_pkg_count()
 	ret = pkgmgrinfo_pkginfo_filter_create(&handle);
 	if (ret != PMINFO_R_OK)
 		return -1;
-	ret = pkgmgrinfo_pkginfo_filter_add_string(handle, PMINFO_PKGINFO_PROP_PACKAGE_TYPE, "rpm");
+	ret = pkgmgrinfo_pkginfo_filter_add_string(handle, PMINFO_PKGINFO_PROP_PACKAGE_TYPE, "tpk");
 	if (ret != PMINFO_R_OK) {
 		pkgmgrinfo_pkginfo_filter_destroy(handle);
 		return -1;
@@ -1695,7 +1695,7 @@ static int get_rpm_pkg_count()
 		pkgmgrinfo_pkginfo_filter_destroy(handle);
 		return -1;
 	}
-	printf("No of rpm pkgs: %d\n", count);
+	printf("No of tpk pkgs: %d\n", count);
 	pkgmgrinfo_pkginfo_filter_destroy(handle);
 	return 0;
 }
@@ -1814,7 +1814,7 @@ int pkgmgrinfo_pkginfo_filter_add_int(pkgmgrinfo_pkginfo_filter_h handle,
  * @see		pkgmgrinfo_pkginfo_filter_count()
  * @see		pkgmgrinfo_pkginfo_filter_foreach_pkginfo()
  * @code
-static int get_rpm_pkg_count()
+static int get_tpk_pkg_count()
 {
 	int ret = 0;
 	int count = 0;
@@ -1822,7 +1822,7 @@ static int get_rpm_pkg_count()
 	ret = pkgmgrinfo_pkginfo_filter_create(&handle);
 	if (ret != PMINFO_R_OK)
 		return -1;
-	ret = pkgmgrinfo_pkginfo_filter_add_string(handle, PMINFO_PKGINFO_PROP_PACKAGE_TYPE, "rpm");
+	ret = pkgmgrinfo_pkginfo_filter_add_string(handle, PMINFO_PKGINFO_PROP_PACKAGE_TYPE, "tpk");
 	if (ret != PMINFO_R_OK) {
 		pkgmgrinfo_pkginfo_filter_destroy(handle);
 		return -1;
@@ -1832,7 +1832,7 @@ static int get_rpm_pkg_count()
 		pkgmgrinfo_pkginfo_filter_destroy(handle);
 		return -1;
 	}
-	printf("No of rpm pkgs: %d\n", count);
+	printf("No of tpk pkgs: %d\n", count);
 	pkgmgrinfo_pkginfo_filter_destroy(handle);
 	return 0;
 }
@@ -1867,14 +1867,14 @@ int pkg_list_cb(pkgmgrinfo_pkginfo_h handle, void *user_data)
 	return 0;
 }
 
-static int get_rpm_pkg_list()
+static int get_tpk_pkg_list()
 {
 	int ret = 0;
 	pkgmgrinfo_pkginfo_filter_h handle;
 	ret = pkgmgrinfo_pkginfo_filter_create(&handle);
 	if (ret != PMINFO_R_OK)
 		return -1;
-	ret = pkgmgrinfo_pkginfo_filter_add_string(handle, PMINFO_PKGINFO_PROP_PACKAGE_TYPE, "rpm");
+	ret = pkgmgrinfo_pkginfo_filter_add_string(handle, PMINFO_PKGINFO_PROP_PACKAGE_TYPE, "tpk");
 	if (ret != PMINFO_R_OK) {
 		pkgmgrinfo_pkginfo_filter_destroy(handle);
 		return -1;
@@ -1913,7 +1913,7 @@ int pkgmgrinfo_pkginfo_usr_filter_foreach_pkginfo(pkgmgrinfo_pkginfo_filter_h ha
  * @post		pkgmgrinfo_pkginfo_filter_destroy()
  * @see		pkgmgrinfo_pkginfo_filter_foreach_pkginfo()
  * @code
-static int get_rpm_pkg_count()
+static int get_tpk_pkg_count()
 {
 	int ret = 0;
 	int count = 0;
@@ -1921,7 +1921,7 @@ static int get_rpm_pkg_count()
 	ret = pkgmgrinfo_pkginfo_filter_create(&handle);
 	if (ret != PMINFO_R_OK)
 		return -1;
-	ret = pkgmgrinfo_pkginfo_filter_add_string(handle, PMINFO_PKGINFO_PROP_PACKAGE_TYPE, "rpm");
+	ret = pkgmgrinfo_pkginfo_filter_add_string(handle, PMINFO_PKGINFO_PROP_PACKAGE_TYPE, "tpk");
 	if (ret != PMINFO_R_OK) {
 		pkgmgrinfo_pkginfo_filter_destroy(handle);
 		return -1;
@@ -1931,7 +1931,7 @@ static int get_rpm_pkg_count()
 		pkgmgrinfo_pkginfo_filter_destroy(handle);
 		return -1;
 	}
-	printf("No of rpm pkgs: %d\n", count);
+	printf("No of tpk pkgs: %d\n", count);
 	pkgmgrinfo_pkginfo_filter_destroy(handle);
 	return 0;
 }

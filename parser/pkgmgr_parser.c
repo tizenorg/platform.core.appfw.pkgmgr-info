@@ -1941,7 +1941,7 @@ static int __process_manifest(xmlTextReaderPtr reader, manifest_x *mfx, uid_t ui
 			__save_xml_attribute(reader, "version", &mfx->version, NULL);
 			__save_xml_attribute(reader, "size", &mfx->package_size, NULL);
 			__save_xml_attribute(reader, "install-location", &mfx->installlocation, "internal-only");
-			__save_xml_attribute(reader, "type", &mfx->type, "rpm");
+			__save_xml_attribute(reader, "type", &mfx->type, "tpk");
 			__save_xml_attribute(reader, "root_path", &mfx->root_path, NULL);
 			__save_xml_attribute(reader, "csc_path", &mfx->csc_path, NULL);
 			__save_xml_attribute(reader, "appsetting", &mfx->appsetting, "false");

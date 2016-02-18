@@ -163,7 +163,7 @@ typedef struct package_x {
 	const char *update;			/**< package update flag, no xml part*/
 	const char *appsetting;		/**< package app setting flag, attr, default: "false"*/
 	const char *system;		/**< package system flag, no xml part*/
-	const char *type;		/**< package type, attr, default: "rpm"*/
+	const char *type;		/**< package type, attr*/
 	const char *package_size;		/**< package size for external installation, attr*/
 	const char *installed_time;		/**< installed time after finishing of installation, no xml part*/
 	const char *installed_storage;		/**< package currently installed storage, no xml part*/

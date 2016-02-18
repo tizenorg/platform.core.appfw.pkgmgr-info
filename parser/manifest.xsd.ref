@@ -55,11 +55,8 @@
   </xs:simpleType>
   <xs:simpleType name="PackageType">
     <xs:restriction base="xs:string">
-      <xs:enumeration value="rpm"/>
       <xs:enumeration value="tpk"/>
       <xs:enumeration value="wgt"/>
-      <xs:enumeration value="apk"/>
-      <xs:enumeration value="coretpk"/>
     </xs:restriction>
   </xs:simpleType>
   <xs:simpleType name="ProfileType">
