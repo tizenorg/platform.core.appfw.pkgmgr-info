@@ -491,7 +491,7 @@ static int _appinfo_get_splashscreens(sqlite3 *db, const char *appid,
 		GList **splashscreens)
 {
 	static const char query_raw[] =
-		"SELECT src, type, orientation, indicatordisplay "
+		"SELECT src, type, orientation, indicatordisplay, operation "
 		"FROM package_app_splash_screen WHERE app_id=%Q";
 	int ret;
 	char *query;
@@ -524,6 +524,7 @@ static int _appinfo_get_splashscreens(sqlite3 *db, const char *appid,
 		_save_column_str(stmt, idx++, &info->type);
 		_save_column_str(stmt, idx++, &info->orientation);
 		_save_column_str(stmt, idx++, &info->indicatordisplay);
+		_save_column_str(stmt, idx++, &info->operation);
 		*splashscreens = g_list_append(*splashscreens, info);
 	}
 
@@ -961,6 +962,8 @@ static gpointer __copy_splashscreens(gconstpointer src, gpointer data)
 		splashscreen->orientation = strdup(tmp->orientation);
 	if (tmp->indicatordisplay)
 		splashscreen->indicatordisplay = strdup(tmp->indicatordisplay);
+	if (tmp->operation)
+		splashscreen->operation = strdup(tmp->operation);
 
 	return splashscreen;
 }
@@ -2136,6 +2139,7 @@ API int pkgmgrinfo_appinfo_foreach_splash_screen(pkgmgrinfo_appinfo_h handle,
 				splashscreen->type,
 				splashscreen->orientation,
 				splashscreen->indicatordisplay,
+				splashscreen->operation,
 				user_data);
 		if (ret < 0)
 			break;

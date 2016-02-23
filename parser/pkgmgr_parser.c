@@ -1618,6 +1618,7 @@ static int __ps_process_splashscreen(xmlTextReaderPtr reader, splashscreen_x *sp
 	__save_xml_attribute(reader, "dpi", &splashscreen->dpi, NULL);
 	__save_xml_attribute(reader, "orientation", &splashscreen->orientation, NULL);
 	__save_xml_attribute(reader, "indicator-display", &splashscreen->indicatordisplay, NULL);
+	__save_xml_attribute(reader, "app-control-operation", &splashscreen->operation, NULL);
 	return 0;
 }
 
