@@ -96,6 +96,7 @@ typedef struct splashscreen_x {
 	const char *dpi;
 	const char *orientation;
 	const char *indicatordisplay;
+	const char *operation;
 } splashscreen_x;
 
 typedef struct application_x {
