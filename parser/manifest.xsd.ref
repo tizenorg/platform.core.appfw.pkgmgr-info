@@ -55,6 +55,7 @@
   </xs:simpleType>
   <xs:simpleType name="PackageType">
     <xs:restriction base="xs:string">
+      <xs:enumeration value="rpm"/>
       <xs:enumeration value="tpk"/>
       <xs:enumeration value="wgt"/>
     </xs:restriction>
