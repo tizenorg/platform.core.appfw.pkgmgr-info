@@ -650,15 +650,75 @@ static int __check_dpi(const char *dpi_char, int dpi_int)
 		return -1;
 }
 
+static gint __check_icon_folder(const char *orig_icon_path, char **new_icon_path)
+{
+	char *dpi_path[2];
+	char *icon_filename = NULL;
+	char modified_iconpath[BUFSIZE] = { '\0' };
+	char icon_path[BUFSIZE] = { '\0' };
+	int i;
+	int dpi = -1;
+
+	if (orig_icon_path == NULL)
+		return -1;
+
+	system_info_get_platform_int("http://tizen.org/feature/screen.dpi", &dpi);
+	if (!dpi)
+		return -1;
+
+	if (dpi >= LDPI_MIN && dpi <= LDPI_MAX) {
+		dpi_path[0] = "LDPI";
+		dpi_path[1] = "ldpi";
+	} else if (dpi >= MDPI_MIN && dpi <= MDPI_MAX) {
+		dpi_path[0] = "MDPI";
+		dpi_path[1] = "mdpi";
+	} else if (dpi >= HDPI_MIN && dpi <= HDPI_MAX) {
+		dpi_path[0] = "HDPI";
+		dpi_path[1] = "hdpi";
+	} else if (dpi >= XHDPI_MIN && dpi <= XHDPI_MAX) {
+		dpi_path[0] = "XHDPI";
+		dpi_path[1] = "xhdpi";
+	} else if (dpi >= XXHDPI_MIN && dpi <= XXHDPI_MAX) {
+		dpi_path[0] = "XXHDPI";
+		dpi_path[1] = "xxhdpi";
+	} else {
+		_LOGE("Unidentified dpi[%d]", dpi);
+		return -1;
+	}
+
+	icon_filename = strrchr(orig_icon_path, '/');
+	if (icon_filename == NULL)
+		return -1;
+
+	snprintf(icon_path, strlen(orig_icon_path) - (strlen(icon_filename) - 1), orig_icon_path);
+	for (i = 0; i < 2; i++) {
+		snprintf(modified_iconpath, BUFSIZE - 1, "%s/%s%s", icon_path, dpi_path[i], icon_filename);
+		if (access(modified_iconpath, F_OK) != -1) {
+			// if it is true, free previous icon path and replace it to [system dpi]/[icon filename]
+			*new_icon_path = strdup(modified_iconpath);
+			return 0;
+		}
+	}
+
+	return -1;
+}
+
 static gint __compare_icon(gconstpointer a, gconstpointer b)
 {
 	icon_x *icon = (icon_x *)a;
+
+	char *icon_folder_path = NULL;
 
 	if (icon->lang != NULL && strcasecmp(icon->lang, DEFAULT_LOCALE) != 0)
 		return -1;
 
 	if (icon->dpi != NULL)
 		return -1;
+
+	if (__check_icon_folder(icon->text, &icon_folder_path) == 0) {
+		free(icon->text);
+		icon->text = icon_folder_path;
+	}
 
 	return 0;
 }
@@ -684,12 +744,21 @@ static gint __compare_icon_with_lang(gconstpointer a, gconstpointer b)
 {
 	icon_x *icon = (icon_x *)a;
 	char *lang = (char *)b;
+	char *icon_folder_path = NULL;
 
 	if (icon->dpi != NULL)
 		return -1;
 
-	if (strcasecmp(icon->lang, lang) == 0)
+	if (strcasecmp(icon->lang, lang) == 0) {
+		if (strcasecmp(icon->lang, DEFAULT_LOCALE) == 0) {
+			//icon for no locale. check existance of folder-hierachied default icons
+			if (__check_icon_folder(icon->text, &icon_folder_path) == 0) {
+				free(icon->text);
+				icon->text = icon_folder_path;
+			}
+		}
 		return 0;
+	}
 
 	return -1;
 }
