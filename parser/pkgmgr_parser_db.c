@@ -331,7 +331,8 @@ sqlite3 *pkgmgr_cert_db;
 	"type text not null, " \
 	"orientation text not null, " \
 	"indicatordisplay text, " \
-	"PRIMARY KEY(app_id, orientation) " \
+	"operation text, " \
+	"PRIMARY KEY(app_id, orientation, operation) " \
 	"FOREIGN KEY(app_id) " \
 	"REFERENCES package_app_info(app_id) " \
 	"ON DELETE CASCADE)"
@@ -1399,6 +1400,9 @@ static gint __compare_splashscreen_with_orientation_dpi(gconstpointer a, gconstp
 	const char *orientation = (const char *)b;
 	int dpi = -1;
 
+	if (ss->operation)
+		return -1;
+
 	system_info_get_platform_int("http://tizen.org/feature/screen.dpi", &dpi);
 	if (!dpi)
 		return -1;
@@ -1414,13 +1418,17 @@ static gint __compare_splashscreen_with_orientation(gconstpointer a, gconstpoint
 	splashscreen_x *ss = (splashscreen_x *)a;
 	const char *orientation = (const char *)b;
 
+	if (ss->operation)
+		return -1;
+
 	if (strcasecmp(ss->orientation, orientation) == 0 && (ss->dpi == NULL))
 		return 0;
 
 	return -1;
 }
 
-static splashscreen_x *__find_splashscreen(GList *splashscreens, const char *orientation)
+static splashscreen_x *__find_default_splashscreen(GList *splashscreens,
+					const char *orientation)
 {
 	GList *tmp;
 
@@ -1437,11 +1445,114 @@ static splashscreen_x *__find_splashscreen(GList *splashscreens, const char *ori
 	return NULL;
 }
 
+static void __compare_portrait_splashscreen_with_operation_dpi(gpointer a, gpointer b)
+{
+	splashscreen_x *ss = (splashscreen_x *)a;
+	GList **list = (GList **)b;
+	int dpi = -1;
+
+	if (ss->operation == NULL || ss->dpi == NULL)
+		return;
+
+	system_info_get_platform_int("http://tizen.org/feature/screen.dpi", &dpi);
+	if (!dpi)
+		return;
+
+	if (strcasecmp(ss->orientation, "portrait") == 0 && __check_dpi(ss->dpi, dpi) == 0)
+		*list = g_list_append(*list, ss);
+}
+
+static void __compare_portrait_splashscreen_with_operation(gpointer a, gpointer b)
+{
+	splashscreen_x *ss = (splashscreen_x *)a;
+	GList **list = (GList **)b;
+	splashscreen_x *ss_tmp;
+	GList *tmp;
+
+	if (ss->operation == NULL || ss->dpi)
+		return;
+	if (strcasecmp(ss->orientation, "portrait") != 0)
+		return;
+
+	for (tmp = *list; tmp; tmp = tmp->next) {
+		ss_tmp = (splashscreen_x *)tmp->data;
+		if (ss_tmp->operation && strcmp(ss_tmp->operation, ss->operation) == 0)
+			return;
+	}
+
+	*list = g_list_append(*list, ss);
+}
+
+static void __compare_landscape_splashscreen_with_operation_dpi(gpointer a, gpointer b)
+{
+	splashscreen_x *ss = (splashscreen_x *)a;
+	GList **list = (GList **)b;
+	int dpi = -1;
+
+	if (ss->operation == NULL || ss->dpi == NULL)
+		return;
+
+	system_info_get_platform_int("http://tizen.org/feature/screen.dpi", &dpi);
+	if (!dpi)
+		return;
+
+	if (strcasecmp(ss->orientation, "landscape") == 0 && __check_dpi(ss->dpi, dpi) == 0)
+		*list = g_list_append(*list, ss);
+}
+
+static void __compare_landscape_splashscreen_with_operation(gpointer a, gpointer b)
+{
+	splashscreen_x *ss = (splashscreen_x *)a;
+	GList **list = (GList **)b;
+	splashscreen_x *ss_tmp;
+	GList *tmp;
+
+	if (ss->operation == NULL || ss->dpi)
+		return;
+	if (strcasecmp(ss->orientation, "landscape") != 0)
+		return;
+
+	for (tmp = *list; tmp; tmp = tmp->next) {
+		ss_tmp = (splashscreen_x *)tmp->data;
+		if (ss_tmp->operation && strcmp(ss_tmp->operation, ss->operation) == 0)
+			return;
+	}
+
+	*list = g_list_append(*list, ss);
+}
+
+static GList *__find_splashscreens(GList *splashscreens)
+{
+	GList *portrait_list = NULL;
+	GList *landscape_list = NULL;
+	splashscreen_x *ss;
+
+	g_list_foreach(splashscreens,
+			__compare_portrait_splashscreen_with_operation_dpi, &portrait_list);
+	g_list_foreach(splashscreens,
+			__compare_portrait_splashscreen_with_operation, &portrait_list);
+	ss = __find_default_splashscreen(splashscreens, "portrait");
+	if (ss)
+		portrait_list = g_list_append(portrait_list, ss);
+
+	g_list_foreach(splashscreens,
+			__compare_landscape_splashscreen_with_operation_dpi, &landscape_list);
+	g_list_foreach(splashscreens,
+			__compare_landscape_splashscreen_with_operation, &landscape_list);
+	ss = __find_default_splashscreen(splashscreens, "landscape");
+	if (ss)
+		landscape_list = g_list_append(landscape_list, ss);
+
+	return g_list_concat(portrait_list, landscape_list);
+}
+
 static int __insert_application_splashscreen_info(manifest_x *mfx)
 {
 	GList *app_tmp;
 	application_x *app;
+	GList *ss_tmp;
 	splashscreen_x *ss;
+	GList *tmp;
 	int ret = -1;
 	char query[MAX_QUERY_LEN];
 
@@ -1450,14 +1561,18 @@ static int __insert_application_splashscreen_info(manifest_x *mfx)
 		if (app == NULL || app->splashscreens == NULL)
 			continue;
 
-		ss = __find_splashscreen(app->splashscreens, "portrait");
-		if (ss) {
+		ss_tmp = __find_splashscreens(app->splashscreens);
+		if (ss_tmp == NULL)
+			continue;
+
+		for (tmp = ss_tmp; tmp; tmp = tmp->next) {
+			ss = (splashscreen_x *)tmp->data;
 			snprintf(query, sizeof(query),
 					"insert into package_app_splash_screen" \
-					"(app_id, src, type, orientation, indicatordisplay) " \
-					"values('%s', '%s', '%s', '%s', '%s')",
+					"(app_id, src, type, orientation, indicatordisplay, operation) " \
+					"values('%s', '%s', '%s', '%s', '%s', '%s')",
 					app->appid, ss->src, ss->type, ss->orientation,
-					ss->indicatordisplay);
+					ss->indicatordisplay, __get_str(ss->operation));
 			ret = __exec_query(query);
 			if (ret == -1) {
 				_LOGD("Package UiApp Splash Screen DB Insert Failed");
@@ -1465,21 +1580,7 @@ static int __insert_application_splashscreen_info(manifest_x *mfx)
 			}
 			memset(query, '\0', MAX_QUERY_LEN);
 		}
-		ss = __find_splashscreen(app->splashscreens, "landscape");
-		if (ss) {
-			snprintf(query, sizeof(query),
-					"insert into package_app_splash_screen" \
-					"(app_id, src, type, orientation, indicatordisplay) " \
-					"values('%s', '%s', '%s', '%s', '%s')",
-					app->appid, ss->src, ss->type, ss->orientation,
-					ss->indicatordisplay);
-			ret = __exec_query(query);
-			if (ret == -1) {
-				_LOGD("Package UiApp Splash Screen DB Insert Failed");
-				return -1;
-			}
-			memset(query, '\0', MAX_QUERY_LEN);
-		}
+		g_list_free(ss_tmp);
 	}
 	return 0;
 }
@@ -1494,6 +1595,7 @@ static int __insert_application_legacy_splashscreen_info(manifest_x *mfx)
 	const char *image_type;
 	const char *indicatordisplay;
 	const char *orientation;
+	const char *operation = NULL;
 
 	for (app_tmp = mfx->application; app_tmp; app_tmp = app_tmp->next) {
 		app = (application_x *)app_tmp->data;
@@ -1513,10 +1615,10 @@ static int __insert_application_legacy_splashscreen_info(manifest_x *mfx)
 			orientation = "portrait";
 			snprintf(query, sizeof(query),
 					"insert into package_app_splash_screen" \
-					"(app_id, src, type, orientation, indicatordisplay) " \
-					"values('%s', '%s', '%s', '%s', '%s')",
+					"(app_id, src, type, orientation, indicatordisplay, operation) " \
+					"values('%s', '%s', '%s', '%s', '%s', '%s')",
 					app->appid, app->portraitimg, image_type,
-					orientation, indicatordisplay);
+					orientation, indicatordisplay, __get_str(operation));
 			ret = __exec_query(query);
 			if (ret == -1) {
 				_LOGD("Package UiApp Splash Screen DB Insert Failed");
@@ -1527,10 +1629,10 @@ static int __insert_application_legacy_splashscreen_info(manifest_x *mfx)
 			orientation = "landscape";
 			snprintf(query, sizeof(query),
 					"insert into package_app_splash_screen" \
-					"(app_id, src, type, orientation, indicatordisplay) " \
-					"values('%s', '%s', '%s', '%s', '%s')",
+					"(app_id, src, type, orientation, indicatordisplay, operation) " \
+					"values('%s', '%s', '%s', '%s', '%s', '%s')",
 					app->appid, app->landscapeimg, image_type,
-					orientation, indicatordisplay);
+					orientation, indicatordisplay, __get_str(operation));
 			ret = __exec_query(query);
 			if (ret == -1) {
 				_LOGD("Package UiApp Splash Screen DB Insert Failed");

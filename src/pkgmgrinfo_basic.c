@@ -214,6 +214,8 @@ static void __ps_free_splashscreen(gpointer data)
 		free((void *)splashscreen->orientation);
 	if (splashscreen->indicatordisplay)
 		free((void *)splashscreen->indicatordisplay);
+	if (splashscreen->operation)
+		free((void *)splashscreen->operation);
 	free((void *)splashscreen);
 }
 
