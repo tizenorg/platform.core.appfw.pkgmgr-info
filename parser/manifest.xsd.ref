@@ -411,7 +411,7 @@
       <xs:attribute name="dpi" type="xs:string"/>
       <xs:attribute name="orientation" use="required" type="xs:string"/>
       <xs:attribute name="indicator-display" type="xs:string"/>
-      <xs:attribute name="operation" type="xs:string"/>
+      <xs:attribute name="app-control-operation" type="xs:string"/>
     </xs:complexType>
   </xs:element>
 </xs:schema>
