@@ -70,33 +70,6 @@ enum {
 };
 
 /**
- * @fn char *pkgmgr_parser_get_manifest_file(const char *pkgid)
- * @brief	This API gets the manifest file of the package.
- *
- * @par		This API is for package-manager installer backends.
- * @par Sync (or) Async : Synchronous API
- *
- * @param[in]	pkgid	pointer to package ID
- * @return	manifest file path on success, NULL on failure
- * @pre		None
- * @post		Free the manifest file pointer that is returned by API
- * @code
-static int get_manifest_file(const char *pkgid)
-{
-	char *manifest = NULL;
-	manifest = pkgmgr_parser_get_manifest_file(pkgid);
-	if (manifest == NULL)
-		return -1;
-	printf("Manifest File Path is %s\n", manifest);
-	free(manifest);
-	return 0;
-}
- * @endcode
- */
-char *pkgmgr_parser_get_manifest_file(const char *pkgid);
-char *pkgmgr_parser_get_usr_manifest_file(const char *pkgid, uid_t uid);
-
-/**
  * @fn int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char *const tagv[])
  * @fn int pkgmgr_parser_parse_usr_manifest_for_installation(const char *manifest, uid_t uid, char *const tagv[])
  * @brief	This API parses the manifest file of the package after installation and stores the data in DB.

@@ -306,29 +306,7 @@ API const char *getUserPkgCertDBPathUID(uid_t uid)
 	return pkgmgr_cert_db;
 }
 
-API const char *getUserDesktopPath(uid_t uid)
-{
-	const char *path = NULL;
-	uid_t uid_caller = getuid();
-	gid_t gid = ROOT_UID;
-
-	if (uid != GLOBAL_USER && uid != ROOT_UID) {
-		tzplatform_set_user(uid);
-		path = tzplatform_mkpath(TZ_USER_DESKTOP, "/");
-		gid = _get_gid(tzplatform_getenv(TZ_SYS_USER_GROUP));
-		tzplatform_reset_user();
-	} else {
-		path = tzplatform_mkpath(TZ_SYS_RW_DESKTOP_APP, "/");
-	}
-
-	// just allow certain users to create the icon directory if needed.
-	if (uid_caller == ROOT_UID || uid_caller == uid)
-		_mkdir_for_user(path, uid, gid);
-
-	return path;
-}
-
-API const char *getUserManifestPath(uid_t uid)
+API const char *getUserManifestPath(uid_t uid, bool readonly)
 {
 	const char *path = NULL;
 	uid_t uid_caller = getuid();
@@ -340,7 +318,10 @@ API const char *getUserManifestPath(uid_t uid)
 		gid = _get_gid(tzplatform_getenv(TZ_SYS_USER_GROUP));
 		tzplatform_reset_user();
 	} else {
-		path = tzplatform_mkpath(TZ_SYS_RW_PACKAGES, "/");
+		if (readonly)
+			path = tzplatform_mkpath(TZ_SYS_RO_PACKAGES, "/");
+		else
+			path = tzplatform_mkpath(TZ_SYS_RW_PACKAGES, "/");
 	}
 
 	// just allow certain users to create the icon directory if needed.

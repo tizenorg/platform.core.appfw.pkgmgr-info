@@ -113,7 +113,6 @@ static int __ps_process_license(xmlTextReaderPtr reader, license_x *license);
 static int __ps_process_appcontrol(xmlTextReaderPtr reader, GList **appcontrol);
 static int __ps_process_datacontrol(xmlTextReaderPtr reader, datacontrol_x *datacontrol);
 static int __ps_process_application(xmlTextReaderPtr reader, application_x *application, int type, uid_t uid);
-static char *__pkgid_to_manifest(const char *pkgid, uid_t uid);
 static int __next_child_element(xmlTextReaderPtr reader, int depth);
 static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx, uid_t uid);
 static int __process_manifest(xmlTextReaderPtr reader, manifest_x * mfx, uid_t uid);
@@ -585,32 +584,6 @@ END:
 	if (lib_handle)
 		dlclose(lib_handle);
 	return ret;
-}
-
-static char *__pkgid_to_manifest(const char *pkgid, uid_t uid)
-{
-	char *manifest;
-	int size;
-
-	if (pkgid == NULL) {
-		_LOGE("pkgid is NULL");
-		return NULL;
-	}
-
-	size = strlen(getUserManifestPath(uid)) + strlen(pkgid) + 10;
-	manifest = malloc(size);
-	if (manifest == NULL) {
-		_LOGE("No memory");
-		return NULL;
-	}
-	memset(manifest, '\0', size);
-	snprintf(manifest, size, "%s%s.xml", getUserManifestPath(uid), pkgid);
-
-	if (access(manifest, F_OK)) {
-		snprintf(manifest, size, "%s%s.xml", getUserManifestPath(uid), pkgid);
-	}
-
-	return manifest;
 }
 
 static void __metadata_parser_clear_dir_list(GList* dir_list)
@@ -2004,7 +1977,8 @@ END:
 
 static int __check_preload_updated(manifest_x * mfx, const char *manifest, uid_t uid)
 {
-	if (!strstr(manifest, getUserManifestPath(uid))) {
+	if (!strstr(manifest, getUserManifestPath(uid,
+		strcmp(mfx->preload, "true") == 0))) {
 		/* if downloaded app is updated, then update tag set true*/
 		if (mfx->update)
 			free((void *)mfx->update);
@@ -2575,17 +2549,6 @@ API int pkgmgr_parser_parse_manifest_for_preload()
 API int pkgmgr_parser_parse_usr_manifest_for_preload(uid_t uid)
 {
 	return pkgmgr_parser_update_preload_info_in_usr_db(uid);
-}
-
-
-API char *pkgmgr_parser_get_usr_manifest_file(const char *pkgid, uid_t uid)
-{
-	return __pkgid_to_manifest(pkgid, uid);
-}
-
-API char *pkgmgr_parser_get_manifest_file(const char *pkgid)
-{
-	return __pkgid_to_manifest(pkgid, GLOBAL_USER);
 }
 
 API int pkgmgr_parser_run_parser_for_installation(xmlDocPtr docPtr, const char *tag, const char *pkgid)
