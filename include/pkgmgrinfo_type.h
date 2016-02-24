@@ -151,11 +151,6 @@ typedef void* pkgmgrinfo_appinfo_h;
 typedef void* pkgmgrinfo_certinfo_h;
 
 /**
- * @brief A handle to insert package information
- */
-typedef void* pkgmgrinfo_pkgdbinfo_h;
-
-/**
  * @brief A handle to filter package information
  */
 typedef void* pkgmgrinfo_pkginfo_filter_h;
