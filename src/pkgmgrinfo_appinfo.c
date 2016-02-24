@@ -250,20 +250,6 @@ static int _appinfo_get_label(sqlite3 *db, const char *appid,
 	return PMINFO_R_OK;
 }
 
-static void _appinfo_modify_icon(const char *appid, const char **icon)
-{
-	char buf[PKG_VALUE_STRING_LEN_MAX];
-	const char *tmp;
-
-	if (*icon == NULL || (*icon)[0] == '/' || !strcasecmp(*icon, ""))
-		return;
-
-	tmp = *icon;
-	snprintf(buf, sizeof(buf), "%s%s.png", getIconPath(getuid()), appid);
-	*icon = strdup(buf);
-	free((char *)tmp);
-}
-
 static int _appinfo_get_icon(sqlite3 *db, const char *appid, const char *locale,
 		GList **icon)
 {
@@ -300,8 +286,6 @@ static int _appinfo_get_icon(sqlite3 *db, const char *appid, const char *locale,
 		}
 		idx = 0;
 		_save_column_str(stmt, idx++, &info->text);
-		/* FIXME: this is a workaround. this must be removed later */
-		_appinfo_modify_icon(appid, &info->text);
 		_save_column_str(stmt, idx++, &info->lang);
 		*icon = g_list_append(*icon, info);
 	}
