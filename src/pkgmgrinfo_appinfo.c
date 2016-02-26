@@ -1506,10 +1506,12 @@ API int pkgmgrinfo_appinfo_get_localed_label(const char *appid, const char *loca
 
 static pkgmgrinfo_app_component __appcomponent_convert(const char *comp)
 {
-	if ( strcasecmp(comp, "uiapp") == 0)
+	if (strcasecmp(comp, "uiapp") == 0)
 		return PMINFO_UI_APP;
-	else if ( strcasecmp(comp, "svcapp") == 0)
+	else if (strcasecmp(comp, "svcapp") == 0)
 		return PMINFO_SVC_APP;
+	else if (strcasecmp(comp, "widgetapp") == 0)
+		return PMINFO_WIDGET_APP;
 	else
 		return -1;
 }
