@@ -1877,6 +1877,14 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx, uid_t uid)
 			}
 			mfx->application = g_list_append(mfx->application, application);
 			ret = __ps_process_application(reader, application, PMINFO_WIDGET_APP, uid);
+		} else if (!strcmp(ASCII(node), "watch-application")) {
+			application_x *application = calloc(1, sizeof(application_x));
+			if (application == NULL) {
+				_LOGD("Malloc Failed\n");
+				return -1;
+			}
+			mfx->application = g_list_append(mfx->application, application);
+			ret = __ps_process_application(reader, application, PMINFO_WIDGET_APP, uid);
 		} else if (!strcmp(ASCII(node), "icon")) {
 			icon_x *icon = calloc(1, sizeof(icon_x));
 			if (icon == NULL) {
