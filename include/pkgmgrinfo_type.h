@@ -342,6 +342,7 @@ typedef enum {
 	PMINFO_UI_APP,		/**< UI Application*/
 	PMINFO_SVC_APP,		/**< Service Application*/
 	PMINFO_WIDGET_APP,	/**< Widget Application*/
+	PMINFO_WATCH_APP,  /**< Watch Application*/
 } pkgmgrinfo_app_component;
 
 /**

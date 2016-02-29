@@ -1515,6 +1515,8 @@ static pkgmgrinfo_app_component __appcomponent_convert(const char *comp)
 		return PMINFO_SVC_APP;
 	else if (strcasecmp(comp, "widgetapp") == 0)
 		return PMINFO_WIDGET_APP;
+	else if (strcasecmp(comp, "watchapp") == 0)
+		return PMINFO_WATCH_APP;
 	else
 		return -1;
 }

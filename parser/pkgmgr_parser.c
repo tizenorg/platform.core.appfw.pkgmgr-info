@@ -1697,7 +1697,7 @@ static int __ps_process_application(xmlTextReaderPtr reader, application_x *appl
 
 	application->package= strdup(package);
 	/* overwrite some attributes if the app is widgetapp */
-	if (type == PMINFO_WIDGET_APP) {
+	if (type == PMINFO_WIDGET_APP || type == PMINFO_WATCH_APP) {
 		free((void *)application->nodisplay);
 		application->nodisplay = strdup("true");
 		free((void *)application->multiple);
@@ -1878,6 +1878,14 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx, uid_t uid)
 			}
 			mfx->application = g_list_append(mfx->application, application);
 			ret = __ps_process_application(reader, application, PMINFO_WIDGET_APP, uid);
+		} else if (!strcmp(ASCII(node), "watch-application")) {
+			application_x *application = calloc(1, sizeof(application_x));
+			if (application == NULL) {
+				_LOGD("Malloc Failed\n");
+				return -1;
+			}
+			mfx->application = g_list_append(mfx->application, application);
+			ret = __ps_process_application(reader, application, PMINFO_WATCH_APP, uid);
 		} else if (!strcmp(ASCII(node), "icon")) {
 			icon_x *icon = calloc(1, sizeof(icon_x));
 			if (icon == NULL) {
