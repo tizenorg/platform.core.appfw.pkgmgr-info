@@ -137,6 +137,10 @@ typedef struct application_x {
 	const char *alias_appid;	/*attr*/
 	const char *effective_appid;	/*attr*/
 	const char *package_type;	/*set from package_x*/
+	const char *tep_name;	/*set from package_x*/
+	const char *root_path;	/*set from package_x*/
+	const char *api_version;	/*set from package_x*/
+	const char *for_all_users; /**< Flag that indicates if the package is available for everyone or for current user only, no xml part*/
 	GList *label;	/*element*/
 	GList *icon;	/*element*/
 	GList *image;	/*element*/
