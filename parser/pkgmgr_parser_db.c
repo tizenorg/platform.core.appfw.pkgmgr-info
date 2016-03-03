@@ -168,6 +168,8 @@ sqlite3 *pkgmgr_cert_db;
 						"package text not null, " \
 						"app_tep_name text, " \
 						"app_background_category INTEGER DEFAULT 0, " \
+						"app_root_path text, " \
+						"app_api_version text, " \
 						"FOREIGN KEY(package) " \
 						"REFERENCES package_info(package) " \
 						"ON DELETE CASCADE)"
@@ -1179,7 +1181,7 @@ static int __insert_application_info(manifest_x *mfx)
 			"app_indicatordisplay, app_portraitimg, app_landscapeimg, app_guestmodevisibility, app_permissiontype, " \
 			"app_preload, app_submode, app_submode_mainid, app_installed_storage, app_process_pool, " \
 			"app_launch_mode, app_ui_gadget, app_support_disable, component_type, package, " \
-			"app_tep_name, app_background_category, app_package_type) " \
+			"app_tep_name, app_background_category, app_package_type, app_root_path, app_api_version) " \
 			"values(" \
 			"'%s', '%s', '%s', '%s', '%s', " \
 			"'%s', '%s', '%s', '%s', '%s', " \
@@ -1187,7 +1189,7 @@ static int __insert_application_info(manifest_x *mfx)
 			"'%s', '%s', '%s', '%s', '%s', " \
 			"'%s', '%s', '%s', '%s', '%s', " \
 			"'%s', '%s', '%s', '%s', '%s', " \
-			"'%s', '%d', '%s')", \
+			"'%s', '%d', '%s', '%s', '%s')", \
 			app->appid, app->component_type, app->exec, app->nodisplay, app->type,
 			app->onboot, app->multiple, app->autorestart, app->taskmanage, app->enabled,
 			app->hwacceleration, app->screenreader, app->mainapp, __get_str(app->recentimage), app->launchcondition,
@@ -1195,7 +1197,7 @@ static int __insert_application_info(manifest_x *mfx)
 			app->guestmode_visibility, app->permission_type,
 			mfx->preload, app->submode, __get_str(app->submode_mainid), mfx->installed_storage, app->process_pool,
 			app->launch_mode, app->ui_gadget, mfx->support_disable, app->component_type, mfx->package,
-			__get_str(mfx->tep_name), background_value, type);
+			__get_str(mfx->tep_name), background_value, type, mfx->root_path, __get_str(mfx->api_version));
 
 		ret = __exec_query(query);
 		if (ret == -1) {
@@ -1698,6 +1700,7 @@ static int __insert_manifest_info_in_db(manifest_x *mfx, uid_t uid)
 		if (author->href)
 			auth_href = author->href;
 	}
+
 	/*Insert in the package_cert_info CERT_DB*/
 	pkgmgrinfo_instcertinfo_h cert_handle = NULL;
 	ret = pkgmgrinfo_set_cert_value(&cert_handle, PMINFO_SET_AUTHOR_ROOT_CERT, "author root certificate");
