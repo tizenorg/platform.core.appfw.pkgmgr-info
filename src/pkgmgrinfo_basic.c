@@ -289,6 +289,14 @@ static void __ps_free_application(gpointer data)
 		free((void *)application->package);
 	if (application->support_disable)
 		free((void *)application->support_disable);
+	if (application->tep_name)
+		free((void *)application->tep_name);
+	if (application->root_path)
+		free((void *)application->root_path);
+	if (application->api_version)
+		free((void *)application->api_version);
+	if (application->for_all_users)
+		free((void *)application->for_all_users);
 
 	/*Free Label*/
 	g_list_free_full(application->label, __ps_free_label);
