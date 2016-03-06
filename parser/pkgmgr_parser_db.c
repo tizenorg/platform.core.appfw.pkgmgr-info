@@ -2263,7 +2263,7 @@ static int __parserdb_change_perm(const char *db_file, uid_t uid)
 		ret = chown(files[i], uid, userinfo->pw_gid);
 		if (ret == -1) {
 			if (strerror_r(errno, buf, sizeof(buf)))
-				strcpy(buf, "");
+				strncpy(buf, "", BUFSIZE - 1);
 			_LOGD("FAIL : chown %s %d.%d : %s", files[i], uid,
 					userinfo->pw_gid, buf);
 			return -1;
@@ -2275,7 +2275,7 @@ static int __parserdb_change_perm(const char *db_file, uid_t uid)
 		ret = chmod(files[i], mode);
 		if (ret == -1) {
 			if (strerror_r(errno, buf, sizeof(buf)))
-				strcpy(buf, "");
+				strncpy(buf, "", BUFSIZE - 1);
 			_LOGD("FAIL : chmod %s 0664 : %s", files[i], buf);
 			return -1;
 		}
