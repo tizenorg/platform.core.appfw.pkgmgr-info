@@ -191,187 +191,6 @@ long long _pkgmgr_calculate_dir_size(char *dirname)
 
 }
 
-static gint __list_strcmp(gconstpointer a, gconstpointer b)
-{
-	return strcmp((char *)a, (char *)b);
-}
-
-static int _pkginfo_get_list(sqlite3 *db, const char *locale,
-		pkgmgrinfo_filter_x *filter, GList **list)
-{
-	static const char query_raw[] =
-		"SELECT DISTINCT package_info.package FROM package_info"
-		" LEFT OUTER JOIN package_localized_info"
-		"  ON package_info.package=package_localized_info.package"
-		"  AND package_localized_info.package_locale=%Q "
-		" LEFT OUTER JOIN package_privilege_info"
-		"  ON package_info.package=package_privilege_info.package";
-	int ret;
-	char *query;
-	char *query_localized;
-	sqlite3_stmt *stmt;
-	char *pkgid = NULL;
-
-	query = _get_filtered_query(query_raw, filter);
-	if (query == NULL)
-		return -1;
-	query_localized = sqlite3_mprintf(query, locale);
-	free(query);
-	if (query_localized == NULL)
-		return -1;
-
-	ret = sqlite3_prepare_v2(db, query_localized,
-			strlen(query_localized), &stmt, NULL);
-	sqlite3_free(query_localized);
-	if (ret != SQLITE_OK) {
-		LOGE("prepare failed: %s", sqlite3_errmsg(db));
-		return -1;
-	}
-
-	while (sqlite3_step(stmt) == SQLITE_ROW) {
-		_save_column_str(stmt, 0, &pkgid);
-		if (pkgid != NULL)
-			*list = g_list_insert_sorted(*list, pkgid,
-					__list_strcmp);
-	}
-
-	sqlite3_finalize(stmt);
-
-	return 0;
-}
-
-static int _pkginfo_get_filtered_list(pkgmgrinfo_filter_x *filter, uid_t uid,
-		GList **list)
-{
-	int ret;
-	sqlite3 *db;
-	const char *dbpath;
-	char *locale;
-	GList *tmp;
-	GList *tmp2;
-
-	locale = _get_system_locale();
-	if (locale == NULL)
-		return PMINFO_R_ERROR;
-
-	dbpath = getUserPkgParserDBPathUID(uid);
-	if (dbpath == NULL) {
-		free(locale);
-		return PMINFO_R_ERROR;
-	}
-
-	ret = sqlite3_open_v2(dbpath, &db, SQLITE_OPEN_READONLY, NULL);
-	if (ret != SQLITE_OK) {
-		_LOGE("failed to open db: %d", ret);
-		free(locale);
-		return PMINFO_R_ERROR;
-	}
-
-	if (_pkginfo_get_list(db, locale, filter, list)) {
-		free(locale);
-		sqlite3_close_v2(db);
-		return PMINFO_R_ERROR;
-	}
-	sqlite3_close_v2(db);
-
-	if (uid == GLOBAL_USER) {
-		free(locale);
-		return PMINFO_R_OK;
-	}
-
-	/* search again from global */
-	dbpath = getUserPkgParserDBPathUID(GLOBAL_USER);
-	if (dbpath == NULL) {
-		free(locale);
-		return PMINFO_R_ERROR;
-	}
-
-	ret = sqlite3_open_v2(dbpath, &db, SQLITE_OPEN_READONLY, NULL);
-	if (ret != SQLITE_OK) {
-		_LOGE("failed to open db: %d", ret);
-		free(locale);
-		return PMINFO_R_ERROR;
-	}
-
-	if (_pkginfo_get_list(db, locale, filter, list)) {
-		free(locale);
-		sqlite3_close_v2(db);
-		return PMINFO_R_ERROR;
-	}
-	sqlite3_close_v2(db);
-
-	/* remove duplicate element:
-	 * since the list is sorted, we can remove duplicates in linear time
-	 */
-	for (tmp = *list, tmp2 = g_list_next(tmp); tmp;
-			tmp = tmp2, tmp2 = g_list_next(tmp)) {
-		if (tmp->prev == NULL || tmp->data == NULL)
-			continue;
-		if (strcmp((const char *)tmp->prev->data,
-					(const char *)tmp->data) == 0)
-			*list = g_list_delete_link(*list, tmp);
-	}
-
-	free(locale);
-
-	return PMINFO_R_OK;
-}
-
-
-static int _pkginfo_get_filtered_foreach_pkginfo(pkgmgrinfo_filter_x *filter,
-		pkgmgrinfo_pkg_list_cb pkg_list_cb, void *user_data, uid_t uid)
-{
-	int ret;
-	pkgmgr_pkginfo_x *info;
-	GList *list = NULL;
-	GList *tmp;
-	char *pkgid;
-	int stop = 0;
-
-	ret = _pkginfo_get_filtered_list(filter, uid, &list);
-	if (ret != PMINFO_R_OK)
-		return PMINFO_R_ERROR;
-
-	for (tmp = list; tmp; tmp = tmp->next) {
-		pkgid = (char *)tmp->data;
-		if (stop == 0) {
-			ret = _pkginfo_get_pkginfo(pkgid, uid, &info);
-			if (ret == PMINFO_R_ENOENT && uid != GLOBAL_USER)
-				ret = _pkginfo_get_pkginfo(pkgid, GLOBAL_USER,
-						&info);
-			if (ret != PMINFO_R_OK) {
-				free(pkgid);
-				continue;
-			}
-			if (pkg_list_cb(info, user_data) < 0)
-				stop = 1;
-			pkgmgrinfo_pkginfo_destroy_pkginfo(info);
-		}
-		free(pkgid);
-	}
-
-	g_list_free(list);
-
-	return PMINFO_R_OK;
-}
-
-API int pkgmgrinfo_pkginfo_get_usr_list(pkgmgrinfo_pkg_list_cb pkg_list_cb,
-		void *user_data, uid_t uid)
-{
-	if (pkg_list_cb == NULL) {
-		LOGE("invalid parameter");
-		return PMINFO_R_EINVAL;
-	}
-
-	return _pkginfo_get_filtered_foreach_pkginfo(NULL, pkg_list_cb,
-			user_data, uid);
-}
-
-API int pkgmgrinfo_pkginfo_get_list(pkgmgrinfo_pkg_list_cb pkg_list_cb, void *user_data)
-{
-	return pkgmgrinfo_pkginfo_get_usr_list(pkg_list_cb, user_data, _getuid());
-}
-
 static int _pkginfo_get_author(sqlite3 *db, const char *pkgid,
 		GList **author)
 {
@@ -631,112 +450,221 @@ static char *_get_filtered_query(const char *query_raw,
 	return strdup(buf);
 }
 
-static int _pkginfo_get_package(sqlite3 *db, const char *pkgid,
-		const char *locale, package_x **package)
+static void __free_packages(gpointer data)
+{
+	pkgmgrinfo_basic_free_package((package_x *)data);
+}
+
+static gint __list_comp(gconstpointer a, gconstpointer b)
+{
+	package_x *pkg_a = (package_x *)a;
+	package_x *pkg_b = (package_x *)b;
+
+	return strcmp(pkg_a->package, pkg_b->package);
+}
+
+static int _pkginfo_get_packages(uid_t uid, const char *locale,
+		pkgmgrinfo_filter_x *filter, int flag, GList **packages)
 {
 	static const char query_raw[] =
-		"SELECT package, package_version, "
-		"install_location, package_removable, package_preload, "
-		"package_readonly, package_update, package_appsetting, "
-		"package_system, package_type, package_size, installed_time, "
-		"installed_storage, storeclient_id, mainapp_id, package_url, "
-		"root_path, csc_path, package_nodisplay, package_api_version, "
-		"package_support_disable, package_tep_name, package_zip_mount_file "
-		"FROM package_info WHERE package=%Q AND package_disable='false'";
+		"SELECT DISTINCT pi.package, pi.package_version, "
+		"pi.install_location, pi.package_removable, "
+		"pi.package_preload, pi.package_readonly, pi.package_update, "
+		"pi.package_appsetting, pi.package_system, pi.package_type, "
+		"pi.package_size, pi.installed_time, pi.installed_storage, "
+		"pi.storeclient_id, pi.mainapp_id, pi.package_url, "
+		"pi.root_path, pi.csc_path, pi.package_nodisplay, "
+		"pi.package_api_version, pi.package_support_disable, "
+		"pi.package_tep_name, pi.package_zip_mount_file "
+		"FROM package_info as pi";
 	int ret;
 	char *query;
+	const char *dbpath;
+	sqlite3 *db;
 	sqlite3_stmt *stmt;
 	int idx;
 	package_x *info;
 
-	query = sqlite3_mprintf(query_raw, pkgid);
+	dbpath = getUserPkgParserDBPathUID(uid);
+	if (dbpath == NULL)
+		return PMINFO_R_ERROR;
+
+	ret = sqlite3_open_v2(dbpath, &db, SQLITE_OPEN_READONLY, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGE("failed to open db: %d", ret);
+		return PMINFO_R_ERROR;
+	}
+
+	query = _get_filtered_query(query_raw, filter);
 	if (query == NULL) {
 		LOGE("out of memory");
+		sqlite3_close_v2(db);
 		return PMINFO_R_ERROR;
 	}
 
-	ret = sqlite3_prepare_v2(db, query, strlen(query),
-			&stmt, NULL);
-	sqlite3_free(query);
+	ret = sqlite3_prepare_v2(db, query, strlen(query), &stmt, NULL);
+	free(query);
 	if (ret != SQLITE_OK) {
 		LOGE("prepare failed: %s", sqlite3_errmsg(db));
+		sqlite3_close_v2(db);
 		return PMINFO_R_ERROR;
 	}
 
-	ret = sqlite3_step(stmt);
-	if (ret == SQLITE_DONE) {
-		sqlite3_finalize(stmt);
-		return PMINFO_R_ENOENT;
-	} else if (ret != SQLITE_ROW) {
-		LOGE("step failed: %s", sqlite3_errmsg(db));
-		sqlite3_finalize(stmt);
-		return PMINFO_R_ERROR;
+	while (sqlite3_step(stmt) == SQLITE_ROW) {
+		info = calloc(1, sizeof(package_x));
+		if (info == NULL) {
+			LOGE("out of memory");
+			sqlite3_finalize(stmt);
+			sqlite3_close_v2(db);
+			return PMINFO_R_ERROR;
+		}
+		idx = 0;
+		_save_column_str(stmt, idx++, &info->package);
+		_save_column_str(stmt, idx++, &info->version);
+		_save_column_str(stmt, idx++, &info->installlocation);
+		_save_column_str(stmt, idx++, &info->removable);
+		_save_column_str(stmt, idx++, &info->preload);
+		_save_column_str(stmt, idx++, &info->readonly);
+		_save_column_str(stmt, idx++, &info->update);
+		_save_column_str(stmt, idx++, &info->appsetting);
+		_save_column_str(stmt, idx++, &info->system);
+		_save_column_str(stmt, idx++, &info->type);
+		_save_column_str(stmt, idx++, &info->package_size);
+		_save_column_str(stmt, idx++, &info->installed_time);
+		_save_column_str(stmt, idx++, &info->installed_storage);
+		_save_column_str(stmt, idx++, &info->storeclient_id);
+		_save_column_str(stmt, idx++, &info->mainapp_id);
+		_save_column_str(stmt, idx++, &info->package_url);
+		_save_column_str(stmt, idx++, &info->root_path);
+		_save_column_str(stmt, idx++, &info->csc_path);
+		_save_column_str(stmt, idx++, &info->nodisplay_setting);
+		_save_column_str(stmt, idx++, &info->api_version);
+		_save_column_str(stmt, idx++, &info->support_disable);
+		_save_column_str(stmt, idx++, &info->tep_name);
+		_save_column_str(stmt, idx++, &info->zip_mount_file);
+		info->for_all_users =
+			strdup((uid != GLOBAL_USER) ? "false" : "true");
+
+		if (flag & PMINFO_PKGINFO_GET_AUTHOR) {
+			if (_pkginfo_get_author(db, info->package,
+						&info->author)) {
+				pkgmgrinfo_basic_free_package(info);
+				sqlite3_finalize(stmt);
+				sqlite3_close_v2(db);
+				return PMINFO_R_ERROR;
+			}
+		}
+
+		if (flag & PMINFO_PKGINFO_GET_LABEL) {
+			if (_pkginfo_get_label(db, info->package, locale,
+						&info->label)) {
+				pkgmgrinfo_basic_free_package(info);
+				g_list_free_full(*packages, __free_packages);
+				sqlite3_finalize(stmt);
+				sqlite3_close_v2(db);
+				return PMINFO_R_ERROR;
+			}
+		}
+
+		if (flag & PMINFO_PKGINFO_GET_ICON) {
+			if (_pkginfo_get_icon(db, info->package, locale,
+						&info->icon)) {
+				pkgmgrinfo_basic_free_package(info);
+				g_list_free_full(*packages, __free_packages);
+				sqlite3_finalize(stmt);
+				sqlite3_close_v2(db);
+				return PMINFO_R_ERROR;
+			}
+		}
+
+		if (flag & PMINFO_PKGINFO_GET_DESCRIPTION) {
+			if (_pkginfo_get_description(db, info->package, locale,
+						&info->description)) {
+				pkgmgrinfo_basic_free_package(info);
+				g_list_free_full(*packages, __free_packages);
+				sqlite3_finalize(stmt);
+				sqlite3_close_v2(db);
+				return PMINFO_R_ERROR;
+			}
+		}
+
+		if (flag & PMINFO_PKGINFO_GET_PRIVILEGE) {
+			if (_pkginfo_get_privilege(db, info->package,
+						&info->privileges)) {
+				pkgmgrinfo_basic_free_package(info);
+				g_list_free_full(*packages, __free_packages);
+				sqlite3_finalize(stmt);
+				sqlite3_close_v2(db);
+				return PMINFO_R_ERROR;
+			}
+		}
+
+		*packages = g_list_insert_sorted(*packages, info, __list_comp);
 	}
 
-	info = calloc(1, sizeof(package_x));
-	if (info == NULL) {
-		LOGE("out of memory");
-		sqlite3_finalize(stmt);
-		return PMINFO_R_ERROR;
-	}
-	idx = 0;
-	_save_column_str(stmt, idx++, &info->package);
-	_save_column_str(stmt, idx++, &info->version);
-	_save_column_str(stmt, idx++, &info->installlocation);
-	_save_column_str(stmt, idx++, &info->removable);
-	_save_column_str(stmt, idx++, &info->preload);
-	_save_column_str(stmt, idx++, &info->readonly);
-	_save_column_str(stmt, idx++, &info->update);
-	_save_column_str(stmt, idx++, &info->appsetting);
-	_save_column_str(stmt, idx++, &info->system);
-	_save_column_str(stmt, idx++, &info->type);
-	_save_column_str(stmt, idx++, &info->package_size);
-	_save_column_str(stmt, idx++, &info->installed_time);
-	_save_column_str(stmt, idx++, &info->installed_storage);
-	_save_column_str(stmt, idx++, &info->storeclient_id);
-	_save_column_str(stmt, idx++, &info->mainapp_id);
-	_save_column_str(stmt, idx++, &info->package_url);
-	_save_column_str(stmt, idx++, &info->root_path);
-	_save_column_str(stmt, idx++, &info->csc_path);
-	_save_column_str(stmt, idx++, &info->nodisplay_setting);
-	_save_column_str(stmt, idx++, &info->api_version);
-	_save_column_str(stmt, idx++, &info->support_disable);
-	_save_column_str(stmt, idx++, &info->tep_name);
-	_save_column_str(stmt, idx++, &info->zip_mount_file);
-
-	if (_pkginfo_get_author(db, info->package, &info->author)) {
-		pkgmgrinfo_basic_free_package(info);
-		sqlite3_finalize(stmt);
-		return PMINFO_R_ERROR;
-	}
-
-	if (_pkginfo_get_label(db, info->package, locale, &info->label)) {
-		pkgmgrinfo_basic_free_package(info);
-		sqlite3_finalize(stmt);
-		return PMINFO_R_ERROR;
-	}
-
-	if (_pkginfo_get_icon(db, info->package, locale, &info->icon)) {
-		pkgmgrinfo_basic_free_package(info);
-		sqlite3_finalize(stmt);
-		return PMINFO_R_ERROR;
-	}
-
-	if (_pkginfo_get_description(db, info->package, locale,
-				&info->description)) {
-		pkgmgrinfo_basic_free_package(info);
-		sqlite3_finalize(stmt);
-		return PMINFO_R_ERROR;
-	}
-
-	if (_pkginfo_get_privilege(db, info->package, &info->privileges)) {
-		pkgmgrinfo_basic_free_package(info);
-		sqlite3_finalize(stmt);
-		return PMINFO_R_ERROR;
-	}
-
-	*package = info;
 	sqlite3_finalize(stmt);
+	sqlite3_close_v2(db);
+
+	return PMINFO_R_OK;
+}
+
+static void __remove_duplicates(GList **list)
+{
+	GList *l = *list;
+	GList *next;
+	package_x *pkg_a;
+	package_x *pkg_b;
+
+	while (l != NULL && l->next != NULL) {
+		next = l->next;
+		pkg_a = (package_x *)l->data;
+		pkg_b = (package_x *)next->data;
+		if (!strcmp(pkg_a->package, pkg_b->package)) {
+			pkgmgrinfo_basic_free_package(pkg_a);
+			*list = g_list_delete_link(*list, l);
+		}
+		l = next;
+	}
+}
+
+static int _pkginfo_get_filtered_foreach_pkginfo(uid_t uid,
+		pkgmgrinfo_filter_x *filter, int flag,
+		pkgmgrinfo_pkg_list_cb pkg_list_cb, void *user_data)
+{
+	int ret;
+	char *locale;
+	package_x *pkg;
+	pkgmgr_pkginfo_x info;
+	GList *list = NULL;
+	GList *tmp;
+
+	locale = _get_system_locale();
+	if (locale == NULL)
+		return PMINFO_R_ERROR;
+
+	ret = _pkginfo_get_packages(uid, locale, filter, flag, &list);
+	if (ret == PMINFO_R_OK && uid != GLOBAL_USER)
+		ret = _pkginfo_get_packages(GLOBAL_USER, locale, filter,
+				flag, &list);
+
+	if (ret != PMINFO_R_OK) {
+		free(locale);
+		return PMINFO_R_ERROR;
+	}
+
+	__remove_duplicates(&list);
+
+	for (tmp = list; tmp; tmp = tmp->next) {
+		pkg = (package_x *)tmp->data;
+		info.pkg_info = pkg;
+		info.locale = locale;
+		info.uid = uid;
+		if (pkg_list_cb(&info, user_data) < 0)
+			break;
+	}
+
+	g_list_free_full(list, __free_packages);
+	free(locale);
 
 	return PMINFO_R_OK;
 }
@@ -745,22 +673,25 @@ static int _pkginfo_get_pkginfo(const char *pkgid, uid_t uid,
 		pkgmgr_pkginfo_x **pkginfo)
 {
 	int ret;
-	sqlite3 *db;
-	const char *dbpath;
 	char *locale;
+	GList *list = NULL;
+	pkgmgrinfo_pkginfo_filter_h filter;
 	pkgmgr_pkginfo_x *info;
-
-	dbpath = getUserPkgParserDBPathUID(uid);
-	if (dbpath == NULL)
-		return PMINFO_R_ERROR;
 
 	locale = _get_system_locale();
 	if (locale == NULL)
 		return PMINFO_R_ERROR;
 
-	ret = sqlite3_open_v2(dbpath, &db, SQLITE_OPEN_READONLY, NULL);
-	if (ret != SQLITE_OK) {
-		_LOGE("failed to open db: %d", ret);
+	ret = pkgmgrinfo_pkginfo_filter_create(&filter);
+	if (ret != PMINFO_R_OK) {
+		free(locale);
+		return PMINFO_R_ERROR;
+	}
+
+	ret = pkgmgrinfo_appinfo_filter_add_string(filter,
+			PMINFO_PKGINFO_PROP_PACKAGE_ID, pkgid);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_pkginfo_filter_destroy(filter);
 		free(locale);
 		return PMINFO_R_ERROR;
 	}
@@ -769,26 +700,40 @@ static int _pkginfo_get_pkginfo(const char *pkgid, uid_t uid,
 	if (info == NULL) {
 		_LOGE("out of memory");
 		free(locale);
-		sqlite3_close_v2(db);
 		return PMINFO_R_ERROR;
 	}
 
-	ret = _pkginfo_get_package(db, pkgid, locale, &info->pkg_info);
+	ret = _pkginfo_get_packages(uid, locale, filter,
+			PMINFO_PKGINFO_GET_ALL, &list);
+	if (!g_list_length(list) && uid != GLOBAL_USER)
+		ret = _pkginfo_get_packages(GLOBAL_USER, locale, filter,
+				PMINFO_PKGINFO_GET_ALL, &list);
+
+	pkgmgrinfo_pkginfo_filter_destroy(filter);
 	if (ret != PMINFO_R_OK) {
 		free(info);
 		free(locale);
-		sqlite3_close_v2(db);
 		return ret;
 	}
 
-	info->locale = locale;
-	info->uid = uid;
+	__remove_duplicates(&list);
+
+	if (!g_list_length(list)) {
+		free(info);
+		free(locale);
+		return PMINFO_R_ENOENT;
+	}
+
+	info->pkg_info = (package_x *)list->data;
 	info->pkg_info->for_all_users = strdup(
 			uid != GLOBAL_USER ? "false" : "true");
+	info->locale = locale;
+	info->uid = uid;
+
+	/* just free list only */
+	g_list_free(list);
 
 	*pkginfo = info;
-
-	sqlite3_close_v2(db);
 
 	return ret;
 }
@@ -814,9 +759,48 @@ API int pkgmgrinfo_pkginfo_get_usr_pkginfo(const char *pkgid, uid_t uid,
 	return ret;
 }
 
-API int pkgmgrinfo_pkginfo_get_pkginfo(const char *pkgid, pkgmgrinfo_pkginfo_h *handle)
+API int pkgmgrinfo_pkginfo_get_pkginfo(const char *pkgid,
+		pkgmgrinfo_pkginfo_h *handle)
 {
 	return pkgmgrinfo_pkginfo_get_usr_pkginfo(pkgid, _getuid(), handle);
+}
+
+API int pkgmgrinfo_pkginfo_get_usr_list_full(pkgmgrinfo_pkg_list_cb pkg_list_cb,
+		int flag, void *user_data, uid_t uid)
+{
+	if (pkg_list_cb == NULL) {
+		LOGE("invalid parameter");
+		return PMINFO_R_EINVAL;
+	}
+
+	return _pkginfo_get_filtered_foreach_pkginfo(uid, NULL, flag,
+			pkg_list_cb, user_data);
+}
+
+API int pkgmgrinfo_pkginfo_get_list_full(pkgmgrinfo_pkg_list_cb pkg_list_cb,
+		int flag, void *user_data)
+{
+	return pkgmgrinfo_pkginfo_get_usr_list_full(pkg_list_cb, flag,
+			user_data, _getuid());
+}
+
+API int pkgmgrinfo_pkginfo_get_usr_list(pkgmgrinfo_pkg_list_cb pkg_list_cb,
+		void *user_data, uid_t uid)
+{
+	if (pkg_list_cb == NULL) {
+		LOGE("invalid parameter");
+		return PMINFO_R_EINVAL;
+	}
+
+	return _pkginfo_get_filtered_foreach_pkginfo(uid, NULL,
+			PMINFO_PKGINFO_GET_ALL, pkg_list_cb, user_data);
+}
+
+API int pkgmgrinfo_pkginfo_get_list(pkgmgrinfo_pkg_list_cb pkg_list_cb,
+		void *user_data)
+{
+	return pkgmgrinfo_pkginfo_get_usr_list(pkg_list_cb, user_data,
+			_getuid());
 }
 
 API int pkgmgrinfo_pkginfo_get_pkgname(pkgmgrinfo_pkginfo_h handle, char **pkg_name)
@@ -1892,6 +1876,7 @@ API int pkgmgrinfo_pkginfo_filter_add_string(pkgmgrinfo_pkginfo_filter_h handle,
 API int pkgmgrinfo_pkginfo_usr_filter_count(pkgmgrinfo_pkginfo_filter_h handle, int *count, uid_t uid)
 {
 	int ret;
+	char *locale;
 	GList *list = NULL;
 
 	if (handle == NULL || count == NULL) {
@@ -1899,13 +1884,27 @@ API int pkgmgrinfo_pkginfo_usr_filter_count(pkgmgrinfo_pkginfo_filter_h handle, 
 		return PMINFO_R_EINVAL;
 	}
 
-	ret = _pkginfo_get_filtered_list((pkgmgrinfo_filter_x *)handle, uid, &list);
-	if (ret != PMINFO_R_OK)
+	locale = _get_system_locale();
+	if (locale == NULL)
 		return PMINFO_R_ERROR;
+
+	ret = _pkginfo_get_packages(uid, locale,
+			(pkgmgrinfo_filter_x *)handle, 0, &list);
+	if (ret == PMINFO_R_OK && uid != GLOBAL_USER)
+		ret = _pkginfo_get_packages(GLOBAL_USER, locale, handle, 0,
+				&list);
+
+	if (ret != PMINFO_R_OK) {
+		free(locale);
+		return PMINFO_R_ERROR;
+	}
+
+	__remove_duplicates(&list);
 
 	*count = g_list_length(list);
 
 	g_list_free_full(list, free);
+	free(locale);
 
 	return PMINFO_R_OK;
 }
@@ -1924,8 +1923,8 @@ API int pkgmgrinfo_pkginfo_usr_filter_foreach_pkginfo(
 		return PMINFO_R_EINVAL;
 	}
 
-	return _pkginfo_get_filtered_foreach_pkginfo(handle, pkg_cb, user_data,
-			uid);
+	return _pkginfo_get_filtered_foreach_pkginfo(uid, handle,
+			PMINFO_PKGINFO_GET_ALL, pkg_cb, user_data);
 }
 
 API int pkgmgrinfo_pkginfo_filter_foreach_pkginfo(pkgmgrinfo_pkginfo_filter_h handle,
