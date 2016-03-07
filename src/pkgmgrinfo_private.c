@@ -289,7 +289,7 @@ void __get_filter_condition(gpointer data, char **condition)
 		break;
 
 	case E_PMINFO_APPINFO_PROP_APP_ID:
-		snprintf(buf, sizeof(buf), "package_app_info.app_id='%s'", node->value);
+		snprintf(buf, sizeof(buf), "ai.app_id='%s'", node->value);
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_COMPONENT:
 		snprintf(buf, sizeof(buf), "package_app_info.app_component='%s'", node->value);
