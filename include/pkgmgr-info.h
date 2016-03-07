@@ -5262,6 +5262,25 @@ int pkgmgrinfo_client_listen_status(pkgmgrinfo_client *pc, pkgmgrinfo_handler ev
 int pkgmgrinfo_client_free(pkgmgrinfo_client *pc);
 int pkgmgrinfo_client_request_enable_external_pkg(char *pkgid);
 
+/**
+ * @brief	TEMP, should be declared at pkgmgrinfo_type.h
+ */
+typedef enum {
+	APPINFO_LABEL = 0x0001,
+	APPINFO_ICON = 0x0002,
+	APPINFO_CATEGORY = 0x0004,
+	APPINFO_APP_CONTROL = 0x0008,
+	APPINFO_DATA_CONTROL = 0x0010,
+	APPINFO_METADATA = 0x0020,
+	APPINFO_SPLASH_SCREEN = 0x0040,
+	APPINFO_ALL = 0x007F
+} pkgmgrinfo_get_flag;
+
+int pkgmgrinfo_appinfo_get_usr_installed_list_full(
+		pkgmgrinfo_app_list_cb app_func, uid_t uid, int flag,
+		void *user_data);
+int pkgmgrinfo_appinfo_get_installed_list_full(
+		pkgmgrinfo_app_list_cb app_func, int flag, void *user_data);
 
 /**
  * @pkgmgrinfo client API end
