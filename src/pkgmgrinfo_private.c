@@ -304,16 +304,16 @@ void __get_filter_condition(gpointer data, char **condition)
 		snprintf(buf, sizeof(buf), "package_app_info.app_type='%s'", node->value);
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_OPERATION:
-		snprintf(temp, sizeof(temp), "(%s)", node->value);
-		snprintf(buf, sizeof(buf), "package_app_app_control.app_control LIKE %s|%%|%%", temp);
+		snprintf(temp, sizeof(temp), "%s", node->value);
+		snprintf(buf, sizeof(buf), "package_app_app_control.app_control LIKE '%s|%%%%|%%%%'", temp);
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_URI:
-		snprintf(temp, sizeof(temp), "(%s)", node->value);
-		snprintf(buf, sizeof(buf), "package_app_app_control.app_control LIKE %%|%s|%%", temp);
+		snprintf(temp, sizeof(temp), "%s", node->value);
+		snprintf(buf, sizeof(buf), "package_app_app_control.app_control LIKE '%%%%|%s|%%%%'", temp);
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_MIME:
-		snprintf(temp, sizeof(temp), "(%s)", node->value);
-		snprintf(buf, sizeof(buf), "package_app_app_control.app_control LIKE %%|%%|%s", temp);
+		snprintf(temp, sizeof(temp), "%s", node->value);
+		snprintf(buf, sizeof(buf), "package_app_app_control.app_control LIKE '%%%%|%%%%|%s'", temp);
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_CATEGORY:
 		snprintf(temp, sizeof(temp), "(%s)", node->value);
