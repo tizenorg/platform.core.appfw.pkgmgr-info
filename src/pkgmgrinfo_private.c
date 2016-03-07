@@ -237,7 +237,7 @@ void __get_filter_condition(gpointer data, char **condition)
 	char temp[PKG_STRING_LEN_MAX] = {'\0'};
 	switch (node->prop) {
 	case E_PMINFO_PKGINFO_PROP_PACKAGE_ID:
-		snprintf(buf, sizeof(buf), "package_info.package='%s'", node->value);
+		snprintf(buf, sizeof(buf), "pi.package='%s'", node->value);
 		break;
 	case E_PMINFO_PKGINFO_PROP_PACKAGE_TYPE:
 		snprintf(buf, sizeof(buf), "package_info.package_type='%s'", node->value);
@@ -289,10 +289,10 @@ void __get_filter_condition(gpointer data, char **condition)
 		break;
 
 	case E_PMINFO_APPINFO_PROP_APP_ID:
-		snprintf(buf, sizeof(buf), "package_app_info.app_id='%s'", node->value);
+		snprintf(buf, sizeof(buf), "ai.app_id='%s'", node->value);
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_COMPONENT:
-		snprintf(buf, sizeof(buf), "package_app_info.app_component='%s'", node->value);
+		snprintf(buf, sizeof(buf), "ai.app_component='%s'", node->value);
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_EXEC:
 		snprintf(buf, sizeof(buf), "package_app_info.app_exec='%s'", node->value);
@@ -344,7 +344,7 @@ void __get_filter_condition(gpointer data, char **condition)
 		snprintf(buf, sizeof(buf), "package_app_info.app_launchcondition IN %s", node->value);
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_PACKAGE:
-		snprintf(buf, sizeof(buf), "package_app_info.package='%s'", node->value);
+		snprintf(buf, sizeof(buf), "ai.package='%s'", node->value);
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_UI_GADGET:
 		snprintf(buf, sizeof(buf), "package_app_info.app_ui_gadget IN %s", node->value);
