@@ -2794,9 +2794,6 @@ API int pkgmgrinfo_appinfo_filter_add_string(pkgmgrinfo_appinfo_filter_h handle,
 		filter->list = g_slist_append(filter->list, (gpointer)node);
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_CATEGORY:
-	case E_PMINFO_APPINFO_PROP_APP_OPERATION:
-	case E_PMINFO_APPINFO_PROP_APP_URI:
-	case E_PMINFO_APPINFO_PROP_APP_MIME:
 		val = (char *)calloc(1, PKG_STRING_LEN_MAX);
 		if (val == NULL) {
 			_LOGE("Out of Memory\n");
