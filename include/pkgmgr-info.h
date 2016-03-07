@@ -158,6 +158,8 @@ extern "C" {
  /** Boolean property for filtering based on app info*/
 #define	PMINFO_APPINFO_PROP_APP_UI_GADGET	"PMINFO_APPINFO_PROP_APP_UI_GADGET"
  /** Boolean property for filtering based on app info*/
+#define	PMINFO_APPINFO_PROP_APP_DISABLE	"PMINFO_APPINFO_PROP_APP_DISABLE"
+ /** Boolean property for filtering based on app info*/
 #define	PMINFO_APPINFO_PROP_APP_SUPPORT_DISABLE	"PMINFO_APPINFO_PROP_APP_SUPPORT_DISABLE"
 
  /** will be updated*/
@@ -5262,6 +5264,20 @@ int pkgmgrinfo_client_listen_status(pkgmgrinfo_client *pc, pkgmgrinfo_handler ev
 int pkgmgrinfo_client_free(pkgmgrinfo_client *pc);
 int pkgmgrinfo_client_request_enable_external_pkg(char *pkgid);
 
+/**
+ * @brief	TEMP
+ */
+
+
+int pkgmgrinfo_pkginfo_get_usr_list_full(pkgmgrinfo_pkg_list_cb pkg_list_cb,
+		int flag, void *user_data, uid_t uid);
+int pkgmgrinfo_pkginfo_get_list_full(pkgmgrinfo_pkg_list_cb pkg_list_cb,
+		int flag, void *user_data);
+int pkgmgrinfo_appinfo_get_usr_installed_list_full(
+		pkgmgrinfo_app_list_cb app_func, uid_t uid, int flag,
+		void *user_data);
+int pkgmgrinfo_appinfo_get_installed_list_full(
+		pkgmgrinfo_app_list_cb app_func, int flag, void *user_data);
 
 /**
  * @pkgmgrinfo client API end
