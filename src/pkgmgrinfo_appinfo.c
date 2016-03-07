@@ -2515,9 +2515,6 @@ API int pkgmgrinfo_appinfo_filter_add_string(pkgmgrinfo_appinfo_filter_h handle,
 		filter->list = g_slist_append(filter->list, (gpointer)node);
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_CATEGORY:
-	case E_PMINFO_APPINFO_PROP_APP_OPERATION:
-	case E_PMINFO_APPINFO_PROP_APP_URI:
-	case E_PMINFO_APPINFO_PROP_APP_MIME:
 		val = (char *)calloc(1, PKG_STRING_LEN_MAX);
 		if (val == NULL) {
 			_LOGE("Out of Memory\n");
@@ -2546,6 +2543,22 @@ API int pkgmgrinfo_appinfo_filter_add_string(pkgmgrinfo_appinfo_filter_h handle,
 			memset(temp, '\0', PKG_STRING_LEN_MAX);
 		}
 		break;
+	case E_PMINFO_APPINFO_PROP_APP_OPERATION:
+	case E_PMINFO_APPINFO_PROP_APP_URI:
+	case E_PMINFO_APPINFO_PROP_APP_MIME:
+		val = (char *)calloc(1, PKG_STRING_LEN_MAX);
+		if (val == NULL) {
+			_LOGE("Out of Memory\n");
+			free(node);
+			node = NULL;
+			return PMINFO_R_ERROR;
+		}
+		snprintf(temp, PKG_STRING_LEN_MAX - 1, "%s", value);
+		strncpy(val, temp, PKG_STRING_LEN_MAX - 1);
+		_LOGE("First value is %s\n", val);
+		node->value = val;
+		filter->list = g_slist_append(filter->list, (gpointer)node);
+		memset(temp, '\0', PKG_STRING_LEN_MAX);
 	default:
 		node->value = strndup(value, PKG_STRING_LEN_MAX - 1);
 		link = g_slist_find_custom(filter->list, (gconstpointer)node, __compare_func);
