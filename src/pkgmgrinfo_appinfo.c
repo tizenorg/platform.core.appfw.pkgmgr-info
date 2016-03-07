@@ -41,37 +41,45 @@ static void __cleanup_appinfo(pkgmgr_appinfo_x *data)
 	return;
 }
 
-static void __free_appinfo_list(gpointer data)
-{
-	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)data;
-	__cleanup_appinfo(info);
-}
+static const char join_localized_info[] =
+	" LEFT OUTER JOIN package_app_localized_info"
+	"  ON ai.app_id=package_app_localized_info.app_id"
+	"  AND package_app_localized_info.app_locale=?";
+static const char join_category[] =
+	" LEFT OUTER JOIN package_app_app_category"
+	" ON ai.app_id=package_app_app_category.app_id";
+static const char join_app_control[] =
+	" LEFT OUTER JOIN package_app_app_control"
+	"  ON ai.app_id=package_app_app_control.app_id";
+static const char join_metadata[] =
+	" LEFT OUTER JOIN package_app_app_metadata"
+	"  ON ai.app_id=package_app_app_metadata.app_id ";
 
 static char *_get_filtered_query(const char *query_raw,
 		pkgmgrinfo_filter_x *filter)
 {
 	char buf[MAX_QUERY_LEN] = { 0, };
+	char query[MAX_QUERY_LEN];
 	char *condition;
-	size_t len;
+	size_t len = 0;
 	GSList *list;
 	GSList *head = NULL;
+	int joined = 0;
 
 	if (filter)
 		head = filter->list;
 
-	strncat(buf, query_raw, MAX_QUERY_LEN - 1);
-	len = strlen(buf);
 	for (list = head; list; list = list->next) {
 		/* TODO: revise condition getter function */
-		__get_filter_condition(list->data, &condition);
+		joined |= __get_filter_condition(list->data, &condition);
 		if (condition == NULL)
 			continue;
-		if (buf[strlen(query_raw)] == '\0') {
+		if (buf[0] == '\0') {
 			len += strlen(" WHERE ");
 			strncat(buf, " WHERE ", MAX_QUERY_LEN - len - 1);
 		} else {
 			len += strlen(" AND ");
-			strncat(buf, " AND ", MAX_QUERY_LEN -len - 1);
+			strncat(buf, " AND ", MAX_QUERY_LEN - len - 1);
 		}
 		len += strlen(condition);
 		strncat(buf, condition, sizeof(buf) - len - 1);
@@ -79,137 +87,27 @@ static char *_get_filtered_query(const char *query_raw,
 		condition = NULL;
 	}
 
-	return strdup(buf);
-}
-
-static gint __list_strcmp(gconstpointer a, gconstpointer b)
-{
-	return strcmp((char *)a, (char *)b);
-}
-
-static gint _appinfo_get_list(sqlite3 *db, const char *locale,
-		pkgmgrinfo_filter_x *filter, GList **list)
-{
-	static const char query_raw[] =
-		"SELECT DISTINCT package_app_info.app_id FROM package_app_info"
-		" LEFT OUTER JOIN package_app_localized_info"
-		"  ON package_app_info.app_id=package_app_localized_info.app_id"
-		"  AND package_app_localized_info.app_locale=%Q"
-		" LEFT OUTER JOIN package_app_app_category"
-		"  ON package_app_info.app_id=package_app_app_category.app_id"
-		" LEFT OUTER JOIN package_app_app_control"
-		"  ON package_app_info.app_id=package_app_app_control.app_id"
-		" LEFT OUTER JOIN package_app_app_metadata"
-		"  ON package_app_info.app_id=package_app_app_metadata.app_id ";
-	int ret;
-	char *query;
-	char *query_localized;
-	sqlite3_stmt *stmt;
-	char *appid = NULL;
-
-	query = _get_filtered_query(query_raw, filter);
-	if (query == NULL)
-		return PMINFO_R_ERROR;
-	query_localized = sqlite3_mprintf(query, locale);
-	free(query);
-	if (query_localized == NULL)
-		return PMINFO_R_ERROR;
-
-	ret = sqlite3_prepare_v2(db, query_localized,
-			strlen(query_localized), &stmt, NULL);
-	sqlite3_free(query_localized);
-	if (ret != SQLITE_OK) {
-		LOGE("prepare failed: %s", sqlite3_errmsg(db));
-		return PMINFO_R_ERROR;
+	snprintf(query, sizeof(query), "%s", query_raw);
+	len = strlen(query);
+	if (joined & E_PMINFO_APPINFO_JOIN_LOCALIZED_INFO) {
+		strncat(query, join_localized_info, MAX_QUERY_LEN - len - 1);
+		len += strlen(join_localized_info);
 	}
-
-	while (sqlite3_step(stmt) == SQLITE_ROW) {
-		_save_column_str(stmt, 0, &appid);
-		if (appid != NULL)
-			*list = g_list_insert_sorted(*list, appid,
-					__list_strcmp);
+	if (joined & E_PMINFO_APPINFO_JOIN_CATEGORY) {
+		strncat(query, join_category, MAX_QUERY_LEN - len - 1);
+		len += strlen(join_category);
 	}
-
-	sqlite3_finalize(stmt);
-
-	return PMINFO_R_OK;
-}
-
-static int _appinfo_get_filtered_list(pkgmgrinfo_filter_x *filter, uid_t uid,
-		GList **list)
-{
-	int ret;
-	sqlite3 *db;
-	const char *dbpath;
-	char *locale;
-	GList *tmp;
-	GList *tmp2;
-
-	locale = _get_system_locale();
-	if (locale == NULL)
-		return PMINFO_R_ERROR;
-
-	dbpath = getUserPkgParserDBPathUID(uid);
-	if (dbpath == NULL) {
-		free(locale);
-		return PMINFO_R_ERROR;
+	if (joined & E_PMINFO_APPINFO_JOIN_APP_CONTROL) {
+		strncat(query, join_app_control, MAX_QUERY_LEN - len - 1);
+		len += strlen(join_app_control);
 	}
-
-	ret = sqlite3_open_v2(dbpath, &db, SQLITE_OPEN_READONLY, NULL);
-	if (ret != SQLITE_OK) {
-		_LOGE("failed to open db: %d", ret);
-		free(locale);
-		return PMINFO_R_ERROR;
+	if (joined & E_PMINFO_APPINFO_JOIN_METADATA) {
+		strncat(query, join_metadata, MAX_QUERY_LEN - len - 1);
+		len += strlen(join_metadata);
 	}
+	strncat(query, buf, MAX_QUERY_LEN - len -1);
 
-	if (_appinfo_get_list(db, locale, filter, list)) {
-		free(locale);
-		sqlite3_close_v2(db);
-		return PMINFO_R_ERROR;
-	}
-	sqlite3_close_v2(db);
-
-	if (uid == GLOBAL_USER) {
-		free(locale);
-		return PMINFO_R_OK;
-	}
-
-	/* search again from global */
-	dbpath = getUserPkgParserDBPathUID(GLOBAL_USER);
-	if (dbpath == NULL) {
-		free(locale);
-		return PMINFO_R_ERROR;
-	}
-
-	ret = sqlite3_open_v2(dbpath, &db, SQLITE_OPEN_READONLY, NULL);
-	if (ret != SQLITE_OK) {
-		_LOGE("failed to open db: %d", ret);
-		free(locale);
-		return PMINFO_R_ERROR;
-	}
-
-	if (_appinfo_get_list(db, locale, filter, list)) {
-		free(locale);
-		sqlite3_close_v2(db);
-		return PMINFO_R_ERROR;
-	}
-	sqlite3_close_v2(db);
-
-	/* remove duplicate element:
-	 * since the list is sorted, we can remove duplicates in linear time
-	 */
-	for (tmp = *list, tmp2 = g_list_next(tmp); tmp;
-			tmp = tmp2, tmp2 = g_list_next(tmp)) {
-		if (tmp->prev == NULL || tmp->data == NULL)
-			continue;
-		if (strcmp((const char *)tmp->prev->data,
-					(const char *)tmp->data) == 0)
-			*list = g_list_delete_link(*list, tmp);
-	}
-
-	free(locale);
-
-	return PMINFO_R_OK;
+	return strdup(query);
 }
 
 static int _appinfo_get_label(sqlite3 *db, const char *appid,
@@ -612,222 +510,40 @@ static void __get_splash_screen_display(sqlite3 *db, const char *appid, uid_t ui
 	sqlite3_finalize(stmt);
 }
 
-static int _appinfo_get_application(sqlite3 *db, const char *appid,
-		const char *locale, application_x **application, bool is_disabled, uid_t db_uid, uid_t target_uid)
+static void __free_applications(gpointer data)
+{
+	pkgmgrinfo_basic_free_application((application_x *)data);
+}
+
+static int _appinfo_get_applications(uid_t db_uid, uid_t uid,
+		const char *locale, pkgmgrinfo_filter_x *filter, int flag,
+		GHashTable *applications)
 {
 	static const char query_raw[] =
-		"SELECT app_id, app_component, app_exec, app_nodisplay, "
-		"app_type, app_onboot, app_multiple, app_autorestart, "
-		"app_taskmanage, app_enabled, app_hwacceleration, "
-		"app_screenreader, app_mainapp, app_recentimage, "
-		"app_launchcondition, app_indicatordisplay, app_portraitimg, "
-		"app_landscapeimg, app_guestmodevisibility, "
-		"app_permissiontype, app_preload, app_submode, "
-		"app_submode_mainid, app_launch_mode, app_ui_gadget, "
-		"app_support_disable, "
-		"component_type, package, app_tep_name, app_process_pool, "
-		"app_installed_storage, app_background_category, "
-		"app_package_type, app_root_path, app_api_version, "
-		"app_effective_appid, app_disable, app_splash_screen_display "
-		"FROM package_app_info WHERE app_id='%s' "
-		"AND (app_disable='%s' "
-		"%s app_id %s IN "
-		"(SELECT app_id from package_app_info_for_uid WHERE uid='%d' AND is_disabled='true'))";
+		"SELECT DISTINCT ai.app_id, ai.app_component, ai.app_exec, "
+		"ai.app_nodisplay, ai.app_type, ai.app_onboot, "
+		"ai.app_multiple, ai.app_autorestart, ai.app_taskmanage, "
+		"ai.app_enabled, ai.app_hwacceleration, ai.app_screenreader, "
+		"ai.app_mainapp, ai.app_recentimage, ai.app_launchcondition, "
+		"ai.app_indicatordisplay, ai.app_portraitimg, "
+		"ai.app_landscapeimg, ai.app_guestmodevisibility, "
+		"ai.app_permissiontype, ai.app_preload, ai.app_submode, "
+		"ai.app_submode_mainid, ai.app_launch_mode, ai.app_ui_gadget, "
+		"ai.app_support_disable, ai.app_process_pool, "
+		"ai.app_installed_storage, ai.app_background_category, "
+		"ai.app_package_type, ai.app_root_path, ai.app_api_version, "
+		"ai.app_effective_appid, ai.app_disable, "
+		"ai.app_splash_screen_display, "
+		"ai.component_type, ai.package "
+		"FROM package_app_info as ai";
 	int ret;
-	char query[MAX_QUERY_LEN] = { '\0' };
+	char *query;
+	const char *dbpath;
+	sqlite3 *db;
 	sqlite3_stmt *stmt;
 	int idx;
 	application_x *info;
 	char *bg_category_str = NULL;
-	snprintf(query, MAX_QUERY_LEN - 1, query_raw,
-			appid,
-			is_disabled ? "true" : "false",
-			is_disabled ? "OR" : "AND",
-			is_disabled ? "" : "NOT",
-			(int)target_uid);
-
-	ret = sqlite3_prepare_v2(db, query, strlen(query), &stmt, NULL);
-	if (ret != SQLITE_OK) {
-		LOGE("prepare failed: %s", sqlite3_errmsg(db));
-		return PMINFO_R_ERROR;
-	}
-
-	ret = sqlite3_step(stmt);
-	if (ret == SQLITE_DONE) {
-		sqlite3_finalize(stmt);
-		return PMINFO_R_ENOENT;
-	} else if (ret != SQLITE_ROW) {
-		LOGE("step failed: %s", sqlite3_errmsg(db));
-		sqlite3_finalize(stmt);
-		return PMINFO_R_ERROR;
-	}
-
-	info = calloc(1, sizeof(application_x));
-	if (info == NULL) {
-		LOGE("out of memory");
-		sqlite3_finalize(stmt);
-		return PMINFO_R_ERROR;
-	}
-	idx = 0;
-	_save_column_str(stmt, idx++, &info->appid);
-	_save_column_str(stmt, idx++, &info->component);
-	_save_column_str(stmt, idx++, &info->exec);
-	_save_column_str(stmt, idx++, &info->nodisplay);
-	_save_column_str(stmt, idx++, &info->type);
-	_save_column_str(stmt, idx++, &info->onboot);
-	_save_column_str(stmt, idx++, &info->multiple);
-	_save_column_str(stmt, idx++, &info->autorestart);
-	_save_column_str(stmt, idx++, &info->taskmanage);
-	_save_column_str(stmt, idx++, &info->enabled);
-	_save_column_str(stmt, idx++, &info->hwacceleration);
-	_save_column_str(stmt, idx++, &info->screenreader);
-	_save_column_str(stmt, idx++, &info->mainapp);
-	_save_column_str(stmt, idx++, &info->recentimage);
-	_save_column_str(stmt, idx++, &info->launchcondition);
-	_save_column_str(stmt, idx++, &info->indicatordisplay);
-	_save_column_str(stmt, idx++, &info->portraitimg);
-	_save_column_str(stmt, idx++, &info->landscapeimg);
-	_save_column_str(stmt, idx++, &info->guestmode_visibility);
-	_save_column_str(stmt, idx++, &info->permission_type);
-	_save_column_str(stmt, idx++, &info->preload);
-	_save_column_str(stmt, idx++, &info->submode);
-	_save_column_str(stmt, idx++, &info->submode_mainid);
-	_save_column_str(stmt, idx++, &info->launch_mode);
-	_save_column_str(stmt, idx++, &info->ui_gadget);
-	_save_column_str(stmt, idx++, &info->support_disable);
-	_save_column_str(stmt, idx++, &info->component_type);
-	_save_column_str(stmt, idx++, &info->package);
-	_save_column_str(stmt, idx++, &info->tep_name);
-	_save_column_str(stmt, idx++, &info->process_pool);
-	_save_column_str(stmt, idx++, &info->installed_storage);
-	_save_column_str(stmt, idx++, &bg_category_str);
-	_save_column_str(stmt, idx++, &info->package_type);
-	_save_column_str(stmt, idx++, &info->root_path);
-	_save_column_str(stmt, idx++, &info->api_version);
-	_save_column_str(stmt, idx++, &info->effective_appid);
-	_save_column_str(stmt, idx++, &info->is_disabled);
-	_save_column_str(stmt, idx++, &info->splash_screen_display);
-
-	if (db_uid == GLOBAL_USER)
-		__get_splash_screen_display(db, info->appid, db_uid,
-				&info->splash_screen_display);
-
-	info->background_category = __get_background_category(bg_category_str);
-	free(bg_category_str);
-
-	if (_appinfo_get_label(db, info->appid, locale, &info->label)) {
-		pkgmgrinfo_basic_free_application(info);
-		sqlite3_finalize(stmt);
-		return PMINFO_R_ERROR;
-	}
-
-	if (_appinfo_get_icon(db, info->appid, locale, &info->icon)) {
-		pkgmgrinfo_basic_free_application(info);
-		sqlite3_finalize(stmt);
-		return PMINFO_R_ERROR;
-	}
-
-	if (_appinfo_get_category(db, info->appid, &info->category)) {
-		pkgmgrinfo_basic_free_application(info);
-		sqlite3_finalize(stmt);
-		return PMINFO_R_ERROR;
-	}
-
-	if (_appinfo_get_app_control(db, info->appid, &info->appcontrol)) {
-		pkgmgrinfo_basic_free_application(info);
-		sqlite3_finalize(stmt);
-		return PMINFO_R_ERROR;
-	}
-
-	if (_appinfo_get_data_control(db, info->appid, &info->datacontrol)) {
-		pkgmgrinfo_basic_free_application(info);
-		sqlite3_finalize(stmt);
-		return PMINFO_R_ERROR;
-	}
-
-	if (_appinfo_get_metadata(db, info->appid, &info->metadata)) {
-		pkgmgrinfo_basic_free_application(info);
-		sqlite3_finalize(stmt);
-		return PMINFO_R_ERROR;
-	}
-
-	if (_appinfo_get_splashscreens(db, info->appid, &info->splashscreens)) {
-		pkgmgrinfo_basic_free_application(info);
-		sqlite3_finalize(stmt);
-		return PMINFO_R_ERROR;
-	}
-
-	info->for_all_users = strdup((db_uid != GLOBAL_USER) ? "false" : "true");
-
-	*application = info;
-
-	sqlite3_finalize(stmt);
-
-	return PMINFO_R_OK;
-}
-
-static int _appinfo_get_appinfo(const char *appid, uid_t db_uid,
-		uid_t target_uid, bool is_disabled, pkgmgr_appinfo_x **appinfo)
-{
-	int ret;
-	sqlite3 *db;
-	const char *dbpath;
-	char *locale;
-	pkgmgr_appinfo_x *info;
-
-	dbpath = getUserPkgParserDBPathUID(db_uid);
-	if (dbpath == NULL)
-		return PMINFO_R_ERROR;
-
-	locale = _get_system_locale();
-	if (locale == NULL)
-		return PMINFO_R_ERROR;
-
-	ret = sqlite3_open_v2(dbpath, &db, SQLITE_OPEN_READONLY, NULL);
-	if (ret != SQLITE_OK) {
-		_LOGE("failed to open db: %d", ret);
-		free(locale);
-		return PMINFO_R_ERROR;
-	}
-
-	info = calloc(1, sizeof(pkgmgr_appinfo_x));
-	if (info == NULL) {
-		_LOGE("out of memory");
-		free(locale);
-		sqlite3_close_v2(db);
-		return PMINFO_R_ERROR;
-	}
-
-	ret = _appinfo_get_application(db, appid, locale, &info->app_info, is_disabled, db_uid, target_uid);
-	if (ret != PMINFO_R_OK) {
-		free(info);
-		free(locale);
-		sqlite3_close_v2(db);
-		return ret;
-	}
-
-	info->locale = locale;
-	info->package = strdup(info->app_info->package);
-
-	*appinfo = info;
-
-	sqlite3_close_v2(db);
-
-	return ret;
-}
-
-int _appinfo_get_applist(uid_t uid, const char *locale, GHashTable **appinfo_table)
-{
-	int ret = PMINFO_R_ERROR;
-	int idx = 0;
-	const char *dbpath;
-	char *query = NULL;
-	char *bg_category_str = NULL;
-	char *key = NULL;
-	sqlite3 *db;
-	sqlite3_stmt *stmt = NULL;
-	pkgmgr_appinfo_x *info = NULL;
-	application_x *appinfo = NULL;
 
 	dbpath = getUserPkgParserDBPathUID(uid);
 	if (dbpath == NULL)
@@ -836,107 +552,239 @@ int _appinfo_get_applist(uid_t uid, const char *locale, GHashTable **appinfo_tab
 	ret = sqlite3_open_v2(dbpath, &db, SQLITE_OPEN_READONLY, NULL);
 	if (ret != SQLITE_OK) {
 		_LOGE("failed to open db: %d", ret);
-		ret = PMINFO_R_ERROR;
-		goto catch;
+		return PMINFO_R_ERROR;
 	}
 
-	query = sqlite3_mprintf("SELECT app_id, app_exec, app_type, "
-			"app_onboot, app_multiple, app_autorestart, app_taskmanage, "
-			"app_hwacceleration, app_permissiontype, app_preload, "
-			"app_installed_storage, app_process_pool, app_launch_mode, "
-			"app_package_type, component_type, package, app_tep_name, "
-			"app_background_category, app_root_path, app_api_version, "
-                        "app_effective_appid, app_disable, app_splash_screen_display, "
-			"(CASE WHEN A.app_disable='true' THEN 'true' "
-			"ELSE (CASE WHEN (SELECT app_id FROM package_app_info_for_uid "
-			"WHERE app_id=A.app_id AND uid='%d' AND is_disabled='true') IS NULL "
-			"THEN 'false' ELSE 'true' END) END) AS app_disable "
-			"FROM package_app_info A", (int)getuid());
-
+	query = _get_filtered_query(query_raw, filter);
 	if (query == NULL) {
-		_LOGE("Out of memory");
-		goto catch;
+		LOGE("out of memory");
+		sqlite3_close_v2(db);
+		return PMINFO_R_ERROR;
 	}
 
 	ret = sqlite3_prepare_v2(db, query, strlen(query), &stmt, NULL);
+	free(query);
 	if (ret != SQLITE_OK) {
 		LOGE("prepare failed: %s", sqlite3_errmsg(db));
-		ret = PMINFO_R_ERROR;
-		goto catch;
+		sqlite3_close_v2(db);
+		return PMINFO_R_ERROR;
 	}
 
 	while (sqlite3_step(stmt) == SQLITE_ROW) {
-		info = calloc(1, sizeof(pkgmgr_appinfo_x));
-		appinfo = calloc(1, sizeof(application_x));
-		if (info == NULL || appinfo == NULL) {
-			LOGE("calloc failed");
-			ret = PMINFO_R_ERROR;
-			goto catch;
+		info = calloc(1, sizeof(application_x));
+		if (info == NULL) {
+			LOGE("out of memory");
+			sqlite3_finalize(stmt);
+			sqlite3_close_v2(db);
+			return PMINFO_R_ERROR;
 		}
-
 		idx = 0;
-		_save_column_str(stmt, idx++, &appinfo->appid);
-		_save_column_str(stmt, idx++, &appinfo->exec);
-		_save_column_str(stmt, idx++, &appinfo->type);
-
-		_save_column_str(stmt, idx++, &appinfo->onboot);
-		_save_column_str(stmt, idx++, &appinfo->multiple);
-		_save_column_str(stmt, idx++, &appinfo->autorestart);
-		_save_column_str(stmt, idx++, &appinfo->taskmanage);
-
-		_save_column_str(stmt, idx++, &appinfo->hwacceleration);
-		_save_column_str(stmt, idx++, &appinfo->permission_type);
-		_save_column_str(stmt, idx++, &appinfo->preload);
-
-		_save_column_str(stmt, idx++, &appinfo->installed_storage);
-		_save_column_str(stmt, idx++, &appinfo->process_pool);
-		_save_column_str(stmt, idx++, &appinfo->launch_mode);
-
-		_save_column_str(stmt, idx++, &appinfo->package_type);
-		_save_column_str(stmt, idx++, &appinfo->component_type);
-		_save_column_str(stmt, idx++, &appinfo->package);
-		_save_column_str(stmt, idx++, &appinfo->tep_name);
-
+		_save_column_str(stmt, idx++, &info->appid);
+		if (g_hash_table_contains(applications,
+					(gconstpointer)info->appid))
+			continue;
+		_save_column_str(stmt, idx++, &info->component);
+		_save_column_str(stmt, idx++, &info->exec);
+		_save_column_str(stmt, idx++, &info->nodisplay);
+		_save_column_str(stmt, idx++, &info->type);
+		_save_column_str(stmt, idx++, &info->onboot);
+		_save_column_str(stmt, idx++, &info->multiple);
+		_save_column_str(stmt, idx++, &info->autorestart);
+		_save_column_str(stmt, idx++, &info->taskmanage);
+		_save_column_str(stmt, idx++, &info->enabled);
+		_save_column_str(stmt, idx++, &info->hwacceleration);
+		_save_column_str(stmt, idx++, &info->screenreader);
+		_save_column_str(stmt, idx++, &info->mainapp);
+		_save_column_str(stmt, idx++, &info->recentimage);
+		_save_column_str(stmt, idx++, &info->launchcondition);
+		_save_column_str(stmt, idx++, &info->indicatordisplay);
+		_save_column_str(stmt, idx++, &info->portraitimg);
+		_save_column_str(stmt, idx++, &info->landscapeimg);
+		_save_column_str(stmt, idx++, &info->guestmode_visibility);
+		_save_column_str(stmt, idx++, &info->permission_type);
+		_save_column_str(stmt, idx++, &info->preload);
+		_save_column_str(stmt, idx++, &info->submode);
+		_save_column_str(stmt, idx++, &info->submode_mainid);
+		_save_column_str(stmt, idx++, &info->launch_mode);
+		_save_column_str(stmt, idx++, &info->ui_gadget);
+		_save_column_str(stmt, idx++, &info->support_disable);
+		_save_column_str(stmt, idx++, &info->process_pool);
+		_save_column_str(stmt, idx++, &info->installed_storage);
 		_save_column_str(stmt, idx++, &bg_category_str);
-		_save_column_str(stmt, idx++, &appinfo->root_path);
-		_save_column_str(stmt, idx++, &appinfo->api_version);
+		_save_column_str(stmt, idx++, &info->package_type);
+		_save_column_str(stmt, idx++, &info->root_path);
+		_save_column_str(stmt, idx++, &info->api_version);
+		_save_column_str(stmt, idx++, &info->effective_appid);
+	        _save_column_str(stmt, idx++, &info->is_disabled);
+	        _save_column_str(stmt, idx++, &info->splash_screen_display);
+		_save_column_str(stmt, idx++, &info->component_type);
+		_save_column_str(stmt, idx++, &info->package);
+		info->for_all_users =
+			strdup((uid != GLOBAL_USER) ? "false" : "true");
 
-		_save_column_str(stmt, idx++, &appinfo->effective_appid);
-		_save_column_str(stmt, idx++, &appinfo->is_disabled);
-		_save_column_str(stmt, idx++, &appinfo->splash_screen_display);
+		if (db_uid == GLOBAL_USER)
+			__get_splash_screen_display(db, info->appid, db_uid,
+					&info->splash_screen_display);
 
-		if (uid == GLOBAL_USER)
-			__get_splash_screen_display(db, appinfo->appid, uid,
-					&appinfo->splash_screen_display);
-
-		appinfo->background_category = __get_background_category(bg_category_str);
-		free(bg_category_str);
-
-		if (_appinfo_get_splashscreens(db, appinfo->appid, &appinfo->splashscreens)) {
-			pkgmgrinfo_basic_free_application(appinfo);
-			ret = PMINFO_R_ERROR;
-			goto catch;
+		info->background_category = __get_background_category(
+				bg_category_str);
+		if (flag & PMINFO_APPINFO_GET_LABEL) {
+			if (_appinfo_get_label(db, info->appid, locale,
+						&info->label)) {
+				pkgmgrinfo_basic_free_application(info);
+				sqlite3_finalize(stmt);
+				sqlite3_close_v2(db);
+				return PMINFO_R_ERROR;
+			}
 		}
 
-		info->locale = strdup(locale);
-		info->package = strdup(appinfo->package);
-		appinfo->for_all_users = strdup((uid != GLOBAL_USER) ? "false" : "true");
-		info->app_info = appinfo;
-		key = strdup(info->app_info->appid);
+		if (flag & PMINFO_APPINFO_GET_ICON) {
+			if (_appinfo_get_icon(db, info->appid, locale,
+						&info->icon)) {
+				pkgmgrinfo_basic_free_application(info);
+				sqlite3_finalize(stmt);
+				sqlite3_close_v2(db);
+				return PMINFO_R_ERROR;
+			}
+		}
 
-		if (!g_hash_table_contains(*appinfo_table, (gconstpointer)key))
-			g_hash_table_insert(*appinfo_table, (gpointer)key, (gpointer)info);
-		else
-			__cleanup_appinfo(info);
+		if (flag & PMINFO_APPINFO_GET_CATEGORY) {
+			if (_appinfo_get_category(db, info->appid,
+						&info->category)) {
+				pkgmgrinfo_basic_free_application(info);
+				sqlite3_finalize(stmt);
+				sqlite3_close_v2(db);
+				return PMINFO_R_ERROR;
+			}
+		}
+
+		if (flag & PMINFO_APPINFO_GET_APP_CONTROL) {
+			if (_appinfo_get_app_control(db, info->appid,
+						&info->appcontrol)) {
+				pkgmgrinfo_basic_free_application(info);
+				sqlite3_finalize(stmt);
+				sqlite3_close_v2(db);
+				return PMINFO_R_ERROR;
+			}
+		}
+
+		if (flag & PMINFO_APPINFO_GET_DATA_CONTROL) {
+			if (_appinfo_get_data_control(db, info->appid,
+						&info->datacontrol)) {
+				pkgmgrinfo_basic_free_application(info);
+				sqlite3_finalize(stmt);
+				sqlite3_close_v2(db);
+				return PMINFO_R_ERROR;
+			}
+		}
+
+		if (flag & PMINFO_APPINFO_GET_METADATA) {
+			if (_appinfo_get_metadata(db, info->appid,
+						&info->metadata)) {
+				pkgmgrinfo_basic_free_application(info);
+				sqlite3_finalize(stmt);
+				sqlite3_close_v2(db);
+				return PMINFO_R_ERROR;
+			}
+		}
+
+		if (flag & PMINFO_APPINFO_GET_SPLASH_SCREEN) {
+			if (_appinfo_get_splashscreens(db, info->appid,
+						&info->splashscreens)) {
+				pkgmgrinfo_basic_free_application(info);
+				sqlite3_finalize(stmt);
+				sqlite3_close_v2(db);
+				return PMINFO_R_ERROR;
+			}
+		}
+
+		g_hash_table_insert(applications, (gpointer)info->appid,
+				(gpointer)info);
 	}
 
-	ret = PMINFO_R_OK;
-
-catch:
-
 	sqlite3_finalize(stmt);
-	sqlite3_free(query);
-	sqlite3_close(db);
+	sqlite3_close_v2(db);
+
+	return PMINFO_R_OK;
+}
+
+static int _appinfo_get_appinfo(const char *appid, uid_t db_uid, uid_t uid,
+		pkgmgr_appinfo_x **appinfo)
+{
+	int ret;
+	char *locale;
+	GHashTable *list;
+	GHashTableIter iter;
+	gpointer value;
+	pkgmgrinfo_appinfo_filter_h filter;
+	pkgmgr_appinfo_x *info;
+
+	locale = _get_system_locale();
+	if (locale == NULL)
+		return PMINFO_R_ERROR;
+
+	ret = pkgmgrinfo_appinfo_filter_create(&filter);
+	if (ret != PMINFO_R_OK) {
+		free(locale);
+		return PMINFO_R_ERROR;
+	}
+
+	ret = pkgmgrinfo_appinfo_filter_add_string(filter,
+			PMINFO_APPINFO_PROP_APP_ID, appid);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_appinfo_filter_destroy(filter);
+		free(locale);
+		return PMINFO_R_ERROR;
+	}
+
+	info = calloc(1, sizeof(pkgmgr_appinfo_x));
+	if (info == NULL) {
+		_LOGE("out of memory");
+		pkgmgrinfo_appinfo_filter_destroy(filter);
+		free(locale);
+		return PMINFO_R_ERROR;
+	}
+
+	/* we don't need to make hash table using g_hash_table_new_full().
+	 * because this table will contain just one element and we need to
+	 * export this element without free.
+	 */
+	list = g_hash_table_new(g_str_hash, g_str_equal);
+	if (list == NULL) {
+		free(info);
+		pkgmgrinfo_appinfo_filter_destroy(filter);
+		free(locale);
+		return PMINFO_R_ERROR;
+	}
+
+	ret = _appinfo_get_applications(db_uid, uid, locale, filter,
+			PMINFO_APPINFO_GET_ALL, list);
+	pkgmgrinfo_appinfo_filter_destroy(filter);
+	if (ret != PMINFO_R_OK) {
+		g_hash_table_destroy(list);
+		free(info);
+		free(locale);
+		return ret;
+	}
+
+	if (!g_hash_table_size(list)) {
+		g_hash_table_destroy(list);
+		free(info);
+		free(locale);
+		return PMINFO_R_ENOENT;
+	}
+
+	g_hash_table_iter_init(&iter, list);
+	g_hash_table_iter_next(&iter, NULL, &value);
+
+	info->app_info = (application_x *)value;
+	info->locale = locale;
+	info->package = strdup(info->app_info->package);
+
+	/* just free list only */
+	g_hash_table_destroy(list);
+
+	*appinfo = info;
 
 	return ret;
 }
@@ -951,9 +799,10 @@ API int pkgmgrinfo_appinfo_get_usr_disabled_appinfo(const char *appid, uid_t uid
 		return PMINFO_R_EINVAL;
 	}
 
-	ret = _appinfo_get_appinfo(appid, uid, uid, true, (pkgmgr_appinfo_x **)handle);
+	ret = _appinfo_get_appinfo(appid, uid, uid,
+			(pkgmgr_appinfo_x **)handle);
 	if (ret == PMINFO_R_ENOENT && uid != GLOBAL_USER)
-		ret = _appinfo_get_appinfo(appid, GLOBAL_USER, uid, true,
+		ret = _appinfo_get_appinfo(appid, GLOBAL_USER, uid,
 				(pkgmgr_appinfo_x **)handle);
 
 	if (ret != PMINFO_R_OK)
@@ -977,9 +826,10 @@ API int pkgmgrinfo_appinfo_get_usr_appinfo(const char *appid, uid_t uid,
 		return PMINFO_R_EINVAL;
 	}
 
-	ret = _appinfo_get_appinfo(appid, uid, uid, false, (pkgmgr_appinfo_x **)handle);
+	ret = _appinfo_get_appinfo(appid, uid, uid,
+			(pkgmgr_appinfo_x **)handle);
 	if (ret == PMINFO_R_ENOENT && uid != GLOBAL_USER)
-		ret = _appinfo_get_appinfo(appid, GLOBAL_USER, uid, false,
+		ret = _appinfo_get_appinfo(appid, GLOBAL_USER, uid,
 				(pkgmgr_appinfo_x **)handle);
 	if (ret != PMINFO_R_OK)
 		_LOGI("Appinfo for [%s] is not existed for user [%d]", appid, uid);
@@ -1335,39 +1185,47 @@ API int pkgmgrinfo_appinfo_clone_appinfo(pkgmgrinfo_appinfo_h handle,
 }
 
 static int _appinfo_get_filtered_foreach_appinfo(uid_t uid,
-		pkgmgrinfo_filter_x *filter, pkgmgrinfo_app_list_cb app_list_cb,
+		pkgmgrinfo_filter_x *filter, int flag, pkgmgrinfo_app_list_cb app_list_cb,
 		void *user_data)
 {
 	int ret;
-	pkgmgr_appinfo_x *info;
-	GList *list = NULL;
-	GList *tmp;
-	char *appid;
-	int stop = 0;
+	char *locale;
+	application_x *app;
+	pkgmgr_appinfo_x info;
+	GHashTable *list;
+	GHashTableIter iter;
+	gpointer value;
 
-	ret = _appinfo_get_filtered_list(filter, uid, &list);
-	if (ret != PMINFO_R_OK)
+	locale = _get_system_locale();
+	if (locale == NULL)
 		return PMINFO_R_ERROR;
 
-	for (tmp = list; tmp; tmp = tmp->next) {
-		appid = (char *)tmp->data;
-		if (stop == 0) {
-			ret = _appinfo_get_appinfo(appid, uid, uid, false, &info);
-			if (ret == PMINFO_R_ENOENT && uid != GLOBAL_USER)
-				ret = _appinfo_get_appinfo(appid, GLOBAL_USER, uid, false,
-						&info);
-			if (ret != PMINFO_R_OK) {
-				free(appid);
-				continue;
-			}
-			if (app_list_cb(info, user_data) < 0)
-				stop = 1;
-			pkgmgrinfo_appinfo_destroy_appinfo(info);
-		}
-		free(appid);
+	list = g_hash_table_new_full(g_str_hash, g_str_equal, NULL,
+			__free_applications);
+	if (list == NULL)
+		return PMINFO_R_ERROR;
+
+	ret = _appinfo_get_applications(uid, uid, locale, filter, flag, list);
+	if (ret == PMINFO_R_OK && uid != GLOBAL_USER)
+		ret = _appinfo_get_applications(GLOBAL_USER, uid, locale,
+				filter, flag, list);
+
+	if (ret != PMINFO_R_OK) {
+		free(locale);
+		return ret;
 	}
 
-	g_list_free(list);
+	g_hash_table_iter_init(&iter, list);
+	while (g_hash_table_iter_next(&iter, NULL, &value)) {
+		app = (application_x *)value;
+		info.app_info = app;
+		info.locale = locale;
+		info.package = app->package;
+		if (app_list_cb(&info, user_data) < 0)
+			break;
+	}
+	g_hash_table_destroy(list);
+	free(locale);
 
 	return PMINFO_R_OK;
 }
@@ -1404,7 +1262,8 @@ API int pkgmgrinfo_appinfo_get_usr_list(pkgmgrinfo_pkginfo_h handle,
 
 	if (uid == GLOBAL_USER) {
 		if (pkgmgrinfo_appinfo_filter_add_int(filter,
-					PMINFO_APPINFO_PROP_APP_DISABLE_FOR_USER, (int)getuid())) {
+					PMINFO_APPINFO_PROP_APP_DISABLE_FOR_USER,
+					(int)getuid())) {
 			pkgmgrinfo_appinfo_filter_destroy(filter);
 			return PMINFO_R_ERROR;
 		}
@@ -1421,7 +1280,53 @@ API int pkgmgrinfo_appinfo_get_usr_list(pkgmgrinfo_pkginfo_h handle,
 		}
 	}
 
-	ret = _appinfo_get_filtered_foreach_appinfo(uid, filter, app_func,
+	ret = _appinfo_get_filtered_foreach_appinfo(uid, filter,
+			PMINFO_APPINFO_GET_ALL, app_func, user_data);
+
+	pkgmgrinfo_appinfo_filter_destroy(filter);
+
+	return ret;
+}
+
+API int pkgmgrinfo_appinfo_get_list(pkgmgrinfo_pkginfo_h handle,
+		pkgmgrinfo_app_component component,
+		pkgmgrinfo_app_list_cb app_func, void *user_data)
+{
+	return pkgmgrinfo_appinfo_get_usr_list(handle, component, app_func, user_data, _getuid());
+}
+
+API int pkgmgrinfo_appinfo_get_usr_installed_list_full(
+		pkgmgrinfo_app_list_cb app_func, uid_t uid, int flag,
+		void *user_data)
+{
+	int ret;
+	pkgmgrinfo_appinfo_filter_h filter;
+
+	if (app_func == NULL) {
+		LOGE("invalid parameter");
+		return PMINFO_R_EINVAL;
+	}
+
+	if (pkgmgrinfo_appinfo_filter_create(&filter)) {
+		return PMINFO_R_ERROR;
+	}
+
+	if (pkgmgrinfo_appinfo_filter_add_bool(filter,
+				PMINFO_APPINFO_PROP_APP_DISABLE, false)) {
+		pkgmgrinfo_appinfo_filter_destroy(filter);
+		return PMINFO_R_ERROR;
+	}
+
+	if (uid == GLOBAL_USER) {
+		if (pkgmgrinfo_appinfo_filter_add_int(filter,
+					PMINFO_APPINFO_PROP_APP_DISABLE_FOR_USER,
+					(int)getuid())) {
+			pkgmgrinfo_appinfo_filter_destroy(filter);
+			return PMINFO_R_ERROR;
+		}
+	}
+
+	ret = _appinfo_get_filtered_foreach_appinfo(uid, filter, flag, app_func,
 			user_data);
 
 	pkgmgrinfo_appinfo_filter_destroy(filter);
@@ -1429,84 +1334,44 @@ API int pkgmgrinfo_appinfo_get_usr_list(pkgmgrinfo_pkginfo_h handle,
 	return ret;
 }
 
-API int pkgmgrinfo_appinfo_get_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_app_component component,
-						pkgmgrinfo_app_list_cb app_func, void *user_data)
+API int pkgmgrinfo_appinfo_get_installed_list_full(
+		pkgmgrinfo_app_list_cb app_func, int flag, void *user_data)
 {
-	return pkgmgrinfo_appinfo_get_usr_list(handle, component, app_func, user_data, _getuid());
+	return pkgmgrinfo_appinfo_get_usr_installed_list_full(app_func,
+			_getuid(), flag, user_data);
 }
 
-API int pkgmgrinfo_appinfo_get_usr_applist_for_amd(pkgmgrinfo_app_list_cb app_func, uid_t uid, void *user_data)
+API int pkgmgrinfo_appinfo_get_usr_install_list(pkgmgrinfo_app_list_cb app_func,
+		uid_t uid, void *user_data)
 {
-	int ret = PMINFO_R_ERROR;
-	char *locale = NULL;
-	GHashTable *appinfo_table;
-	GHashTableIter iter;
-	char *key;
-	pkgmgr_appinfo_x *val;
-
-	locale = _get_system_locale();
-	if (locale == NULL)
-		return PMINFO_R_ERROR;
-
-	appinfo_table = g_hash_table_new_full(g_str_hash, g_str_equal,
-			free, __free_appinfo_list);
-	if (appinfo_table == NULL) {
-		ret = -1;
-		goto catch;
-	}
-
-	ret = _appinfo_get_applist(uid, locale, &appinfo_table);
-	if (ret != PMINFO_R_OK) {
-		LOGE("failed get applist[%d]", (int)uid);
-		goto catch;
-	}
-
-	if (uid != GLOBAL_USER) {
-		ret = _appinfo_get_applist(GLOBAL_USER, locale, &appinfo_table);
-		if (ret != PMINFO_R_OK) {
-			LOGE("failed get applist[%d]", GLOBAL_USER);
-			goto catch;
-		}
-	}
-
-	g_hash_table_iter_init(&iter, appinfo_table);
-	while (g_hash_table_iter_next(&iter, (gpointer)&key, (gpointer)&val)) {
-		ret = app_func((void *)val, user_data);
-		if (ret != PMINFO_R_OK) {
-			LOGE("callback is stopped");
-			goto catch;
-		}
-	}
-
-catch:
-	if (locale)
-		free(locale);
-
-	if (appinfo_table)
-		g_hash_table_destroy(appinfo_table);
-
-	return ret;
+	return pkgmgrinfo_appinfo_get_usr_installed_list_full(app_func,
+			uid, PMINFO_APPINFO_GET_ALL, user_data);
 }
 
-API int pkgmgrinfo_appinfo_get_applist_for_amd(pkgmgrinfo_app_list_cb app_func, void *user_data)
+API int pkgmgrinfo_appinfo_get_install_list(pkgmgrinfo_app_list_cb app_func,
+		void *user_data)
 {
-	return pkgmgrinfo_appinfo_get_usr_applist_for_amd(app_func, _getuid(), user_data);
+	return pkgmgrinfo_appinfo_get_usr_installed_list_full(app_func,
+			_getuid(), PMINFO_APPINFO_GET_ALL, user_data);
 }
 
-API int pkgmgrinfo_appinfo_get_usr_installed_list(pkgmgrinfo_app_list_cb app_func, uid_t uid, void *user_data)
+API int pkgmgrinfo_appinfo_get_usr_installed_list(
+		pkgmgrinfo_app_list_cb app_func, uid_t uid, void *user_data)
 {
 	if (app_func == NULL) {
 		LOGE("invalid parameter");
 		return PMINFO_R_EINVAL;
 	}
 
-	return _appinfo_get_filtered_foreach_appinfo(uid, NULL, app_func,
-			user_data);
+	return _appinfo_get_filtered_foreach_appinfo(uid, NULL,
+			PMINFO_APPINFO_GET_ALL, app_func, user_data);
 }
 
-API int pkgmgrinfo_appinfo_get_installed_list(pkgmgrinfo_app_list_cb app_func, void *user_data)
+API int pkgmgrinfo_appinfo_get_installed_list(pkgmgrinfo_app_list_cb app_func,
+		void *user_data)
 {
-	return pkgmgrinfo_appinfo_get_usr_installed_list(app_func, _getuid(), user_data);
+	return pkgmgrinfo_appinfo_get_usr_installed_list(app_func, _getuid(),
+			user_data);
 }
 
 API int pkgmgrinfo_appinfo_get_appid(pkgmgrinfo_appinfo_h handle, char **appid)
@@ -2910,20 +2775,36 @@ API int pkgmgrinfo_appinfo_filter_add_string(pkgmgrinfo_appinfo_filter_h handle,
 API int pkgmgrinfo_appinfo_usr_filter_count(pkgmgrinfo_appinfo_filter_h handle, int *count, uid_t uid)
 {
 	int ret;
-	GList *list = NULL;
+	char *locale;
+	GHashTable *list;
 
 	if (handle == NULL || count == NULL) {
 		_LOGE("invalid parameter");
 		return PMINFO_R_EINVAL;
 	}
 
-	ret = _appinfo_get_filtered_list(handle, uid, &list);
-	if (ret != PMINFO_R_OK)
+	locale = _get_system_locale();
+	if (locale == NULL)
 		return PMINFO_R_ERROR;
 
-	*count = g_list_length(list);
+	list = g_hash_table_new_full(g_str_hash, g_str_equal, NULL,
+			__free_applications);
+	if (list == NULL)
+		return PMINFO_R_ERROR;
 
-	g_list_free_full(list, free);
+	ret = _appinfo_get_applications(uid, uid, locale, handle, 0, list);
+	if (ret == PMINFO_R_OK && uid != GLOBAL_USER)
+		ret = _appinfo_get_applications(GLOBAL_USER, uid, locale,
+				handle, 0, list);
+
+	if (ret != PMINFO_R_OK) {
+		free(locale);
+		return PMINFO_R_ERROR;
+	}
+
+	*count = g_hash_table_size(list);
+	g_hash_table_destroy(list);
+	free(locale);
 
 	return PMINFO_R_OK;
 }
@@ -2942,7 +2823,7 @@ API int pkgmgrinfo_appinfo_usr_filter_foreach_appinfo(
 		return PMINFO_R_EINVAL;
 	}
 
-	return _appinfo_get_filtered_foreach_appinfo(uid, handle, app_cb,
+	return _appinfo_get_filtered_foreach_appinfo(uid, handle, PMINFO_APPINFO_GET_ALL, app_cb,
 			user_data);
 }
 
@@ -2995,7 +2876,7 @@ API int pkgmgrinfo_appinfo_usr_metadata_filter_foreach(
 		return PMINFO_R_EINVAL;
 	}
 
-	return _appinfo_get_filtered_foreach_appinfo(uid, handle, app_cb,
+	return _appinfo_get_filtered_foreach_appinfo(uid, handle, PMINFO_APPINFO_GET_ALL, app_cb,
 			user_data);
 }
 
