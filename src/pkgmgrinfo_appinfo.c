@@ -2531,14 +2531,14 @@ API int pkgmgrinfo_appinfo_filter_add_string(pkgmgrinfo_appinfo_filter_h handle,
 			strncpy(prev, ptr->value, PKG_STRING_LEN_MAX - 1);
 			_LOGE("Previous value is %s\n", prev);
 			filter->list = g_slist_delete_link(filter->list, link);
-			snprintf(temp, PKG_STRING_LEN_MAX - 1, "%s , '%s'", prev, value);
+			snprintf(temp, PKG_STRING_LEN_MAX - 1, "%s , %s", prev, value);
 			strncpy(val, temp, PKG_STRING_LEN_MAX - 1);
 			_LOGE("New value is %s\n", val);
 			node->value = val;
 			filter->list = g_slist_append(filter->list, (gpointer)node);
 			memset(temp, '\0', PKG_STRING_LEN_MAX);
 		} else {
-			snprintf(temp, PKG_STRING_LEN_MAX - 1, "'%s'", value);
+			snprintf(temp, PKG_STRING_LEN_MAX - 1, "%s", value);
 			strncpy(val, temp, PKG_STRING_LEN_MAX - 1);
 			_LOGE("First value is %s\n", val);
 			node->value = val;
