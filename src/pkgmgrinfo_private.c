@@ -119,7 +119,8 @@ static struct _appinfo_bool_map_t appinfo_bool_prop_map[] = {
 	{E_PMINFO_APPINFO_PROP_APP_TASKMANAGE,		PMINFO_APPINFO_PROP_APP_TASKMANAGE},
 	{E_PMINFO_APPINFO_PROP_APP_LAUNCHCONDITION,		PMINFO_APPINFO_PROP_APP_LAUNCHCONDITION},
 	{E_PMINFO_APPINFO_PROP_APP_UI_GADGET,		PMINFO_APPINFO_PROP_APP_UI_GADGET},
-	{E_PMINFO_APPINFO_PROP_APP_SUPPORT_DISABLE,		PMINFO_APPINFO_PROP_APP_SUPPORT_DISABLE}
+	{E_PMINFO_APPINFO_PROP_APP_SUPPORT_DISABLE,		PMINFO_APPINFO_PROP_APP_SUPPORT_DISABLE},
+	{E_PMINFO_APPINFO_PROP_APP_DISABLE,		PMINFO_APPINFO_PROP_APP_DISABLE}
 };
 
 inline pkgmgrinfo_pkginfo_filter_prop_str _pminfo_pkginfo_convert_to_prop_str(const char *property)
@@ -230,14 +231,15 @@ inline pkgmgrinfo_appinfo_filter_prop_bool _pminfo_appinfo_convert_to_prop_bool(
 	return prop;
 }
 
-void __get_filter_condition(gpointer data, char **condition)
+int __get_filter_condition(gpointer data, char **condition)
 {
 	pkgmgrinfo_node_x *node = (pkgmgrinfo_node_x*)data;
 	char buf[MAX_QUERY_LEN] = {'\0'};
 	char temp[PKG_STRING_LEN_MAX] = {'\0'};
+	int flag = 0;
 	switch (node->prop) {
 	case E_PMINFO_PKGINFO_PROP_PACKAGE_ID:
-		snprintf(buf, sizeof(buf), "package_info.package='%s'", node->value);
+		snprintf(buf, sizeof(buf), "pi.package='%s'", node->value);
 		break;
 	case E_PMINFO_PKGINFO_PROP_PACKAGE_TYPE:
 		snprintf(buf, sizeof(buf), "package_info.package_type='%s'", node->value);
@@ -262,6 +264,7 @@ void __get_filter_condition(gpointer data, char **condition)
 		break;
 	case E_PMINFO_PKGINFO_PROP_PACKAGE_PRIVILEGE:
 		snprintf(buf, sizeof(buf), "package_privilege_info.privilege='%s'", node->value);
+		flag = E_PMINFO_PKGINFO_JOIN_PRIVILEGE_INFO;
 		break;
 	case E_PMINFO_PKGINFO_PROP_PACKAGE_SIZE:
 		snprintf(buf, sizeof(buf), "package_info.package_size='%s'", node->value);
@@ -289,32 +292,37 @@ void __get_filter_condition(gpointer data, char **condition)
 		break;
 
 	case E_PMINFO_APPINFO_PROP_APP_ID:
-		snprintf(buf, sizeof(buf), "package_app_info.app_id='%s'", node->value);
+		snprintf(buf, sizeof(buf), "ai.app_id='%s'", node->value);
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_COMPONENT:
-		snprintf(buf, sizeof(buf), "package_app_info.app_component='%s'", node->value);
+		snprintf(buf, sizeof(buf), "ai.app_component='%s'", node->value);
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_EXEC:
 		snprintf(buf, sizeof(buf), "package_app_info.app_exec='%s'", node->value);
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_ICON:
 		snprintf(buf, sizeof(buf), "package_app_localized_info.app_icon='%s'", node->value);
+		flag = E_PMINFO_APPINFO_JOIN_LOCALIZED_INFO;
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_TYPE:
 		snprintf(buf, sizeof(buf), "package_app_info.app_type='%s'", node->value);
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_OPERATION:
 		snprintf(buf, sizeof(buf), "package_app_app_control.app_control LIKE '%s|%%%%|%%%%'", node->value);
+		flag = E_PMINFO_APPINFO_JOIN_APP_CONTROL;
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_URI:
 		snprintf(buf, sizeof(buf), "package_app_app_control.app_control LIKE '%%%%|%s|%%%%'", node->value);
+		flag = E_PMINFO_APPINFO_JOIN_APP_CONTROL;
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_MIME:
 		snprintf(buf, sizeof(buf), "package_app_app_control.app_control LIKE '%%%%|%%%%|%s'", node->value);
+		flag = E_PMINFO_APPINFO_JOIN_APP_CONTROL;
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_CATEGORY:
 		snprintf(temp, sizeof(temp), "(%s)", node->value);
 		snprintf(buf, sizeof(buf), "package_app_app_category.category IN %s", temp);
+		flag = E_PMINFO_APPINFO_JOIN_APP_CONTROL;
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_NODISPLAY:
 		snprintf(buf, sizeof(buf), "package_app_info.app_nodisplay IN %s", node->value);
@@ -341,31 +349,36 @@ void __get_filter_condition(gpointer data, char **condition)
 		snprintf(buf, sizeof(buf), "package_app_info.app_launchcondition IN %s", node->value);
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_PACKAGE:
-		snprintf(buf, sizeof(buf), "package_app_info.package='%s'", node->value);
+		snprintf(buf, sizeof(buf), "ai.package='%s'", node->value);
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_UI_GADGET:
 		snprintf(buf, sizeof(buf), "package_app_info.app_ui_gadget IN %s", node->value);
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_METADATA_KEY:
 		snprintf(buf, sizeof(buf), "package_app_app_metadata.md_key='%s'", node->value);
+		flag = E_PMINFO_APPINFO_JOIN_METADATA;
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_METADATA_VALUE:
 		snprintf(buf, sizeof(buf), "package_app_app_metadata.md_value='%s'", node->value);
+		flag = E_PMINFO_APPINFO_JOIN_METADATA;
+		break;
+	case E_PMINFO_APPINFO_PROP_APP_DISABLE:
+		snprintf(buf, MAX_QUERY_LEN, "ai.app_disable IN %s", node->value);
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_SUPPORT_DISABLE:
 		snprintf(buf, MAX_QUERY_LEN, "package_app_info.app_support_disable IN %s", node->value);
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_DISABLE_FOR_USER:
-		snprintf(buf, MAX_QUERY_LEN, "package_app_info.app_id NOT IN "
+		snprintf(buf, MAX_QUERY_LEN, "ai.app_id NOT IN "
 				"(SELECT app_id from package_app_disable_for_user WHERE uid='%s')", node->value);
 		break;
 	default:
 		_LOGE("Invalid Property Type\n");
 		*condition = NULL;
-		return;
+		return 0;
 	}
 	*condition = strdup(buf);
-	return;
+	return flag;
 }
 
 char *_get_system_locale(void)
