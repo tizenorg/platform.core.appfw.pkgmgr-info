@@ -139,6 +139,7 @@ typedef enum _pkgmgrinfo_appinfo_filter_prop_bool {
 	E_PMINFO_APPINFO_PROP_APP_TASKMANAGE,
 	E_PMINFO_APPINFO_PROP_APP_LAUNCHCONDITION,
 	E_PMINFO_APPINFO_PROP_APP_UI_GADGET,
+	E_PMINFO_APPINFO_PROP_APP_DISABLE,
 	E_PMINFO_APPINFO_PROP_APP_SUPPORT_DISABLE,
 	E_PMINFO_APPINFO_PROP_APP_MAX_BOOL = E_PMINFO_APPINFO_PROP_APP_SUPPORT_DISABLE
 } pkgmgrinfo_appinfo_filter_prop_bool;
@@ -158,6 +159,18 @@ typedef enum _pkgmgrinfo_pkginfo_filter_prop_range {
 	E_PMINFO_PKGINFO_PROP_RANGE_BASIC,
 	E_PMINFO_PKGINFO_PROP_RANGE_MAX_INT = E_PMINFO_PKGINFO_PROP_RANGE_BASIC
 } pkgmgrinfo_pkginfo_filter_prop_range;
+
+typedef enum _pkgmgrinfo_pkginfo_join_flag {
+	E_PMINFO_PKGINFO_JOIN_LOCALIZED_INFO = 0x0001,
+	E_PMINFO_PKGINFO_JOIN_PRIVILEGE_INFO = 0x0002,
+} pkgmgrinfo_pkginfo_join_flag;
+
+typedef enum _pkgmgrinfo_appinfo_join_flag {
+	E_PMINFO_APPINFO_JOIN_LOCALIZED_INFO = 0x0001,
+	E_PMINFO_APPINFO_JOIN_CATEGORY = 0x0002,
+	E_PMINFO_APPINFO_JOIN_APP_CONTROL = 0x0004,
+	E_PMINFO_APPINFO_JOIN_METADATA = 0x0008,
+} pkgmgrinfo_appinfo_join_flag;
 
 typedef struct _pkgmgr_pkginfo_x {
 	uid_t uid;
