@@ -539,7 +539,7 @@ static int _appinfo_get_splashscreens(sqlite3 *db, const char *appid,
 	return PMINFO_R_OK;
 }
 
-static GList *__get_background_category(char *value)
+static GList *__get_background_category(const char *value)
 {
 	GList *category_list = NULL;
 	int convert_value = 0;
@@ -604,7 +604,7 @@ static int _appinfo_get_application(sqlite3 *db, const char *appid,
 	sqlite3_stmt *stmt;
 	int idx;
 	application_x *info;
-	char *bg_category_str = NULL;
+	const char *bg_category_str = NULL;
 	snprintf(query, MAX_QUERY_LEN - 1, query_raw,
 			appid,
 			is_disabled ? "true" : "false",
@@ -669,6 +669,7 @@ static int _appinfo_get_application(sqlite3 *db, const char *appid,
 	_save_column_str(stmt, idx++, &info->package_type);
 
 	info->background_category = __get_background_category(bg_category_str);
+	free((void *)bg_category_str);
 
 	if (_appinfo_get_label(db, info->appid, locale, &info->label)) {
 		pkgmgrinfo_basic_free_application(info);
@@ -775,7 +776,7 @@ int _appinfo_get_applist(uid_t uid, const char *locale, GHashTable **appinfo_tab
 	int idx = 0;
 	const char *dbpath;
 	char *query = NULL;
-	char *bg_category_str = NULL;
+	const char *bg_category_str = NULL;
 	char *key = NULL;
 	sqlite3 *db;
 	sqlite3_stmt *stmt = NULL;
@@ -852,6 +853,7 @@ int _appinfo_get_applist(uid_t uid, const char *locale, GHashTable **appinfo_tab
 		_save_column_str(stmt, idx++, &appinfo->api_version);
 
 		appinfo->background_category = __get_background_category(bg_category_str);
+		free((void *)bg_category_str);
 
 		if (_appinfo_get_splashscreens(db, appinfo->appid, &appinfo->splashscreens)) {
 			pkgmgrinfo_basic_free_application(appinfo);
@@ -945,7 +947,7 @@ static gpointer __copy_str(gconstpointer src, gpointer data)
 		return NULL;
 	}
 
-	return buffer;
+	return (gpointer)buffer;
 }
 
 static gpointer __copy_label(gconstpointer src, gpointer data)
@@ -1412,7 +1414,7 @@ API int pkgmgrinfo_appinfo_get_usr_applist_for_amd(pkgmgrinfo_app_list_cb app_fu
 	}
 
 	g_hash_table_iter_init(&iter, appinfo_table);
-	while (g_hash_table_iter_next(&iter, &key, &val)) {
+	while (g_hash_table_iter_next(&iter, (gpointer)&key, (gpointer)&val)) {
 		ret = app_func((void *)val, user_data);
 		if (ret != PMINFO_R_OK) {
 			LOGE("callback is stopped");

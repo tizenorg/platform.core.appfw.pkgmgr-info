@@ -693,7 +693,7 @@ static gint __check_icon_folder(const char *orig_icon_path, char **new_icon_path
 	if (icon_filename == NULL)
 		return -1;
 
-	snprintf(icon_path, strlen(orig_icon_path) - (strlen(icon_filename) - 1), orig_icon_path);
+	snprintf(icon_path, strlen(orig_icon_path) - (strlen(icon_filename) - 1), "%s", orig_icon_path);
 	for (i = 0; i < 2; i++) {
 		snprintf(modified_iconpath, BUFSIZE - 1, "%s/%s%s", icon_path, dpi_path[i], icon_filename);
 		if (access(modified_iconpath, F_OK) != -1) {
@@ -719,7 +719,7 @@ static gint __compare_icon(gconstpointer a, gconstpointer b)
 		return -1;
 
 	if (__check_icon_folder(icon->text, &icon_folder_path) == 0) {
-		free(icon->text);
+		free((void *)icon->text);
 		icon->text = icon_folder_path;
 	}
 
@@ -756,7 +756,7 @@ static gint __compare_icon_with_lang(gconstpointer a, gconstpointer b)
 		if (strcasecmp(icon->lang, DEFAULT_LOCALE) == 0) {
 			//icon for no locale. check existance of folder-hierachied default icons
 			if (__check_icon_folder(icon->text, &icon_folder_path) == 0) {
-				free(icon->text);
+				free((void *)icon->text);
 				icon->text = icon_folder_path;
 			}
 		}
