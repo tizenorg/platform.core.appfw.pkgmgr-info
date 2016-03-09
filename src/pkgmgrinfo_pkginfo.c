@@ -227,7 +227,7 @@ static int _pkginfo_get_list(sqlite3 *db, const char *locale,
 	}
 
 	while (sqlite3_step(stmt) == SQLITE_ROW) {
-		_save_column_str(stmt, 0, (const char **)&pkgid);
+		_save_column_str(stmt, 0, &pkgid);
 		if (pkgid != NULL)
 			*list = g_list_insert_sorted(*list, pkgid,
 					__list_strcmp);
@@ -565,7 +565,7 @@ static int _pkginfo_get_privilege(sqlite3 *db, const char *pkgid,
 	int ret;
 	char *query;
 	sqlite3_stmt *stmt;
-	const char *privilege;
+	char *privilege;
 
 	query = sqlite3_mprintf(query_raw, pkgid);
 	if (query == NULL) {

@@ -189,7 +189,7 @@ static int _pkginfo_get_pkgid_from_appid(uid_t uid, const char *appid,
 
 	ret = sqlite3_step(stmt);
 	if (ret == SQLITE_ROW) {
-		_save_column_str(stmt, 0, (const char **)pkgid);
+		_save_column_str(stmt, 0, pkgid);
 		ret = PMINFO_R_OK;
 	} else if (ret == SQLITE_DONE) {
 		_LOGE("cannot find pkgid of app %s", appid);
@@ -288,7 +288,7 @@ static int _pkginfo_get_cert(sqlite3 *db, int cert_id[],
 			return PMINFO_R_ERROR;
 		}
 
-		_save_column_str(stmt, 0, (const char **)&cert_info[i]);
+		_save_column_str(stmt, 0, &cert_info[i]);
 		sqlite3_reset(stmt);
 		sqlite3_clear_bindings(stmt);
 	}

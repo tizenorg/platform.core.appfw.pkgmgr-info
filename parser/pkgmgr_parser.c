@@ -48,7 +48,7 @@
 #endif
 #define LOG_TAG "PKGMGR_PARSER"
 
-#define ASCII(s) (const char *)s
+#define ASCII(s) (char *)s
 #define XMLCHAR(s) (const xmlChar *)s
 
 //#define METADATA_PARSER_LIST SYSCONFDIR "/package-manager/parserlib/metadata/metadata_parser_list.txt"
@@ -75,16 +75,16 @@ typedef enum {
 const char *package;
 
 static int __ps_process_label(xmlTextReaderPtr reader, label_x *label);
-static int __ps_process_privilege(xmlTextReaderPtr reader, const char **privilege);
+static int __ps_process_privilege(xmlTextReaderPtr reader, char **privilege);
 static int __ps_process_privileges(xmlTextReaderPtr reader, GList **privileges);
-static int __ps_process_allowed(xmlTextReaderPtr reader, const char **allowed);
-static int __ps_process_condition(xmlTextReaderPtr reader, const char **condition);
+static int __ps_process_allowed(xmlTextReaderPtr reader, char **allowed);
+static int __ps_process_condition(xmlTextReaderPtr reader, char **condition);
 static int __ps_process_notification(xmlTextReaderPtr reader, notification_x *notifiation);
-static int __ps_process_category(xmlTextReaderPtr reader, const char **category);
+static int __ps_process_category(xmlTextReaderPtr reader, char **category);
 static int __ps_process_metadata(xmlTextReaderPtr reader, metadata_x *metadata);
 static int __ps_process_permission(xmlTextReaderPtr reader, permission_x *permission);
 static int __ps_process_compatibility(xmlTextReaderPtr reader, compatibility_x *compatibility);
-static int __ps_process_request(xmlTextReaderPtr reader, const char **request);
+static int __ps_process_request(xmlTextReaderPtr reader, char **request);
 static int __ps_process_define(xmlTextReaderPtr reader, define_x *define);
 static int __ps_process_launchconditions(xmlTextReaderPtr reader, GList **launchconditions);
 static int __ps_process_datashare(xmlTextReaderPtr reader, datashare_x *datashare);
@@ -103,7 +103,7 @@ static char *__get_parser_plugin(const char *type);
 static int __ps_run_parser(xmlDocPtr docPtr, const char *tag, ACTION_TYPE action, const char *pkgid);
 API int __is_admin();
 
-static void __save_xml_attribute(xmlTextReaderPtr reader, char *attribute, const char **xml_attribute, char *default_value)
+static void __save_xml_attribute(xmlTextReaderPtr reader, char *attribute, char **xml_attribute, char *default_value)
 {
 	xmlChar *attrib_val = xmlTextReaderGetAttribute(reader, XMLCHAR(attribute));
 	if (attrib_val) {
@@ -116,7 +116,7 @@ static void __save_xml_attribute(xmlTextReaderPtr reader, char *attribute, const
 	}
 }
 
-static void __save_xml_lang(xmlTextReaderPtr reader, const char **xml_attribute)
+static void __save_xml_lang(xmlTextReaderPtr reader, char **xml_attribute)
 {
 	const xmlChar *attrib_val = xmlTextReaderConstXmlLang(reader);
 	if (attrib_val != NULL)
@@ -125,7 +125,7 @@ static void __save_xml_lang(xmlTextReaderPtr reader, const char **xml_attribute)
 		*xml_attribute = strdup(DEFAULT_LOCALE);
 }
 
-static void __save_xml_value(xmlTextReaderPtr reader, const char **xml_attribute)
+static void __save_xml_value(xmlTextReaderPtr reader, char **xml_attribute)
 {
 	xmlTextReaderRead(reader);
 	const xmlChar *attrib_val = xmlTextReaderConstValue(reader);
@@ -1055,13 +1055,13 @@ int __ps_process_category_parser(manifest_x *mfx, ACTION_TYPE action)
 	return ret;
 }
 
-static int __ps_process_allowed(xmlTextReaderPtr reader, const char **allowed)
+static int __ps_process_allowed(xmlTextReaderPtr reader, char **allowed)
 {
 	__save_xml_value(reader, allowed);
 	return 0;
 }
 
-static int __ps_process_condition(xmlTextReaderPtr reader, const char **condition)
+static int __ps_process_condition(xmlTextReaderPtr reader, char **condition)
 {
 	__save_xml_attribute(reader, "name", condition, NULL);
 	return 0;
@@ -1074,13 +1074,13 @@ static int __ps_process_notification(xmlTextReaderPtr reader, notification_x *no
 	return 0;
 }
 
-static int __ps_process_category(xmlTextReaderPtr reader, const char **category)
+static int __ps_process_category(xmlTextReaderPtr reader, char **category)
 {
 	__save_xml_attribute(reader, "name", category, NULL);
 	return 0;
 }
 
-static int __ps_process_privilege(xmlTextReaderPtr reader, const char **privilege)
+static int __ps_process_privilege(xmlTextReaderPtr reader, char **privilege)
 {
 	__save_xml_value(reader, privilege);
 	return 0;
@@ -1107,7 +1107,7 @@ static int __ps_process_compatibility(xmlTextReaderPtr reader, compatibility_x *
 	return 0;
 }
 
-static int __ps_process_request(xmlTextReaderPtr reader, const char **request)
+static int __ps_process_request(xmlTextReaderPtr reader, char **request)
 {
 	__save_xml_value(reader, request);
 	return 0;
@@ -1118,7 +1118,7 @@ static int __ps_process_define(xmlTextReaderPtr reader, define_x *define)
 	const xmlChar *node;
 	int ret = -1;
 	int depth = -1;
-	const char *val;
+	char *val;
 
 	__save_xml_attribute(reader, "path", &define->path, NULL);
 
@@ -1237,7 +1237,7 @@ static int __ps_process_appcontrol(xmlTextReaderPtr reader, GList **appcontrol)
 	const xmlChar *node;
 	int ret = -1;
 	int depth = -1;
-	const char *val;
+	char *val;
 	GList *operations = NULL;
 	GList *uris = NULL;
 	GList *mimes = NULL;
@@ -1300,7 +1300,7 @@ static int __ps_process_privileges(xmlTextReaderPtr reader, GList **privileges)
 	const xmlChar *node;
 	int ret = -1;
 	int depth = -1;
-	const char *val;
+	char *val;
 
 	depth = xmlTextReaderDepth(reader);
 	while ((ret = __next_child_element(reader, depth))) {
@@ -1330,7 +1330,7 @@ static int __ps_process_launchconditions(xmlTextReaderPtr reader, GList **launch
 	const xmlChar *node;
 	int ret = -1;
 	int depth = -1;
-	const char *val;
+	char *val;
 
 	depth = xmlTextReaderDepth(reader);
 	while ((ret = __next_child_element(reader, depth))) {
@@ -1361,7 +1361,7 @@ static int __ps_process_datashare(xmlTextReaderPtr reader, datashare_x *datashar
 	const xmlChar *node;
 	int ret = -1;
 	int depth = -1;
-	const char *val;
+	char *val;
 	depth = xmlTextReaderDepth(reader);
 	while ((ret = __next_child_element(reader, depth))) {
 		node = xmlTextReaderConstName(reader);
@@ -1537,10 +1537,10 @@ static int __ps_process_icon(xmlTextReaderPtr reader, icon_x *icon, uid_t uid)
 	__save_xml_lang(reader, &icon->lang);
 
 	xmlTextReaderRead(reader);
-	const char *text  = ASCII(xmlTextReaderValue(reader));
+	char *text  = ASCII(xmlTextReaderValue(reader));
 	if (text) {
-		icon->text = (const char *)__get_icon_with_path(text, uid);
-		free((void *)text);
+		icon->text = __get_icon_with_path(text, uid);
+		free(text);
 	}
 
 	return 0;
@@ -1644,7 +1644,7 @@ static int __ps_process_application(xmlTextReaderPtr reader, application_x *appl
 	const xmlChar *node;
 	int ret = -1;
 	int depth = -1;
-	const char *val;
+	char *val;
 
 	__save_xml_attribute(reader, "appid", &application->appid, NULL);
 	retvm_if(application->appid == NULL, PM_PARSER_R_ERROR, "appid cant be NULL, appid field is mandatory\n");

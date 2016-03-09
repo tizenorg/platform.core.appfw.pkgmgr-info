@@ -124,7 +124,7 @@ static gint _appinfo_get_list(sqlite3 *db, const char *locale,
 	}
 
 	while (sqlite3_step(stmt) == SQLITE_ROW) {
-		_save_column_str(stmt, 0, (const char **)&appid);
+		_save_column_str(stmt, 0, &appid);
 		if (appid != NULL)
 			*list = g_list_insert_sorted(*list, appid,
 					__list_strcmp);
@@ -309,7 +309,7 @@ static int _appinfo_get_category(sqlite3 *db, const char *appid,
 	int ret;
 	char *query;
 	sqlite3_stmt *stmt;
-	const char *val;
+	char *val;
 
 	query = sqlite3_mprintf(query_raw, appid);
 	if (query == NULL) {
@@ -394,7 +394,7 @@ static int _appinfo_get_app_control(sqlite3 *db, const char *appid,
 
 	while (sqlite3_step(stmt) == SQLITE_ROW) {
 		str = NULL;
-		_save_column_str(stmt, 0, (const char **)&str);
+		_save_column_str(stmt, 0, &str);
 		/* TODO: revise */
 		__parse_appcontrol(appcontrol, str);
 		free(str);
@@ -539,7 +539,7 @@ static int _appinfo_get_splashscreens(sqlite3 *db, const char *appid,
 	return PMINFO_R_OK;
 }
 
-static GList *__get_background_category(char *value)
+static GList *__get_background_category(const char *value)
 {
 	GList *category_list = NULL;
 	int convert_value = 0;
@@ -672,6 +672,7 @@ static int _appinfo_get_application(sqlite3 *db, const char *appid,
 	_save_column_str(stmt, idx++, &info->api_version);
 
 	info->background_category = __get_background_category(bg_category_str);
+	free(bg_category_str);
 
 	if (_appinfo_get_label(db, info->appid, locale, &info->label)) {
 		pkgmgrinfo_basic_free_application(info);
@@ -857,6 +858,7 @@ int _appinfo_get_applist(uid_t uid, const char *locale, GHashTable **appinfo_tab
 		_save_column_str(stmt, idx++, &appinfo->api_version);
 
 		appinfo->background_category = __get_background_category(bg_category_str);
+		free(bg_category_str);
 
 		if (_appinfo_get_splashscreens(db, appinfo->appid, &appinfo->splashscreens)) {
 			pkgmgrinfo_basic_free_application(appinfo);
@@ -941,7 +943,7 @@ API int pkgmgrinfo_appinfo_get_appinfo(const char *appid, pkgmgrinfo_appinfo_h *
 static gpointer __copy_str(gconstpointer src, gpointer data)
 {
 	const char *tmp = (const char *)src;
-	const char *buffer;
+	char *buffer;
 
 	buffer = strdup(tmp);
 	if (buffer == NULL) {
@@ -1417,7 +1419,7 @@ API int pkgmgrinfo_appinfo_get_usr_applist_for_amd(pkgmgrinfo_app_list_cb app_fu
 	}
 
 	g_hash_table_iter_init(&iter, appinfo_table);
-	while (g_hash_table_iter_next(&iter, &key, &val)) {
+	while (g_hash_table_iter_next(&iter, (gpointer)&key, (gpointer)&val)) {
 		ret = app_func((void *)val, user_data);
 		if (ret != PMINFO_R_OK) {
 			LOGE("callback is stopped");

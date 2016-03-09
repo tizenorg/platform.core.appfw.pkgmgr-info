@@ -448,7 +448,7 @@ void _save_column_int(sqlite3_stmt *stmt, int idx, int *i)
 	*i = sqlite3_column_int(stmt, idx);
 }
 
-void _save_column_str(sqlite3_stmt *stmt, int idx, const char **str)
+void _save_column_str(sqlite3_stmt *stmt, int idx, char **str)
 {
 	const char *val;
 
