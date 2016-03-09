@@ -219,7 +219,7 @@ int __open_manifest_db(uid_t uid, bool readonly);
 int __close_cert_db(void);
 int __open_cert_db(uid_t uid, bool readonly);
 void _save_column_int(sqlite3_stmt *stmt, int idx, int *i);
-void _save_column_str(sqlite3_stmt *stmt, int idx, const char **str);
+void _save_column_str(sqlite3_stmt *stmt, int idx, char **str);
 char *_get_system_locale(void);
 void __get_filter_condition(gpointer data, char **condition);
 
