@@ -34,7 +34,7 @@ endforeach()
 ADD_DEFINITIONS("-DLIB_PATH=\"${LIB_INSTALL_DIR}\"")
 ## Additional flag
 SET(EXTRA_CFLAGS "${EXTRA_CFLAGS} -fvisibility=hidden")
-SET(EXTRA_CFLAGS "${EXTRA_CFLAGS} -g -Wall")
+SET(EXTRA_CFLAGS "${EXTRA_CFLAGS} -g -Wall -Wno-deprecated-declarations")
 SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_CFLAGS}")
 
 add_definitions("-DSYSCONFDIR=\"${SYSCONFDIR}\"")
