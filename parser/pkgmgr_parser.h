@@ -50,6 +50,11 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+#ifndef DEPRECATED
+#define DEPRECATED	__attribute__ ((__deprecated__))
+#endif
+
 #define DEFAULT_LOCALE		"No Locale"
 
 #define PKG_PARSERLIB	"parserlib:"
@@ -122,8 +127,8 @@ static int parse_manifest_file_for_installation(const char *manifest)
 }
  * @endcode
  */
-int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char *const tagv[]);
-int pkgmgr_parser_parse_usr_manifest_for_installation(const char *manifest, uid_t uid, char *const tagv[]);
+int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char *const tagv[]) DEPRECATED;
+int pkgmgr_parser_parse_usr_manifest_for_installation(const char *manifest, uid_t uid, char *const tagv[]) DEPRECATED;
 int pkgmgr_parser_process_manifest_x_for_installation(manifest_x* mfx, const char *manifest);
 int pkgmgr_parser_process_usr_manifest_x_for_installation(manifest_x* mfx, const char *manifest, uid_t uid);
 
@@ -186,8 +191,8 @@ static int parse_manifest_file_for_upgrade(const char *manifest)
 }
  * @endcode
  */
-int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *const tagv[]);
-int pkgmgr_parser_parse_usr_manifest_for_upgrade(const char *manifest, uid_t uid, char *const tagv[]);
+int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *const tagv[]) DEPRECATED;
+int pkgmgr_parser_parse_usr_manifest_for_upgrade(const char *manifest, uid_t uid, char *const tagv[]) DEPRECATED;
 int pkgmgr_parser_process_manifest_x_for_upgrade(manifest_x* mfx, const char *manifest);
 int pkgmgr_parser_process_usr_manifest_x_for_upgrade(manifest_x* mfx, const char *manifest, uid_t uid);
 
@@ -219,38 +224,10 @@ static int parse_manifest_file_for_uninstallation(const char *manifest)
 }
  * @endcode
  */
-int pkgmgr_parser_parse_manifest_for_uninstallation(const char *manifest, char *const tagv[]);
-int pkgmgr_parser_parse_usr_manifest_for_uninstallation(const char *manifest, uid_t uid, char *const tagv[]);
+int pkgmgr_parser_parse_manifest_for_uninstallation(const char *manifest, char *const tagv[]) DEPRECATED;
+int pkgmgr_parser_parse_usr_manifest_for_uninstallation(const char *manifest, uid_t uid, char *const tagv[]) DEPRECATED;
 int pkgmgr_parser_process_manifest_x_for_uninstallation(manifest_x* mfx, const char *manifest);
 int pkgmgr_parser_process_usr_manifest_x_for_uninstallation(manifest_x* mfx, const char *manifest, uid_t uid);
-
-/**
- * @fn int pkgmgr_parser_parse_manifest_for_preload()
- * @fn int pkgmgr_parser_parse_usr_manifest_for_preload(uid_t uid)
- * @brief	This API update  preload information to DB.
- *
- * @par		This API is for package-manager installer backends.
- * @par Sync (or) Async : Synchronous API
- *
- * @return	0 if success, error code(<0) if fail
- * @retval	PMINFO_R_OK	success
- * @retval	PMINFO_R_EINVAL	invalid argument
- * @retval	PMINFO_R_ERROR	internal error
- * @pre		None
- * @post		None
- * @code
-static int parser_parse_manifest_for_preload()
-{
-	int ret = 0;
-	ret = pkgmgr_parser_parse_manifest_for_preload();
-	if (ret)
-		return -1;
-	return 0;
-}
- * @endcode
- */
-int pkgmgr_parser_parse_manifest_for_preload();
-int pkgmgr_parser_parse_usr_manifest_for_preload(uid_t uid);
 
 /**
  * @fn int pkgmgr_parser_check_manifest_validation(const char *manifest)
@@ -330,130 +307,8 @@ static int parse_manifest_file(const char *manifest)
 }
  * @endcode
  */
-manifest_x *pkgmgr_parser_process_manifest_xml(const char *manifest);
-manifest_x *pkgmgr_parser_usr_process_manifest_xml(const char *manifest, uid_t uid);
-
-/**
- * @fn int pkgmgr_parser_run_parser_for_installation(xmlDocPtr docPtr, const char *tag, const char *pkgid)
- * @brief	This API calls the parser directly by supplying the xml docptr. It is used during package installation
- *
- * @par		This API is for package-manager installer backends.
- * @par Sync (or) Async : Synchronous API
- *
- * @param[in]	docPtr	XML doxument pointer
- * @param[in]	tag		the xml tag corresponding to the parser that will parse the docPtr
- * @param[in]	pkgid		the package id
- * @return	0 if success, error code(<0) if fail
- * @retval	PMINFO_R_OK	success
- * @retval	PMINFO_R_EINVAL	invalid argument
- * @retval	PMINFO_R_ERROR	internal error
- * @pre		None
- * @post		None
- * @code
-static int parse_docptr_for_installation(xmlDocPtr docPtr)
-{
-	int ret = 0;
-	ret = pkgmgr_parser_run_parser_for_installation(docPtr, "theme", "com.samsung.test");
-	if (ret)
-		return -1;
-	return 0;
-}
- * @endcode
- */
-int pkgmgr_parser_run_parser_for_installation(xmlDocPtr docPtr, const char *tag, const char *pkgid);
-
-/**
- * @fn int pkgmgr_parser_run_parser_for_upgrade(xmlDocPtr docPtr, const char *tag, const char *pkgid)
- * @brief	This API calls the parser directly by supplying the xml docptr. It is used during package upgrade
- *
- * @par		This API is for package-manager installer backends.
- * @par Sync (or) Async : Synchronous API
- *
- * @param[in]	docPtr	XML doxument pointer
- * @param[in]	tag		the xml tag corresponding to the parser that will parse the docPtr
- * @param[in]	pkgid		the package id
- * @return	0 if success, error code(<0) if fail
- * @retval	PMINFO_R_OK	success
- * @retval	PMINFO_R_EINVAL	invalid argument
- * @retval	PMINFO_R_ERROR	internal error
- * @pre		None
- * @post		None
- * @code
-static int parse_docptr_for_upgrade(xmlDocPtr docPtr)
-{
-	int ret = 0;
-	ret = pkgmgr_parser_run_parser_for_upgrade(docPtr, "theme", "com.samsung.test");
-	if (ret)
-		return -1;
-	return 0;
-}
- * @endcode
- */
-int pkgmgr_parser_run_parser_for_upgrade(xmlDocPtr docPtr, const char *tag, const char *pkgid);
-
-/**
- * @fn int pkgmgr_parser_run_parser_for_uninstallation(xmlDocPtr docPtr, const char *tag, const char *pkgid)
- * @brief	This API calls the parser directly by supplying the xml docptr. It is used during package uninstallation
- *
- * @par		This API is for package-manager installer backends.
- * @par Sync (or) Async : Synchronous API
- *
- * @param[in]	docPtr	XML doxument pointer
- * @param[in]	tag		the xml tag corresponding to the parser that will parse the docPtr
- * @param[in]	pkgid		the package id
- * @return	0 if success, error code(<0) if fail
- * @retval	PMINFO_R_OK	success
- * @retval	PMINFO_R_EINVAL	invalid argument
- * @retval	PMINFO_R_ERROR	internal error
- * @pre		None
- * @post		None
- * @code
-static int parse_docptr_for_uninstallation(xmlDocPtr docPtr)
-{
-	int ret = 0;
-	ret = pkgmgr_parser_run_parser_for_uninstallation(docPtr, "theme", "com.samsung.test");
-	if (ret)
-		return -1;
-	return 0;
-}
- * @endcode
- */
-int pkgmgr_parser_run_parser_for_uninstallation(xmlDocPtr docPtr, const char *tag, const char *pkgid);
-
-
-
-/**
- * @fn int pkgmgr_parser_create_desktop_file(manifest_x *mfx)
- * @fn int pkgmgr_parser_create_usr_desktop_file(manifest_x *mfx, uid_t uid)
- * @brief	This API generates the application desktop file
- *
- * @par		This API is for package-manager installer backends.
- * @par Sync (or) Async : Synchronous API
- *
- * @param[in]	mfx	manifest pointer
- * @param[in]	uid	the addressee user id of the instruction
- * @return	0 if success, error code(<0) if fail
- * @retval	PMINFO_R_OK	success
- * @retval	PMINFO_R_EINVAL	invalid argument
- * @retval	PMINFO_R_ERROR	internal error
- * @pre		pkgmgr_parser_process_manifest_xml()
- * @post	pkgmgr_parser_free_manifest_xml()
- * @code
-static int create_desktop_file(char *manifest)
-{
-	int ret = 0;
-	manifest_x *mfx = NULL;
-	mfx = pkgmgr_parser_process_manifest_xml(manifest);
-	ret = pkgmgr_parser_create_desktop_file(mfx);
-	if (ret)
-		return -1;
-	pkgmgr_parser_free_manifest_xml(mfx);
-	return 0;
-}
- * @endcode
- */
-int pkgmgr_parser_create_desktop_file(manifest_x *mfx);
-int pkgmgr_parser_create_usr_desktop_file(manifest_x *mfx, uid_t uid);
+manifest_x *pkgmgr_parser_process_manifest_xml(const char *manifest) DEPRECATED;
+manifest_x *pkgmgr_parser_usr_process_manifest_xml(const char *manifest, uid_t uid) DEPRECATED;
 
 /** @} */
 #ifdef __cplusplus
