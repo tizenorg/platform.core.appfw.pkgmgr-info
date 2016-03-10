@@ -581,7 +581,7 @@ static GList *__get_background_category(char *value)
 }
 
 static int _appinfo_get_application(sqlite3 *db, const char *appid,
-		const char *locale, application_x **application, bool is_disabled, uid_t target_uid)
+		const char *locale, application_x **application, bool is_disabled, uid_t db_uid, uid_t target_uid)
 {
 	static const char query_raw[] =
 		"SELECT app_id, app_component, app_exec, app_nodisplay, "
@@ -594,7 +594,8 @@ static int _appinfo_get_application(sqlite3 *db, const char *appid,
 		"app_submode_mainid, app_launch_mode, app_ui_gadget, "
 		"app_support_disable, "
 		"component_type, package, app_process_pool, app_installed_storage, "
-		"app_background_category, app_package_type "
+		"app_background_category, app_package_type, "
+		"app_root_path, app_api_version "
 		"FROM package_app_info WHERE app_id='%s' "
 		"AND (app_disable='%s' "
 		"%s app_id %s IN "
@@ -667,6 +668,8 @@ static int _appinfo_get_application(sqlite3 *db, const char *appid,
 	_save_column_str(stmt, idx++, &info->installed_storage);
 	_save_column_str(stmt, idx++, &bg_category_str);
 	_save_column_str(stmt, idx++, &info->package_type);
+	_save_column_str(stmt, idx++, &info->root_path);
+	_save_column_str(stmt, idx++, &info->api_version);
 
 	info->background_category = __get_background_category(bg_category_str);
 
@@ -712,6 +715,8 @@ static int _appinfo_get_application(sqlite3 *db, const char *appid,
 		return PMINFO_R_ERROR;
 	}
 
+	info->for_all_users = strdup((db_uid != GLOBAL_USER) ? "false" : "true");
+
 	*application = info;
 
 	sqlite3_finalize(stmt);
@@ -751,7 +756,7 @@ static int _appinfo_get_appinfo(const char *appid, uid_t db_uid,
 		return PMINFO_R_ERROR;
 	}
 
-	ret = _appinfo_get_application(db, appid, locale, &info->app_info, is_disabled, target_uid);
+	ret = _appinfo_get_application(db, appid, locale, &info->app_info, is_disabled, db_uid, target_uid);
 	if (ret != PMINFO_R_OK) {
 		free(info);
 		free(locale);
