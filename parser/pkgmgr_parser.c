@@ -100,7 +100,6 @@ static int __start_process(xmlTextReaderPtr reader, manifest_x * mfx, uid_t uid)
 static int __process_manifest(xmlTextReaderPtr reader, manifest_x * mfx, uid_t uid);
 static void __str_trim(char *input);
 static char *__get_parser_plugin(const char *type);
-static int __ps_run_parser(xmlDocPtr docPtr, const char *tag, ACTION_TYPE action, const char *pkgid);
 API int __is_admin();
 
 static void __save_xml_attribute(xmlTextReaderPtr reader, char *attribute, char **xml_attribute, char *default_value)
@@ -507,58 +506,6 @@ static int __ps_run_category_parser(GList *category_list, const char *tag,
 		_LOGD("[appid = %s, libpath = %s plugin fail\n", appid, lib_path);
 	else
 		_LOGD("[appid = %s, libpath = %s plugin success\n", appid, lib_path);
-
-END:
-	if (lib_path)
-		free(lib_path);
-	if (lib_handle)
-		dlclose(lib_handle);
-	return ret;
-}
-
-static int __ps_run_parser(xmlDocPtr docPtr, const char *tag,
-			   ACTION_TYPE action, const char *pkgid)
-{
-	char *lib_path = NULL;
-	void *lib_handle = NULL;
-	int (*plugin_install) (xmlDocPtr, const char *);
-	int ret = -1;
-	char *ac = NULL;
-
-	switch (action) {
-	case ACTION_INSTALL:
-		ac = "PKGMGR_PARSER_PLUGIN_INSTALL";
-		break;
-	case ACTION_UPGRADE:
-		ac = "PKGMGR_PARSER_PLUGIN_UPGRADE";
-		break;
-	case ACTION_UNINSTALL:
-		ac = "PKGMGR_PARSER_PLUGIN_UNINSTALL";
-		break;
-	default:
-		goto END;
-	}
-
-	lib_path = __get_parser_plugin(tag);
-	if (!lib_path) {
-		goto END;
-	}
-
-	if ((lib_handle = dlopen(lib_path, RTLD_LAZY)) == NULL) {
-		_LOGE("dlopen is failed lib_path[%s]\n", lib_path);
-		goto END;
-	}
-	if ((plugin_install =
-		dlsym(lib_handle, ac)) == NULL || dlerror() != NULL) {
-		_LOGE("can not find symbol[%s] \n", ac);
-		goto END;
-	}
-
-	ret = plugin_install(docPtr, pkgid);
-	if (ret < 0)
-		_LOGD("[pkgid = %s, libpath = %s plugin fail\n", pkgid, lib_path);
-	else
-		_LOGD("[pkgid = %s, libpath = %s plugin success\n", pkgid, lib_path);
 
 END:
 	if (lib_path)
@@ -2003,25 +1950,12 @@ static int __check_preload_updated(manifest_x * mfx, const char *manifest, uid_t
 	return 0;
 }
 
-API int pkgmgr_parser_create_desktop_file(manifest_x *mfx)
-{
-	/* desktop file is no longer used */
-        return 0;
-}
-
-API int pkgmgr_parser_create_usr_desktop_file(manifest_x *mfx, uid_t uid)
-{
-	/* desktop file is no longer used */
-        return 0;
-}
-
-
 API void pkgmgr_parser_free_manifest_xml(manifest_x *mfx)
 {
 	pkgmgrinfo_basic_free_package((package_x *)mfx);
 }
 
-API manifest_x *pkgmgr_parser_process_manifest_xml(const char *manifest)
+DEPRECATED manifest_x *pkgmgr_parser_process_manifest_xml(const char *manifest)
 {
 	_LOGD("parsing start pkgmgr_parser_process_manifest_xml\n");
 	xmlTextReaderPtr reader;
@@ -2049,7 +1983,7 @@ API manifest_x *pkgmgr_parser_process_manifest_xml(const char *manifest)
 }
 
 
-API manifest_x *pkgmgr_parser_usr_process_manifest_xml(const char *manifest, uid_t uid)
+DEPRECATED manifest_x *pkgmgr_parser_usr_process_manifest_xml(const char *manifest, uid_t uid)
 {
 	_LOGD("parsing start pkgmgr_parser_usr_process_manifest_xml\n");
 	xmlTextReaderPtr reader;
@@ -2086,7 +2020,7 @@ API int pkgmgr_parser_update_tep(const char *pkgid, const char *tep_path)
 	return pkgmgr_parser_update_tep_info_in_db(pkgid, tep_path);
 }
 
-API int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char *const tagv[])
+DEPRECATED int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char *const tagv[])
 {
 	retvm_if(manifest == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
 	_LOGD("parsing manifest for installation: %s\n", manifest);
@@ -2122,7 +2056,8 @@ API int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char
 
 	return PMINFO_R_OK;
 }
-API int pkgmgr_parser_parse_usr_manifest_for_installation(const char *manifest, uid_t uid, char *const tagv[])
+
+DEPRECATED int pkgmgr_parser_parse_usr_manifest_for_installation(const char *manifest, uid_t uid, char *const tagv[])
 {
 	retvm_if(manifest == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
 	_LOGD("parsing manifest for installation: %s\n", manifest);
@@ -2163,14 +2098,9 @@ API int pkgmgr_parser_process_manifest_x_for_installation(manifest_x* mfx, const
 	_LOGD("processing manifest_x for installation: %s\n", manifest);
 	int ret = -1;
 
-	xmlInitParser();
-
-	_LOGD("Added preload infomation\n");
-
 	ret = pkgmgr_parser_insert_manifest_info_in_db(mfx);
 	retvm_if(ret == PMINFO_R_ERROR, PMINFO_R_ERROR, "DB Insert failed");
 	_LOGD("DB Insert Success\n");
-	xmlCleanupParser();
 
 	return PMINFO_R_OK;
 }
@@ -2181,15 +2111,14 @@ API int pkgmgr_parser_process_usr_manifest_x_for_installation(manifest_x* mfx, c
 	_LOGD("processing manifest_x for installation: %s\n", manifest);
 	int ret = -1;
 
-	xmlInitParser();
 	ret = pkgmgr_parser_insert_manifest_info_in_usr_db(mfx, uid);
 	retvm_if(ret == PMINFO_R_ERROR, PMINFO_R_ERROR, "DB Insert failed");
 	_LOGD("DB Insert Success\n");
-	xmlCleanupParser();
+
 	return PMINFO_R_OK;
 }
 
-API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *const tagv[])
+DEPRECATED int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *const tagv[])
 {
 	retvm_if(manifest == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
 	_LOGD("pkgmgr_parser_parse_manifest_for_upgrade  parsing manifest for upgradation: %s\n", manifest);
@@ -2258,7 +2187,7 @@ API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *con
 	return PMINFO_R_OK;
 }
 
-API int pkgmgr_parser_parse_usr_manifest_for_upgrade(const char *manifest, uid_t uid, char *const tagv[])
+DEPRECATED int pkgmgr_parser_parse_usr_manifest_for_upgrade(const char *manifest, uid_t uid, char *const tagv[])
 {
 	retvm_if(manifest == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
 	_LOGD(" pkgmgr_parser_parse_usr_manifest_for_upgrade parsing manifest for upgradation: %s\n", manifest);
@@ -2330,39 +2259,10 @@ API int pkgmgr_parser_process_manifest_x_for_upgrade(manifest_x* mfx, const char
 	retvm_if(manifest == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
 	_LOGD("pkgmgr_parser_process_manifest_x_for_upgrade  parsing manifest for upgradation: %s\n", manifest);
 	int ret = -1;
-	bool system = false;
-	char *csc_path = NULL;
-	pkgmgrinfo_pkginfo_h handle = NULL;
-
-	xmlInitParser();
-
-	ret = pkgmgrinfo_pkginfo_get_pkginfo(mfx->package, &handle);
-	if (ret != PMINFO_R_OK)
-		_LOGD("pkgmgrinfo_pkginfo_get_pkginfo failed\n");
-
-	ret = pkgmgrinfo_pkginfo_is_system(handle, &system);
-	if (ret != PMINFO_R_OK)
-		_LOGD("pkgmgrinfo_pkginfo_is_system failed\n");
-	if (system) {
-		free((void *)mfx->system);
-		mfx->system = strdup("true");
-	}
-
-	ret = pkgmgrinfo_pkginfo_get_csc_path(handle, &csc_path);
-	if (ret != PMINFO_R_OK)
-		_LOGD("pkgmgrinfo_pkginfo_get_csc_path failed\n");
-
-	if (csc_path != NULL) {
-		if (mfx->csc_path)
-			free((void *)mfx->csc_path);
-		mfx->csc_path = strdup(csc_path);
-	}
 
 	ret = pkgmgr_parser_update_manifest_info_in_db(mfx);
 	retvm_if(ret == PMINFO_R_ERROR, PMINFO_R_ERROR, "DB Insert failed");
 	_LOGD("DB Update Success\n");
-	pkgmgrinfo_pkginfo_destroy_pkginfo(handle);
-	xmlCleanupParser();
 
 	return PMINFO_R_OK;
 }
@@ -2372,19 +2272,10 @@ API int pkgmgr_parser_process_usr_manifest_x_for_upgrade(manifest_x* mfx, const 
 	retvm_if(manifest == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
 	_LOGD(" pkgmgr_parser_process_usr_manifest_x_for_upgrade parsing manifest for upgradation: %s\n", manifest);
 	int ret = -1;
-	pkgmgrinfo_pkginfo_h handle = NULL;
-
-	xmlInitParser();
-
-	ret = pkgmgrinfo_pkginfo_get_usr_pkginfo(mfx->package, uid, &handle);
-	if (ret != PMINFO_R_OK)
-		_LOGD("pkgmgrinfo_pkginfo_get_pkginfo failed\n");
 
 	ret = pkgmgr_parser_update_manifest_info_in_usr_db(mfx, uid);
 	retvm_if(ret == PMINFO_R_ERROR, PMINFO_R_ERROR, "DB Insert failed");
 	_LOGD("DB Update Success\n");
-	pkgmgrinfo_pkginfo_destroy_pkginfo(handle);
-	xmlCleanupParser();
 
 	return PMINFO_R_OK;
 }
@@ -2474,13 +2365,11 @@ API int pkgmgr_parser_process_manifest_x_for_uninstallation(manifest_x* mfx, con
 	_LOGD("processing manifest_x for uninstallation: %s\n", manifest);
 
 	int ret = -1;
-	xmlInitParser();
 	ret = pkgmgr_parser_delete_manifest_info_from_db(mfx);
 	if (ret == -1)
 		_LOGD("DB Delete failed\n");
 	else
 		_LOGD("DB Delete Success\n");
-	xmlCleanupParser();
 
 	return PMINFO_R_OK;
 }
@@ -2491,7 +2380,6 @@ API int pkgmgr_parser_process_usr_manifest_x_for_uninstallation(manifest_x* mfx,
 	_LOGD("processing manifest_x for uninstallation: %s\n", manifest);
 
 	int ret = -1;
-	xmlInitParser();
 
 	ret = pkgmgr_parser_delete_manifest_info_from_usr_db(mfx, uid);
 	if (ret == -1)
@@ -2504,38 +2392,11 @@ API int pkgmgr_parser_process_usr_manifest_x_for_uninstallation(manifest_x* mfx,
 		_LOGD("Removing appsvc_db failed\n");
 	else
 		_LOGD("Removing appsvc_db Success\n");
-	xmlCleanupParser();
 
 	return PMINFO_R_OK;
 }
 
-API int pkgmgr_parser_parse_manifest_for_preload()
-{
-	return pkgmgr_parser_update_preload_info_in_db();
-}
-
-API int pkgmgr_parser_parse_usr_manifest_for_preload(uid_t uid)
-{
-	return pkgmgr_parser_update_preload_info_in_usr_db(uid);
-}
-
-API int pkgmgr_parser_run_parser_for_installation(xmlDocPtr docPtr, const char *tag, const char *pkgid)
-{
-	return __ps_run_parser(docPtr, tag, ACTION_INSTALL, pkgid);
-}
-
-API int pkgmgr_parser_run_parser_for_upgrade(xmlDocPtr docPtr, const char *tag, const char *pkgid)
-{
-	return __ps_run_parser(docPtr, tag, ACTION_UPGRADE, pkgid);
-}
-
-API int pkgmgr_parser_run_parser_for_uninstallation(xmlDocPtr docPtr, const char *tag, const char *pkgid)
-{
-	return __ps_run_parser(docPtr, tag, ACTION_UNINSTALL, pkgid);
-}
-
 #define SCHEMA_FILE SYSCONFDIR "/package-manager/preload/manifest.xsd"
-#if 1
 API int pkgmgr_parser_check_manifest_validation(const char *manifest)
 {
 	if (manifest == NULL) {
@@ -2576,55 +2437,3 @@ API int pkgmgr_parser_check_manifest_validation(const char *manifest)
 	return PMINFO_R_OK;
 }
 
-#else
-API int pkgmgr_parser_check_manifest_validation(const char *manifest)
-{
-	int err = 0;
-	int status = 0;
-	pid_t pid;
-
-	pid = fork();
-
-	switch (pid) {
-	case -1:
-		_LOGE("fork failed\n");
-		return -1;
-	case 0:
-		/* child */
-		{
-			int dev_null_fd = open ("/dev/null", O_RDWR);
-			if (dev_null_fd >= 0)
-			{
-			        dup2 (dev_null_fd, 0);/*stdin*/
-			        dup2 (dev_null_fd, 1);/*stdout*/
-			        dup2 (dev_null_fd, 2);/*stderr*/
-			}
-
-			if (execl("/usr/bin/xmllint", "xmllint", manifest, "--schema",
-				SCHEMA_FILE, NULL) < 0) {
-				_LOGE("execl error\n");
-			}
-
-			_exit(100);
-		}
-	default:
-		/* parent */
-		break;
-	}
-
-	while ((err = waitpid(pid, &status, WNOHANG)) != pid) {
-		if (err < 0) {
-			if (errno == EINTR)
-				continue;
-			_LOGE("waitpid failed\n");
-			return -1;
-		}
-	}
-
-
-	if(WIFEXITED(status) && !WEXITSTATUS(status))
-		return 0;
-	else
-		return -1;
-}
-#endif
