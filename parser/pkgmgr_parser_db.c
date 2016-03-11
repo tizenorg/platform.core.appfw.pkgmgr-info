@@ -170,6 +170,7 @@ sqlite3 *pkgmgr_cert_db;
 						"app_background_category INTEGER DEFAULT 0, " \
 						"app_root_path text, " \
 						"app_api_version text, " \
+						"app_effective_appid text, " \
 						"FOREIGN KEY(package) " \
 						"REFERENCES package_info(package) " \
 						"ON DELETE CASCADE)"
@@ -1145,6 +1146,25 @@ static int __convert_background_category(GList *category_list)
 	return ret;
 }
 
+static const char *__find_effective_appid(GList *metadata_list)
+{
+	GList *tmp_list;
+	metadata_x *md;
+
+	for (tmp_list = metadata_list; tmp_list; tmp_list = tmp_list->next) {
+		md = (metadata_x *)tmp_list->data;
+		if (md == NULL || md->key == NULL)
+			continue;
+
+		if (strcmp(md->key, "http://tizen.org/metadata/effective-appid") == 0) {
+			if (md->value)
+				return md->value;
+		}
+	}
+
+	return NULL;
+}
+
 /* _PRODUCT_LAUNCHING_ENHANCED_
 *  app->indicatordisplay, app->portraitimg, app->landscapeimg, app->guestmode_appstatus
 */
@@ -1156,6 +1176,7 @@ static int __insert_application_info(manifest_x *mfx)
 	int background_value = 0;
 	char query[MAX_QUERY_LEN] = {'\0'};
 	char *type = NULL;
+	const char *effective_appid;
 
 	if (mfx->type)
 		type = strdup(mfx->type);
@@ -1173,6 +1194,8 @@ static int __insert_application_info(manifest_x *mfx)
 			background_value = 0;
 		}
 
+		effective_appid = __find_effective_appid(app->metadata);
+
 		snprintf(query, MAX_QUERY_LEN,
 			"insert into package_app_info(" \
 			"app_id, app_component, app_exec, app_nodisplay, app_type, " \
@@ -1181,7 +1204,8 @@ static int __insert_application_info(manifest_x *mfx)
 			"app_indicatordisplay, app_portraitimg, app_landscapeimg, app_guestmodevisibility, app_permissiontype, " \
 			"app_preload, app_submode, app_submode_mainid, app_installed_storage, app_process_pool, " \
 			"app_launch_mode, app_ui_gadget, app_support_disable, component_type, package, " \
-			"app_tep_name, app_background_category, app_package_type, app_root_path, app_api_version) " \
+			"app_tep_name, app_background_category, app_package_type, app_root_path, app_api_version, " \
+			"app_effective_appid) " \
 			"values(" \
 			"'%s', '%s', '%s', '%s', '%s', " \
 			"'%s', '%s', '%s', '%s', '%s', " \
@@ -1189,7 +1213,8 @@ static int __insert_application_info(manifest_x *mfx)
 			"'%s', '%s', '%s', '%s', '%s', " \
 			"'%s', '%s', '%s', '%s', '%s', " \
 			"'%s', '%s', '%s', '%s', '%s', " \
-			"'%s', '%d', '%s', '%s', '%s')", \
+			"'%s', '%d', '%s', '%s', '%s', " \
+			"'%s')", \
 			app->appid, app->component_type, app->exec, app->nodisplay, app->type,
 			app->onboot, app->multiple, app->autorestart, app->taskmanage, app->enabled,
 			app->hwacceleration, app->screenreader, app->mainapp, __get_str(app->recentimage), app->launchcondition,
@@ -1197,7 +1222,8 @@ static int __insert_application_info(manifest_x *mfx)
 			app->guestmode_visibility, app->permission_type,
 			mfx->preload, app->submode, __get_str(app->submode_mainid), mfx->installed_storage, app->process_pool,
 			app->launch_mode, app->ui_gadget, mfx->support_disable, app->component_type, mfx->package,
-			__get_str(mfx->tep_name), background_value, type, mfx->root_path, __get_str(mfx->api_version));
+			__get_str(mfx->tep_name), background_value, type, mfx->root_path, __get_str(mfx->api_version),
+			__get_str(effective_appid));
 
 		ret = __exec_query(query);
 		if (ret == -1) {

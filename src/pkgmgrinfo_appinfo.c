@@ -804,7 +804,8 @@ int _appinfo_get_applist(uid_t uid, const char *locale, GHashTable **appinfo_tab
 			"app_hwacceleration, app_permissiontype, app_preload, "
 			"app_installed_storage, app_process_pool, app_launch_mode, "
 			"app_package_type, component_type, package, app_tep_name, "
-			"app_background_category, app_root_path, app_api_version "
+			"app_background_category, app_root_path, app_api_version, "
+			"app_effective_appid "
 			"FROM package_app_info WHERE app_disable='false' AND app_id NOT IN "
 			"(SELECT app_id FROM package_app_disable_for_user WHERE uid='%d')",
 			(int)getuid());
@@ -856,6 +857,7 @@ int _appinfo_get_applist(uid_t uid, const char *locale, GHashTable **appinfo_tab
 		_save_column_str(stmt, idx++, &bg_category_str);
 		_save_column_str(stmt, idx++, &appinfo->root_path);
 		_save_column_str(stmt, idx++, &appinfo->api_version);
+		_save_column_str(stmt, idx++, &appinfo->effective_appid);
 
 		appinfo->background_category = __get_background_category(bg_category_str);
 		free(bg_category_str);
