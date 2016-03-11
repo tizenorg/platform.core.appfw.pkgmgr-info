@@ -297,6 +297,8 @@ static void __ps_free_application(gpointer data)
 		free((void *)application->api_version);
 	if (application->for_all_users)
 		free((void *)application->for_all_users);
+	if (application->effective_appid)
+		free((void *)application->effective_appid);
 
 	/*Free Label*/
 	g_list_free_full(application->label, __ps_free_label);
