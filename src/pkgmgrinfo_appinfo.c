@@ -800,14 +800,18 @@ int _appinfo_get_applist(uid_t uid, const char *locale, GHashTable **appinfo_tab
 	}
 
 	query = sqlite3_mprintf("SELECT app_id, app_exec, app_type, "
-			"app_onboot, app_multiple, app_autorestart, app_taskmanage, "
-			"app_hwacceleration, app_permissiontype, app_preload, "
-			"app_installed_storage, app_process_pool, app_launch_mode, "
-			"app_package_type, component_type, package, app_tep_name, "
-			"app_background_category, app_root_path, app_api_version "
-			"FROM package_app_info WHERE app_disable='false' AND app_id NOT IN "
-			"(SELECT app_id FROM package_app_disable_for_user WHERE uid='%d')",
-			(int)getuid());
+			"app_onboot, app_multiple, app_autorestart, "
+			"app_taskmanage, app_hwacceleration, app_permissiontype, "
+			"app_preload, app_installed_storage, app_process_pool, "
+			"app_launch_mode, app_package_type, component_type, "
+			"package, app_tep_name, app_background_category, "
+			"app_root_path, app_api_version, app_effective_appid, "
+			"(CASE WHEN A.app_disable = 'true' THEN 'true' "
+			"ELSE (CASE WHEN (SELECT app_id FROM "
+			"package_app_disable_for_user WHERE app_id = A.app_id "
+			"AND uid = '%d') IS NULL "
+			"THEN 'false' ELSE 'true' END) END) AS app_disable "
+			"FROM package_app_info A", (int)getuid());
 
 	if (query == NULL) {
 		_LOGE("Out of memory");
@@ -838,27 +842,27 @@ int _appinfo_get_applist(uid_t uid, const char *locale, GHashTable **appinfo_tab
 		_save_column_str(stmt, idx++, &appinfo->onboot);
 		_save_column_str(stmt, idx++, &appinfo->multiple);
 		_save_column_str(stmt, idx++, &appinfo->autorestart);
-		_save_column_str(stmt, idx++, &appinfo->taskmanage);
 
+		_save_column_str(stmt, idx++, &appinfo->taskmanage);
 		_save_column_str(stmt, idx++, &appinfo->hwacceleration);
 		_save_column_str(stmt, idx++, &appinfo->permission_type);
-		_save_column_str(stmt, idx++, &appinfo->preload);
 
+		_save_column_str(stmt, idx++, &appinfo->preload);
 		_save_column_str(stmt, idx++, &appinfo->installed_storage);
 		_save_column_str(stmt, idx++, &appinfo->process_pool);
-		_save_column_str(stmt, idx++, &appinfo->launch_mode);
 
+		_save_column_str(stmt, idx++, &appinfo->launch_mode);
 		_save_column_str(stmt, idx++, &appinfo->package_type);
 		_save_column_str(stmt, idx++, &appinfo->component_type);
+
 		_save_column_str(stmt, idx++, &appinfo->package);
 		_save_column_str(stmt, idx++, &appinfo->tep_name);
-
 		_save_column_str(stmt, idx++, &bg_category_str);
+
 		_save_column_str(stmt, idx++, &appinfo->root_path);
 		_save_column_str(stmt, idx++, &appinfo->api_version);
-
-		appinfo->background_category = __get_background_category(bg_category_str);
-		free(bg_category_str);
+		_save_column_str(stmt, idx++, &appinfo->effective_appid);
+		_save_column_str(stmt, idx++, &appinfo->is_disabled);
 
 		if (_appinfo_get_splashscreens(db, appinfo->appid, &appinfo->splashscreens)) {
 			pkgmgrinfo_basic_free_application(appinfo);
@@ -2578,6 +2582,20 @@ API int pkgmgrinfo_appinfo_is_support_disable(pkgmgrinfo_appinfo_h handle,
 	}
 
 	*support_disable = _get_bool_value(info->app_info->support_disable);
+
+	return PMINFO_R_OK;
+}
+
+API int pkgmgrinfo_appinfo_is_disabled(pkgmgrinfo_appinfo_h handle, bool *disabled)
+{
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
+	retvm_if(disabled == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
+	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
+
+	if (info->app_info == NULL || info->app_info->is_disabled == NULL)
+		return PMINFO_R_ERROR;
+
+	*disabled = _get_bool_value(info->app_info->is_disabled);
 
 	return PMINFO_R_OK;
 }
