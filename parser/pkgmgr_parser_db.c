@@ -20,6 +20,7 @@
  *
  */
 
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1655,7 +1656,8 @@ static int __insert_application_legacy_splashscreen_info(manifest_x *mfx)
 				return -1;
 			}
 			memset(query, '\0', MAX_QUERY_LEN);
-		} else if (app->landscapeimg) {
+		}
+		if (app->landscapeimg) {
 			orientation = "landscape";
 			snprintf(query, sizeof(query),
 					"insert into package_app_splash_screen" \
@@ -1671,6 +1673,112 @@ static int __insert_application_legacy_splashscreen_info(manifest_x *mfx)
 			memset(query, '\0', MAX_QUERY_LEN);
 		}
 	}
+	return 0;
+}
+
+static int __insert_application_legacy_splashscreen_info_by_metadata(manifest_x *mfx)
+{
+	GList *app_tmp;
+	application_x *app;
+	GList *md_tmp;
+	metadata_x *md;
+	int ret;
+	char query[MAX_QUERY_LEN];
+	char *token;
+	const char *operation;
+	const char *portraitimg;
+	const char *landscapeimg;
+	const char *indicatordisplay;
+	const char *orientation;
+	const char *image_type;
+
+	for (app_tmp = mfx->application; app_tmp; app_tmp = app_tmp->next) {
+		app = (application_x *)app_tmp->data;
+		if (app == NULL)
+			continue;
+
+		for (md_tmp = app->metadata; md_tmp; md_tmp = md_tmp->next) {
+			md = (metadata_x *)md_tmp->data;
+			if (md == NULL || md->key == NULL || md->value == NULL)
+				continue;
+
+			if (strcasestr(md->key, "operation_effect=")) {
+				operation = index(md->key, '=');
+				if ((operation + 1) != NULL)
+					operation++;
+				else
+					operation = NULL;
+			} else if (strcasestr(md->key, "launch_effect")) {
+				operation = NULL;
+			} else {
+				continue;
+			}
+
+			portraitimg = NULL;
+			landscapeimg = NULL;
+			indicatordisplay = "true"; /* default */
+			token = strtok(md->value, "|");
+			while (token != NULL) {
+				if (strcasestr(token, "portrait-effectimage=")) {
+					portraitimg = index(token, '=');
+					if ((portraitimg + 1) != NULL)
+						portraitimg++;
+					else
+						portraitimg = NULL;
+				} else if (strcasestr(token, "landscape-effectimage=")) {
+					landscapeimg = index(token, '=');
+					if ((landscapeimg + 1) != NULL)
+						landscapeimg++;
+					else
+						landscapeimg = NULL;
+				} else if (strcasestr(token, "indicatordisplay=")) {
+					indicatordisplay = index(token, '=');
+					if ((indicatordisplay + 1) != NULL)
+						indicatordisplay++;
+					else
+						indicatordisplay = "true";
+				}
+			}
+
+			if (portraitimg) {
+				orientation = "portrait";
+				image_type = "img";
+				if (strcasestr(portraitimg, "edj"))
+					image_type = "edj";
+				snprintf(query, sizeof(query),
+					"insert into package_app_splash_screen" \
+					"(app_id, src, type, orientation, indicatordisplay, operation) " \
+					"values('%s', '%s', '%s', '%s', '%s', '%s')",
+					app->appid, portraitimg, image_type,
+					orientation, indicatordisplay, __get_str(operation));
+				ret = __exec_query(query);
+				if (ret == -1) {
+					_LOGD("Package UiApp Splash Screen DB Insert Failed");
+					return -1;
+				}
+				memset(query, '\0', MAX_QUERY_LEN);
+			}
+			if (landscapeimg) {
+				orientation = "landscape";
+				image_type = "img";
+				if (strcasestr(landscapeimg, "edj"))
+					image_type = "edj";
+				snprintf(query, sizeof(query),
+					"insert into package_app_splash_screen" \
+					"(app_id, src, type, orientation, indicatordisplay, operation) " \
+					"values('%s', '%s', '%s', '%s', '%s', '%s')",
+					app->appid, landscapeimg, image_type,
+					orientation, indicatordisplay, __get_str(operation));
+				ret = __exec_query(query);
+				if (ret == -1) {
+					_LOGD("Package UiApp Splash Screen DB Insert Failed");
+					return -1;
+				}
+				memset(query, '\0', MAX_QUERY_LEN);
+			}
+		}
+	}
+
 	return 0;
 }
 
@@ -1847,6 +1955,11 @@ static int __insert_manifest_info_in_db(manifest_x *mfx, uid_t uid)
 
 	/*Insert in the package_app_splash_screen DB*/
 	ret = __insert_application_legacy_splashscreen_info(mfx);
+	if (ret == -1)
+		return -1;
+
+	/*Insert in the package_app_splash_screen DB*/
+	ret = __insert_application_legacy_splashscreen_info_by_metadata(mfx);
 	if (ret == -1)
 		return -1;
 
