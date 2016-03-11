@@ -141,6 +141,7 @@ typedef struct application_x {
 	char *root_path;	/*set from package_x*/
 	char *api_version;	/*set from package_x*/
 	char *for_all_users; /**< Flag that indicates if the package is available for everyone or for current user only, no xml part*/
+	char *is_disabled; /**< Flag that indicates if the application is disabled, no xml part*/
 	GList *label;	/*element*/
 	GList *icon;	/*element*/
 	GList *image;	/*element*/

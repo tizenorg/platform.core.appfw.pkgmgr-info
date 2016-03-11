@@ -170,6 +170,7 @@ sqlite3 *pkgmgr_cert_db;
 						"app_background_category INTEGER DEFAULT 0, " \
 						"app_root_path text, " \
 						"app_api_version text, " \
+						"app_effective_appid text, " \
 						"FOREIGN KEY(package) " \
 						"REFERENCES package_info(package) " \
 						"ON DELETE CASCADE)"

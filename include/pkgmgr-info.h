@@ -4321,6 +4321,42 @@ static int get_app_support_disable(const char *appid)
 int pkgmgrinfo_appinfo_is_support_disable(pkgmgrinfo_appinfo_h handle, bool *support_disable);
 
 /**
+ * @fn int pkgmgrinfo_appinfo_is_disabled(pkgmgrinfo_appinfo_h	handle, bool *disabled)
+ * @brief	This API gets the application 'is_disable' value from the app ID
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in]	handle	pointer to application info handle
+ * @param[out]	disabled	pointer to hold application is_disabled value
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @pre		pkgmgrinfo_appinfo_get_appinfo()
+ * @post	pkgmgrinfo_appinfo_destroy_appinfo()
+ * @code
+static int get_app_is_disable(const char *appid)
+{
+	int ret = 0;
+	bool is_disable;
+	pkgmgrinfo_appinfo_h handle = NULL;
+	ret = pkgmgrinfo_appinfo_get_appinfo(appid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_appinfo_is_disabled(handle, &support_disable);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_appinfo_destroy_appinfo(handle);
+		return -1;
+	}
+	printf("app is_disable: %d\n", is_disable);
+	pkgmgrinfo_appinfo_destroy_appinfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_appinfo_is_disabled(pkgmgrinfo_appinfo_h	handle, bool *disabled);
+
+/**
  * @fn int pkgmgrinfo_appinfo_is_global(pkgmgrinfo_appinfo_h handle, bool *global)
  * @brief	This API gets whethere the given application is global application or user application
  *
