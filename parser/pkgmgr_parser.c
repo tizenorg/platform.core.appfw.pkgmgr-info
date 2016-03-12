@@ -1676,6 +1676,7 @@ static int __ps_process_application(xmlTextReaderPtr reader, application_x *appl
 	__save_xml_attribute(reader, "ui-gadget", &application->ui_gadget, "false");
 	__save_xml_attribute(reader, "auto-restart", &application->autorestart, "false");
 	__save_xml_attribute(reader, "on-boot", &application->onboot, "false");
+	__save_xml_attribute(reader, "splash-screen-display", &application->splash_screen_display, "true");
 
 	application->package= strdup(package);
 	/* overwrite some attributes if the app is widgetapp */
