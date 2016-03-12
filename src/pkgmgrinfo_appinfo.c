@@ -595,7 +595,8 @@ static int _appinfo_get_application(sqlite3 *db, const char *appid,
 		"app_support_disable, "
 		"component_type, package, app_process_pool, app_installed_storage, "
 		"app_background_category, app_package_type, "
-		"app_root_path, app_api_version, app_effective_appid, app_disable "
+                "app_root_path, app_api_version, app_effective_appid, app_disable, "
+                "app_splash_screen_display "
 		"FROM package_app_info WHERE app_id='%s' "
 		"AND (app_disable='%s' "
 		"%s app_id %s IN "
@@ -671,7 +672,8 @@ static int _appinfo_get_application(sqlite3 *db, const char *appid,
 	_save_column_str(stmt, idx++, &info->root_path);
 	_save_column_str(stmt, idx++, &info->api_version);
 	_save_column_str(stmt, idx++, &info->effective_appid);
-	_save_column_str(stmt, idx++, &info->is_disabled);
+        _save_column_str(stmt, idx++, &info->is_disabled);
+        _save_column_str(stmt, idx++, &info->splash_screen_display);
 
 	info->background_category = __get_background_category(bg_category_str);
 	free(bg_category_str);
@@ -807,7 +809,8 @@ int _appinfo_get_applist(uid_t uid, const char *locale, GHashTable **appinfo_tab
 			"app_installed_storage, app_process_pool, app_launch_mode, "
 			"app_package_type, component_type, package, app_tep_name, "
 			"app_background_category, app_root_path, app_api_version, "
-			"app_effective_appid, (CASE WHEN A.app_disable='true' THEN 'true' "
+                        "app_effective_appid, app_disable, app_splash_screen_display, "
+			"(CASE WHEN A.app_disable='true' THEN 'true' "
 			"ELSE (CASE WHEN (SELECT app_id FROM package_app_disable_for_user "
 			"WHERE app_id=A.app_id AND uid='%d') IS NULL "
 			"THEN 'false' ELSE 'true' END) END) AS app_disable "
@@ -862,7 +865,8 @@ int _appinfo_get_applist(uid_t uid, const char *locale, GHashTable **appinfo_tab
 		_save_column_str(stmt, idx++, &appinfo->api_version);
 
 		_save_column_str(stmt, idx++, &appinfo->effective_appid);
-		_save_column_str(stmt, idx++, &appinfo->is_disabled);
+                _save_column_str(stmt, idx++, &appinfo->is_disabled);
+                _save_column_str(stmt, idx++, &appinfo->splash_screen_display);
 
 		appinfo->background_category = __get_background_category(bg_category_str);
 		free(bg_category_str);
@@ -1177,6 +1181,8 @@ static int _appinfo_copy_appinfo(application_x **application, application_x *dat
 		app_info->package_type = strdup(data->package_type);
 	if (data->effective_appid != NULL)
 		app_info->effective_appid = strdup(data->effective_appid);
+	if (data->splash_screen_display != NULL)
+		app_info->splash_screen_display = strdup(data->splash_screen_display);
 
 	/* GList */
 	ret = 0;
@@ -2618,7 +2624,23 @@ API int pkgmgrinfo_appinfo_is_global(pkgmgrinfo_appinfo_h handle, bool *global)
 	*global = _get_bool_value(info->app_info->for_all_users);
 
 	return PMINFO_R_OK;
+}
 
+API int pkgmgrinfo_appinfo_get_splash_screen_display(pkgmgrinfo_appinfo_h handle, bool *splash_screen_display)
+{
+	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
+
+	if (info == NULL || splash_screen_display == NULL) {
+		_LOGE("Invalid parameter");
+		return PMINFO_R_EINVAL;
+	}
+
+	if (info->app_info == NULL || info->app_info->splash_screen_display == NULL)
+		return PMINFO_R_ERROR;
+
+	*splash_screen_display = _get_bool_value(info->app_info->splash_screen_display);
+
+	return PMINFO_R_OK;
 }
 
 API int pkgmgrinfo_appinfo_destroy_appinfo(pkgmgrinfo_appinfo_h handle)
