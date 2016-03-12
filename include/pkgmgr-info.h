@@ -4394,6 +4394,22 @@ int pkgmgrinfo_appinfo_is_disabled(pkgmgrinfo_appinfo_h handle, bool *disabled);
 int pkgmgrinfo_appinfo_is_global(pkgmgrinfo_appinfo_h handle, bool *global);
 
 /**
+ * @fn int pkgmgrinfo_appinfo_is_splash_screen_display(pkgmgrinfo_appinfo_h handle, bool *splash_screen_display)
+ * @brief	This API gets the application 'splash_screen_display' value from the app ID
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in]	handle		pointer to application info handle
+ * @param[out] nodisplay	pointer to hold package splash_screen_display value
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @retval	PMINFO_R_ERROR	internal error
+ */
+int pkgmgrinfo_appinfo_is_splash_screen_display(pkgmgrinfo_appinfo_h handle, bool *splash_screen_display);
+
+/**
  * @fn int pkgmgrinfo_appinfo_destroy_appinfo(pkgmgrinfo_appinfo_h handle)
  * @brief	This API destroys the application information handle freeing up all the resources
  *
