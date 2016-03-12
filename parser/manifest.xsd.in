@@ -167,6 +167,7 @@
       <xs:attribute name="multi-instance-mainid" type="xs:string"/>
       <xs:attribute name="ui-gadget" type="xs:boolean"/>
       <xs:attribute name="launch_mode" type="xs:string"/>
+      <xs:attribute name="splash-screen-display" type="xs:boolean"/>
       <xs:anyAttribute namespace="##any" processContents="lax"/>
     </xs:complexType>
   </xs:element>
