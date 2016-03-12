@@ -172,6 +172,7 @@ sqlite3 *pkgmgr_cert_db;
 						"app_root_path text, " \
 						"app_api_version text, " \
 						"app_effective_appid text, " \
+						"app_splash_screen_display text DEFAULT 'true', " \
 						"FOREIGN KEY(package) " \
 						"REFERENCES package_info(package) " \
 						"ON DELETE CASCADE)"
@@ -1206,7 +1207,7 @@ static int __insert_application_info(manifest_x *mfx)
 			"app_preload, app_submode, app_submode_mainid, app_installed_storage, app_process_pool, " \
 			"app_launch_mode, app_ui_gadget, app_support_disable, component_type, package, " \
 			"app_tep_name, app_background_category, app_package_type, app_root_path, app_api_version, " \
-			"app_effective_appid) " \
+			"app_effective_appid, app_splash_screen_display) " \
 			"values(" \
 			"'%s', '%s', '%s', '%s', '%s', " \
 			"'%s', '%s', '%s', '%s', '%s', " \
@@ -1215,7 +1216,7 @@ static int __insert_application_info(manifest_x *mfx)
 			"'%s', '%s', '%s', '%s', '%s', " \
 			"'%s', '%s', '%s', '%s', '%s', " \
 			"'%s', '%d', '%s', '%s', '%s', " \
-			"'%s')", \
+			"'%s', '%s')", \
 			app->appid, app->component_type, app->exec, app->nodisplay, app->type,
 			app->onboot, app->multiple, app->autorestart, app->taskmanage, app->enabled,
 			app->hwacceleration, app->screenreader, app->mainapp, __get_str(app->recentimage), app->launchcondition,
@@ -1224,7 +1225,7 @@ static int __insert_application_info(manifest_x *mfx)
 			mfx->preload, app->submode, __get_str(app->submode_mainid), mfx->installed_storage, app->process_pool,
 			app->launch_mode, app->ui_gadget, mfx->support_disable, app->component_type, mfx->package,
 			__get_str(mfx->tep_name), background_value, type, mfx->root_path, __get_str(mfx->api_version),
-			__get_str(effective_appid));
+			__get_str(effective_appid), app->splash_screen_display);
 
 		ret = __exec_query(query);
 		if (ret == -1) {
