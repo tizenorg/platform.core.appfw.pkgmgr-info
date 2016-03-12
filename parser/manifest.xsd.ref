@@ -208,6 +208,7 @@
       <xs:attribute name="multi-instance-mainid" type="xs:string"/>
       <xs:attribute name="ui-gadget" type="xs:boolean"/>
       <xs:attribute name="launch_mode" type="packages:LaunchType"/>
+      <xs:attribute name="splash-screen-display" type="xs:boolean"/>
     </xs:complexType>
   </xs:element>
   <xs:element name="ime-application">

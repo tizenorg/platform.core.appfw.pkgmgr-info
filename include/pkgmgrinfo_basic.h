@@ -142,7 +142,7 @@ typedef struct application_x {
 	char *api_version;	/*set from package_x*/
 	char *for_all_users; /**< Flag that indicates if the package is available for everyone or for current user only, no xml part*/
 	char *is_disabled; /**< Flag that indicates if the application is disabled or not, no xml part*/
-
+	char *splash_screen_display; /*attr, default: "true"*/
 	GList *label;	/*element*/
 	GList *icon;	/*element*/
 	GList *image;	/*element*/
