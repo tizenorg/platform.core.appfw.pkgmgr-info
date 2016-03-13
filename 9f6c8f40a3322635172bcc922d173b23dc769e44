@@ -17,6 +17,14 @@ Branch: refs/heads/tizen
 Verified+1: HwanKyu Jhun <h.jhun@samsung.com>
 Code-Review+2: Junghyun Yeon <jungh.yeon@samsung.com>
 Submitted-by: HwanKyu Jhun <h.jhun@samsung.com>
+Submitted-at: Fri, 11 Mar 2016 04:46:39 -0700
+Reviewed-on: https://review.tizen.org/gerrit/61935
+Project: platform/core/appfw/pkgmgr-info
+Branch: refs/heads/tizen
+
+Verified+1: HwanKyu Jhun <h.jhun@samsung.com>
+Code-Review+2: Junghyun Yeon <jungh.yeon@samsung.com>
+Submitted-by: HwanKyu Jhun <h.jhun@samsung.com>
 Submitted-at: Fri, 11 Mar 2016 03:46:39 -0800
 Reviewed-on: https://review.tizen.org/gerrit/61935
 Project: platform/core/appfw/pkgmgr-info
