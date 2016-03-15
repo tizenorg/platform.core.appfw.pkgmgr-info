@@ -85,6 +85,7 @@ static int _mkdir_for_user(const char* dir, uid_t uid, gid_t gid)
 	int ret;
 	char *fullpath;
 	char *subpath;
+	char buf[1024];
 
 	fullpath = strdup(dir);
 	if (fullpath == NULL)
@@ -111,7 +112,7 @@ static int _mkdir_for_user(const char* dir, uid_t uid, gid_t gid)
 		ret = chown(dir, uid, gid);
 		if (ret == -1)
 			_LOGE("FAIL : chown %s %d.%d, because %s", dir, uid,
-					gid, strerror(errno));
+					gid, strerror_r(errno, buf, sizeof(buf)));
 	}
 
 	free(fullpath);

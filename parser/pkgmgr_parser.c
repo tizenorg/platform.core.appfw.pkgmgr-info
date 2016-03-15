@@ -1486,16 +1486,17 @@ static void __ps_process_tag(manifest_x * mfx, char *const tagv[])
 	char delims[] = "=";
 	char *ret_result = NULL;
 	char *tag = NULL;
+	char *ptr = NULL;
 
 	if (tagv == NULL)
 		return;
 
 	for (tag = strdup(tagv[0]); tag != NULL; ) {
-		ret_result = strtok(tag, delims);
+		ret_result = strtok_r(tag, delims, &ptr);
 
 		/*check tag :  preload */
 		if (strcmp(ret_result, "preload") == 0) {
-			ret_result = strtok(NULL, delims);
+			ret_result = strtok_r(NULL, delims, &ptr);
 			if (strcmp(ret_result, "true") == 0) {
 				free((void *)mfx->preload);
 				mfx->preload = strdup("true");
@@ -1505,7 +1506,7 @@ static void __ps_process_tag(manifest_x * mfx, char *const tagv[])
 			}
 		/*check tag :  removable*/
 		} else if (strcmp(ret_result, "removable") == 0) {
-			ret_result = strtok(NULL, delims);
+			ret_result = strtok_r(NULL, delims, &ptr);
 			if (strcmp(ret_result, "true") == 0){
 				free((void *)mfx->removable);
 				mfx->removable = strdup("true");
