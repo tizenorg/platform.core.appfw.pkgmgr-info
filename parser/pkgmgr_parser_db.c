@@ -1711,6 +1711,7 @@ static int __insert_application_metadata_splashscreen_info(manifest_x *mfx)
 	int ret;
 	char query[MAX_QUERY_LEN];
 	char *token;
+	char *tmpptr = NULL;
 	const char *operation;
 	const char *portraitimg;
 	const char *landscapeimg;
@@ -1743,7 +1744,7 @@ static int __insert_application_metadata_splashscreen_info(manifest_x *mfx)
 			portraitimg = NULL;
 			landscapeimg = NULL;
 			indicatordisplay = "true"; /* default */
-			token = strtok(md->value, "|");
+			token = strtok_r(md->value, "|", &tmpptr);
 			while (token != NULL) {
 				if (strcasestr(token, "portrait-effectimage=")) {
 					portraitimg = index(token, '=');
@@ -1765,7 +1766,7 @@ static int __insert_application_metadata_splashscreen_info(manifest_x *mfx)
 						indicatordisplay = "true";
 				}
 
-				token = strtok(NULL, "|");
+				token = strtok_r(NULL, "|", &tmpptr);
 			}
 
 			if (portraitimg) {
@@ -2379,10 +2380,11 @@ API int pkgmgr_parser_initialize_db(uid_t uid)
 static int __parserdb_change_perm(const char *db_file, uid_t uid)
 {
 	char buf[BUFSIZE];
+	char pwuid_buf[1024] = {0, };
 	char journal_file[BUFSIZE];
 	char *files[3];
 	int ret, i;
-	struct passwd *userinfo = NULL;
+	struct passwd userinfo, *result = NULL;
 	files[0] = (char *)db_file;
 	files[1] = journal_file;
 	files[2] = NULL;
@@ -2396,20 +2398,20 @@ static int __parserdb_change_perm(const char *db_file, uid_t uid)
 	snprintf(journal_file, sizeof(journal_file), "%s%s", db_file, "-journal");
 	if (uid == OWNER_ROOT)
 		uid = GLOBAL_USER;
-	userinfo = getpwuid(uid);
-	if (!userinfo) {
+	ret = getpwuid_r(uid, &userinfo, &pwuid_buf, sizeof(pwuid_buf), &result);
+	if (ret != 0 || result == NULL) {
 		_LOGE("FAIL: user %d doesn't exist", uid);
 		return -1;
 	}
 	snprintf(journal_file, sizeof(journal_file), "%s%s", db_file, "-journal");
 
 	for (i = 0; files[i]; i++) {
-		ret = chown(files[i], uid, userinfo->pw_gid);
+		ret = chown(files[i], uid, userinfo.pw_gid);
 		if (ret == -1) {
 			if (strerror_r(errno, buf, sizeof(buf)))
 				strncpy(buf, "", BUFSIZE - 1);
 			_LOGD("FAIL : chown %s %d.%d : %s", files[i], uid,
-					userinfo->pw_gid, buf);
+					userinfo.pw_gid, buf);
 			return -1;
 		}
 

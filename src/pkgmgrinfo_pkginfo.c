@@ -141,50 +141,52 @@ long long _pkgmgr_calculate_dir_size(char *dirname)
 	int q = 0; /*quotient*/
 	int r = 0; /*remainder*/
 	DIR *dp = NULL;
-	struct dirent *ep = NULL;
+	struct dirent ep, *result;
 	struct stat fileinfo;
 	char abs_filename[FILENAME_MAX] = { 0, };
 	retvm_if(dirname == NULL, PMINFO_R_ERROR, "dirname is NULL");
 
 	dp = opendir(dirname);
-	if (dp != NULL) {
-		while ((ep = readdir(dp)) != NULL) {
-			if (!strcmp(ep->d_name, ".") ||
-				!strcmp(ep->d_name, "..")) {
-				continue;
-			}
-			snprintf(abs_filename, FILENAME_MAX, "%s/%s", dirname,
-				 ep->d_name);
-			if (lstat(abs_filename, &fileinfo) < 0)
-				perror(abs_filename);
-			else {
-				if (S_ISDIR(fileinfo.st_mode)) {
-					total += fileinfo.st_size;
-					if (strcmp(ep->d_name, ".")
-					    && strcmp(ep->d_name, "..")) {
-						ret = _pkgmgr_calculate_dir_size
-						    (abs_filename);
-						total = total + ret;
-					}
-				} else if (S_ISLNK(fileinfo.st_mode)) {
-					continue;
-				} else {
-					/*It is a file. Calculate the actual
-					size occupied (in terms of 4096 blocks)*/
-				q = (fileinfo.st_size / BLOCK_SIZE);
-				r = (fileinfo.st_size % BLOCK_SIZE);
-				if (r) {
-					q = q + 1;
-				}
-				total += q * BLOCK_SIZE;
-				}
-			}
-		}
-		(void)closedir(dp);
-	} else {
+	if (dp == NULL) {
 		_LOGE("Couldn't open the directory\n");
 		return -1;
 	}
+
+	for (ret = readdir_r(dp, &ep, &result);
+			ret == 0 && result != NULL;
+			ret = readdir_r(dp, &ep, &result)) {
+		if (!strcmp(ep.d_name, ".") ||
+			!strcmp(ep.d_name, "..")) {
+			continue;
+		}
+		snprintf(abs_filename, FILENAME_MAX, "%s/%s", dirname,
+			 ep.d_name);
+		if (lstat(abs_filename, &fileinfo) < 0)
+			perror(abs_filename);
+		else {
+			if (S_ISDIR(fileinfo.st_mode)) {
+				total += fileinfo.st_size;
+				if (strcmp(ep.d_name, ".")
+				    && strcmp(ep.d_name, "..")) {
+					ret = _pkgmgr_calculate_dir_size
+					    (abs_filename);
+					total = total + ret;
+				}
+			} else if (S_ISLNK(fileinfo.st_mode)) {
+				continue;
+			} else {
+				/*It is a file. Calculate the actual
+				size occupied (in terms of 4096 blocks)*/
+			q = (fileinfo.st_size / BLOCK_SIZE);
+			r = (fileinfo.st_size % BLOCK_SIZE);
+			if (r) {
+				q = q + 1;
+			}
+			total += q * BLOCK_SIZE;
+			}
+		}
+	}
+	(void)closedir(dp);
 	return total;
 
 }
