@@ -595,7 +595,7 @@ static int _appinfo_get_application(sqlite3 *db, const char *appid,
 		"app_support_disable, "
 		"component_type, package, app_process_pool, app_installed_storage, "
 		"app_background_category, app_package_type, "
-		"app_root_path, app_api_version, app_effective_appid "
+		"app_root_path, app_api_version, app_effective_appid, app_disable "
 		"FROM package_app_info WHERE app_id='%s' "
 		"AND (app_disable='%s' "
 		"%s app_id %s IN "
@@ -671,6 +671,7 @@ static int _appinfo_get_application(sqlite3 *db, const char *appid,
 	_save_column_str(stmt, idx++, &info->root_path);
 	_save_column_str(stmt, idx++, &info->api_version);
 	_save_column_str(stmt, idx++, &info->effective_appid);
+	_save_column_str(stmt, idx++, &info->is_disabled);
 
 	info->background_category = __get_background_category(bg_category_str);
 	free(bg_category_str);
