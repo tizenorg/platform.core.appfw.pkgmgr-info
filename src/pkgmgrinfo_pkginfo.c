@@ -1940,3 +1940,78 @@ API int pkgmgrinfo_pkginfo_foreach_privilege(pkgmgrinfo_pkginfo_h handle,
 	}
 	return PMINFO_R_OK;
 }
+
+static int _update_disabled_pkg_info(const char *pkgid, uid_t uid, bool disable)
+{
+	int ret = PMINFO_R_ERROR;
+	const char *dbpath;
+	char *query = NULL;
+	char *error_message = NULL;
+	sqlite3 *db;
+
+	if (pkgid == NULL)
+		return PMINFO_R_EINVAL;
+
+	//get dbpath with given uid
+	dbpath = getUserPkgParserDBPathUID(uid);
+	if (dbpath == NULL)
+		return PMINFO_R_ERROR;
+
+	//open db
+	ret = sqlite3_open_v2(dbpath, &db, SQLITE_OPEN_READWRITE, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGE("failed to open db: %d", ret);
+		return PMINFO_R_ERROR;
+	}
+
+	// TODO(jungh.yeon) : should we check existance of given pkg?
+
+	//build update query
+	query = sqlite3_mprintf("UPDATE package_info SET package_disable=%Q " \
+					"WHERE package=%Q", disable ? "true" : "false", pkgid);
+	if (query == NULL) {
+		_LOGE("out of memory");
+		ret = PMINFO_R_ERROR;
+		goto catch;
+	}
+
+	//execute query
+	ret = sqlite3_exec(db, query, NULL, NULL, &error_message);
+	if (ret != SQLITE_OK) {
+		_LOGE("Can't execute query[%s] error[%s]", query, error_message);
+		goto catch;
+	}
+
+	ret = PMINFO_R_OK;
+
+catch:
+	if (query)
+		sqlite3_free(query);
+
+	if (error_message)
+		sqlite3_free(error_message);
+
+	sqlite3_close(db);
+	return ret;
+	//return ret
+}
+
+API int pkgmgrinfo_pkginfo_update_disabled_pkg_info_in_usr_db(const char *pkgid, uid_t uid)
+{
+	return _update_disabled_pkg_info(pkgid, uid, true);
+}
+
+API int pkgmgrinfo_pkginfo_update_disabled_pkg_info_in_db(const char *pkgid)
+{
+	return pkgmgrinfo_pkginfo_update_disabled_pkg_info_in_usr_db(pkgid, GLOBAL_USER);
+}
+
+API int pkgmgrinfo_pkginfo_update_enabled_pkg_info_in_usr_db(const char *pkgid, uid_t uid)
+{
+	return _update_disabled_pkg_info(pkgid, uid, false);
+}
+
+API int pkgmgrinfo_pkginfo_update_enabled_pkg_info_in_db(const char *pkgid)
+{
+	return pkgmgrinfo_pkginfo_update_enabled_pkg_info_in_usr_db(pkgid, GLOBAL_USER);
+}

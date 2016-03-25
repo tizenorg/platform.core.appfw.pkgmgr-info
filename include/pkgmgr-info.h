@@ -5462,6 +5462,11 @@ static int set_app_installed_storage(const char *appid, INSTALL_LOCATION locatio
  int pkgmgrinfo_pkginfo_set_installed_storage(const char *pkgid, INSTALL_LOCATION location);
  int pkgmgrinfo_pkginfo_set_usr_installed_storage(const char * pkgid, INSTALL_LOCATION location, uid_t uid);
 
+int pkgmgrinfo_pkginfo_update_enabled_pkg_info_in_usr_db(const char *pkgid, uid_t uid);
+int pkgmgrinfo_pkginfo_update_disabled_pkg_info_in_usr_db(const char *pkgid, uid_t uid);
+
+
+
 /**
  * @pkgmgrinfo client API
 **/
