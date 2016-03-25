@@ -813,6 +813,11 @@ API int pkgmgrinfo_pkginfo_get_usr_pkginfo(const char *pkgid, uid_t uid,
 	return ret;
 }
 
+API int pkgmgrinfo_pkginfo_get_pkginfo_for_user(const char *pkgid, uid_t uid, pkgmgrinfo_pkginfo_h *handle)
+{
+  return pkgmgrinfo_pkginfo_get_usr_pkginfo(pkgid, uid, handle);
+}
+
 API int pkgmgrinfo_pkginfo_get_pkginfo(const char *pkgid, pkgmgrinfo_pkginfo_h *handle)
 {
 	return pkgmgrinfo_pkginfo_get_usr_pkginfo(pkgid, GLOBAL_USER, handle);

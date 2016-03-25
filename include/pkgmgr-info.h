@@ -255,6 +255,7 @@ static int get_pkg_type(const char *pkgid)
  * @endcode
  */
 int pkgmgrinfo_pkginfo_get_pkginfo(const char *pkgid, pkgmgrinfo_pkginfo_h *handle);
+int pkgmgrinfo_pkginfo_get_pkginfo_for_user(const char *pkgid, uid_t uid, pkgmgrinfo_pkginfo_h *handle);
 int pkgmgrinfo_pkginfo_get_usr_pkginfo(const char *pkgid, uid_t uid, pkgmgrinfo_pkginfo_h *handle);
 
 /**
