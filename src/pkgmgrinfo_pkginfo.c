@@ -808,7 +808,7 @@ API int pkgmgrinfo_pkginfo_get_usr_pkginfo(const char *pkgid, uid_t uid,
 				(pkgmgr_pkginfo_x **)handle);
 
 	if (ret != PMINFO_R_OK)
-		_LOGE("failed to get pkginfo of %s for user %d", pkgid, uid);
+		_LOGI("pkginfo for [%s] is not existed for user [%d]", pkgid, uid);
 
 	return ret;
 }
