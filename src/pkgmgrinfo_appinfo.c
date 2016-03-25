@@ -916,7 +916,7 @@ API int pkgmgrinfo_appinfo_get_usr_disabled_appinfo(const char *appid, uid_t uid
 				(pkgmgr_appinfo_x **)handle);
 
 	if (ret != PMINFO_R_OK)
-		_LOGE("failed to get appinfo of %s for user %d", appid, uid);
+		_LOGI("Appinfo for [%s] is not existed for user [%d]", appid, uid);
 
 	return ret;
 }
@@ -941,7 +941,7 @@ API int pkgmgrinfo_appinfo_get_usr_appinfo(const char *appid, uid_t uid,
 		ret = _appinfo_get_appinfo(appid, GLOBAL_USER, uid, false,
 				(pkgmgr_appinfo_x **)handle);
 	if (ret != PMINFO_R_OK)
-		_LOGE("failed to get appinfo of %s for user %d", appid, uid);
+		_LOGI("Appinfo for [%s] is not existed for user [%d]", appid, uid);
 
 	return ret;
 }
@@ -2808,18 +2808,18 @@ API int pkgmgrinfo_appinfo_filter_add_string(pkgmgrinfo_appinfo_filter_h handle,
 		if (link) {
 			ptr = (pkgmgrinfo_node_x *)link->data;
 			strncpy(prev, ptr->value, PKG_STRING_LEN_MAX - 1);
-			_LOGE("Previous value is %s\n", prev);
+			_LOGI("Previous value is %s\n", prev);
 			filter->list = g_slist_delete_link(filter->list, link);
 			snprintf(temp, PKG_STRING_LEN_MAX - 1, "%s , '%s'", prev, value);
 			strncpy(val, temp, PKG_STRING_LEN_MAX - 1);
-			_LOGE("New value is %s\n", val);
+			_LOGI("New value is %s\n", val);
 			node->value = val;
 			filter->list = g_slist_append(filter->list, (gpointer)node);
 			memset(temp, '\0', PKG_STRING_LEN_MAX);
 		} else {
 			snprintf(temp, PKG_STRING_LEN_MAX - 1, "'%s'", value);
 			strncpy(val, temp, PKG_STRING_LEN_MAX - 1);
-			_LOGE("First value is %s\n", val);
+			_LOGI("First value is %s\n", val);
 			node->value = val;
 			filter->list = g_slist_append(filter->list, (gpointer)node);
 			memset(temp, '\0', PKG_STRING_LEN_MAX);
