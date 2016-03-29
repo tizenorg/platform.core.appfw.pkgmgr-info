@@ -404,3 +404,13 @@ char *_get_system_locale(void)
 	return locale;
 }
 
+#define REGULAR_USER 5000
+uid_t _getuid(void)
+{
+	uid_t uid = getuid();
+
+	if (uid < REGULAR_USER)
+		return tzplatform_getuid(TZ_SYS_GLOBALAPP_USER);
+	else
+		return uid;
+}

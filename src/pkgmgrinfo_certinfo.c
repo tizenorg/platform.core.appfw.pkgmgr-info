@@ -149,7 +149,7 @@ API int pkgmgrinfo_pkginfo_compare_usr_pkg_cert_info(const char *lhs_package_id,
 
 API int pkgmgrinfo_pkginfo_compare_pkg_cert_info(const char *lhs_package_id, const char *rhs_package_id, pkgmgrinfo_cert_compare_result_type_e *compare_result)
 {
-	return pkgmgrinfo_pkginfo_compare_usr_pkg_cert_info(lhs_package_id, rhs_package_id, GLOBAL_USER, compare_result);
+	return pkgmgrinfo_pkginfo_compare_usr_pkg_cert_info(lhs_package_id, rhs_package_id, _getuid(), compare_result);
 }
 
 static int _pkginfo_get_pkgid_from_appid(uid_t uid, const char *appid,
@@ -251,7 +251,7 @@ API int pkgmgrinfo_pkginfo_compare_app_cert_info(const char *lhs_app_id,
 		pkgmgrinfo_cert_compare_result_type_e *compare_result)
 {
 	return pkgmgrinfo_pkginfo_compare_usr_app_cert_info(lhs_app_id,
-			rhs_app_id, GLOBAL_USER, compare_result);
+			rhs_app_id, _getuid(), compare_result);
 }
 
 static int _pkginfo_get_cert(sqlite3 *db, int cert_id[],
@@ -778,6 +778,6 @@ API int pkgmgrinfo_delete_usr_certinfo(const char *pkgid, uid_t uid)
 
 API int pkgmgrinfo_delete_certinfo(const char *pkgid)
 {
-	return pkgmgrinfo_delete_usr_certinfo(pkgid, GLOBAL_USER);
+	return pkgmgrinfo_delete_usr_certinfo(pkgid, _getuid());
 }
 
