@@ -223,4 +223,15 @@ void _save_column_str(sqlite3_stmt *stmt, int idx, char **str);
 char *_get_system_locale(void);
 void __get_filter_condition(gpointer data, char **condition);
 
+#define REGULAR_USER 5000
+static inline uid_t _getuid(void)
+{
+	uid_t uid = getuid();
+
+	if (uid < REGULAR_USER)
+		return tzplatform_getuid(TZ_SYS_GLOBALAPP_USER);
+	else
+		return uid;
+}
+
 #endif  /* __PKGMGRINFO_PRIVATE_H__ */
