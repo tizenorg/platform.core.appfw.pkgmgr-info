@@ -369,7 +369,7 @@ API int pkgmgrinfo_pkginfo_get_usr_list(pkgmgrinfo_pkg_list_cb pkg_list_cb,
 
 API int pkgmgrinfo_pkginfo_get_list(pkgmgrinfo_pkg_list_cb pkg_list_cb, void *user_data)
 {
-	return pkgmgrinfo_pkginfo_get_usr_list(pkg_list_cb, user_data, GLOBAL_USER);
+	return pkgmgrinfo_pkginfo_get_usr_list(pkg_list_cb, user_data, _getuid());
 }
 
 static int _pkginfo_get_author(sqlite3 *db, const char *pkgid,
@@ -815,7 +815,7 @@ API int pkgmgrinfo_pkginfo_get_usr_pkginfo(const char *pkgid, uid_t uid,
 
 API int pkgmgrinfo_pkginfo_get_pkginfo(const char *pkgid, pkgmgrinfo_pkginfo_h *handle)
 {
-	return pkgmgrinfo_pkginfo_get_usr_pkginfo(pkgid, GLOBAL_USER, handle);
+	return pkgmgrinfo_pkginfo_get_usr_pkginfo(pkgid, _getuid(), handle);
 }
 
 API int pkgmgrinfo_pkginfo_get_pkgname(pkgmgrinfo_pkginfo_h handle, char **pkg_name)
@@ -1895,7 +1895,7 @@ API int pkgmgrinfo_pkginfo_usr_filter_count(pkgmgrinfo_pkginfo_filter_h handle, 
 
 API int pkgmgrinfo_pkginfo_filter_count(pkgmgrinfo_pkginfo_filter_h handle, int *count)
 {
-	return pkgmgrinfo_pkginfo_usr_filter_count(handle, count, GLOBAL_USER);
+	return pkgmgrinfo_pkginfo_usr_filter_count(handle, count, _getuid());
 }
 
 API int pkgmgrinfo_pkginfo_usr_filter_foreach_pkginfo(
@@ -1914,7 +1914,7 @@ API int pkgmgrinfo_pkginfo_usr_filter_foreach_pkginfo(
 API int pkgmgrinfo_pkginfo_filter_foreach_pkginfo(pkgmgrinfo_pkginfo_filter_h handle,
 				pkgmgrinfo_pkg_list_cb pkg_cb, void *user_data)
 {
-	return pkgmgrinfo_pkginfo_usr_filter_foreach_pkginfo(handle, pkg_cb, user_data, GLOBAL_USER);
+	return pkgmgrinfo_pkginfo_usr_filter_foreach_pkginfo(handle, pkg_cb, user_data, _getuid());
 }
 
 API int pkgmgrinfo_pkginfo_foreach_privilege(pkgmgrinfo_pkginfo_h handle,
