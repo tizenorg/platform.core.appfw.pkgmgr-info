@@ -403,4 +403,3 @@ char *_get_system_locale(void)
 
 	return locale;
 }
-
