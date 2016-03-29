@@ -254,7 +254,7 @@ API const char *getIconPath(uid_t uid, bool readonly)
 
 API const char *getUserPkgParserDBPath(void)
 {
-	return getUserPkgParserDBPathUID(GLOBAL_USER);
+	return getUserPkgParserDBPathUID(_getuid());
 }
 
 API const char *getUserPkgParserDBPathUID(uid_t uid)
@@ -283,7 +283,7 @@ API const char *getUserPkgParserDBPathUID(uid_t uid)
 
 API const char *getUserPkgCertDBPath(void)
 {
-	 return getUserPkgCertDBPathUID(GLOBAL_USER);
+	 return getUserPkgCertDBPathUID(_getuid());
 }
 
 API const char *getUserPkgCertDBPathUID(uid_t uid)
@@ -516,7 +516,7 @@ API int pkgmgrinfo_appinfo_set_usr_state_enabled(const char *appid, bool enabled
 
 API int pkgmgrinfo_appinfo_set_state_enabled(const char *appid, bool enabled)
 {
-	return pkgmgrinfo_appinfo_set_usr_state_enabled(appid, enabled, GLOBAL_USER);
+	return pkgmgrinfo_appinfo_set_usr_state_enabled(appid, enabled, _getuid());
 }
 
 API int pkgmgrinfo_appinfo_set_usr_default_label(const char *appid, const char *label, uid_t uid)
@@ -569,7 +569,7 @@ API int pkgmgrinfo_appinfo_set_usr_default_label(const char *appid, const char *
 
 API int pkgmgrinfo_appinfo_set_default_label(const char *appid, const char *label)
 {
-	return pkgmgrinfo_appinfo_set_usr_default_label(appid, label, GLOBAL_USER);
+	return pkgmgrinfo_appinfo_set_usr_default_label(appid, label, _getuid());
 }
 
 API int pkgmgrinfo_appinfo_set_usr_guestmode_visibility(pkgmgrinfo_appinfo_h handle, uid_t uid, bool status)
@@ -611,7 +611,7 @@ API int pkgmgrinfo_appinfo_set_usr_guestmode_visibility(pkgmgrinfo_appinfo_h han
 
 API int pkgmgrinfo_appinfo_set_guestmode_visibility(pkgmgrinfo_appinfo_h handle, bool status)
 {
-	return pkgmgrinfo_appinfo_set_usr_guestmode_visibility(handle, GLOBAL_USER, status);
+	return pkgmgrinfo_appinfo_set_usr_guestmode_visibility(handle, _getuid(), status);
 }
 
 API int pkgmgrinfo_pkginfo_set_usr_installed_storage(const char *pkgid, INSTALL_LOCATION location, uid_t uid)
@@ -662,5 +662,5 @@ catch:
 
 API int pkgmgrinfo_pkginfo_set_installed_storage(const char *pkgid, INSTALL_LOCATION location)
 {
-	return pkgmgrinfo_pkginfo_set_usr_installed_storage(pkgid, location, GLOBAL_USER);
+	return pkgmgrinfo_pkginfo_set_usr_installed_storage(pkgid, location, _getuid());
 }

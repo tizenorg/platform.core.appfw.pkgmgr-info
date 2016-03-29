@@ -923,7 +923,7 @@ API int pkgmgrinfo_appinfo_get_usr_disabled_appinfo(const char *appid, uid_t uid
 
 API int pkgmgrinfo_appinfo_get_disabled_appinfo(const char *appid, pkgmgrinfo_appinfo_h *handle)
 {
-	return pkgmgrinfo_appinfo_get_usr_disabled_appinfo(appid, GLOBAL_USER, handle);
+	return pkgmgrinfo_appinfo_get_usr_disabled_appinfo(appid, _getuid(), handle);
 }
 
 API int pkgmgrinfo_appinfo_get_usr_appinfo(const char *appid, uid_t uid,
@@ -948,7 +948,7 @@ API int pkgmgrinfo_appinfo_get_usr_appinfo(const char *appid, uid_t uid,
 
 API int pkgmgrinfo_appinfo_get_appinfo(const char *appid, pkgmgrinfo_appinfo_h *handle)
 {
-	return pkgmgrinfo_appinfo_get_usr_appinfo(appid, GLOBAL_USER, handle);
+	return pkgmgrinfo_appinfo_get_usr_appinfo(appid, _getuid(), handle);
 }
 
 static gpointer __copy_str(gconstpointer src, gpointer data)
@@ -1396,7 +1396,7 @@ API int pkgmgrinfo_appinfo_get_usr_list(pkgmgrinfo_pkginfo_h handle,
 API int pkgmgrinfo_appinfo_get_list(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_app_component component,
 						pkgmgrinfo_app_list_cb app_func, void *user_data)
 {
-	return pkgmgrinfo_appinfo_get_usr_list(handle, component, app_func, user_data, GLOBAL_USER);
+	return pkgmgrinfo_appinfo_get_usr_list(handle, component, app_func, user_data, _getuid());
 }
 
 API int pkgmgrinfo_appinfo_get_usr_applist_for_amd(pkgmgrinfo_app_list_cb app_func, uid_t uid, void *user_data)
@@ -1454,7 +1454,7 @@ catch:
 
 API int pkgmgrinfo_appinfo_get_applist_for_amd(pkgmgrinfo_app_list_cb app_func, void *user_data)
 {
-	return pkgmgrinfo_appinfo_get_usr_applist_for_amd(app_func, GLOBAL_USER, user_data);
+	return pkgmgrinfo_appinfo_get_usr_applist_for_amd(app_func, _getuid(), user_data);
 }
 
 API int pkgmgrinfo_appinfo_get_usr_installed_list(pkgmgrinfo_app_list_cb app_func, uid_t uid, void *user_data)
@@ -1470,7 +1470,7 @@ API int pkgmgrinfo_appinfo_get_usr_installed_list(pkgmgrinfo_app_list_cb app_fun
 
 API int pkgmgrinfo_appinfo_get_installed_list(pkgmgrinfo_app_list_cb app_func, void *user_data)
 {
-	return pkgmgrinfo_appinfo_get_usr_installed_list(app_func, GLOBAL_USER, user_data);
+	return pkgmgrinfo_appinfo_get_usr_installed_list(app_func, _getuid(), user_data);
 }
 
 API int pkgmgrinfo_appinfo_get_appid(pkgmgrinfo_appinfo_h handle, char **appid)
@@ -1686,7 +1686,7 @@ API int pkgmgrinfo_appinfo_usr_get_localed_label(const char *appid, const char *
 
 API int pkgmgrinfo_appinfo_get_localed_label(const char *appid, const char *locale, char **label)
 {
-	return pkgmgrinfo_appinfo_usr_get_localed_label(appid, locale, GLOBAL_USER, label);
+	return pkgmgrinfo_appinfo_usr_get_localed_label(appid, locale, _getuid(), label);
 }
 
 static pkgmgrinfo_app_component __appcomponent_convert(const char *comp)
@@ -2181,7 +2181,7 @@ catch:
 
 API int pkgmgrinfo_appinfo_get_datacontrol_info(const char *providerid, const char *type, char **appid, char **access)
 {
-	return pkgmgrinfo_appinfo_usr_get_datacontrol_info(providerid, type, GLOBAL_USER, appid, access);
+	return pkgmgrinfo_appinfo_usr_get_datacontrol_info(providerid, type, _getuid(), appid, access);
 }
 
 API int pkgmgrinfo_appinfo_usr_get_datacontrol_appid(const char *providerid, uid_t uid, char **appid)
@@ -2221,7 +2221,7 @@ catch:
 
 API int pkgmgrinfo_appinfo_get_datacontrol_appid(const char *providerid, char **appid)
 {
-	return pkgmgrinfo_appinfo_usr_get_datacontrol_appid(providerid, GLOBAL_USER, appid);
+	return pkgmgrinfo_appinfo_usr_get_datacontrol_appid(providerid, _getuid(), appid);
 }
 
 API int pkgmgrinfo_appinfo_foreach_permission(pkgmgrinfo_appinfo_h handle,
@@ -2856,7 +2856,7 @@ API int pkgmgrinfo_appinfo_usr_filter_count(pkgmgrinfo_appinfo_filter_h handle, 
 
 API int pkgmgrinfo_appinfo_filter_count(pkgmgrinfo_appinfo_filter_h handle, int *count)
 {
-	return pkgmgrinfo_appinfo_usr_filter_count(handle, count, GLOBAL_USER);
+	return pkgmgrinfo_appinfo_usr_filter_count(handle, count, _getuid());
 }
 
 API int pkgmgrinfo_appinfo_usr_filter_foreach_appinfo(
@@ -2875,7 +2875,7 @@ API int pkgmgrinfo_appinfo_usr_filter_foreach_appinfo(
 API int pkgmgrinfo_appinfo_filter_foreach_appinfo(pkgmgrinfo_appinfo_filter_h handle,
 				pkgmgrinfo_app_list_cb app_cb, void * user_data)
 {
-	return pkgmgrinfo_appinfo_usr_filter_foreach_appinfo(handle, app_cb, user_data, GLOBAL_USER);
+	return pkgmgrinfo_appinfo_usr_filter_foreach_appinfo(handle, app_cb, user_data, _getuid());
 }
 
 API int pkgmgrinfo_appinfo_metadata_filter_create(pkgmgrinfo_appinfo_metadata_filter_h *handle)
@@ -2930,7 +2930,7 @@ API int pkgmgrinfo_appinfo_metadata_filter_foreach(
 		pkgmgrinfo_app_list_cb app_cb, void *user_data)
 {
 	return pkgmgrinfo_appinfo_usr_metadata_filter_foreach(handle, app_cb,
-			user_data, GLOBAL_USER);
+			user_data, _getuid());
 }
 
 API int pkgmgrinfo_appinfo_is_guestmode_visibility(pkgmgrinfo_appinfo_h handle, bool *status)
