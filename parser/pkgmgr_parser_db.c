@@ -366,6 +366,17 @@ static int __guestmode_visibility_cb(void *data, int ncols, char **coltxt, char 
 static int __pkgmgr_parser_create_db(sqlite3 **db_handle, const char *db_path);
 static int __parserdb_change_perm(const char *db_file, uid_t uid);
 
+#define REGULAR_USER 5000
+static uid_t _getuid(void)
+{
+	uid_t uid = getuid();
+
+	if (uid < REGULAR_USER)
+		return tzplatform_getuid(TZ_SYS_GLOBALAPP_USER);
+	else
+		return uid;
+}
+
 static int __delete_subpkg_list_cb(void *data, int ncols, char **coltxt, char **colname)
 {
 	if (coltxt[0])
@@ -2579,7 +2590,7 @@ err:
 
 API int pkgmgr_parser_update_tep_info_in_db(const char *pkgid, const char *tep_path)
 {
-	return pkgmgr_parser_update_tep_info_in_usr_db(pkgid, tep_path, GLOBAL_USER);
+	return pkgmgr_parser_update_tep_info_in_usr_db(pkgid, tep_path, _getuid());
 }
 
 API int pkgmgr_parser_update_tep_info_in_usr_db(const char *pkgid, const char *tep_path, uid_t uid)
@@ -2711,7 +2722,7 @@ err:
 
 API int pkgmgr_parser_update_manifest_info_in_db(manifest_x *mfx)
 {
-	return pkgmgr_parser_update_manifest_info_in_usr_db(mfx, GLOBAL_USER);
+	return pkgmgr_parser_update_manifest_info_in_usr_db(mfx, _getuid());
 }
 
 API int pkgmgr_parser_delete_manifest_info_from_usr_db(manifest_x *mfx, uid_t uid)
@@ -2756,7 +2767,7 @@ err:
 
 API int pkgmgr_parser_delete_manifest_info_from_db(manifest_x *mfx)
 {
-	return pkgmgr_parser_delete_manifest_info_from_usr_db(mfx, GLOBAL_USER);
+	return pkgmgr_parser_delete_manifest_info_from_usr_db(mfx, _getuid());
 }
 
 API int pkgmgr_parser_update_preload_info_in_db()
@@ -2875,7 +2886,7 @@ err:
 
 API int pkgmgr_parser_update_app_disable_info_in_db(const char *appid, int is_disable)
 {
-	return pkgmgr_parser_update_app_disable_info_in_usr_db(appid, GLOBAL_USER, is_disable);
+	return pkgmgr_parser_update_app_disable_info_in_usr_db(appid, _getuid(), is_disable);
 }
 
 API int pkgmgr_parser_update_app_disable_info_in_usr_db(const char *appid, uid_t uid, int is_disable)

@@ -222,5 +222,6 @@ void _save_column_int(sqlite3_stmt *stmt, int idx, int *i);
 void _save_column_str(sqlite3_stmt *stmt, int idx, char **str);
 char *_get_system_locale(void);
 void __get_filter_condition(gpointer data, char **condition);
+uid_t _getuid(void);
 
 #endif  /* __PKGMGRINFO_PRIVATE_H__ */
