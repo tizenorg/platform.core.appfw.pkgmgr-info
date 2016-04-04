@@ -2381,7 +2381,7 @@ API int pkgmgr_parser_initialize_db(uid_t uid)
 static int __parserdb_change_perm(const char *db_file, uid_t uid)
 {
 	char buf[BUFSIZE];
-	char pwuid_buf[1024] = {0, };
+	char pwuid_buf[1024];
 	char journal_file[BUFSIZE];
 	char *files[3];
 	int ret, i;
@@ -2399,7 +2399,7 @@ static int __parserdb_change_perm(const char *db_file, uid_t uid)
 	snprintf(journal_file, sizeof(journal_file), "%s%s", db_file, "-journal");
 	if (uid == OWNER_ROOT)
 		uid = GLOBAL_USER;
-	ret = getpwuid_r(uid, &userinfo, &pwuid_buf, sizeof(pwuid_buf), &result);
+	ret = getpwuid_r(uid, &userinfo, pwuid_buf, sizeof(pwuid_buf), &result);
 	if (ret != 0 || result == NULL) {
 		_LOGE("FAIL: user %d doesn't exist", uid);
 		return -1;
