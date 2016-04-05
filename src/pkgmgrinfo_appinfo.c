@@ -593,10 +593,10 @@ static int _appinfo_get_application(sqlite3 *db, const char *appid,
 		"app_permissiontype, app_preload, app_submode, "
 		"app_submode_mainid, app_launch_mode, app_ui_gadget, "
 		"app_support_disable, "
-		"component_type, package, app_process_pool, app_installed_storage, "
-		"app_background_category, app_package_type, "
-                "app_root_path, app_api_version, app_effective_appid, app_disable, "
-                "app_splash_screen_display "
+		"component_type, package, app_tep_name, app_process_pool, "
+		"app_installed_storage, app_background_category, "
+		"app_package_type, app_root_path, app_api_version, "
+		"app_effective_appid, app_disable, app_splash_screen_display "
 		"FROM package_app_info WHERE app_id='%s' "
 		"AND (app_disable='%s' "
 		"%s app_id %s IN "
@@ -665,6 +665,7 @@ static int _appinfo_get_application(sqlite3 *db, const char *appid,
 	_save_column_str(stmt, idx++, &info->support_disable);
 	_save_column_str(stmt, idx++, &info->component_type);
 	_save_column_str(stmt, idx++, &info->package);
+	_save_column_str(stmt, idx++, &info->tep_name);
 	_save_column_str(stmt, idx++, &info->process_pool);
 	_save_column_str(stmt, idx++, &info->installed_storage);
 	_save_column_str(stmt, idx++, &bg_category_str);
