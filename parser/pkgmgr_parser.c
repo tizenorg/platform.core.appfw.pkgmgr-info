@@ -2011,16 +2011,6 @@ DEPRECATED manifest_x *pkgmgr_parser_usr_process_manifest_xml(const char *manife
 	return mfx;
 }
 
-API int pkgmgr_parser_usr_update_tep(const char *pkgid, const char *tep_path, uid_t uid)
-{
-	return pkgmgr_parser_update_tep_info_in_usr_db(pkgid, tep_path, uid);
-}
-
-API int pkgmgr_parser_update_tep(const char *pkgid, const char *tep_path)
-{
-	return pkgmgr_parser_update_tep_info_in_db(pkgid, tep_path);
-}
-
 DEPRECATED int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char *const tagv[])
 {
 	retvm_if(manifest == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
