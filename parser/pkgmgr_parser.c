@@ -1956,7 +1956,7 @@ API void pkgmgr_parser_free_manifest_xml(manifest_x *mfx)
 	pkgmgrinfo_basic_free_package((package_x *)mfx);
 }
 
-DEPRECATED manifest_x *pkgmgr_parser_process_manifest_xml(const char *manifest)
+DEPRECATED API manifest_x *pkgmgr_parser_process_manifest_xml(const char *manifest)
 {
 	_LOGD("parsing start pkgmgr_parser_process_manifest_xml\n");
 	xmlTextReaderPtr reader;
@@ -1984,7 +1984,7 @@ DEPRECATED manifest_x *pkgmgr_parser_process_manifest_xml(const char *manifest)
 }
 
 
-DEPRECATED manifest_x *pkgmgr_parser_usr_process_manifest_xml(const char *manifest, uid_t uid)
+DEPRECATED API manifest_x *pkgmgr_parser_usr_process_manifest_xml(const char *manifest, uid_t uid)
 {
 	_LOGD("parsing start pkgmgr_parser_usr_process_manifest_xml\n");
 	xmlTextReaderPtr reader;
@@ -2021,7 +2021,7 @@ API int pkgmgr_parser_update_tep(const char *pkgid, const char *tep_path)
 	return pkgmgr_parser_update_tep_info_in_db(pkgid, tep_path);
 }
 
-DEPRECATED int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char *const tagv[])
+DEPRECATED API int pkgmgr_parser_parse_manifest_for_installation(const char *manifest, char *const tagv[])
 {
 	retvm_if(manifest == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
 	_LOGD("parsing manifest for installation: %s\n", manifest);
@@ -2058,7 +2058,7 @@ DEPRECATED int pkgmgr_parser_parse_manifest_for_installation(const char *manifes
 	return PMINFO_R_OK;
 }
 
-DEPRECATED int pkgmgr_parser_parse_usr_manifest_for_installation(const char *manifest, uid_t uid, char *const tagv[])
+DEPRECATED API int pkgmgr_parser_parse_usr_manifest_for_installation(const char *manifest, uid_t uid, char *const tagv[])
 {
 	retvm_if(manifest == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
 	_LOGD("parsing manifest for installation: %s\n", manifest);
@@ -2119,7 +2119,7 @@ API int pkgmgr_parser_process_usr_manifest_x_for_installation(manifest_x* mfx, c
 	return PMINFO_R_OK;
 }
 
-DEPRECATED int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *const tagv[])
+DEPRECATED API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, char *const tagv[])
 {
 	retvm_if(manifest == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
 	_LOGD("pkgmgr_parser_parse_manifest_for_upgrade  parsing manifest for upgradation: %s\n", manifest);
@@ -2188,7 +2188,7 @@ DEPRECATED int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest, ch
 	return PMINFO_R_OK;
 }
 
-DEPRECATED int pkgmgr_parser_parse_usr_manifest_for_upgrade(const char *manifest, uid_t uid, char *const tagv[])
+DEPRECATED API int pkgmgr_parser_parse_usr_manifest_for_upgrade(const char *manifest, uid_t uid, char *const tagv[])
 {
 	retvm_if(manifest == NULL, PMINFO_R_ERROR, "argument supplied is NULL");
 	_LOGD(" pkgmgr_parser_parse_usr_manifest_for_upgrade parsing manifest for upgradation: %s\n", manifest);
