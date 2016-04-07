@@ -400,11 +400,18 @@ static int __pkgmgr_parser_create_db(sqlite3 **db_handle, const char *db_path)
 	int ret = -1;
 	sqlite3 *handle;
 
-	ret = db_util_open(db_path, &handle,  DB_UTIL_REGISTER_HOOK_METHOD);
+	ret = sqlite3_open_v2(db_path, &handle,
+			SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, NULL);
 	if (ret != SQLITE_OK) {
-		_LOGD("connect db [%s] failed!\n", db_path);
+		_LOGE("connect db [%s] failed!\n", db_path);
 		return -1;
 	}
+
+	ret = sqlite3_exec(handle, "PRAGMA journal_mode = WAL",
+			NULL, NULL, NULL);
+	if (ret != SQLITE_OK)
+		_LOGE("failed to set journal mode to WAL mode");
+
 	*db_handle = handle;
 
 	return 0;
