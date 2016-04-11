@@ -357,7 +357,8 @@ void __get_filter_condition(gpointer data, char **condition)
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_DISABLE_FOR_USER:
 		snprintf(buf, MAX_QUERY_LEN, "package_app_info.app_id NOT IN "
-				"(SELECT app_id from package_app_disable_for_user WHERE uid='%s')", node->value);
+				"(SELECT app_id from package_app_info_for_uid WHERE uid='%s' " \
+				"AND is_disabled='true')", node->value);
 		break;
 	default:
 		_LOGE("Invalid Property Type\n");

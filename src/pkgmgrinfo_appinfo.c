@@ -600,7 +600,7 @@ static int _appinfo_get_application(sqlite3 *db, const char *appid,
 		"FROM package_app_info WHERE app_id='%s' "
 		"AND (app_disable='%s' "
 		"%s app_id %s IN "
-		"(SELECT app_id from package_app_disable_for_user WHERE uid='%d'))";
+		"(SELECT app_id from package_app_info_for_uid WHERE uid='%d' AND is_disabled='%s'))";
 	int ret;
 	char query[MAX_QUERY_LEN] = { '\0' };
 	sqlite3_stmt *stmt;
@@ -612,7 +612,8 @@ static int _appinfo_get_application(sqlite3 *db, const char *appid,
 			is_disabled ? "true" : "false",
 			is_disabled ? "OR" : "AND",
 			is_disabled ? "" : "NOT",
-			(int)target_uid);
+			(int)target_uid,
+			is_disabled ? "true" : "false");
 
 	ret = sqlite3_prepare_v2(db, query, strlen(query), &stmt, NULL);
 	if (ret != SQLITE_OK) {
@@ -812,8 +813,8 @@ int _appinfo_get_applist(uid_t uid, const char *locale, GHashTable **appinfo_tab
 			"app_background_category, app_root_path, app_api_version, "
                         "app_effective_appid, app_disable, app_splash_screen_display, "
 			"(CASE WHEN A.app_disable='true' THEN 'true' "
-			"ELSE (CASE WHEN (SELECT app_id FROM package_app_disable_for_user "
-			"WHERE app_id=A.app_id AND uid='%d') IS NULL "
+			"ELSE (CASE WHEN (SELECT app_id FROM package_app_info_for_uid "
+			"WHERE app_id=A.app_id AND uid='%d' AND is_disabled='true') IS NULL "
 			"THEN 'false' ELSE 'true' END) END) AS app_disable "
 			"FROM package_app_info A", (int)getuid());
 
