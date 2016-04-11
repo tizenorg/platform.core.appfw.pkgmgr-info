@@ -324,9 +324,11 @@ sqlite3 *pkgmgr_cert_db;
 						"REFERENCES package_app_info(app_id) " \
 						"ON DELETE CASCADE)"
 
-#define QUERY_CREATE_TABLE_PACKAGE_APP_DISABLE_FOR_USER "CREATE TABLE IF NOT EXISTS package_app_disable_for_user " \
-						"(app_id text not null, " \
-						"uid text not null, " \
+#define QUERY_CREATE_TABLE_PACKAGE_APP_INFO_FOR_UID "CREATE TABLE IF NOT EXISTS package_app_info_for_uid " \
+						"(app_id TEXT NOT NULL, " \
+						"uid TEXT NOT NULL, " \
+						"is_disabled TEXT NOT NULL DEFAULT 'false', " \
+						"is_splash_screen_disabled TEXT NOT NULL DEFAULT 'false', " \
 						"PRIMARY KEY(app_id, uid))"
 
 #define QUERY_CREATE_TABLE_PACKAGE_APP_SPLASH_SCREEN \
@@ -2207,17 +2209,73 @@ static int __enable_app(const char *appid)
 	return ret;
 }
 
+static int __check_appinfo_for_uid_table(const char *appid, uid_t uid,
+		const char *except_col_name)
+{
+	int ret = -1;
+	char query[MAX_QUERY_LEN] = { '\0', };
+	sqlite3_stmt *stmt;
+	char *val = NULL;
+
+	if (appid == NULL)
+		return -1;
+
+	if (except_col_name == NULL) {
+		sqlite3_snprintf(MAX_QUERY_LEN, query, "SELECT COUNT(*) FROM " \
+			"package_app_info_for_uid WHERE app_id=%Q AND uid='%d'", appid, (int)uid);
+	} else if (strncmp(except_col_name, "is_disabled", strlen("is_disabled")) == 0) {
+		sqlite3_snprintf(MAX_QUERY_LEN, query, "SELECT COUNT(*) FROM " \
+				"package_app_info_for_uid WHERE app_id=%Q AND uid='%d' " \
+				"AND is_splash_screen_disabled='false'", appid, (int)uid);
+	} else if (strncmp(except_col_name, "is_splash_screen_disabled",
+			strlen("is_splash_screen_disabled") == 0)) {
+		sqlite3_snprintf(MAX_QUERY_LEN, query, "SELECT COUNT(*) FROM " \
+				"package_app_info_for_uid WHERE app_id=%Q AND uid='%d' " \
+				"AND is_disabled='false'", appid, (int)uid);
+	}
+
+	ret = sqlite3_prepare_v2(pkgmgr_parser_db, query, strlen(query), &stmt, NULL);
+	if (ret != SQLITE_OK) {
+		LOGE("prepare failed: %s", sqlite3_errmsg(pkgmgr_parser_db));
+		return PMINFO_R_ERROR;
+	}
+
+	if (sqlite3_step(stmt) != SQLITE_ROW) {
+		LOGE("failed to step");
+		sqlite3_finalize(stmt);
+		return PMINFO_R_ERROR;
+	}
+
+	val = (const char *)sqlite3_column_text(stmt, 0);
+	ret = atoi(val);
+	sqlite3_finalize(stmt);
+	return ret;
+}
+
 static int __disable_global_app_for_user(const char *appid, uid_t uid)
 {
 	int ret = -1;
-	char query[MAX_QUERY_LEN] = {'\0'};
+	char query[MAX_QUERY_LEN] = { '\0', };
 
-	sqlite3_snprintf(MAX_QUERY_LEN, query, "INSERT INTO " \
-			"package_app_disable_for_user(app_id, uid) VALUES(%Q, '%d')",
-			appid, (int)uid);
+	ret = __check_appinfo_for_uid_table(appid, uid, NULL);
+
+	if (ret < 0) {
+		_LOGE("Failed to check package_app_info_for_uid with appid[%s], uid[%d]",
+				appid, (int)uid);
+		return -1;
+	} else if (ret == 0) {
+		sqlite3_snprintf(MAX_QUERY_LEN, query, "INSERT INTO " \
+				"package_app_info_for_uid(app_id, uid, is_disabled) " \
+				"VALUES(%Q, '%d', 'true')", appid, (int)uid);
+	} else {
+		sqlite3_snprintf(MAX_QUERY_LEN, query, "UPDATE " \
+				"package_app_info_for_uid SET is_disabled='true' " \
+				"WHERE app_id=%Q AND uid='%d'", appid, (int)uid);
+	}
+
 	ret = __exec_query(query);
 	if (ret == -1)
-		_LOGD("Insert global app disable failed\n");
+		_LOGD("Add global app disable failed\n");
 
 	return ret;
 }
@@ -2227,12 +2285,24 @@ static int __enable_global_app_for_user(const char *appid, uid_t uid)
 	int ret = -1;
 	char query[MAX_QUERY_LEN] = {'\0'};
 
-	sqlite3_snprintf(MAX_QUERY_LEN, query, "DELETE FROM " \
-			"package_app_disable_for_user WHERE app_id=%Q AND uid='%d'",
+	ret = __check_appinfo_for_uid_table(appid, uid, "is_disabled");
+	if (ret < 0) {
+		_LOGE("Failed to check package_app_info_for_uid with appid[%s], uid[%d]",
+				appid, (int)uid);
+		return -1;
+	} else if (ret == 0) {
+		sqlite3_snprintf(MAX_QUERY_LEN, query, "UPDATE " \
+			"package_app_info_for_uid SET is_disabled='false' " \
+			"WHERE app_id=%Q AND uid='%d'", appid, (int)uid);
+	} else {
+		sqlite3_snprintf(MAX_QUERY_LEN, query, "DELETE FROM " \
+			"package_app_info_for_uid WHERE app_id=%Q AND uid='%d'",
 			appid, (int)uid);
+	}
+
 	ret = __exec_query(query);
 	if (ret == -1)
-		_LOGD("Delete global app disable failed\n");
+		_LOGD("Remove global app disable failed\n");
 
 	return ret;
 }
@@ -2334,9 +2404,9 @@ API int pkgmgr_parser_initialize_db(uid_t uid)
 		return ret;
 	}
 
-	ret = __initialize_db(pkgmgr_parser_db, QUERY_CREATE_TABLE_PACKAGE_APP_DISABLE_FOR_USER);
+	ret = __initialize_db(pkgmgr_parser_db, QUERY_CREATE_TABLE_PACKAGE_APP_INFO_FOR_UID);
 	if (ret == -1) {
-		_LOGD("package app disable for user DB initialization failed\n");
+		_LOGD("package_app_info_for_uid for user DB initialization failed\n");
 		return ret;
 	}
 
