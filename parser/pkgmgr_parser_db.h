@@ -197,7 +197,7 @@ int pkgmgr_parser_update_global_app_disable_for_uid_info_in_db(const char *appid
  * @par Sync (or) Async : Synchronous API
  *
  * @param[in]	appid	application ID to be enabled or disabled
- * @param[in]is_disable	determine enable or disable of app
+ * @param[in]	is_disable	determine enable or disable of app
  * @return	0 if success, error code(<0) if fail
  * @pre		None
  * @post		None
@@ -216,15 +216,15 @@ int pkgmgr_parser_update_app_disable_info_in_db(const char *appid, int is_disabl
 int pkgmgr_parser_update_app_disable_info_in_usr_db(const char *appid, uid_t uid, int is_disable);
 
 /**
- * @fn int pkgmgr_parser_update_global_app_splash_screen_info_in_usr_db(const char *appid, uid_t uid, int is_disable)
- * @brief	This API updates splash screen disable info about global app for user specified by uid
+ * @fn int pkgmgr_parser_update_global_app_splash_screen_display_info_in_usr_db(const char *appid, uid_t uid, int is_disable)
+ * @brief	This API updates splash screen display info about global app for user specified by uid
  *
  * @par		This API is for package-manager installer backends
  * @par Sync (or) Async : Synchronous API
  *
  * @param[in]	appid	global application ID to be enabled or disabled
- * @param[in]	uid	the addressee user id of the instruction
- * @param[in]is_disable	determine enable or disable of app
+ * @param[in]	uid	user ID
+ * @param[in]	is_disable	determine enable or disable of app
  * @return	0 if success, error code(<0) if fail
  * @pre		None
  * @post		None
@@ -239,7 +239,46 @@ static int disable_global_app_splash_screen_for_uid(const char *appid, uid_t uid
 }
  * @endcode
  */
-int pkgmgr_parser_update_global_app_splash_screen_info_in_usr_db(const char *appid, uid_t uid, int is_disable);
+int pkgmgr_parser_update_global_app_splash_screen_display_info_in_usr_db(const char *appid, uid_t uid, int is_disable);
+
+/**
+ * @fn int pkgmgr_parser_update_app_splash_screen_display_info_in_db(const char *appid, int is_disable)
+ * @brief	This API updates splash screen display info about app
+ *
+ * @par		This API is for package-manager installer backends
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in]	appid	application ID to be enabled or disabled
+ * @param[in]	is_disable	determine enable or disable of app
+ * @return	0 if success, error code(<0) if fail
+ * @pre		None
+ * @post		None
+ * @code
+static int disable_app_splash_screen(const char *appid)
+{
+	int ret = 0;
+	ret = pkgmgr_parser_update_app_splash_screen_info_in_db(appid, 1);
+	if (ret < 0)
+		return -1;
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgr_parser_update_app_splash_screen_display_info_in_db(const char *appid, int is_disable);
+
+/**
+ * @fn int pkgmgr_parser_update_app_splash_screen_display_info_in_usr_db(const char *appid, uid_t uid, int is_disable)
+ * @brief	This API updates splash screen display info about app for user specified by uid
+ *
+ * @par		This API is for package-manager installer backends
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in]	appid	application ID to be enabled or disabled
+ * @param[in]	uid	user ID
+ * @param[in]	is_disable	determine enable or disable of app
+ * @return	0 if success, error code(<0) if fail
+ */
+int pkgmgr_parser_update_app_splash_screen_display_info_in_usr_db(const char *appid, uid_t uid, int is_disable);
 
 int pkgmgr_parser_create_and_initialize_db(uid_t uid);
 
