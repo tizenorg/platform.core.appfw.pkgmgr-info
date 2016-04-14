@@ -580,6 +580,37 @@ static GList *__get_background_category(const char *value)
 
 }
 
+static void __get_splash_screen_display(sqlite3 *db, const char *appid, uid_t uid, char **value)
+{
+	static const char query_raw[] =
+		"SELECT is_splash_screen_disabled FROM package_app_info_for_uid "
+		"WHERE app_id='%s' AND uid='%d'";
+	int ret;
+	char *query;
+	sqlite3_stmt *stmt;
+
+	query = sqlite3_mprintf(query_raw, appid, uid);
+	if (query == NULL) {
+		LOGE("out of memory");
+		return;
+	}
+
+	ret = sqlite3_prepare_v2(db, query, strlen(query), &stmt, NULL);
+	sqlite3_free(query);
+	if (ret != SQLITE_OK) {
+		LOGE("sqlite3_prepare_v2() failed: %s", sqlite3_errmsg(db));
+		return;
+	}
+
+	while (sqlite3_step(stmt) == SQLITE_ROW) {
+		if (*value)
+			free(*value);
+		_save_column_str(stmt, 0, value);
+	}
+
+	sqlite3_finalize(stmt);
+}
+
 static int _appinfo_get_application(sqlite3 *db, const char *appid,
 		const char *locale, application_x **application, bool is_disabled, uid_t db_uid, uid_t target_uid)
 {
@@ -674,8 +705,12 @@ static int _appinfo_get_application(sqlite3 *db, const char *appid,
 	_save_column_str(stmt, idx++, &info->root_path);
 	_save_column_str(stmt, idx++, &info->api_version);
 	_save_column_str(stmt, idx++, &info->effective_appid);
-        _save_column_str(stmt, idx++, &info->is_disabled);
-        _save_column_str(stmt, idx++, &info->splash_screen_display);
+	_save_column_str(stmt, idx++, &info->is_disabled);
+	_save_column_str(stmt, idx++, &info->splash_screen_display);
+
+	if (db_uid == GLOBAL_USER)
+		__get_splash_screen_display(db, info->appid, db_uid,
+				&info->splash_screen_display);
 
 	info->background_category = __get_background_category(bg_category_str);
 	free(bg_category_str);
@@ -867,8 +902,12 @@ int _appinfo_get_applist(uid_t uid, const char *locale, GHashTable **appinfo_tab
 		_save_column_str(stmt, idx++, &appinfo->api_version);
 
 		_save_column_str(stmt, idx++, &appinfo->effective_appid);
-                _save_column_str(stmt, idx++, &appinfo->is_disabled);
-                _save_column_str(stmt, idx++, &appinfo->splash_screen_display);
+		_save_column_str(stmt, idx++, &appinfo->is_disabled);
+		_save_column_str(stmt, idx++, &appinfo->splash_screen_display);
+
+		if (uid == GLOBAL_USER)
+			__get_splash_screen_display(db, appinfo->appid, uid,
+					&appinfo->splash_screen_display);
 
 		appinfo->background_category = __get_background_category(bg_category_str);
 		free(bg_category_str);
