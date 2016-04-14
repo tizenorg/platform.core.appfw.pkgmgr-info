@@ -328,8 +328,18 @@ sqlite3 *pkgmgr_cert_db;
 						"(app_id TEXT NOT NULL, " \
 						"uid TEXT NOT NULL, " \
 						"is_disabled TEXT NOT NULL DEFAULT 'false', " \
-						"is_splash_screen_disabled TEXT NOT NULL DEFAULT 'false', " \
+						"is_splash_screen_enabled TEXT NOT NULL DEFAULT 'true', " \
 						"PRIMARY KEY(app_id, uid))"
+#define QUERY_CREATE_TRIGGER_UPDATE_PACKAGE_APP_INFO_FOR_UID \
+	"CREATE TRIGGER IF NOT EXISTS update_package_appinfo_for_uid "\
+	"AFTER UPDATE ON package_app_info_for_uid " \
+	"BEGIN" \
+	" DELETE FROM package_app_info_for_uid WHERE " \
+	"	is_splash_screen_enabled=" \
+	"	(SELECT package_app_info.app_splash_screen_display FROM " \
+	"	package_app_info, package_app_info_for_uid WHERE " \
+	"	package_app_info.app_id=OLD.app_id) AND is_disabled='false';" \
+	"END;"
 
 #define QUERY_CREATE_TABLE_PACKAGE_APP_SPLASH_SCREEN \
 	"create table if not exists package_app_splash_screen " \
@@ -343,6 +353,13 @@ sqlite3 *pkgmgr_cert_db;
 	"FOREIGN KEY(app_id) " \
 	"REFERENCES package_app_info(app_id) " \
 	"ON DELETE CASCADE)"
+
+enum appinfo_for_uid_op {
+	DISABLE_APP,
+	ENABLE_APP,
+	DISABLE_SPLASH_SCREEN,
+	ENABLE_SPLASH_SCREEN
+};
 
 static int __insert_application_info(manifest_x *mfx);
 static int __insert_application_appcategory_info(manifest_x *mfx);
@@ -2209,29 +2226,20 @@ static int __enable_app(const char *appid)
 	return ret;
 }
 
-static int __check_appinfo_for_uid_table(const char *appid, uid_t uid,
-		const char *except_col_name)
+static int __check_appinfo_for_uid_table(const char *appid, uid_t uid)
 {
 	int ret = -1;
 	char query[MAX_QUERY_LEN] = { '\0', };
 	sqlite3_stmt *stmt;
-	char *val = NULL;
+	const char *val = NULL;
 
 	if (appid == NULL)
 		return -1;
 
-	if (except_col_name == NULL) {
-		sqlite3_snprintf(MAX_QUERY_LEN, query, "SELECT COUNT(*) FROM " \
-			"package_app_info_for_uid WHERE app_id=%Q AND uid='%d'", appid, (int)uid);
-	} else if (strcmp(except_col_name, "is_disabled") == 0) {
-		sqlite3_snprintf(MAX_QUERY_LEN, query, "SELECT COUNT(*) FROM " \
-				"package_app_info_for_uid WHERE app_id=%Q AND uid='%d' " \
-				"AND is_splash_screen_disabled='false'", appid, (int)uid);
-	} else if (strcmp(except_col_name, "is_splash_screen_disabled") == 0) {
-		sqlite3_snprintf(MAX_QUERY_LEN, query, "SELECT COUNT(*) FROM " \
-				"package_app_info_for_uid WHERE app_id=%Q AND uid='%d' " \
-				"AND is_disabled='false'", appid, (int)uid);
-	}
+	sqlite3_snprintf(MAX_QUERY_LEN, query,
+			"SELECT COUNT(*) FROM "
+			"package_app_info_for_uid WHERE app_id=%Q "
+			"AND uid='%d'", appid, (int)uid);
 
 	ret = sqlite3_prepare_v2(pkgmgr_parser_db, query, strlen(query), &stmt, NULL);
 	if (ret != SQLITE_OK) {
@@ -2248,6 +2256,7 @@ static int __check_appinfo_for_uid_table(const char *appid, uid_t uid,
 	val = (const char *)sqlite3_column_text(stmt, 0);
 	ret = atoi(val);
 	sqlite3_finalize(stmt);
+
 	return ret;
 }
 
@@ -2256,19 +2265,20 @@ static int __disable_global_app_for_user(const char *appid, uid_t uid)
 	int ret = -1;
 	char query[MAX_QUERY_LEN] = { '\0', };
 
-	ret = __check_appinfo_for_uid_table(appid, uid, NULL);
-
+	ret = __check_appinfo_for_uid_table(appid, uid);
 	if (ret < 0) {
 		_LOGE("Failed to check package_app_info_for_uid with appid[%s], uid[%d]",
 				appid, (int)uid);
 		return -1;
 	} else if (ret == 0) {
-		sqlite3_snprintf(MAX_QUERY_LEN, query, "INSERT INTO " \
-				"package_app_info_for_uid(app_id, uid, is_disabled) " \
-				"VALUES(%Q, '%d', 'true')", appid, (int)uid);
+		sqlite3_snprintf(MAX_QUERY_LEN, query, "INSERT INTO "
+				"package_app_info_for_uid(app_id, uid, is_disabled, is_splash_screen_enabled) "
+				"VALUES(%Q, '%d', 'true', "
+				"(SELECT app_splash_screen_display FROM package_app_info WHERE appid='%Q'))",
+				appid, (int)uid, appid);
 	} else {
-		sqlite3_snprintf(MAX_QUERY_LEN, query, "UPDATE " \
-				"package_app_info_for_uid SET is_disabled='true' " \
+		sqlite3_snprintf(MAX_QUERY_LEN, query, "UPDATE "
+				"package_app_info_for_uid SET is_disabled='true' "
 				"WHERE app_id=%Q AND uid='%d'", appid, (int)uid);
 	}
 
@@ -2284,19 +2294,16 @@ static int __enable_global_app_for_user(const char *appid, uid_t uid)
 	int ret = -1;
 	char query[MAX_QUERY_LEN] = {'\0'};
 
-	ret = __check_appinfo_for_uid_table(appid, uid, "is_disabled");
+	ret = __check_appinfo_for_uid_table(appid, uid);
 	if (ret < 0) {
 		_LOGE("Failed to check package_app_info_for_uid with appid[%s], uid[%d]",
 				appid, (int)uid);
 		return -1;
-	} else if (ret == 0) {
-		sqlite3_snprintf(MAX_QUERY_LEN, query, "UPDATE " \
-			"package_app_info_for_uid SET is_disabled='false' " \
-			"WHERE app_id=%Q AND uid='%d'", appid, (int)uid);
-	} else {
-		sqlite3_snprintf(MAX_QUERY_LEN, query, "DELETE FROM " \
-			"package_app_info_for_uid WHERE app_id=%Q AND uid='%d'",
-			appid, (int)uid);
+	} else if (ret > 0) {
+		sqlite3_snprintf(MAX_QUERY_LEN, query,
+				"UPDATE package_app_info_for_uid SET "
+				"is_disabled='false' WHERE app_id=%Q AND "
+				"uid='%d'", appid, (int)uid);
 	}
 
 	ret = __exec_query(query);
@@ -2306,57 +2313,62 @@ static int __enable_global_app_for_user(const char *appid, uid_t uid)
 	return ret;
 }
 
-static int __disable_global_app_splash_screen_for_user(const char *appid, uid_t uid)
+static int __update_global_app_splash_screen_for_user(const char *appid,
+		uid_t uid, int flag)
 {
 	int ret = -1;
 	char query[MAX_QUERY_LEN] = { '\0', };
 
-	ret = __check_appinfo_for_uid_table(appid, uid, NULL);
-
+	ret = __check_appinfo_for_uid_table(appid, uid);
 	if (ret < 0) {
 		_LOGE("Failed to check package_app_info_for_uid with appid[%s], uid[%d]",
 				appid, (int)uid);
 		return -1;
 	} else if (ret == 0) {
-		sqlite3_snprintf(MAX_QUERY_LEN, query, "INSERT INTO " \
-				"package_app_info_for_uid(app_id, uid, is_splash_screen_disabled) " \
-				"VALUES(%Q, '%d', 'true')", appid, (int)uid);
+		sqlite3_snprintf(MAX_QUERY_LEN, query, "INSERT INTO "
+				"package_app_info_for_uid(app_id, uid, is_splash_screen_enabled) "
+				"VALUES(%Q, '%d', %Q)", appid, (int)uid,
+				flag ? "true" : "false");
 	} else {
-		sqlite3_snprintf(MAX_QUERY_LEN, query, "UPDATE " \
-				"package_app_info_for_uid SET is_splash_screen_disabled='true' " \
-				"WHERE app_id=%Q AND uid='%d'", appid, (int)uid);
+		sqlite3_snprintf(MAX_QUERY_LEN, query,
+				"UPDATE package_app_info_for_uid SET "
+				"is_splash_screen_enabled=%Q WHERE app_id=%Q AND "
+				"uid='%d'", flag ? "true" : "false", appid, (int)uid);
 	}
 
 	ret = __exec_query(query);
 	if (ret == -1)
-		_LOGD("Add global app splash screen info failed\n");
+		_LOGD("update global app splash screen info failed\n");
 
 	return ret;
 }
 
-static int __enable_global_app_splash_screen_for_user(const char *appid, uid_t uid)
+static int __disable_app_splash_screen(const char *appid)
 {
-	int ret = -1;
+	int ret;
 	char query[MAX_QUERY_LEN] = {'\0'};
 
-	ret = __check_appinfo_for_uid_table(appid, uid, "is_splash_screen_disabled");
-	if (ret < 0) {
-		_LOGE("Failed to check package_app_info_for_uid with appid[%s], uid[%d]",
-				appid, (int)uid);
-		return -1;
-	} else if (ret == 0) {
-		sqlite3_snprintf(MAX_QUERY_LEN, query, "UPDATE " \
-			"package_app_info_for_uid SET is_splash_screen_disabled='false' " \
-			"WHERE app_id=%Q AND uid='%d'", appid, (int)uid);
-	} else {
-		sqlite3_snprintf(MAX_QUERY_LEN, query, "DELETE FROM " \
-			"package_app_info_for_uid WHERE app_id=%Q AND uid='%d'",
-			appid, (int)uid);
-	}
-
+	sqlite3_snprintf(MAX_QUERY_LEN, query,
+			"UPDATE package_app_info set app_splash_screen_display='false' where app_id=%Q",
+			appid);
 	ret = __exec_query(query);
 	if (ret == -1)
-		_LOGD("Remove global app splash screen info failed\n");
+		_LOGD("Failed to update app_palsh_screen_display");
+
+	return ret;
+}
+
+static int __enable_app_splash_screen(const char *appid)
+{
+	int ret;
+	char query[MAX_QUERY_LEN] = {'\0'};
+
+	sqlite3_snprintf(MAX_QUERY_LEN, query,
+			"UPDATE package_app_info set app_splash_screen_display='true' where app_id=%Q",
+			appid);
+	ret = __exec_query(query);
+	if (ret == -1)
+		_LOGD("Failed to update app_splash_screen_display");
 
 	return ret;
 }
@@ -2467,6 +2479,13 @@ API int pkgmgr_parser_initialize_db(uid_t uid)
 	ret = __initialize_db(pkgmgr_parser_db, QUERY_CREATE_TABLE_PACKAGE_APP_SPLASH_SCREEN);
 	if (ret == -1) {
 		_LOGD("package app splash screen DB initialization failed\n");
+		return ret;
+	}
+
+	/* Trigger package_app_info_for_uid */
+	ret = __initialize_db(pkgmgr_parser_db, QUERY_CREATE_TRIGGER_UPDATE_PACKAGE_APP_INFO_FOR_UID);
+	if (ret == -1) {
+		_LOGD("package app info for uid DB initialization failed\n");
 		return ret;
 	}
 
@@ -2975,17 +2994,22 @@ err:
 
 }
 
-API int pkgmgr_parser_update_global_app_splash_screen_info_in_usr_db(const char *appid, uid_t uid, int is_disable)
+API int pkgmgr_parser_update_global_app_splash_screen_display_info_in_usr_db(const char *appid, uid_t uid, int flag)
 {
 	int ret = -1;
 
-	ret = pkgmgr_parser_check_and_create_db(uid);
+	if (appid == NULL) {
+		_LOGD("Invalid parameter");
+		return -1;
+	}
+
+	ret = pkgmgr_parser_check_and_create_db(GLOBAL_USER);
 	if (ret == -1) {
 		_LOGD("Failed to open DB\n");
 		return ret;
 	}
 
-	/*Begin transaction*/
+	/* Begin transaction */
 	ret = sqlite3_exec(pkgmgr_parser_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
 	if (ret != SQLITE_OK) {
 		_LOGD("Failed to begin transaction\n");
@@ -2993,16 +3017,14 @@ API int pkgmgr_parser_update_global_app_splash_screen_info_in_usr_db(const char 
 		goto err;
 	}
 	_LOGD("Transaction Begin\n");
-	if (is_disable)
-		ret = __disable_global_app_splash_screen_for_user(appid, uid);
-	else
-		ret = __enable_global_app_splash_screen_for_user(appid, uid);
+
+	ret = __update_global_app_splash_screen_for_user(appid, uid, flag);
 	if (ret == -1) {
 		_LOGD("__update_splash_screen_disable_condition_in_db failed. Rollback now\n");
 		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
 		goto err;
 	}
-	/*Commit transaction*/
+	/* Commit transaction */
 	ret = sqlite3_exec(pkgmgr_parser_db, "COMMIT", NULL, NULL, NULL);
 	if (ret != SQLITE_OK) {
 		_LOGD("Failed to commit transaction, Rollback now\n");
@@ -3015,3 +3037,57 @@ err:
 	pkgmgr_parser_close_db();
 	return ret;
 }
+
+API int pkgmgr_parser_update_app_splash_screen_display_info_in_db(const char *appid, int flag)
+{
+	return pkgmgr_parser_update_app_splash_screen_display_info_in_usr_db(appid, _getuid(), flag);
+}
+
+API int pkgmgr_parser_update_app_splash_screen_display_info_in_usr_db(const char *appid, uid_t uid, int flag)
+{
+	int ret;
+
+	if (appid == NULL) {
+		_LOGD("Invalid parameter");
+		return -1;
+	}
+
+	ret = pkgmgr_parser_check_and_create_db(uid);
+	if (ret == -1) {
+		_LOGD("Failed to open DB");
+		return -1;
+	}
+
+	/* Begin transaction */
+	ret = sqlite3_exec(pkgmgr_parser_db, "BEGIN_EXCLUSIVE", NULL, NULL, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGD("Failed to begin transaction");
+		ret = -1;
+		goto err;
+	}
+	_LOGD("Transaction Begin");
+
+	if (flag)
+		ret = __enable_app_splash_screen(appid);
+	else
+		ret = __disable_app_splash_screen(appid);
+	if (ret == -1) {
+		_LOGD("__update_app_splash_screen_condition_in_db. Rollback now");
+		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
+		goto err;
+	}
+	/* Commit transaction */
+	ret = sqlite3_exec(pkgmgr_parser_db, "COMMIT", NULL, NULL, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGD("Failed to commit transaction, Rollback now");
+		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
+		ret = -1;
+		goto err;
+	}
+	_LOGD("Transaction Commit and End");
+
+err:
+	pkgmgr_parser_close_db();
+	return ret;
+}
+
