@@ -2215,7 +2215,7 @@ static int __check_appinfo_for_uid_table(const char *appid, uid_t uid,
 	int ret = -1;
 	char query[MAX_QUERY_LEN] = { '\0', };
 	sqlite3_stmt *stmt;
-	char *val = NULL;
+	const char *val = NULL;
 
 	if (appid == NULL)
 		return -1;
@@ -2357,6 +2357,36 @@ static int __enable_global_app_splash_screen_for_user(const char *appid, uid_t u
 	ret = __exec_query(query);
 	if (ret == -1)
 		_LOGD("Remove global app splash screen info failed\n");
+
+	return ret;
+}
+
+static int __disable_app_splash_screen(const char *appid)
+{
+	int ret;
+	char query[MAX_QUERY_LEN] = {'\0'};
+
+	sqlite3_snprintf(MAX_QUERY_LEN, query,
+			"UPDATE package_app_info set app_splash_screen_display='false' where app_id=%Q",
+			appid);
+	ret = __exec_query(query);
+	if (ret == -1)
+		_LOGD("Failed to update app_palsh_screen_display");
+
+	return ret;
+}
+
+static int __enable_app_splash_screen(const char *appid)
+{
+	int ret;
+	char query[MAX_QUERY_LEN] = {'\0'};
+
+	sqlite3_snprintf(MAX_QUERY_LEN, query,
+			"UPDATE package_app_info set app_splash_screen_display='true' where app_id=%Q",
+			appid);
+	ret = __exec_query(query);
+	if (ret == -1)
+		_LOGD("Failed to update app_splash_screen_display");
 
 	return ret;
 }
@@ -3055,7 +3085,7 @@ err:
 
 }
 
-API int pkgmgr_parser_update_global_app_splash_screen_info_in_usr_db(const char *appid, uid_t uid, int is_disable)
+API int pkgmgr_parser_update_global_app_splash_screen_display_info_in_usr_db(const char *appid, uid_t uid, int is_disable)
 {
 	int ret = -1;
 
@@ -3065,7 +3095,7 @@ API int pkgmgr_parser_update_global_app_splash_screen_info_in_usr_db(const char 
 		return ret;
 	}
 
-	/*Begin transaction*/
+	/* Begin transaction */
 	ret = sqlite3_exec(pkgmgr_parser_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
 	if (ret != SQLITE_OK) {
 		_LOGD("Failed to begin transaction\n");
@@ -3082,7 +3112,7 @@ API int pkgmgr_parser_update_global_app_splash_screen_info_in_usr_db(const char 
 		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
 		goto err;
 	}
-	/*Commit transaction*/
+	/* Commit transaction */
 	ret = sqlite3_exec(pkgmgr_parser_db, "COMMIT", NULL, NULL, NULL);
 	if (ret != SQLITE_OK) {
 		_LOGD("Failed to commit transaction, Rollback now\n");
@@ -3095,3 +3125,57 @@ err:
 	pkgmgr_parser_close_db();
 	return ret;
 }
+
+API int pkgmgr_parser_update_app_splash_screen_display_info_in_db(const char *appid, int is_disable)
+{
+	return pkgmgr_parser_update_app_splash_screen_display_info_in_usr_db(appid, _getuid(), is_disable);
+}
+
+API int pkgmgr_parser_update_app_splash_screen_display_info_in_usr_db(const char *appid, uid_t uid, int is_disable)
+{
+	int ret;
+
+	if (appid == NULL) {
+		_LOGD("Invalid parameter");
+		return -1;
+	}
+
+	ret = pkgmgr_parser_check_and_create_db(uid);
+	if (ret == -1) {
+		_LOGD("Failed to open DB");
+		return -1;
+	}
+
+	/* Begin transaction */
+	ret = sqlite3_exec(pkgmgr_parser_db, "BEGIN_EXCLUSIVE", NULL, NULL, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGD("Failed to begin transaction");
+		ret = -1;
+		goto err;
+	}
+	_LOGD("Transaction Begin");
+
+	if (is_disable)
+		ret = __disable_app_splash_screen(appid);
+	else
+		ret = __enable_app_splash_screen(appid);
+	if (ret == -1) {
+		_LOGD("__update_app_splash_screen_condition_in_db. Rollback now");
+		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
+		goto err;
+	}
+	/* Commit transaction */
+	ret = sqlite3_exec(pkgmgr_parser_db, "COMMIT", NULL, NULL, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGD("Failed to commit transaction, Rollback now");
+		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
+		ret = -1;
+		goto err;
+	}
+	_LOGD("Transaction Commit and End");
+
+err:
+	pkgmgr_parser_close_db();
+	return ret;
+}
+
