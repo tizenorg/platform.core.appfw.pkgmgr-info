@@ -2572,6 +2572,43 @@ int pkgmgrinfo_appinfo_get_localed_label(const char *appid, const char *locale, 
 int pkgmgrinfo_appinfo_usr_get_localed_label(const char *appid, const char *locale, uid_t uid, char **label);
 
 /**
+ * @fn int pkgmgrinfo_appinfo_get_metadata_value(pkgmgrinfo_appinfo_h handle, const char *metadata_key, char **metadata_value)
+ * @brief	This API gets metadata value by given metadata key
+ *
+ * @par		This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in]	handle	pointer to the application info handle
+ * @param[in]	metadata_key	metadata key
+ * @param[out] metadata_value		pointer to hold metadata value
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK	success
+ * @retval	PMINFO_R_EINVAL	invalid argument
+ * @code
+static int get_metadata_value(const char *appid, const char *metadata_key)
+{
+	int ret = 0;
+	pkgmgrinfo_appinfo_h handle = NULL;
+	char *metadata_value = NULL;
+
+	ret = pkgmgrinfo_appinfo_get_appinfo(appid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+
+	ret = pkgmgrinfo_appinfo_get_metadata_value(handle, metadata_key, &metadata_value);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_appinfo_destroy_appinfo(handle);
+		return -1;
+	}
+
+	pkgmgrinfo_appinfo_destroy_appinfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_appinfo_get_metadata_value(pkgmgrinfo_appinfo_h handle, const char *metadata_key, char **metadata_value);
+
+/**
  * @fn int pkgmgrinfo_appinfo_get_component(pkgmgrinfo_appinfo_h handle, pkgmgrinfo_app_component *component)
  * @brief	This API gets the component of the application
  *

@@ -1691,6 +1691,31 @@ API int pkgmgrinfo_appinfo_get_localed_label(const char *appid, const char *loca
 	return pkgmgrinfo_appinfo_usr_get_localed_label(appid, locale, _getuid(), label);
 }
 
+API int pkgmgrinfo_appinfo_get_metadata_value(pkgmgrinfo_appinfo_h handle, const char *metadata_key, char **metadata_value)
+{
+	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
+	retvm_if(metadata_key == NULL, PMINFO_R_EINVAL, "metadata_key is NULL");
+	retvm_if(metadata_value == NULL, PMINFO_R_EINVAL, "metadata_value is NULL");
+
+	GList *list_md = NULL;
+	metadata_x *metadata = NULL;
+	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
+
+	list_md = info->app_info->metadata;
+
+	for (; list_md; list_md = list_md->next) {
+		metadata = (metadata_x *)list_md->data;
+		if (metadata && metadata->key) {
+			if (strcasecmp(metadata->key, metadata_key) == 0) {
+				*metadata_value = (char*)metadata->value;
+				return PMINFO_R_OK;
+			}
+		}
+	}
+
+	return PMINFO_R_EINVAL;
+}
+
 static pkgmgrinfo_app_component __appcomponent_convert(const char *comp)
 {
 	if (strcasecmp(comp, "uiapp") == 0)
