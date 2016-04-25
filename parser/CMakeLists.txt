@@ -23,6 +23,28 @@ else()
 endif()
 message(STATUS "version/major : ${VERSION} / ${VERSION_MAJOR}")
 
+### Define tizen version for db version
+if(DEFINED TIZEN_MAJOR_VER)
+	ADD_DEFINITIONS("-DTIZEN_MAJOR_VER=\"${TIZEN_MAJOR_VER}\"")
+else()
+	message("TIZEN_MAJOR_VER is not defined. set it to 0")
+	ADD_DEFINITIONS("-DTIZEN_MAJOR_VER=\"0\"")
+endif()
+
+if(DEFINED TIZEN_MINOR_VER)
+	ADD_DEFINITIONS("-DTIZEN_MINOR_VER=\"${TIZEN_MINOR_VER}\"")
+else()
+	message("TIZEN_MINOR_VER is not defined. set it to 0")
+	ADD_DEFINITIONS("-DTIZEN_MINOR_VER=\"0\"")
+endif()
+
+if(DEFINED TIZEN_PATCH_VER)
+	ADD_DEFINITIONS("-DTIZEN_PATCH_VER=\"${TIZEN_PATCH_VER}\"")
+else()
+	message("TIZEN_PATCH_VER is not defined. set it to 0")
+	ADD_DEFINITIONS("-DTIZEN_PATCH_VER=\"${TIZEN_PATCH_VER}\"")
+endif()
+
 ### Get required CFLAGS, LDFLAGS from pkg-config
 
 include(FindPkgConfig)
