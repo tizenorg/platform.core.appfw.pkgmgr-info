@@ -414,6 +414,8 @@ static int __pkgmgr_parser_create_db(sqlite3 **db_handle, const char *db_path)
 {
 	int ret = -1;
 	sqlite3 *handle;
+	char *query = NULL;
+	char *error_message = NULL;
 
 	ret = db_util_open(db_path, &handle,  DB_UTIL_REGISTER_HOOK_METHOD);
 	if (ret != SQLITE_OK) {
@@ -421,6 +423,16 @@ static int __pkgmgr_parser_create_db(sqlite3 **db_handle, const char *db_path)
 		return -1;
 	}
 	*db_handle = handle;
+
+	/* add user_version for db upgrade*/
+	query = sqlite3_mprintf("PRAGMA user_version=%d", (atoi(TIZEN_MAJOR_VER) * 10000 + atoi(TIZEN_MINOR_VER) * 100 + atoi(TIZEN_PATCH_VER)));
+	if (SQLITE_OK !=
+	    sqlite3_exec(handle, query, NULL, NULL, &error_message)) {
+		_LOGE("Don't execute query = %s error message = %s\n", query,
+		       error_message);
+	}
+	sqlite3_free(error_message);
+	sqlite3_free(query);
 
 	return 0;
 }
