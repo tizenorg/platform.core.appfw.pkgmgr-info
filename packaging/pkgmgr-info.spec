@@ -50,7 +50,11 @@ cp %{SOURCE1001} .
 
 %build
 MAJORVER=`echo %{version} | awk 'BEGIN {FS="."}{print $1}'`
-%cmake . -DFULLVER=%{version} -DMAJORVER=${MAJORVER}
+%cmake . -DFULLVER=%{version} -DMAJORVER=${MAJORVER} \
+		-DTIZEN_MAJOR_VER=%{tizen_version_major} \
+		-DTIZEN_MINOR_VER=%{tizen_version_minor} \
+		-DTIZEN_PATCH_VER=%{tizen_version_patch}
+
 %__make %{?jobs:-j%jobs}
 
 %install
