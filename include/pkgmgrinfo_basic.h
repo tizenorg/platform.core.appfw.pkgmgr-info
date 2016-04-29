@@ -138,6 +138,7 @@ typedef struct application_x {
 	char *effective_appid;	/*attr*/
 	char *package_type;	/*set from package_x*/
 	char *tep_name;	/*set from package_x*/
+	char *mount_point;	/*set from package_x*/
 	char *root_path;	/*set from package_x*/
 	char *api_version;	/*set from package_x*/
 	char *for_all_users; /**< Flag that indicates if the package is available for everyone or for current user only, no xml part*/
@@ -183,6 +184,7 @@ typedef struct package_x {
 	char *support_disable;		/**< package support disable flag, attr, default: "false"*/
 	char *api_version;		/**< minimum version of API package using, attr, default: patch_version trimmed version from tizen_full_version*/
 	char *tep_name;	/*no xml part*/
+	char *mount_point;	/*no xml part*/
 	char *backend_installer;		/**< package backend installer, attr*/
 	GList *icon;		/**< package icon, element*/
 	GList *label;		/**< package label, element*/

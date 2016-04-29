@@ -291,6 +291,8 @@ static void __ps_free_application(gpointer data)
 		free((void *)application->support_disable);
 	if (application->tep_name)
 		free((void *)application->tep_name);
+	if (application->mount_point)
+		free((void *)application->mount_point);
 	if (application->root_path)
 		free((void *)application->root_path);
 	if (application->api_version)
@@ -391,6 +393,8 @@ API void pkgmgrinfo_basic_free_package(package_x *package)
 		free((void *)package->support_disable);
 	if (package->tep_name)
 		free((void *)package->tep_name);
+	  if (package->mount_point)
+		free((void *)package->mount_point);
 
 	/*Free Icon*/
 	g_list_free_full(package->icon, __ps_free_icon);
