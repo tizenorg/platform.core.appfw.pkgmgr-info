@@ -491,6 +491,46 @@ static int get_tep_name(const char *pkgid)
 int pkgmgrinfo_pkginfo_get_tep_name(pkgmgrinfo_pkginfo_h handle, char **tep_name);
 
 /**
+ * @fn int pkgmgrinfo_pkginfo_get_zip_mount_file(pkgmgrinfo_pkginfo_h handle, char **zip_mount_file)
+ * @brief	This API gets package mount point path associated with the package
+ *			if package is mount-installed. Otherwise, zip_mount_file is left as NULL value
+ *
+ * @par	This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in] handle 		pointer to the pkginfo handle.
+ * @param[out] zip_mount_file 	pointer to hold zip mount file
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK success
+ * @retval	PMINFO_R_EINVAL invalid argument
+ * @retval	PMINFO_R_ERROR  internal error
+ * @pre	pkgmgrinfo_pkginfo_get_pkginfo()
+ * @post 	pkgmgrinfo_pkginfo_destroy_pkginfo()
+ * @see	pkgmgrinfo_pkginfo_get_pkgid()
+ * @code
+static int get_zip_mount_file(const char *pkgid)
+{
+	int ret = 0;
+	char *zip_mount_file = NULL;
+	pkgmgrinfo_pkginfo_h handle = NULL;
+	ret = pkgmgrinfo_pkginfo_get_pkginfo(pkgid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_pkginfo_get_zip_mount_file(handle, &zip_mount_file);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_pkginfo_destroy_pkginfo(handle);
+		return -1;
+	}
+	if (zip_mount_file != NULL)
+		printf("Zip mount path is: %s\n", zip_mount_file);
+	pkgmgrinfo_pkginfo_destroy_pkginfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_pkginfo_get_zip_mount_file(pkgmgrinfo_pkginfo_h handle, char **zip_mount_file);
+
+/**
  * @fn int pkgmgrinfo_pkginfo_get_install_location(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_install_location *location)
  * @brief	This API gets the package install location from the package ID
  *

@@ -91,6 +91,7 @@ sqlite3 *pkgmgr_cert_db;
 						"package_version text, " \
 						"package_api_version text, " \
 						"package_tep_name text, " \
+						"package_zip_mount_file text, " \
 						"install_location text, " \
 						"package_size text, " \
 						"package_removable text DEFAULT 'true', " \
@@ -1880,7 +1881,7 @@ static int __insert_manifest_info_in_db(manifest_x *mfx, uid_t uid)
 	/*Insert in the package_info DB*/
 	snprintf(query, MAX_QUERY_LEN,
 		"insert into package_info(" \
-		"package, package_type, package_version, package_api_version, package_tep_name, " \
+		"package, package_type, package_version, package_api_version, package_tep_name, package_zip_mount_file, " \
 		"install_location, package_size, package_removable, package_preload, package_readonly, " \
 		"package_update, package_appsetting, package_nodisplay, package_system, author_name, " \
 		"author_email, author_href, installed_time, installed_storage, storeclient_id, " \
@@ -1890,8 +1891,9 @@ static int __insert_manifest_info_in_db(manifest_x *mfx, uid_t uid)
 		"'%s', '%s', '%s', '%s', '%s', " \
 		"'%s', '%s', '%s', '%s', '%s', " \
 		"'%s', '%s', '%s', '%s', '%s', " \
-		"'%s', '%s', '%s', '%s', '%s')", \
-		mfx->package, mfx->type, mfx->version, __get_str(mfx->api_version), __get_str(mfx->tep_name),
+		"'%s', '%s', '%s', '%s', '%s', " \
+		"'%s')", \
+		mfx->package, mfx->type, mfx->version, __get_str(mfx->api_version), __get_str(mfx->tep_name), __get_str(mfx->zip_mount_file),
 		__get_str(mfx->installlocation), __get_str(mfx->package_size), mfx->removable, mfx->preload, mfx->readonly,
 		mfx->update, mfx->appsetting, mfx->nodisplay_setting, mfx->system, __get_str(auth_name),
 		__get_str(auth_email), __get_str(auth_href), mfx->installed_time, mfx->installed_storage,
