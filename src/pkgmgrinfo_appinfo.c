@@ -625,7 +625,7 @@ static int _appinfo_get_application(sqlite3 *db, const char *appid,
 		"app_permissiontype, app_preload, app_submode, "
 		"app_submode_mainid, app_launch_mode, app_ui_gadget, "
 		"app_support_disable, "
-		"component_type, package, app_tep_name, app_process_pool, "
+		"component_type, package, app_tep_name, app_zip_mount_file, app_process_pool, "
 		"app_installed_storage, app_background_category, "
 		"app_package_type, app_root_path, app_api_version, "
 		"app_effective_appid, app_disable, app_splash_screen_display "
@@ -698,6 +698,7 @@ static int _appinfo_get_application(sqlite3 *db, const char *appid,
 	_save_column_str(stmt, idx++, &info->component_type);
 	_save_column_str(stmt, idx++, &info->package);
 	_save_column_str(stmt, idx++, &info->tep_name);
+	_save_column_str(stmt, idx++, &info->zip_mount_file);
 	_save_column_str(stmt, idx++, &info->process_pool);
 	_save_column_str(stmt, idx++, &info->installed_storage);
 	_save_column_str(stmt, idx++, &bg_category_str);
@@ -844,7 +845,7 @@ int _appinfo_get_applist(uid_t uid, const char *locale, GHashTable **appinfo_tab
 			"app_onboot, app_multiple, app_autorestart, app_taskmanage, "
 			"app_hwacceleration, app_permissiontype, app_preload, "
 			"app_installed_storage, app_process_pool, app_launch_mode, "
-			"app_package_type, component_type, package, app_tep_name, "
+			"app_package_type, component_type, package, app_tep_name, app_zip_mount_file, "
 			"app_background_category, app_root_path, app_api_version, "
                         "app_effective_appid, app_disable, app_splash_screen_display, "
 			"(CASE WHEN A.app_disable='true' THEN 'true' "
@@ -896,6 +897,7 @@ int _appinfo_get_applist(uid_t uid, const char *locale, GHashTable **appinfo_tab
 		_save_column_str(stmt, idx++, &appinfo->component_type);
 		_save_column_str(stmt, idx++, &appinfo->package);
 		_save_column_str(stmt, idx++, &appinfo->tep_name);
+		_save_column_str(stmt, idx++, &appinfo->zip_mount_file);
 
 		_save_column_str(stmt, idx++, &bg_category_str);
 		_save_column_str(stmt, idx++, &appinfo->root_path);
@@ -2180,6 +2182,20 @@ API int pkgmgrinfo_appinfo_get_tep_name(pkgmgrinfo_appinfo_h handle, char **tep_
 		return PMINFO_R_ERROR;
 
 	*tep_name = (char *)info->app_info->tep_name;
+
+	return PMINFO_R_OK;
+}
+
+API int pkgmgrinfo_appinfo_get_zip_mount_file(pkgmgrinfo_appinfo_h handle, char **zip_mount_file)
+{
+	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
+
+	if (handle == NULL || zip_mount_file == NULL) {
+		LOGE("invalid parameter");
+		return PMINFO_R_EINVAL;
+	}
+
+	*zip_mount_file = (char *)info->app_info->zip_mount_file;
 
 	return PMINFO_R_OK;
 }

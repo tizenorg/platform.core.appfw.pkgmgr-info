@@ -91,6 +91,7 @@ sqlite3 *pkgmgr_cert_db;
 						"package_version text, " \
 						"package_api_version text, " \
 						"package_tep_name text, " \
+						"package_zip_mount_file text, " \
 						"install_location text, " \
 						"package_size text, " \
 						"package_removable text DEFAULT 'true', " \
@@ -168,6 +169,7 @@ sqlite3 *pkgmgr_cert_db;
 						"component_type text, " \
 						"package text not null, " \
 						"app_tep_name text, " \
+						"app_zip_mount_file text, " \
 						"app_background_category INTEGER DEFAULT 0, " \
 						"app_root_path text, " \
 						"app_api_version text, " \
@@ -1230,7 +1232,7 @@ static int __insert_application_info(manifest_x *mfx)
 			"app_indicatordisplay, app_portraitimg, app_landscapeimg, app_guestmodevisibility, app_permissiontype, " \
 			"app_preload, app_submode, app_submode_mainid, app_installed_storage, app_process_pool, " \
 			"app_launch_mode, app_ui_gadget, app_support_disable, component_type, package, " \
-			"app_tep_name, app_background_category, app_package_type, app_root_path, app_api_version, " \
+			"app_tep_name, app_zip_mount_file, app_background_category, app_package_type, app_root_path, app_api_version, " \
 			"app_effective_appid, app_splash_screen_display) " \
 			"values(" \
 			"'%s', '%s', '%s', '%s', '%s', " \
@@ -1239,8 +1241,8 @@ static int __insert_application_info(manifest_x *mfx)
 			"'%s', '%s', '%s', '%s', '%s', " \
 			"'%s', '%s', '%s', '%s', '%s', " \
 			"'%s', '%s', '%s', '%s', '%s', " \
-			"'%s', '%d', '%s', '%s', '%s', " \
-			"'%s', '%s')", \
+			"'%s', '%s', '%d', '%s', '%s', " \
+			"'%s', '%s', '%s')", \
 			app->appid, app->component_type, app->exec, app->nodisplay, app->type,
 			app->onboot, app->multiple, app->autorestart, app->taskmanage, app->enabled,
 			app->hwacceleration, app->screenreader, app->mainapp, __get_str(app->recentimage), app->launchcondition,
@@ -1248,7 +1250,7 @@ static int __insert_application_info(manifest_x *mfx)
 			app->guestmode_visibility, app->permission_type,
 			mfx->preload, app->submode, __get_str(app->submode_mainid), mfx->installed_storage, app->process_pool,
 			app->launch_mode, app->ui_gadget, mfx->support_disable, app->component_type, mfx->package,
-			__get_str(mfx->tep_name), background_value, type, mfx->root_path, __get_str(mfx->api_version),
+			__get_str(mfx->tep_name), __get_str(mfx->zip_mount_file), background_value, type, mfx->root_path, __get_str(mfx->api_version),
 			__get_str(effective_appid), app->splash_screen_display);
 
 		ret = __exec_query(query);
@@ -1888,7 +1890,7 @@ static int __insert_manifest_info_in_db(manifest_x *mfx, uid_t uid)
 	/*Insert in the package_info DB*/
 	snprintf(query, MAX_QUERY_LEN,
 		"insert into package_info(" \
-		"package, package_type, package_version, package_api_version, package_tep_name, " \
+		"package, package_type, package_version, package_api_version, package_tep_name, package_zip_mount_file, " \
 		"install_location, package_size, package_removable, package_preload, package_readonly, " \
 		"package_update, package_appsetting, package_nodisplay, package_system, author_name, " \
 		"author_email, author_href, installed_time, installed_storage, storeclient_id, " \
@@ -1898,8 +1900,9 @@ static int __insert_manifest_info_in_db(manifest_x *mfx, uid_t uid)
 		"'%s', '%s', '%s', '%s', '%s', " \
 		"'%s', '%s', '%s', '%s', '%s', " \
 		"'%s', '%s', '%s', '%s', '%s', " \
-		"'%s', '%s', '%s', '%s', '%s')", \
-		mfx->package, mfx->type, mfx->version, __get_str(mfx->api_version), __get_str(mfx->tep_name),
+		"'%s', '%s', '%s', '%s', '%s', " \
+		"'%s')", \
+		mfx->package, mfx->type, mfx->version, __get_str(mfx->api_version), __get_str(mfx->tep_name), __get_str(mfx->zip_mount_file),
 		__get_str(mfx->installlocation), __get_str(mfx->package_size), mfx->removable, mfx->preload, mfx->readonly,
 		mfx->update, mfx->appsetting, mfx->nodisplay_setting, mfx->system, __get_str(auth_name),
 		__get_str(auth_email), __get_str(auth_href), mfx->installed_time, mfx->installed_storage,
