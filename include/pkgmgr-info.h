@@ -491,6 +491,46 @@ static int get_tep_name(const char *pkgid)
 int pkgmgrinfo_pkginfo_get_tep_name(pkgmgrinfo_pkginfo_h handle, char **tep_name);
 
 /**
+ * @fn int pkgmgrinfo_pkginfo_get_mount_point(pkgmgrinfo_pkginfo_h handle, char **mount_point)
+ * @brief	This API gets package mount point path associated with the package
+ *			if package is mount-installed. Otherwise, mount_point is left as NULL value
+ *
+ * @par	This API is for package-manager client application
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in] handle 		pointer to the pkginfo handle.
+ * @param[out] mount_point 	pointer to hold mount point path
+ * @return	0 if success, error code(<0) if fail
+ * @retval	PMINFO_R_OK success
+ * @retval	PMINFO_R_EINVAL invalid argument
+ * @retval	PMINFO_R_ERROR  internal error
+ * @pre	pkgmgrinfo_pkginfo_get_pkginfo()
+ * @post 	pkgmgrinfo_pkginfo_destroy_pkginfo()
+ * @see	pkgmgrinfo_pkginfo_get_pkgid()
+ * @code
+static int get_mount_point(const char *pkgid)
+{
+	int ret = 0;
+	char *mount_point = NULL;
+	pkgmgrinfo_pkginfo_h handle = NULL;
+	ret = pkgmgrinfo_pkginfo_get_pkginfo(pkgid, &handle);
+	if (ret != PMINFO_R_OK)
+		return -1;
+	ret = pkgmgrinfo_pkginfo_get_mount_point(handle, &mount_point);
+	if (ret != PMINFO_R_OK) {
+		pkgmgrinfo_pkginfo_destroy_pkginfo(handle);
+		return -1;
+	}
+	if (mount_point != NULL)
+		printf("Mount point path is: %s\n", mount_point);
+	pkgmgrinfo_pkginfo_destroy_pkginfo(handle);
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgrinfo_pkginfo_get_mount_point(pkgmgrinfo_pkginfo_h handle, char **mount_point);
+
+/**
  * @fn int pkgmgrinfo_pkginfo_get_install_location(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_install_location *location)
  * @brief	This API gets the package install location from the package ID
  *

@@ -183,6 +183,7 @@ typedef struct package_x {
 	char *support_disable;		/**< package support disable flag, attr, default: "false"*/
 	char *api_version;		/**< minimum version of API package using, attr, default: patch_version trimmed version from tizen_full_version*/
 	char *tep_name;	/*no xml part*/
+	char *mount_point;	/*no xml part*/
 	char *backend_installer;		/**< package backend installer, attr*/
 	GList *icon;		/**< package icon, element*/
 	GList *label;		/**< package label, element*/
