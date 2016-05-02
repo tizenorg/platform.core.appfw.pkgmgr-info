@@ -107,16 +107,6 @@ enum {
  */
 #define	PMINFO_PKGINFO_INSTALL_LOCATION_EXTERNAL	"LOCATION_EXTERNAL"
 
-/**
- * @brief Value to be used when filtering based on app-component
- */
-#define	PMINFO_APPINFO_UI_APP				"UI_APP"
-
-/**
- * @brief Value to be used when filtering based on app-component
- */
-#define	PMINFO_APPINFO_SVC_APP				"SVC_APP"
-
 typedef enum {
 	PMINFO_HWACCELERATION_NOT_USE_GL = 0,		/**< Don't use hardware acceleration*/
 	PMINFO_HWACCELERATION_USE_GL = 1,		/**< Use hardware acceleration*/

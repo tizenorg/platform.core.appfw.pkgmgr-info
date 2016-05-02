@@ -1369,6 +1369,8 @@ static int _appinfo_get_filtered_foreach_appinfo(uid_t uid,
 	return PMINFO_R_OK;
 }
 
+static const char *__appcomponent_str(pkgmgrinfo_app_component comp);
+
 API int pkgmgrinfo_appinfo_get_usr_list(pkgmgrinfo_pkginfo_h handle,
 		pkgmgrinfo_app_component component,
 		pkgmgrinfo_app_list_cb app_func, void *user_data, uid_t uid)
@@ -1405,16 +1407,7 @@ API int pkgmgrinfo_appinfo_get_usr_list(pkgmgrinfo_pkginfo_h handle,
 		}
 	}
 
-	switch (component) {
-	case PMINFO_UI_APP:
-		comp_str = PMINFO_APPINFO_UI_APP;
-		break;
-	case PMINFO_SVC_APP:
-		comp_str = PMINFO_APPINFO_SVC_APP;
-		break;
-	default:
-		break;
-	}
+	comp_str = __appcomponent_str(component);
 
 	if (comp_str) {
 		if (pkgmgrinfo_appinfo_filter_add_string(filter,
@@ -1766,6 +1759,22 @@ static pkgmgrinfo_app_component __appcomponent_convert(const char *comp)
 		return PMINFO_WATCH_APP;
 	else
 		return -1;
+}
+
+static const char *__appcomponent_str(pkgmgrinfo_app_component comp)
+{
+	switch (comp) {
+	case PMINFO_UI_APP:
+		return "uiapp";
+	case PMINFO_SVC_APP:
+		return "svcapp";
+	case PMINFO_WIDGET_APP:
+		return "widgetapp";
+	case PMINFO_WATCH_APP:
+		return "watchapp";
+	default:
+		return NULL;
+	}
 }
 
 API int pkgmgrinfo_appinfo_get_component(pkgmgrinfo_appinfo_h handle, pkgmgrinfo_app_component *component)
@@ -2848,11 +2857,7 @@ API int pkgmgrinfo_appinfo_filter_add_string(pkgmgrinfo_appinfo_filter_h handle,
 	node->prop = prop;
 	switch (prop) {
 	case E_PMINFO_APPINFO_PROP_APP_COMPONENT:
-		if (strcmp(value, PMINFO_APPINFO_UI_APP) == 0)
-			val = strndup("uiapp", PKG_STRING_LEN_MAX - 1);
-		else
-			val = strndup("svcapp", PKG_STRING_LEN_MAX - 1);
-		node->value = val;
+		node->value = strdup(value);
 		link = g_slist_find_custom(filter->list, (gconstpointer)node, __compare_func);
 		if (link)
 			filter->list = g_slist_delete_link(filter->list, link);
