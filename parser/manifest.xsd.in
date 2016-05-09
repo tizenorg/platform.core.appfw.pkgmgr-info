@@ -361,6 +361,7 @@
       <xs:attribute name="orientation" use="required" type="xs:string"/>
       <xs:attribute name="indicator-display" type="xs:string"/>
       <xs:attribute name="app-control-operation" type="xs:string"/>
+      <xs:attribute name="color-depth" type="xs:string"/>
       <xs:anyAttribute namespace="##any" processContents="lax"/>
     </xs:complexType>
   </xs:element>

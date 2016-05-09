@@ -349,6 +349,7 @@ sqlite3 *pkgmgr_cert_db;
 	"orientation text not null, " \
 	"indicatordisplay text, " \
 	"operation text, " \
+	"color_depth text not null DEFAULT '32', " \
 	"PRIMARY KEY(app_id, orientation, operation) " \
 	"FOREIGN KEY(app_id) " \
 	"REFERENCES package_app_info(app_id) " \
@@ -1650,10 +1651,11 @@ static int __insert_application_splashscreen_info(manifest_x *mfx)
 			ss = (splashscreen_x *)tmp->data;
 			snprintf(query, sizeof(query),
 					"insert into package_app_splash_screen" \
-					"(app_id, src, type, orientation, indicatordisplay, operation) " \
-					"values('%s', '%s', '%s', '%s', '%s', '%s')",
+					"(app_id, src, type, orientation, indicatordisplay, operation, color_depth) " \
+					"values('%s', '%s', '%s', '%s', '%s', '%s', '%s')",
 					app->appid, ss->src, ss->type, ss->orientation,
-					ss->indicatordisplay, __get_str(ss->operation));
+					ss->indicatordisplay, __get_str(ss->operation),
+					ss->color_depth);
 			ret = __exec_query(query);
 			if (ret == -1) {
 				_LOGD("Package UiApp Splash Screen DB Insert Failed");
@@ -1677,6 +1679,7 @@ static int __insert_application_legacy_splashscreen_info(manifest_x *mfx)
 	const char *indicatordisplay;
 	const char *orientation;
 	const char *operation = NULL;
+	const char *color_depth = "32"; /* default */
 
 	for (app_tmp = mfx->application; app_tmp; app_tmp = app_tmp->next) {
 		app = (application_x *)app_tmp->data;
@@ -1696,10 +1699,11 @@ static int __insert_application_legacy_splashscreen_info(manifest_x *mfx)
 			orientation = "portrait";
 			snprintf(query, sizeof(query),
 					"insert into package_app_splash_screen" \
-					"(app_id, src, type, orientation, indicatordisplay, operation) " \
-					"values('%s', '%s', '%s', '%s', '%s', '%s')",
+					"(app_id, src, type, orientation, indicatordisplay, operation, color_depth) " \
+					"values('%s', '%s', '%s', '%s', '%s', '%s', '%s')",
 					app->appid, app->portraitimg, image_type,
-					orientation, indicatordisplay, __get_str(operation));
+					orientation, indicatordisplay, __get_str(operation),
+					color_depth);
 			ret = __exec_query(query);
 			if (ret == -1) {
 				_LOGD("Package UiApp Splash Screen DB Insert Failed");
@@ -1711,10 +1715,11 @@ static int __insert_application_legacy_splashscreen_info(manifest_x *mfx)
 			orientation = "landscape";
 			snprintf(query, sizeof(query),
 					"insert into package_app_splash_screen" \
-					"(app_id, src, type, orientation, indicatordisplay, operation) " \
-					"values('%s', '%s', '%s', '%s', '%s', '%s')",
+					"(app_id, src, type, orientation, indicatordisplay, operation, color_depth) " \
+					"values('%s', '%s', '%s', '%s', '%s', '%s', '%s')",
 					app->appid, app->landscapeimg, image_type,
-					orientation, indicatordisplay, __get_str(operation));
+					orientation, indicatordisplay, __get_str(operation),
+					color_depth);
 			ret = __exec_query(query);
 			if (ret == -1) {
 				_LOGD("Package UiApp Splash Screen DB Insert Failed");
@@ -1742,6 +1747,7 @@ static int __insert_application_metadata_splashscreen_info(manifest_x *mfx)
 	const char *indicatordisplay;
 	const char *orientation;
 	const char *image_type;
+	const char *color_depth = "32"; /* default */
 
 	for (app_tmp = mfx->application; app_tmp; app_tmp = app_tmp->next) {
 		app = (application_x *)app_tmp->data;
@@ -1800,10 +1806,11 @@ static int __insert_application_metadata_splashscreen_info(manifest_x *mfx)
 					image_type = "edj";
 				snprintf(query, sizeof(query),
 					"insert into package_app_splash_screen" \
-					"(app_id, src, type, orientation, indicatordisplay, operation) " \
-					"values('%s', '%s', '%s', '%s', '%s', '%s')",
+					"(app_id, src, type, orientation, indicatordisplay, operation, color_depth) " \
+					"values('%s', '%s', '%s', '%s', '%s', '%s', '%s')",
 					app->appid, portraitimg, image_type,
-					orientation, indicatordisplay, __get_str(operation));
+					orientation, indicatordisplay, __get_str(operation),
+					color_depth);
 				ret = __exec_query(query);
 				if (ret == -1) {
 					_LOGD("Package UiApp Splash Screen DB Insert Failed");
@@ -1818,10 +1825,11 @@ static int __insert_application_metadata_splashscreen_info(manifest_x *mfx)
 					image_type = "edj";
 				snprintf(query, sizeof(query),
 					"insert into package_app_splash_screen" \
-					"(app_id, src, type, orientation, indicatordisplay, operation) " \
-					"values('%s', '%s', '%s', '%s', '%s', '%s')",
+					"(app_id, src, type, orientation, indicatordisplay, operation, color_depth) " \
+					"values('%s', '%s', '%s', '%s', '%s', '%s', '%s')",
 					app->appid, landscapeimg, image_type,
-					orientation, indicatordisplay, __get_str(operation));
+					orientation, indicatordisplay, __get_str(operation),
+					color_depth);
 				ret = __exec_query(query);
 				if (ret == -1) {
 					_LOGD("Package UiApp Splash Screen DB Insert Failed");

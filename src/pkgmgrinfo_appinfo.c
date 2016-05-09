@@ -531,6 +531,7 @@ static int _appinfo_get_splashscreens(sqlite3 *db, const char *appid,
 		_save_column_str(stmt, idx++, &info->orientation);
 		_save_column_str(stmt, idx++, &info->indicatordisplay);
 		_save_column_str(stmt, idx++, &info->operation);
+		_save_column_str(stmt, idx++, &info->color_depth);
 		*splashscreens = g_list_append(*splashscreens, info);
 	}
 
@@ -1140,6 +1141,8 @@ static gpointer __copy_splashscreens(gconstpointer src, gpointer data)
 		splashscreen->indicatordisplay = strdup(tmp->indicatordisplay);
 	if (tmp->operation)
 		splashscreen->operation = strdup(tmp->operation);
+	if (tmp->color_depth)
+		splashscreen->color_depth = strdup(tmp->color_depth);
 
 	return splashscreen;
 }
@@ -2449,6 +2452,7 @@ API int pkgmgrinfo_appinfo_foreach_splash_screen(pkgmgrinfo_appinfo_h handle,
 				splashscreen->orientation,
 				splashscreen->indicatordisplay,
 				splashscreen->operation,
+				splashscreen->color_depth,
 				user_data);
 		if (ret < 0)
 			break;

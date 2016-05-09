@@ -216,6 +216,8 @@ static void __ps_free_splashscreen(gpointer data)
 		free((void *)splashscreen->indicatordisplay);
 	if (splashscreen->operation)
 		free((void *)splashscreen->operation);
+	if (splashscreen->color_depth)
+		free((void *)splashscreen->color_depth);
 	free((void *)splashscreen);
 }
 
