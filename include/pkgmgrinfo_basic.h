@@ -97,6 +97,7 @@ typedef struct splashscreen_x {
 	char *orientation;
 	char *indicatordisplay;
 	char *operation;
+	char *color_depth;
 } splashscreen_x;
 
 typedef struct application_x {
