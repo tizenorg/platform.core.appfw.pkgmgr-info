@@ -108,9 +108,9 @@ enum {
 #define	PMINFO_PKGINFO_INSTALL_LOCATION_EXTERNAL	"LOCATION_EXTERNAL"
 
 typedef enum {
-	PMINFO_HWACCELERATION_NOT_USE_GL = 0,		/**< Don't use hardware acceleration*/
-	PMINFO_HWACCELERATION_USE_GL = 1,		/**< Use hardware acceleration*/
-	PMINFO_HWACCELERATION_USE_SYSTEM_SETTING = 2		/**< Follow system setting for hardware acceleration */
+	PMINFO_HWACCELERATION_OFF = 0,		/**< Don't use hardware acceleration*/
+	PMINFO_HWACCELERATION_ON = 1,		/**< Use hardware acceleration*/
+	PMINFO_HWACCELERATION_DEFAULT = 2		/**< Follow system setting for hardware acceleration */
 }pkgmgrinfo_app_hwacceleration;
 
 typedef enum {
