@@ -1642,6 +1642,18 @@ static int __ps_process_application(xmlTextReaderPtr reader, application_x *appl
 		application->indicatordisplay = strdup("false");
 	}
 
+	/* hw-acceleration values are changed from use-GL/not-use-GL/use-system-setting to on/off/default */
+	if (strcmp(application->hwacceleration, "use-GL") == 0) {
+		free((void *)application->hwacceleration);
+		application->hwacceleration = strdup("on");
+	} else if (strcmp(application->hwacceleration, "not-use-GL") == 0) {
+		free((void *)application->hwacceleration);
+		application->hwacceleration = strdup("off");
+	} else if (strcmp(application->hwacceleration, "use-system-setting") == 0) {
+		free((void *)application->hwacceleration);
+		application->hwacceleration = strdup("default");
+	}
+
 	depth = xmlTextReaderDepth(reader);
 	while ((ret = __next_child_element(reader, depth))) {
 		node = xmlTextReaderConstName(reader);
