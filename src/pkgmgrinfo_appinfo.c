@@ -2020,12 +2020,12 @@ API int pkgmgrinfo_appinfo_get_hwacceleration(pkgmgrinfo_appinfo_h handle, pkgmg
 		return PMINFO_R_ERROR;
 
 	val = (char *)info->app_info->hwacceleration;
-	if (strcasecmp(val, "not-use-GL") == 0)
-		*hwacceleration = PMINFO_HWACCELERATION_NOT_USE_GL;
-	else if (strcasecmp(val, "use-GL") == 0)
-		*hwacceleration = PMINFO_HWACCELERATION_USE_GL;
+	if (strcasecmp(val, "off") == 0)
+		*hwacceleration = PMINFO_HWACCELERATION_OFF;
+	else if (strcasecmp(val, "on") == 0)
+		*hwacceleration = PMINFO_HWACCELERATION_ON;
 	else
-		*hwacceleration = PMINFO_HWACCELERATION_USE_SYSTEM_SETTING;
+		*hwacceleration = PMINFO_HWACCELERATION_DEFAULT;
 
 	return PMINFO_R_OK;
 }
