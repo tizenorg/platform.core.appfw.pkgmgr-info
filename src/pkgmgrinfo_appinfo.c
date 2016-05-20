@@ -56,7 +56,7 @@ static const char join_metadata[] =
 	"  ON ai.app_id=package_app_app_metadata.app_id ";
 
 static char *_get_filtered_query(const char *query_raw,
-		pkgmgrinfo_filter_x *filter)
+		pkgmgrinfo_filter_x *filter, int *join_flag)
 {
 	char buf[MAX_QUERY_LEN] = { 0, };
 	char query[MAX_QUERY_LEN];
@@ -107,6 +107,7 @@ static char *_get_filtered_query(const char *query_raw,
 	}
 	strncat(query, buf, MAX_QUERY_LEN - len -1);
 
+	*join_flag = joined;
 	return strdup(query);
 }
 
@@ -537,6 +538,7 @@ static int _appinfo_get_applications(uid_t db_uid, uid_t uid,
 		"ai.component_type, ai.package "
 		"FROM package_app_info as ai";
 	int ret;
+	int join_flag = 0;
 	char *query;
 	const char *dbpath;
 	sqlite3 *db;
@@ -555,7 +557,7 @@ static int _appinfo_get_applications(uid_t db_uid, uid_t uid,
 		return PMINFO_R_ERROR;
 	}
 
-	query = _get_filtered_query(query_raw, filter);
+	query = _get_filtered_query(query_raw, filter, &join_flag);
 	if (query == NULL) {
 		LOGE("out of memory");
 		sqlite3_close_v2(db);
@@ -568,6 +570,16 @@ static int _appinfo_get_applications(uid_t db_uid, uid_t uid,
 		LOGE("prepare failed: %s", sqlite3_errmsg(db));
 		sqlite3_close_v2(db);
 		return PMINFO_R_ERROR;
+	}
+
+	if (join_flag & E_PMINFO_APPINFO_JOIN_LOCALIZED_INFO) {
+		ret = sqlite3_bind_text(stmt, 1, locale, -1, SQLITE_STATIC);
+		if (ret != SQLITE_OK) {
+			LOGE("failed to bind text: %s", locale);
+			sqlite3_finalize(stmt);
+			sqlite3_close_v2(db);
+			return PMINFO_R_ERROR;
+		}
 	}
 
 	while (sqlite3_step(stmt) == SQLITE_ROW) {
