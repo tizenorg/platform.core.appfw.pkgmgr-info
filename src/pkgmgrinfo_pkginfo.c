@@ -46,8 +46,8 @@
 #include "pkgmgr_parser_db.h"
 #include "pkgmgr_parser_internal.h"
 
-static char *_get_filtered_query(const char *query_raw,
-		pkgmgrinfo_filter_x *filter);
+static int _get_filtered_query(pkgmgrinfo_filter_x *filter, char **query, GList **bind_params);
+
 
 static bool _get_bool_value(const char *str)
 {
@@ -413,44 +413,65 @@ static int _pkginfo_get_privilege(sqlite3 *db, const char *pkgid,
 	return PMINFO_R_OK;
 }
 
-static char *_get_filtered_query(const char *query_raw,
-		pkgmgrinfo_filter_x *filter)
+static int _get_filtered_query(pkgmgrinfo_filter_x *filter, char **query, GList **bind_params)
 {
-	char buf[MAX_QUERY_LEN] = { 0, };
-	char *condition;
-	size_t len;
-	GSList *list;
-	GSList *head = NULL;
+	char buf[MAX_QUERY_LEN] = { '\0' };
+	char *condition = NULL;
+	int ret = PMINFO_R_ERROR;
 
-	if (filter)
-		head = filter->list;
+	size_t len = 0;
+	GSList *list = NULL;
 
-	strncat(buf, query_raw, MAX_QUERY_LEN - 1);
-	len = strlen(buf);
-	for (list = head; list; list = list->next) {
-		/* TODO: revise condition getter function */
-		__get_filter_condition(list->data, &condition);
-		if (condition == NULL)
+	if (filter == NULL)
+		return PMINFO_R_OK;
+
+	len += strlen(" WHERE 1=1 ");
+	strncat(buf, " WHERE 1=1 ", MAX_QUERY_LEN - len - 1);
+	for (list = filter->list; list; list = list->next) {
+		ret = __get_filter_condition(list->data, &condition, bind_params);
+		if (ret != 0 || condition == NULL)
 			continue;
-		if (buf[strlen(query_raw)] == '\0') {
-			len += strlen(" WHERE ");
-			strncat(buf, " WHERE ", MAX_QUERY_LEN - len - 1);
-		} else {
-			len += strlen(" AND ");
-			strncat(buf, " AND ", MAX_QUERY_LEN -len - 1);
-		}
+
+		len += strlen(" AND ");
+		strncat(buf, " AND ", MAX_QUERY_LEN - len - 1);
+
 		len += strlen(condition);
 		strncat(buf, condition, sizeof(buf) - len - 1);
+
 		free(condition);
 		condition = NULL;
 	}
 
-	return strdup(buf);
+	*query = strdup(buf);
+	if (*query == NULL)
+		return PMINFO_R_ERROR;
+
+	return PMINFO_R_OK;
 }
 
 static void __free_packages(gpointer data)
 {
 	pkgmgrinfo_basic_free_package((package_x *)data);
+}
+
+static int __bind_params(sqlite3_stmt *stmt, GList *params)
+{
+	GList *tmp_list = NULL;
+	int idx = 0;
+	int ret;
+
+	if (stmt == NULL || params == NULL)
+		return PMINFO_R_EINVAL;
+
+	tmp_list = params;
+	while (tmp_list) {
+		ret = sqlite3_bind_text(stmt, ++idx, (char *)tmp_list->data, -1, SQLITE_STATIC);
+		if (ret != SQLITE_OK)
+			return PMINFO_R_ERROR;
+		tmp_list = tmp_list->next;
+	}
+
+	return PMINFO_R_OK;
 }
 
 static int _pkginfo_get_packages(uid_t uid, const char *locale,
@@ -466,15 +487,19 @@ static int _pkginfo_get_packages(uid_t uid, const char *locale,
 		"pi.root_path, pi.csc_path, pi.package_nodisplay, "
 		"pi.package_api_version, pi.package_support_disable, "
 		"pi.package_tep_name, pi.package_zip_mount_file "
-		"FROM package_info as pi "
-		"WHERE pi.package_disable='false'";
-	int ret;
-	char *query;
+		"FROM package_info as pi ";
+
+	int ret = PMINFO_R_ERROR;
+	int idx = 0;
 	const char *dbpath;
+	char *constraints = NULL;
+	char query[MAX_QUERY_LEN] = { '\0' };
+
+	package_x *info = NULL;
+
+	GList *bind_params = NULL;
 	sqlite3 *db;
 	sqlite3_stmt *stmt;
-	int idx;
-	package_x *info;
 
 	dbpath = getUserPkgParserDBPathUID(uid);
 	if (dbpath == NULL)
@@ -486,19 +511,31 @@ static int _pkginfo_get_packages(uid_t uid, const char *locale,
 		return PMINFO_R_ERROR;
 	}
 
-	query = _get_filtered_query(query_raw, filter);
-	if (query == NULL) {
-		LOGE("out of memory");
-		sqlite3_close_v2(db);
-		return PMINFO_R_ERROR;
+	// add package_disable='false' clause by default
+	pkgmgrinfo_pkginfo_filter_add_bool(filter, PMINFO_PKGINFO_PROP_PACKAGE_DISABLE, false);
+
+	ret = _get_filtered_query(filter, &constraints, &bind_params);
+	if (ret != PMINFO_R_OK) {
+		LOGE("Failed to get WHERE clause");
+		goto catch;
 	}
 
+	if (constraints)
+		snprintf(query, MAX_QUERY_LEN - 1, "%s%s", query_raw, constraints);
+	else
+		snprintf(query, MAX_QUERY_LEN - 1, "%s", query_raw);
+
 	ret = sqlite3_prepare_v2(db, query, strlen(query), &stmt, NULL);
-	free(query);
 	if (ret != SQLITE_OK) {
 		LOGE("prepare failed: %s", sqlite3_errmsg(db));
-		sqlite3_close_v2(db);
-		return PMINFO_R_ERROR;
+		ret = PMINFO_R_ERROR;
+		goto catch;
+	}
+
+	ret = __bind_params(stmt, bind_params);
+	if (ret != SQLITE_OK) {
+		LOGE("Failed to bind parameters");
+		goto catch;
 	}
 
 	while (sqlite3_step(stmt) == SQLITE_ROW) {
@@ -596,10 +633,20 @@ static int _pkginfo_get_packages(uid_t uid, const char *locale,
 				(gpointer)info);
 	}
 
-	sqlite3_finalize(stmt);
-	sqlite3_close_v2(db);
+	ret = PMINFO_R_OK;
 
-	return PMINFO_R_OK;
+catch:
+	if (constraints)
+		free(constraints);
+
+	if (ret != PMINFO_R_OK && info != NULL)
+		pkgmgrinfo_basic_free_package(info);
+
+	g_list_free_full(bind_params, free);
+	sqlite3_close_v2(db);
+	sqlite3_finalize(stmt);
+
+	return ret;
 }
 
 static int _pkginfo_get_filtered_foreach_pkginfo(uid_t uid,
@@ -691,10 +738,10 @@ API int pkgmgrinfo_pkginfo_get_usr_pkginfo(const char *pkgid, uid_t uid,
 		return PMINFO_R_ERROR;
 	}
 
-	ret = _pkginfo_get_packages(uid, locale, NULL,
+	ret = _pkginfo_get_packages(uid, locale, filter,
 			PMINFO_PKGINFO_GET_ALL, list);
 	if (!g_hash_table_size(list) && uid != GLOBAL_USER)
-		ret = _pkginfo_get_packages(GLOBAL_USER, locale, NULL,
+		ret = _pkginfo_get_packages(GLOBAL_USER, locale, filter,
 				PMINFO_PKGINFO_GET_ALL, list);
 
 	pkgmgrinfo_pkginfo_filter_destroy(filter);
@@ -1773,9 +1820,9 @@ API int pkgmgrinfo_pkginfo_filter_add_bool(pkgmgrinfo_pkginfo_filter_h handle,
 		return PMINFO_R_ERROR;
 	}
 	if (value)
-		val = strndup("('true','True')", 15);
+		val = strndup("true", 4);
 	else
-		val = strndup("('false','False')", 17);
+		val = strndup("false", 5);
 	if (val == NULL) {
 		_LOGE("Out of Memory\n");
 		free(node);
