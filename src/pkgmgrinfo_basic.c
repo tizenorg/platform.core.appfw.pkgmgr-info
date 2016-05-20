@@ -307,6 +307,14 @@ static void __ps_free_application(gpointer data)
 		free((void *)application->is_disabled);
 	if (application->splash_screen_display)
 		free((void *)application->splash_screen_display);
+	if (application->effectimage_type)
+		free((void *)application->effectimage_type);
+	if (application->package_type)
+		free((void *)application->package_type);
+	if (application->ambient_support)
+		free((void *)application->ambient_support);
+	if (application->alias_appid)
+		free((void *)application->alias_appid);
 
 	/*Free Label*/
 	g_list_free_full(application->label, __ps_free_label);
