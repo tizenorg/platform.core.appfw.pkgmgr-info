@@ -107,6 +107,8 @@ extern "C" {
 #define	PMINFO_PKGINFO_PROP_PACKAGE_NODISPLAY_SETTING		"PMINFO_PKGINFO_PROP_PACKAGE_NODISPLAY_SETTING"
    /** Boolean property for filtering based on package info*/
 #define	PMINFO_PKGINFO_PROP_PACKAGE_SUPPORT_DISABLE		"PMINFO_PKGINFO_PROP_PACKAGE_SUPPORT_DISABLE"
+   /** Boolean property for filtering based on package info*/
+#define	PMINFO_PKGINFO_PROP_PACKAGE_DISABLE		"PMINFO_PKGINFO_PROP_PACKAGE_DISABLE"
 
  /** Integer property for filtering based on package info*/
 #define	PMINFO_PKGINFO_PROP_PACKAGE_SIZE		"PMINFO_PKGINFO_PROP_PACKAGE_SIZE"
