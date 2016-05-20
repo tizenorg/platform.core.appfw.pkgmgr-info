@@ -44,7 +44,7 @@ static void __cleanup_appinfo(pkgmgr_appinfo_x *data)
 static const char join_localized_info[] =
 	" LEFT OUTER JOIN package_app_localized_info"
 	"  ON ai.app_id=package_app_localized_info.app_id"
-	"  AND package_app_localized_info.app_locale=?";
+	"  AND package_app_localized_info.app_locale=";
 static const char join_category[] =
 	" LEFT OUTER JOIN package_app_app_category"
 	" ON ai.app_id=package_app_app_category.app_id";
@@ -56,7 +56,7 @@ static const char join_metadata[] =
 	"  ON ai.app_id=package_app_app_metadata.app_id ";
 
 static char *_get_filtered_query(const char *query_raw,
-		pkgmgrinfo_filter_x *filter)
+		pkgmgrinfo_filter_x *filter, const char *locale)
 {
 	char buf[MAX_QUERY_LEN] = { 0, };
 	char query[MAX_QUERY_LEN];
@@ -90,8 +90,9 @@ static char *_get_filtered_query(const char *query_raw,
 	snprintf(query, sizeof(query), "%s", query_raw);
 	len = strlen(query);
 	if (joined & E_PMINFO_APPINFO_JOIN_LOCALIZED_INFO) {
-		strncat(query, join_localized_info, MAX_QUERY_LEN - len - 1);
-		len += strlen(join_localized_info);
+		//strncat(query, join_localized_info, MAX_QUERY_LEN - len - 1);
+		snprintf(query, sizeof(query), "%s%s'%s'", query_raw, join_localized_info, locale);
+		len += strlen(join_localized_info) + strlen(locale) + 2;
 	}
 	if (joined & E_PMINFO_APPINFO_JOIN_CATEGORY) {
 		strncat(query, join_category, MAX_QUERY_LEN - len - 1);
@@ -555,7 +556,7 @@ static int _appinfo_get_applications(uid_t db_uid, uid_t uid,
 		return PMINFO_R_ERROR;
 	}
 
-	query = _get_filtered_query(query_raw, filter);
+	query = _get_filtered_query(query_raw, filter, locale);
 	if (query == NULL) {
 		LOGE("out of memory");
 		sqlite3_close_v2(db);
