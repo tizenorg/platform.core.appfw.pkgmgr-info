@@ -231,154 +231,156 @@ inline pkgmgrinfo_appinfo_filter_prop_bool _pminfo_appinfo_convert_to_prop_bool(
 	return prop;
 }
 
-int __get_filter_condition(gpointer data, char **condition)
+int __get_filter_condition(gpointer data, char **condition, char **param)
 {
 	pkgmgrinfo_node_x *node = (pkgmgrinfo_node_x*)data;
 	char buf[MAX_QUERY_LEN] = {'\0'};
-	char temp[PKG_STRING_LEN_MAX] = {'\0'};
 	int flag = 0;
+
 	switch (node->prop) {
 	case E_PMINFO_PKGINFO_PROP_PACKAGE_ID:
-		snprintf(buf, sizeof(buf), "pi.package='%s'", node->value);
+		snprintf(buf, sizeof(buf), "pi.package=?");
 		break;
 	case E_PMINFO_PKGINFO_PROP_PACKAGE_TYPE:
-		snprintf(buf, sizeof(buf), "pi.package_type='%s'", node->value);
+		snprintf(buf, sizeof(buf), "pi.package_type=?");
 		break;
 	case E_PMINFO_PKGINFO_PROP_PACKAGE_VERSION:
-		snprintf(buf, sizeof(buf), "pi.package_version='%s'", node->value);
+		snprintf(buf, sizeof(buf), "pi.package_version=?");
 		break;
 	case E_PMINFO_PKGINFO_PROP_PACKAGE_INSTALL_LOCATION:
-		snprintf(buf, sizeof(buf), "pi.install_location='%s'", node->value);
+		snprintf(buf, sizeof(buf), "pi.install_location=?");
 		break;
 	case E_PMINFO_PKGINFO_PROP_PACKAGE_INSTALLED_STORAGE:
-		snprintf(buf, sizeof(buf), "pi.installed_storage='%s'", node->value);
+		snprintf(buf, sizeof(buf), "pi.installed_storage=?");
 		break;
 	case E_PMINFO_PKGINFO_PROP_PACKAGE_AUTHOR_NAME:
-		snprintf(buf, sizeof(buf), "pi.author_name='%s'", node->value);
+		snprintf(buf, sizeof(buf), "pi.author_name=?");
 		break;
 	case E_PMINFO_PKGINFO_PROP_PACKAGE_AUTHOR_HREF:
-		snprintf(buf, sizeof(buf), "pi.author_href='%s'", node->value);
+		snprintf(buf, sizeof(buf), "pi.author_href=?");
 		break;
 	case E_PMINFO_PKGINFO_PROP_PACKAGE_AUTHOR_EMAIL:
-		snprintf(buf, sizeof(buf), "pi.author_email='%s'", node->value);
+		snprintf(buf, sizeof(buf), "pi.author_email=?");
 		break;
 	case E_PMINFO_PKGINFO_PROP_PACKAGE_PRIVILEGE:
-		snprintf(buf, sizeof(buf), "pi.privilege='%s'", node->value);
+		snprintf(buf, sizeof(buf), "pi.privilege=?");
 		flag = E_PMINFO_PKGINFO_JOIN_PRIVILEGE_INFO;
 		break;
 	case E_PMINFO_PKGINFO_PROP_PACKAGE_SIZE:
-		snprintf(buf, sizeof(buf), "pi.package_size='%s'", node->value);
+		snprintf(buf, sizeof(buf), "pi.package_size=?");
 		break;
 	case E_PMINFO_PKGINFO_PROP_PACKAGE_REMOVABLE:
-		snprintf(buf, sizeof(buf), "pi.package_removable IN %s", node->value);
+		snprintf(buf, sizeof(buf), "pi.package_removable=? COLLATE NOCASE");
 		break;
 	case E_PMINFO_PKGINFO_PROP_PACKAGE_PRELOAD:
-		snprintf(buf, sizeof(buf), "pi.package_preload IN %s", node->value);
+		snprintf(buf, sizeof(buf), "pi.package_preload=? COLLATE NOCASE");
 		break;
 	case E_PMINFO_PKGINFO_PROP_PACKAGE_READONLY:
-		snprintf(buf, sizeof(buf), "pi.package_readonly IN %s", node->value);
+		snprintf(buf, sizeof(buf), "pi.package_readonly=? COLLATE NOCASE");
 		break;
 	case E_PMINFO_PKGINFO_PROP_PACKAGE_UPDATE:
-		snprintf(buf, sizeof(buf), "pi.package_update IN %s", node->value);
+		snprintf(buf, sizeof(buf), "pi.package_update=? COLLATE NOCASE");
 		break;
 	case E_PMINFO_PKGINFO_PROP_PACKAGE_APPSETTING:
-		snprintf(buf, sizeof(buf), "pi.package_appsetting IN %s", node->value);
+		snprintf(buf, sizeof(buf), "pi.package_appsetting=? COLLATE NOCASE");
 		break;
 	case E_PMINFO_PKGINFO_PROP_PACKAGE_NODISPLAY_SETTING:
-		snprintf(buf, sizeof(buf), "pi.package_nodisplay IN %s", node->value);
+		snprintf(buf, sizeof(buf), "pi.package_nodisplay=? COLLATE NOCASE");
 		break;
 	case E_PMINFO_PKGINFO_PROP_PACKAGE_SUPPORT_DISABLE:
-		snprintf(buf, sizeof(buf), "pi.package_support_disable IN %s", node->value);
+		snprintf(buf, sizeof(buf), "pi.package_support_disable=? COLLATE NOCASE");
 		break;
 
 	case E_PMINFO_APPINFO_PROP_APP_ID:
-		snprintf(buf, sizeof(buf), "ai.app_id='%s'", node->value);
+		snprintf(buf, sizeof(buf), "ai.app_id=?");
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_COMPONENT:
-		snprintf(buf, sizeof(buf), "ai.app_component='%s'", node->value);
+		snprintf(buf, sizeof(buf), "ai.app_component=?");
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_EXEC:
-		snprintf(buf, sizeof(buf), "ai.app_exec='%s'", node->value);
+		snprintf(buf, sizeof(buf), "ai.app_exec=?");
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_ICON:
-		snprintf(buf, sizeof(buf), "package_app_localized_info.app_icon='%s'", node->value);
+		snprintf(buf, sizeof(buf), "package_app_localized_info.app_icon=?");
 		flag = E_PMINFO_APPINFO_JOIN_LOCALIZED_INFO;
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_TYPE:
-		snprintf(buf, sizeof(buf), "ai.app_type='%s'", node->value);
+		snprintf(buf, sizeof(buf), "ai.app_type=?");
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_OPERATION:
-		snprintf(buf, sizeof(buf), "package_app_app_control.app_control LIKE '%s|%%%%|%%%%'", node->value);
+		snprintf(buf, sizeof(buf), "package_app_app_control.app_control LIKE ?||'|%%%%|%%%%'");
 		flag = E_PMINFO_APPINFO_JOIN_APP_CONTROL;
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_URI:
-		snprintf(buf, sizeof(buf), "package_app_app_control.app_control LIKE '%%%%|%s|%%%%'", node->value);
+		snprintf(buf, sizeof(buf), "package_app_app_control.app_control LIKE '%%%%|'||?||'|%%%%'");
 		flag = E_PMINFO_APPINFO_JOIN_APP_CONTROL;
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_MIME:
-		snprintf(buf, sizeof(buf), "package_app_app_control.app_control LIKE '%%%%|%%%%|%s'", node->value);
+		snprintf(buf, sizeof(buf), "package_app_app_control.app_control LIKE '%%%%|%%%%|'||?");
 		flag = E_PMINFO_APPINFO_JOIN_APP_CONTROL;
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_CATEGORY:
-		snprintf(temp, sizeof(temp), "(%s)", node->value);
-		snprintf(buf, sizeof(buf), "package_app_app_category.category IN %s", temp);
+		// TODO : need to fix to not use value directly
+		snprintf(buf, sizeof(buf), "package_app_app_category.category IN (%s)", node->value);
 		flag = E_PMINFO_APPINFO_JOIN_APP_CONTROL;
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_NODISPLAY:
-		snprintf(buf, sizeof(buf), "ai.app_nodisplay IN %s", node->value);
+		snprintf(buf, sizeof(buf), "ai.app_nodisplay=? COLLATE NOCASE");
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_MULTIPLE:
-		snprintf(buf, sizeof(buf), "ai.app_multiple IN %s", node->value);
+		snprintf(buf, sizeof(buf), "ai.app_multiple=? COLLATE NOCASE");
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_ONBOOT:
-		snprintf(buf, sizeof(buf), "ai.app_onboot IN %s", node->value);
+		snprintf(buf, sizeof(buf), "ai.app_onboot=? COLLATE NOCASE");
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_AUTORESTART:
-		snprintf(buf, sizeof(buf), "ai.app_autorestart IN %s", node->value);
+		snprintf(buf, sizeof(buf), "ai.app_autorestart=? COLLATE NOCASE");
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_TASKMANAGE:
-		snprintf(buf, sizeof(buf), "ai.app_taskmanage IN %s", node->value);
+		snprintf(buf, sizeof(buf), "ai.app_taskmanage=? COLLATE NOCASE");
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_HWACCELERATION:
-		snprintf(buf, sizeof(buf), "ai.app_hwacceleration='%s'", node->value);
+		snprintf(buf, sizeof(buf), "ai.app_hwacceleration=?");
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_SCREENREADER:
-		snprintf(buf, sizeof(buf), "ai.app_screenreader='%s'", node->value);
+		snprintf(buf, sizeof(buf), "ai.app_screenreader=?");
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_LAUNCHCONDITION:
-		snprintf(buf, sizeof(buf), "ai.app_launchcondition IN %s", node->value);
+		snprintf(buf, sizeof(buf), "ai.app_launchcondition=? COLLATE NOCASE");
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_PACKAGE:
-		snprintf(buf, sizeof(buf), "ai.package='%s'", node->value);
+		snprintf(buf, sizeof(buf), "ai.package=?");
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_UI_GADGET:
-		snprintf(buf, sizeof(buf), "ai.app_ui_gadget IN %s", node->value);
+		snprintf(buf, sizeof(buf), "ai.app_ui_gadget=? COLLATE NOCASE");
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_METADATA_KEY:
-		snprintf(buf, sizeof(buf), "package_app_app_metadata.md_key='%s'", node->value);
+		snprintf(buf, sizeof(buf), "package_app_app_metadata.md_key=?");
 		flag = E_PMINFO_APPINFO_JOIN_METADATA;
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_METADATA_VALUE:
-		snprintf(buf, sizeof(buf), "package_app_app_metadata.md_value='%s'", node->value);
+		snprintf(buf, sizeof(buf), "package_app_app_metadata.md_value=?");
 		flag = E_PMINFO_APPINFO_JOIN_METADATA;
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_DISABLE:
-		snprintf(buf, MAX_QUERY_LEN, "ai.app_disable IN %s", node->value);
+		snprintf(buf, MAX_QUERY_LEN, "ai.app_disable=? COLLATE NOCASE");
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_SUPPORT_DISABLE:
-		snprintf(buf, MAX_QUERY_LEN, "ai.app_support_disable IN %s", node->value);
+		snprintf(buf, MAX_QUERY_LEN, "ai.app_support_disable=? COLLATE NOCASE");
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_DISABLE_FOR_USER:
 		snprintf(buf, MAX_QUERY_LEN, "ai.app_id NOT IN "
-				"(SELECT app_id from package_app_info_for_uid WHERE uid='%s' " \
-				"AND is_disabled='true')", node->value);
+				"(SELECT app_id from package_app_info_for_uid WHERE uid=? " \
+				"AND is_disabled='true' COLLATE NOCASE)");
 		break;
 	default:
 		_LOGE("Invalid Property Type\n");
 		*condition = NULL;
+		*param = NULL;
 		return 0;
 	}
 	*condition = strdup(buf);
+	*param = strdup(node->value);
 	return flag;
 }
 
