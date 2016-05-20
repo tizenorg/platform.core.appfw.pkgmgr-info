@@ -466,15 +466,18 @@ static int _pkginfo_get_packages(uid_t uid, const char *locale,
 		"pi.root_path, pi.csc_path, pi.package_nodisplay, "
 		"pi.package_api_version, pi.package_support_disable, "
 		"pi.package_tep_name, pi.package_zip_mount_file "
-		"FROM package_info as pi "
-		"WHERE pi.package_disable='false'";
+		"FROM package_info as pi ";
+	static const char default_constraint[] =
+		"pi.package_disable='false' ";
+
 	int ret;
-	char *query;
+	char *tmp;
 	const char *dbpath;
 	sqlite3 *db;
 	sqlite3_stmt *stmt;
 	int idx;
 	package_x *info;
+	char query[MAX_QUERY_LEN] = { 0, };
 
 	dbpath = getUserPkgParserDBPathUID(uid);
 	if (dbpath == NULL)
@@ -486,15 +489,21 @@ static int _pkginfo_get_packages(uid_t uid, const char *locale,
 		return PMINFO_R_ERROR;
 	}
 
-	query = _get_filtered_query(query_raw, filter);
-	if (query == NULL) {
+	tmp = _get_filtered_query(query_raw, filter);
+	if (tmp == NULL) {
 		LOGE("out of memory");
 		sqlite3_close_v2(db);
 		return PMINFO_R_ERROR;
 	}
 
+	// add default constraint about disabled packages
+	if (strcmp(tmp, query_raw) != 0)
+		snprintf(query, MAX_QUERY_LEN - 1, "%s%s%s", tmp, " AND", default_constraint);
+	else
+		snprintf(query, MAX_QUERY_LEN - 1, "%s%s%s", tmp, " WHERE", default_constraint);
+	free(tmp);
+
 	ret = sqlite3_prepare_v2(db, query, strlen(query), &stmt, NULL);
-	free(query);
 	if (ret != SQLITE_OK) {
 		LOGE("prepare failed: %s", sqlite3_errmsg(db));
 		sqlite3_close_v2(db);
@@ -691,10 +700,10 @@ API int pkgmgrinfo_pkginfo_get_usr_pkginfo(const char *pkgid, uid_t uid,
 		return PMINFO_R_ERROR;
 	}
 
-	ret = _pkginfo_get_packages(uid, locale, NULL,
+	ret = _pkginfo_get_packages(uid, locale, filter,
 			PMINFO_PKGINFO_GET_ALL, list);
 	if (!g_hash_table_size(list) && uid != GLOBAL_USER)
-		ret = _pkginfo_get_packages(GLOBAL_USER, locale, NULL,
+		ret = _pkginfo_get_packages(GLOBAL_USER, locale, filter,
 				PMINFO_PKGINFO_GET_ALL, list);
 
 	pkgmgrinfo_pkginfo_filter_destroy(filter);
