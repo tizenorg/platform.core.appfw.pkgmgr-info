@@ -99,7 +99,8 @@ typedef enum _pkgmgrinfo_pkginfo_filter_prop_bool {
 	E_PMINFO_PKGINFO_PROP_PACKAGE_APPSETTING,
 	E_PMINFO_PKGINFO_PROP_PACKAGE_NODISPLAY_SETTING,
 	E_PMINFO_PKGINFO_PROP_PACKAGE_SUPPORT_DISABLE,
-	E_PMINFO_PKGINFO_PROP_PACKAGE_MAX_BOOL = E_PMINFO_PKGINFO_PROP_PACKAGE_SUPPORT_DISABLE
+	E_PMINFO_PKGINFO_PROP_PACKAGE_DISABLE,
+	E_PMINFO_PKGINFO_PROP_PACKAGE_MAX_BOOL = E_PMINFO_PKGINFO_PROP_PACKAGE_DISABLE
 } pkgmgrinfo_pkginfo_filter_prop_bool;
 
 /*Integer properties for filtering based on package info*/
@@ -234,7 +235,7 @@ int __open_cert_db(uid_t uid, bool readonly);
 void _save_column_int(sqlite3_stmt *stmt, int idx, int *i);
 void _save_column_str(sqlite3_stmt *stmt, int idx, char **str);
 char *_get_system_locale(void);
-int __get_filter_condition(gpointer data, char **condition);
+int __get_filter_condition(gpointer data, char **condition, GList **param);
 
 #define REGULAR_USER 5000
 static inline uid_t _getuid(void)
