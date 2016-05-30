@@ -3095,3 +3095,95 @@ err:
 	return ret;
 }
 
+static int __validate_cb(void *data, int ncols, char **coltxt, char **colname)
+{
+	int *p = (int *)data;
+	*p = atoi(coltxt[0]);
+	return 0;
+}
+
+static int __update_pkg_info_for_disable(const char *pkgid, bool disable, uid_t uid)
+{
+	char *query = NULL;
+	char *error_message = NULL;
+	int ret = -1;
+	int exist = 0;
+
+	if (pkgid == NULL)
+		return PMINFO_R_EINVAL;
+
+	ret = pkgmgr_parser_check_and_create_db(uid);
+	if (ret == -1) {
+		_LOGD("Failed to open DB\n");
+		return ret;
+	}
+
+	/* Check existance of pkg */
+	query = sqlite3_mprintf("SELECT EXISTS(SELECT * FROM package_info WHERE " \
+			"package=%Q AND package_disable=%Q", pkgid, disable ? "false" : "true");
+	if (query == NULL)
+		return PMINFO_R_ERROR;
+	ret = sqlite3_exec(pkgmgr_parser_db, query, __validate_cb, &exist, &error_message);
+	if (ret != SQLITE_OK) {
+		_LOGE("Don't execute query = %s error message = %s\n", query,
+		       error_message);
+		ret = -1;
+		goto err;
+	}
+
+	if (exist == 0) {
+		_LOGE("pkgid[%s] not found in DB", pkgid);
+		ret = -1;
+		goto err;
+	}
+	sqlite3_free(query);
+	query = NULL;
+
+	query = sqlite3_mprintf("UPDATE package_info SET package_disable=%Q " \
+			"WHERE package=%Q", disable ? "true" : "false", pkgid);
+	if (query == NULL)
+		return PMINFO_R_ERROR;
+
+	ret = __exec_query("BEGIN EXCLUSIVE");
+	if (ret != 0)
+		goto err;
+
+	ret = __exec_query(query);
+	if (ret != 0) {
+		__exec_query("ROLLBACK");
+		goto err;
+	}
+
+	ret = __exec_query("COMMIT");
+	if (ret != 0) {
+		__exec_query("ROLLBACK");
+		goto err;
+	}
+
+err:
+	sqlite3_free(query);
+	sqlite3_free(error_message);
+	pkgmgr_parser_close_db();
+
+	return ret;
+}
+
+API int pkgmgr_parser_update_disabled_pkg_info_in_usr_db(const char *pkgid, uid_t uid)
+{
+	return __update_pkg_info_for_disable(pkgid, true, uid);
+}
+
+API int pkgmgr_parser_update_disabled_pkg_info_in_db(const char *pkgid)
+{
+	return pkgmgr_parser_update_disabled_pkg_info_in_usr_db(pkgid, _getuid());
+}
+
+API int pkgmgr_parser_update_enabled_pkg_info_in_usr_db(const char *pkgid, uid_t uid)
+{
+	return __update_pkg_info_for_disable(pkgid, false, uid);
+}
+
+API int pkgmgr_parser_update_enabled_pkg_info_in_db(const char *pkgid)
+{
+	return pkgmgr_parser_update_enabled_pkg_info_in_usr_db(pkgid, _getuid());
+}
