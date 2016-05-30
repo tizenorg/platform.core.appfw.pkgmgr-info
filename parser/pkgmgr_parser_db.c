@@ -3063,7 +3063,7 @@ API int pkgmgr_parser_update_app_splash_screen_display_info_in_usr_db(const char
 	}
 
 	/* Begin transaction */
-	ret = sqlite3_exec(pkgmgr_parser_db, "BEGIN_EXCLUSIVE", NULL, NULL, NULL);
+	ret = sqlite3_exec(pkgmgr_parser_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
 	if (ret != SQLITE_OK) {
 		_LOGD("Failed to begin transaction");
 		ret = -1;
