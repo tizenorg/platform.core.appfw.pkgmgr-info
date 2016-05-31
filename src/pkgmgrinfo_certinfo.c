@@ -62,8 +62,12 @@ static int _pkginfo_compare_certinfo(sqlite3 *db, const char *l_pkgid,
 	int ret;
 	sqlite3_stmt *stmt;
 	const char *pkgid[2];
-	int certid[2] = {-1, };
+	int certid[2] = {-1, -1};
+	int exists[2] = {-1, -1};
 	int i;
+
+	pkgid[0] = l_pkgid;
+	pkgid[1] = r_pkgid;
 
 	ret = sqlite3_prepare_v2(db, query, strlen(query), &stmt, NULL);
 	if (ret != SQLITE_OK) {
@@ -71,8 +75,6 @@ static int _pkginfo_compare_certinfo(sqlite3 *db, const char *l_pkgid,
 		return PMINFO_R_ERROR;
 	}
 
-	pkgid[0] = l_pkgid;
-	pkgid[1] = r_pkgid;
 	for (i = 0; i < 2; i++) {
 		ret = sqlite3_bind_text(stmt, 1, pkgid[i], -1, SQLITE_STATIC);
 		if (ret != SQLITE_OK) {
@@ -83,28 +85,37 @@ static int _pkginfo_compare_certinfo(sqlite3 *db, const char *l_pkgid,
 
 		ret = sqlite3_step(stmt);
 		if (ret == SQLITE_ROW) {
+			exists[i] = 1;
 			_save_column_int(stmt, 0, &certid[i]);
 		} else if (ret != SQLITE_DONE) {
 			_LOGE("step error: %s", sqlite3_errmsg(db));
 			sqlite3_finalize(stmt);
 			return PMINFO_R_ERROR;
+		} else {
+			exists[i] = 0;
 		}
 
 		sqlite3_reset(stmt);
 		sqlite3_clear_bindings(stmt);
 	}
 
-	if (certid[0] == -1 && certid[1] == -1)
+	if (exists[0] == 0 && exists[1] == 0) {
 		*result = PMINFO_CERT_COMPARE_BOTH_NO_CERT;
-	else if (certid[0] == -1)
+		goto catch;
+	}	else if (exists[0] == 0) {
 		*result = PMINFO_CERT_COMPARE_LHS_NO_CERT;
-	else if (certid[1] == -1)
+		goto catch;
+	}	else if (exists[1] == 0) {
 		*result = PMINFO_CERT_COMPARE_RHS_NO_CERT;
-	else if (certid[0] == certid[1])
+		goto catch;
+	}
+
+	if (certid[0] == certid[1])
 		*result = PMINFO_CERT_COMPARE_MATCH;
 	else
 		*result = PMINFO_CERT_COMPARE_MISMATCH;
 
+catch:
 	sqlite3_finalize(stmt);
 
 	return PMINFO_R_OK;
