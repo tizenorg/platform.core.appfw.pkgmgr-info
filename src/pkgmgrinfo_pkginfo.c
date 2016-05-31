@@ -417,7 +417,6 @@ static int _get_filtered_query(pkgmgrinfo_filter_x *filter, char **query, GList 
 {
 	char buf[MAX_QUERY_LEN] = { '\0' };
 	char *condition = NULL;
-	int ret = PMINFO_R_ERROR;
 	size_t len = 0;
 	GSList *list = NULL;
 
@@ -427,7 +426,7 @@ static int _get_filtered_query(pkgmgrinfo_filter_x *filter, char **query, GList 
 	len += strlen(" WHERE 1=1 ");
 	strncat(buf, " WHERE 1=1 ", MAX_QUERY_LEN - len - 1);
 	for (list = filter->list; list; list = list->next) {
-		ret = __get_filter_condition(list->data, &condition, bind_params);
+		__get_filter_condition(list->data, &condition, bind_params);
 		if (condition == NULL)
 			continue;
 
@@ -495,6 +494,7 @@ static int _pkginfo_get_packages(uid_t uid, const char *locale,
 	GList *bind_params = NULL;
 	sqlite3 *db;
 	sqlite3_stmt *stmt;
+	pkgmgrinfo_filter_x *tmp_filter = NULL;
 
 	dbpath = getUserPkgParserDBPathUID(uid);
 	if (dbpath == NULL)
@@ -506,10 +506,20 @@ static int _pkginfo_get_packages(uid_t uid, const char *locale,
 		return PMINFO_R_ERROR;
 	}
 
-	/* add package_disable='false' clause by default */
-	pkgmgrinfo_pkginfo_filter_add_bool(filter, PMINFO_PKGINFO_PROP_PACKAGE_DISABLE, false);
+	if (filter != NULL) {
+		tmp_filter = filter;
+	} else {
+		ret = pkgmgrinfo_pkginfo_filter_create((void *)&tmp_filter);
+		if (ret != PMINFO_R_OK) {
+			_LOGE("Failed to create filter");
+			return PMINFO_R_ERROR;
+		}
+	}
 
-	ret = _get_filtered_query(filter, &constraints, &bind_params);
+	/* add package_disable='false' clause by default */
+	pkgmgrinfo_pkginfo_filter_add_bool(tmp_filter, PMINFO_PKGINFO_PROP_PACKAGE_DISABLE, false);
+
+	ret = _get_filtered_query(tmp_filter, &constraints, &bind_params);
 	if (ret != PMINFO_R_OK) {
 		LOGE("Failed to get WHERE clause");
 		goto catch;
@@ -636,6 +646,9 @@ catch:
 
 	if (ret != PMINFO_R_OK && info != NULL)
 		pkgmgrinfo_basic_free_package(info);
+
+	if (filter == NULL)
+		pkgmgrinfo_pkginfo_filter_destroy(tmp_filter);
 
 	g_list_free_full(bind_params, free);
 	sqlite3_close_v2(db);

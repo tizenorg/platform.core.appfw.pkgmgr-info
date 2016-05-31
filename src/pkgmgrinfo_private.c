@@ -329,7 +329,7 @@ int __get_filter_condition(gpointer data, char **condition, GList **params)
 		ptr = strtok(node->value, ",");
 		strncat(buf, "?", MAX_QUERY_LEN - 2);
 		*params = g_list_append(*params, strdup(ptr));
-		while (ptr = strtok(NULL, ",")) {
+		while ((ptr = strtok(NULL, ","))) {
 			strncat(buf, ", ?", MAX_QUERY_LEN - strlen(", ?") - 1);
 			*params = g_list_append(*params, strdup(ptr));
 		}
