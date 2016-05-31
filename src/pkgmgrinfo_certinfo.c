@@ -56,14 +56,60 @@ static int _pkginfo_compare_certinfo(sqlite3 *db, const char *l_pkgid,
 		const char *r_pkgid,
 		pkgmgrinfo_cert_compare_result_type_e *result)
 {
+	static const char exist_query[] =
+		"SELECT EXISTS(SELECT * FROM package_cert_info "
+		"WHERE package=?)";
 	static const char query[] =
 		"SELECT author_signer_cert FROM package_cert_info "
 		"WHERE package=?";
 	int ret;
 	sqlite3_stmt *stmt;
 	const char *pkgid[2];
-	int certid[2] = {-1, };
+	int certid[2] = {-1, -1};
+	int exists[2] = {-1, -1};
 	int i;
+
+	pkgid[0] = l_pkgid;
+	pkgid[1] = r_pkgid;
+
+	ret = sqlite3_prepare_v2(db, exist_query, strlen(exist_query), &stmt, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGE("prepare error: %s", sqlite3_errmsg(db));
+		return PMINFO_R_ERROR;
+	}
+
+	for (i = 0; i < 2; i++) {
+		ret = sqlite3_bind_text(stmt, 1, pkgid[i], -1, SQLITE_STATIC);
+		if (ret != SQLITE_OK) {
+			_LOGE("bind error: %s", sqlite3_errmsg(db));
+			sqlite3_finalize(stmt);
+			return PMINFO_R_ERROR;
+		}
+
+		ret = sqlite3_step(stmt);
+		if (ret == SQLITE_ROW) {
+			_save_column_int(stmt, 0, &exists[i]);
+		} else {
+			_LOGE("step error: %s", sqlite3_errmsg(db));
+			sqlite3_finalize(stmt);
+			return PMINFO_R_ERROR;
+		}
+
+		sqlite3_reset(stmt);
+		sqlite3_clear_bindings(stmt);
+	}
+	sqlite3_finalize(stmt);
+
+	if (exists[0] == 0 && exists[i] == 0) {
+		*result = PMINFO_CERT_COMPARE_BOTH_NO_CERT;
+		return PMINFO_R_OK;
+	} else if (exists[0] == 0) {
+		*result = PMINFO_CERT_COMPARE_LHS_NO_CERT;
+		return PMINFO_R_OK;
+	} else if (exists[1] == 0) {
+		*result = PMINFO_CERT_COMPARE_RHS_NO_CERT;
+		return PMINFO_R_OK;
+	}
 
 	ret = sqlite3_prepare_v2(db, query, strlen(query), &stmt, NULL);
 	if (ret != SQLITE_OK) {
@@ -71,8 +117,6 @@ static int _pkginfo_compare_certinfo(sqlite3 *db, const char *l_pkgid,
 		return PMINFO_R_ERROR;
 	}
 
-	pkgid[0] = l_pkgid;
-	pkgid[1] = r_pkgid;
 	for (i = 0; i < 2; i++) {
 		ret = sqlite3_bind_text(stmt, 1, pkgid[i], -1, SQLITE_STATIC);
 		if (ret != SQLITE_OK) {
@@ -94,13 +138,7 @@ static int _pkginfo_compare_certinfo(sqlite3 *db, const char *l_pkgid,
 		sqlite3_clear_bindings(stmt);
 	}
 
-	if (certid[0] == -1 && certid[1] == -1)
-		*result = PMINFO_CERT_COMPARE_BOTH_NO_CERT;
-	else if (certid[0] == -1)
-		*result = PMINFO_CERT_COMPARE_LHS_NO_CERT;
-	else if (certid[1] == -1)
-		*result = PMINFO_CERT_COMPARE_RHS_NO_CERT;
-	else if (certid[0] == certid[1])
+	if (certid[0] == certid[1])
 		*result = PMINFO_CERT_COMPARE_MATCH;
 	else
 		*result = PMINFO_CERT_COMPARE_MISMATCH;
