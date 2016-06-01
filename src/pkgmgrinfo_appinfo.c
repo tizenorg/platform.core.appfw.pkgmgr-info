@@ -743,6 +743,249 @@ catch:
 	return ret;
 }
 
+static int _appinfo_get_applications2(uid_t db_uid, uid_t uid,
+		const char *locale, pkgmgrinfo_filter_x *filter, int flag,
+		GHashTable *applications)
+{
+	static const char query_raw[] =
+		"SELECT DISTINCT ai.app_id, ai.app_component, ai.app_exec, "
+		"ai.app_nodisplay, ai.app_type, ai.app_onboot, "
+		"ai.app_multiple, ai.app_autorestart, ai.app_taskmanage, "
+		"ai.app_enabled, ai.app_hwacceleration, ai.app_screenreader, "
+		"ai.app_mainapp, ai.app_recentimage, ai.app_launchcondition, "
+		"ai.app_indicatordisplay, ai.app_portraitimg, "
+		"ai.app_landscapeimg, ai.app_guestmodevisibility, "
+		"ai.app_permissiontype, ai.app_preload, ai.app_submode, "
+		"ai.app_submode_mainid, ai.app_launch_mode, ai.app_ui_gadget, "
+		"ai.app_support_disable, ai.app_process_pool, "
+		"ai.app_installed_storage, ai.app_background_category, "
+		"ai.app_package_type, ai.app_root_path, ai.app_api_version, "
+		"ai.app_effective_appid, ai.app_disable, "
+		"ai.app_splash_screen_display, "
+		"ai.component_type, ai.package";
+	static const char label_query[] =
+		", COALESCE("
+		"(SELECT app_label FROM package_app_localized_info WHERE ai.app_id=app_id AND app_locale=?), "
+		"(SELECT app_label FROM package_app_localized_info WHERE ai.app_id=app_id AND app_locale='No Locale')"
+		") as app_label";
+	static const char icon_query[] =
+		", COALESCE("
+		"(SELECT app_icon FROM package_app_localized_info WHERE ai.app_id=app_id AND app_locale=?), "
+		"(SELECT app_icon FROM package_app_localized_info WHERE ai.app_id=app_id AND app_locale='No Locale')"
+		") as app_icon";
+	static const char from_clause[] = " FROM package_app_info as ai";
+	int ret = PMINFO_R_ERROR;
+	int idx;
+	int len = 0;
+	const char *dbpath;
+	char *bg_category_str = NULL;
+	char *constraint = NULL;
+	char query[MAX_QUERY_LEN] = { '\0' };
+	application_x *info = NULL;
+	GList *bind_params = NULL;
+	sqlite3 *db = NULL;
+	sqlite3_stmt *stmt = NULL;
+
+	dbpath = getUserPkgParserDBPathUID(db_uid);
+	if (dbpath == NULL)
+		return PMINFO_R_ERROR;
+
+	ret = sqlite3_open_v2(dbpath, &db, SQLITE_OPEN_READONLY, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGE("failed to open db: %d", ret);
+		return PMINFO_R_ERROR;
+	}
+
+	ret = _get_filtered_query(filter, locale, &constraint, &bind_params);
+	if (ret != PMINFO_R_OK) {
+		LOGE("Failed to get WHERE clause");
+		goto catch;
+	}
+
+	len = strlen(query_raw);
+	snprintf(query, MAX_QUERY_LEN - 1, "%s", query_raw);
+	if (flag & PMINFO_APPINFO_GET_LABEL) {
+		strncat(query, label_query, MAX_QUERY_LEN - len - 1);
+		len += strlen(label_query);
+		bind_params = g_list_append(bind_params, strdup(locale));
+	}
+	if (flag & PMINFO_APPINFO_GET_ICON) {
+		strncat(query, icon_query, MAX_QUERY_LEN - len - 1);
+		len += strlen(icon_query);
+		bind_params = g_list_append(bind_params, strdup(locale));
+	}
+	strncat(query, from_clause, MAX_QUERY_LEN - len - 1);
+	len += strlen(from_clause);
+
+
+	if (constraint)
+		strncat(query, constraint, MAX_QUERY_LEN - len - 1);
+
+	LOGE("jungh query is [%s]", query);
+	ret = sqlite3_prepare_v2(db, query, strlen(query), &stmt, NULL);
+	if (ret != SQLITE_OK) {
+		LOGE("prepare failed: %s", sqlite3_errmsg(db));
+		ret = PMINFO_R_ERROR;
+		goto catch;
+	}
+
+	if (g_list_length(bind_params) != 0) {
+		ret = __bind_params(stmt, bind_params);
+		if (ret != SQLITE_OK) {
+			LOGE("Failed to bind parameters");
+			goto catch;
+		}
+	}
+
+	while (sqlite3_step(stmt) == SQLITE_ROW) {
+		info = calloc(1, sizeof(application_x));
+		if (info == NULL) {
+			LOGE("out of memory");
+			ret = PMINFO_R_ERROR;
+			goto catch;
+		}
+		idx = 0;
+		_save_column_str(stmt, idx++, &info->appid);
+		if (g_hash_table_contains(applications,
+					(gconstpointer)info->appid)) {
+			free(info->appid);
+			free(info);
+			continue;
+		}
+		_save_column_str(stmt, idx++, &info->component);
+		_save_column_str(stmt, idx++, &info->exec);
+		_save_column_str(stmt, idx++, &info->nodisplay);
+		_save_column_str(stmt, idx++, &info->type);
+		_save_column_str(stmt, idx++, &info->onboot);
+		_save_column_str(stmt, idx++, &info->multiple);
+		_save_column_str(stmt, idx++, &info->autorestart);
+		_save_column_str(stmt, idx++, &info->taskmanage);
+		_save_column_str(stmt, idx++, &info->enabled);
+		_save_column_str(stmt, idx++, &info->hwacceleration);
+		_save_column_str(stmt, idx++, &info->screenreader);
+		_save_column_str(stmt, idx++, &info->mainapp);
+		_save_column_str(stmt, idx++, &info->recentimage);
+		_save_column_str(stmt, idx++, &info->launchcondition);
+		_save_column_str(stmt, idx++, &info->indicatordisplay);
+		_save_column_str(stmt, idx++, &info->portraitimg);
+		_save_column_str(stmt, idx++, &info->landscapeimg);
+		_save_column_str(stmt, idx++, &info->guestmode_visibility);
+		_save_column_str(stmt, idx++, &info->permission_type);
+		_save_column_str(stmt, idx++, &info->preload);
+		_save_column_str(stmt, idx++, &info->submode);
+		_save_column_str(stmt, idx++, &info->submode_mainid);
+		_save_column_str(stmt, idx++, &info->launch_mode);
+		_save_column_str(stmt, idx++, &info->ui_gadget);
+		_save_column_str(stmt, idx++, &info->support_disable);
+		_save_column_str(stmt, idx++, &info->process_pool);
+		_save_column_str(stmt, idx++, &info->installed_storage);
+		_save_column_str(stmt, idx++, &bg_category_str);
+		_save_column_str(stmt, idx++, &info->package_type);
+		_save_column_str(stmt, idx++, &info->root_path);
+		_save_column_str(stmt, idx++, &info->api_version);
+		_save_column_str(stmt, idx++, &info->effective_appid);
+		_save_column_str(stmt, idx++, &info->is_disabled);
+		_save_column_str(stmt, idx++, &info->splash_screen_display);
+		_save_column_str(stmt, idx++, &info->component_type);
+		_save_column_str(stmt, idx++, &info->package);
+		info->for_all_users =
+			strdup((uid != GLOBAL_USER) ? "false" : "true");
+
+		if (db_uid == GLOBAL_USER)
+			__get_splash_screen_display(db, info->appid, db_uid,
+					&info->splash_screen_display);
+
+		info->background_category = __get_background_category(
+				bg_category_str);
+		free(bg_category_str);
+
+		if (flag & PMINFO_APPINFO_GET_LABEL) {
+			info->label = calloc(1, sizeof(label_x));
+			_save_column_str(stmt, idx++, &info->label->text);
+		}
+
+		if (flag & PMINFO_APPINFO_GET_ICON) {
+			info->icon = calloc(1, sizeof(icon_x));
+			_save_column_str(stmt, idx++, &info->icon->text);
+		}
+#if 0
+		if (flag & PMINFO_APPINFO_GET_LABEL) {
+			if (_appinfo_get_label(db, info->appid, locale,
+						&info->label)) {
+				ret = PMINFO_R_ERROR;
+				goto catch;
+			}
+		}
+
+		if (flag & PMINFO_APPINFO_GET_ICON) {
+			if (_appinfo_get_icon(db, info->appid, locale,
+						&info->icon)) {
+				ret = PMINFO_R_ERROR;
+				goto catch;
+			}
+		}
+#endif
+		if (flag & PMINFO_APPINFO_GET_CATEGORY) {
+			if (_appinfo_get_category(db, info->appid,
+						&info->category)) {
+				ret = PMINFO_R_ERROR;
+				goto catch;
+			}
+		}
+
+		if (flag & PMINFO_APPINFO_GET_APP_CONTROL) {
+			if (_appinfo_get_app_control(db, info->appid,
+						&info->appcontrol)) {
+				ret = PMINFO_R_ERROR;
+				goto catch;
+			}
+		}
+
+		if (flag & PMINFO_APPINFO_GET_DATA_CONTROL) {
+			if (_appinfo_get_data_control(db, info->appid,
+						&info->datacontrol)) {
+				ret = PMINFO_R_ERROR;
+				goto catch;
+			}
+		}
+
+		if (flag & PMINFO_APPINFO_GET_METADATA) {
+			if (_appinfo_get_metadata(db, info->appid,
+						&info->metadata)) {
+				ret = PMINFO_R_ERROR;
+				goto catch;
+			}
+		}
+
+		if (flag & PMINFO_APPINFO_GET_SPLASH_SCREEN) {
+			if (_appinfo_get_splashscreens(db, info->appid,
+						&info->splashscreens)) {
+				ret = PMINFO_R_ERROR;
+				goto catch;
+			}
+		}
+
+		g_hash_table_insert(applications, (gpointer)info->appid,
+				(gpointer)info);
+	}
+
+	ret = PMINFO_R_OK;
+
+catch:
+	if (constraint)
+		free(constraint);
+
+	if (ret != PMINFO_R_OK && info != NULL)
+		pkgmgrinfo_basic_free_application(info);
+
+	g_list_free_full(bind_params, free);
+	sqlite3_close_v2(db);
+	sqlite3_finalize(stmt);
+
+	return ret;
+}
+
+
 API int pkgmgrinfo_appinfo_get_usr_disabled_appinfo(const char *appid, uid_t uid,
 		pkgmgrinfo_appinfo_h *handle)
 {
@@ -1317,6 +1560,56 @@ static int _appinfo_get_filtered_foreach_appinfo(uid_t uid,
 	return PMINFO_R_OK;
 }
 
+static int _appinfo_get_filtered_foreach_appinfo2(uid_t uid,
+		pkgmgrinfo_filter_x *filter, int flag, pkgmgrinfo_app_list_cb app_list_cb,
+		void *user_data)
+{
+	int ret;
+	char *locale;
+	application_x *app;
+	pkgmgr_appinfo_x info;
+	GHashTable *list;
+	GHashTableIter iter;
+	gpointer value;
+
+	locale = _get_system_locale();
+	if (locale == NULL)
+		return PMINFO_R_ERROR;
+
+	list = g_hash_table_new_full(g_str_hash, g_str_equal, NULL,
+			__free_applications);
+	if (list == NULL) {
+		free(locale);
+		return PMINFO_R_ERROR;
+	}
+
+	ret = _appinfo_get_applications2(uid, uid, locale, filter, flag, list);
+	if (ret == PMINFO_R_OK && uid != GLOBAL_USER)
+		ret = _appinfo_get_applications2(GLOBAL_USER, uid, locale,
+				filter, flag, list);
+
+	if (ret != PMINFO_R_OK) {
+		g_hash_table_destroy(list);
+		free(locale);
+		return ret;
+	}
+
+	g_hash_table_iter_init(&iter, list);
+	while (g_hash_table_iter_next(&iter, NULL, &value)) {
+		app = (application_x *)value;
+		info.app_info = app;
+		info.locale = locale;
+		info.package = app->package;
+		if (app_list_cb(&info, user_data) < 0)
+			break;
+	}
+	g_hash_table_destroy(list);
+	free(locale);
+
+	return PMINFO_R_OK;
+}
+
+
 static const char *__appcomponent_str(pkgmgrinfo_app_component comp);
 
 API int pkgmgrinfo_appinfo_get_usr_list(pkgmgrinfo_pkginfo_h handle,
@@ -1421,6 +1714,46 @@ API int pkgmgrinfo_appinfo_get_usr_installed_list_full(
 	return ret;
 }
 
+API int pkgmgrinfo_appinfo_get_usr_installed_list_full2(
+		pkgmgrinfo_app_list_cb app_func, uid_t uid, int flag,
+		void *user_data)
+{
+	int ret;
+	pkgmgrinfo_appinfo_filter_h filter;
+
+	if (app_func == NULL) {
+		LOGE("invalid parameter");
+		return PMINFO_R_EINVAL;
+	}
+
+	if (pkgmgrinfo_appinfo_filter_create(&filter)) {
+		return PMINFO_R_ERROR;
+	}
+
+	if (pkgmgrinfo_appinfo_filter_add_bool(filter,
+				PMINFO_APPINFO_PROP_APP_DISABLE, false)) {
+		pkgmgrinfo_appinfo_filter_destroy(filter);
+		return PMINFO_R_ERROR;
+	}
+
+	if (uid == GLOBAL_USER) {
+		if (pkgmgrinfo_appinfo_filter_add_int(filter,
+					PMINFO_APPINFO_PROP_APP_DISABLE_FOR_USER,
+					(int)getuid())) {
+			pkgmgrinfo_appinfo_filter_destroy(filter);
+			return PMINFO_R_ERROR;
+		}
+	}
+
+	ret = _appinfo_get_filtered_foreach_appinfo2(uid, filter, flag, app_func,
+			user_data);
+
+	pkgmgrinfo_appinfo_filter_destroy(filter);
+
+	return ret;
+}
+
+
 API int pkgmgrinfo_appinfo_get_installed_list_full(
 		pkgmgrinfo_app_list_cb app_func, int flag, void *user_data)
 {
@@ -1434,6 +1767,14 @@ API int pkgmgrinfo_appinfo_get_usr_install_list(pkgmgrinfo_app_list_cb app_func,
 	return pkgmgrinfo_appinfo_get_usr_installed_list_full(app_func,
 			uid, PMINFO_APPINFO_GET_ALL, user_data);
 }
+
+API int pkgmgrinfo_appinfo_get_usr_install_list2(pkgmgrinfo_app_list_cb app_func,
+		uid_t uid, void *user_data)
+{
+	return pkgmgrinfo_appinfo_get_usr_installed_list_full2(app_func,
+			uid, PMINFO_APPINFO_GET_ALL, user_data);
+}
+
 
 API int pkgmgrinfo_appinfo_get_install_list(pkgmgrinfo_app_list_cb app_func,
 		void *user_data)
@@ -1453,6 +1794,19 @@ API int pkgmgrinfo_appinfo_get_usr_installed_list(
 	return _appinfo_get_filtered_foreach_appinfo(uid, NULL,
 			PMINFO_APPINFO_GET_ALL, app_func, user_data);
 }
+
+API int pkgmgrinfo_appinfo_get_usr_installed_list2(
+		pkgmgrinfo_app_list_cb app_func, uid_t uid, void *user_data)
+{
+	if (app_func == NULL) {
+		LOGE("invalid parameter");
+		return PMINFO_R_EINVAL;
+	}
+
+	return _appinfo_get_filtered_foreach_appinfo2(uid, NULL,
+			PMINFO_APPINFO_GET_ALL, app_func, user_data);
+}
+
 
 API int pkgmgrinfo_appinfo_get_installed_list(pkgmgrinfo_app_list_cb app_func,
 		void *user_data)
