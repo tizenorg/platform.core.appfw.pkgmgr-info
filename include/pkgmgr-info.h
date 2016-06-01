@@ -2226,6 +2226,7 @@ static int list_apps()
  */
 int pkgmgrinfo_appinfo_get_installed_list(pkgmgrinfo_app_list_cb app_func, void *user_data);
 int pkgmgrinfo_appinfo_get_usr_installed_list(pkgmgrinfo_app_list_cb app_func, uid_t uid, void *user_data);
+int pkgmgrinfo_appinfo_get_usr_installed_list2(pkgmgrinfo_app_list_cb app_func, uid_t uid, void *user_data);
 
 /**
  * @fn int pkgmgrinfo_appinfo_get_disabled_appinfo(const char *appid, pkgmgrinfo_appinfo_h *handle)
