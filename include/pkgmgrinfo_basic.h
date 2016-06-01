@@ -145,8 +145,8 @@ typedef struct application_x {
 	char *for_all_users; /**< Flag that indicates if the package is available for everyone or for current user only, no xml part*/
 	char *is_disabled; /**< Flag that indicates if the application is disabled or not, no xml part*/
 	char *splash_screen_display; /*attr, default: "true"*/
-	GList *label;	/*element*/
-	GList *icon;	/*element*/
+	label_x *label;	/*element*/
+	icon_x *icon;	/*element*/
 	GList *image;	/*element*/
 	GList *category; /*element*/
 	GList *metadata;	/*element*/

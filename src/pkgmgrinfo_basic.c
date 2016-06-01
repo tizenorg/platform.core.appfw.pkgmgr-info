@@ -317,9 +317,13 @@ static void __ps_free_application(gpointer data)
 		free((void *)application->alias_appid);
 
 	/*Free Label*/
-	g_list_free_full(application->label, __ps_free_label);
+	//g_list_free_full(application->label, __ps_free_label);
+	if (application->label)
+		__ps_free_label(application->label);
 	/*Free Icon*/
-	g_list_free_full(application->icon, __ps_free_icon);
+	//g_list_free_full(application->icon, __ps_free_icon);
+	if (application->icon)
+		__ps_free_icon(application->icon);
 	/*Free image*/
 	g_list_free_full(application->image, __ps_free_image);
 	/*Free AppControl*/
