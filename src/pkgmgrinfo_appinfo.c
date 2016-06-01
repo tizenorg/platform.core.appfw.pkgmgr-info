@@ -595,10 +595,12 @@ static int _appinfo_get_applications(uid_t db_uid, uid_t uid,
 		goto catch;
 	}
 
-	ret = __bind_params(stmt, bind_params);
-	if (ret != SQLITE_OK) {
-		LOGE("Failed to bind parameters");
-		goto catch;
+	if (filter != NULL) {
+		ret = __bind_params(stmt, bind_params);
+		if (ret != SQLITE_OK) {
+			LOGE("Failed to bind parameters");
+			goto catch;
+		}
 	}
 
 	while (sqlite3_step(stmt) == SQLITE_ROW) {
