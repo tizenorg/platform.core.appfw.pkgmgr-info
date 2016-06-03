@@ -502,7 +502,7 @@ static int _pkginfo_get_packages(uid_t uid, const char *locale,
 
 	ret = sqlite3_open_v2(dbpath, &db, SQLITE_OPEN_READONLY, NULL);
 	if (ret != SQLITE_OK) {
-		_LOGE("failed to open db: %d", ret);
+		_LOGD("failed to open db: %d", ret);
 		return PMINFO_R_ERROR;
 	}
 
