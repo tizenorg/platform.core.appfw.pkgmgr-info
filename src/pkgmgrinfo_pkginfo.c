@@ -46,9 +46,6 @@
 #include "pkgmgr_parser_db.h"
 #include "pkgmgr_parser_internal.h"
 
-static int _get_filtered_query(pkgmgrinfo_filter_x *filter, char **query, GList **bind_params);
-
-
 static bool _get_bool_value(const char *str)
 {
 	if (str == NULL)
@@ -413,9 +410,20 @@ static int _pkginfo_get_privilege(sqlite3 *db, const char *pkgid,
 	return PMINFO_R_OK;
 }
 
-static int _get_filtered_query(pkgmgrinfo_filter_x *filter, char **query, GList **bind_params)
+static const char join_localized_info[] =
+	" LEFT OUTER JOIN package_localized_info"
+	"  ON pi.package=package_localized_info.package"
+	"  AND package_localized_info.package_locale=?";
+static const char join_privilege_info[] =
+	" LEFT OUTER JOIN package_privilege_info"
+	"  ON pi.package=package_privilege_info.package";
+
+static int _get_filtered_query(pkgmgrinfo_filter_x *filter,
+		const char *locale, char **query, GList **bind_params)
 {
+	int joined = 0;
 	char buf[MAX_QUERY_LEN] = { '\0' };
+	char buf2[MAX_QUERY_LEN] = { '\0' };
 	char *condition = NULL;
 	size_t len = 0;
 	GSList *list = NULL;
@@ -426,7 +434,8 @@ static int _get_filtered_query(pkgmgrinfo_filter_x *filter, char **query, GList 
 	len += strlen(" WHERE 1=1 ");
 	strncat(buf, " WHERE 1=1 ", MAX_QUERY_LEN - len - 1);
 	for (list = filter->list; list; list = list->next) {
-		__get_filter_condition(list->data, &condition, bind_params);
+		joined |= __get_filter_condition(list->data, &condition,
+				bind_params);
 		if (condition == NULL)
 			continue;
 
@@ -439,7 +448,18 @@ static int _get_filtered_query(pkgmgrinfo_filter_x *filter, char **query, GList 
 		condition = NULL;
 	}
 
-	*query = strdup(buf);
+	if (joined & E_PMINFO_PKGINFO_JOIN_LOCALIZED_INFO) {
+		strncat(buf2, join_localized_info, MAX_QUERY_LEN - len - 1);
+		len += strlen(join_localized_info);
+		*bind_params = g_list_append(*bind_params, strdup(locale));
+	}
+	if (joined & E_PMINFO_PKGINFO_JOIN_PRIVILEGE_INFO) {
+		strncat(buf2, join_privilege_info, MAX_QUERY_LEN - len - 1);
+		len += strlen(join_privilege_info);
+	}
+	strncat(buf2, buf, MAX_QUERY_LEN - len - 1);
+
+	*query = strdup(buf2);
 	if (*query == NULL)
 		return PMINFO_R_ERROR;
 
@@ -519,7 +539,7 @@ static int _pkginfo_get_packages(uid_t uid, const char *locale,
 	/* add package_disable='false' clause by default */
 	pkgmgrinfo_pkginfo_filter_add_bool(tmp_filter, PMINFO_PKGINFO_PROP_PACKAGE_DISABLE, false);
 
-	ret = _get_filtered_query(tmp_filter, &constraints, &bind_params);
+	ret = _get_filtered_query(tmp_filter, locale, &constraints, &bind_params);
 	if (ret != PMINFO_R_OK) {
 		LOGE("Failed to get WHERE clause");
 		goto catch;

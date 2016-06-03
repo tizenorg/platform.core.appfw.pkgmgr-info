@@ -265,7 +265,7 @@ int __get_filter_condition(gpointer data, char **condition, GList **params)
 		snprintf(buf, sizeof(buf), "pi.author_email=?");
 		break;
 	case E_PMINFO_PKGINFO_PROP_PACKAGE_PRIVILEGE:
-		snprintf(buf, sizeof(buf), "pi.privilege=?");
+		snprintf(buf, sizeof(buf), "package_privilege_info.privilege=?");
 		flag = E_PMINFO_PKGINFO_JOIN_PRIVILEGE_INFO;
 		break;
 	case E_PMINFO_PKGINFO_PROP_PACKAGE_SIZE:
