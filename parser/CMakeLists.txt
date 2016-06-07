@@ -48,7 +48,7 @@ endif()
 ### Get required CFLAGS, LDFLAGS from pkg-config
 
 include(FindPkgConfig)
-pkg_check_modules(parser_pkgs REQUIRED dlog libxml-2.0 glib-2.0 sqlite3 db-util vconf bundle capi-system-info)
+pkg_check_modules(parser_pkgs REQUIRED dlog libxml-2.0 glib-2.0 sqlite3 db-util vconf bundle capi-system-info libsmack)
 
 foreach(flag ${parser_pkgs_CFLAGS})
 	set(parser_pkgs_CFLAGS_str "${parser_pkgs_CFLAGS_str} ${flag}")
