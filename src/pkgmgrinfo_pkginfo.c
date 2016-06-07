@@ -934,7 +934,8 @@ API int pkgmgrinfo_pkginfo_get_zip_mount_file(pkgmgrinfo_pkginfo_h handle, char 
 	if (info->pkg_info == NULL)
 		return PMINFO_R_ERROR;
 
-	if (strlen(info->pkg_info->zip_mount_file) > 0)
+	if (info->pkg_info->zip_mount_file &&
+			strlen(info->pkg_info->zip_mount_file) > 0)
 		*zip_mount_file = (char *)info->pkg_info->zip_mount_file;
 
 	return PMINFO_R_OK;
