@@ -5,6 +5,7 @@
 #include <ctype.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 #include <grp.h>
 #include <dirent.h>
 #include <libgen.h>
@@ -86,6 +87,8 @@ static int _mkdir_for_user(const char* dir, uid_t uid, gid_t gid)
 	char *fullpath;
 	char *subpath;
 	char buf[1024];
+	int fd;
+	struct stat sb;
 
 	fullpath = strdup(dir);
 	if (fullpath == NULL)
@@ -109,10 +112,32 @@ static int _mkdir_for_user(const char* dir, uid_t uid, gid_t gid)
 	}
 
 	if (getuid() == ROOT_UID) {
-		ret = chown(dir, uid, gid);
-		if (ret == -1)
-			_LOGE("FAIL : chown %s %d.%d, because %s", dir, uid,
+		fd = open(dir, O_RDONLY);
+		if (fd == -1) {
+			_LOGE("FAIL : open %s : %s", dir,
+					strerror_r(errno, buf, sizeof(buf)));
+			return -1;
+		}
+		ret = fstat(fd, &sb);
+		if (ret == -1) {
+			_LOGE("FAIL : fstat %s : %s", dir,
+					strerror_r(errno, buf, sizeof(buf)));
+			close(fd);
+			return -1;
+		}
+		if (S_ISLNK(sb.st_mode)) {
+			_LOGE("FAIL : %s is symlink!", dir);
+			close(fd);
+			return -1;
+		}
+		ret = fchown(fd, uid, gid);
+		if (ret == -1) {
+			_LOGE("FAIL : fchown %s %d.%d, because %s", dir, uid,
 					gid, strerror_r(errno, buf, sizeof(buf)));
+			close(fd);
+			return -1;
+		}
+		close(fd);
 	}
 
 	free(fullpath);
