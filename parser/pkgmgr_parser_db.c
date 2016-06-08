@@ -27,6 +27,7 @@
 #include <sys/types.h>
 #include <sys/smack.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <grp.h>
 #include <pwd.h>
@@ -2553,6 +2554,8 @@ static int __parserdb_change_perm(const char *db_file, uid_t uid)
 	char buf[BUFSIZE];
 	char pwuid_buf[1024];
 	char journal_file[BUFSIZE];
+	int fd;
+	struct stat sb;
 	char *files[3];
 	int ret, i;
 	struct passwd userinfo, *result = NULL;
@@ -2577,25 +2580,48 @@ static int __parserdb_change_perm(const char *db_file, uid_t uid)
 	snprintf(journal_file, sizeof(journal_file), "%s%s", db_file, "-journal");
 
 	for (i = 0; files[i]; i++) {
-		ret = chown(files[i], uid, userinfo.pw_gid);
+		fd = open(files[i], O_RDONLY);
+		if (fd == -1) {
+			if (strerror_r(errno, buf, sizeof(buf)))
+				strncpy(buf, "", BUFSIZE - 1);
+			_LOGD("FAIL : open %s : %s", files[i], buf);
+			return -1;
+		}
+		ret = fstat(fd, &sb);
 		if (ret == -1) {
 			if (strerror_r(errno, buf, sizeof(buf)))
 				strncpy(buf, "", BUFSIZE - 1);
-			_LOGD("FAIL : chown %s %d.%d : %s", files[i], uid,
+			_LOGD("FAIL : stat %s : %s", files[i], buf);
+			close(fd);
+			return -1;
+		}
+		if (S_ISLNK(sb.st_mode)) {
+			_LOGE("FAIL : %s is symlink!", files[i]);
+			close(fd);
+			return -1;
+		}
+		ret = fchown(fd, uid, userinfo.pw_gid);
+		if (ret == -1) {
+			if (strerror_r(errno, buf, sizeof(buf)))
+				strncpy(buf, "", BUFSIZE - 1);
+			_LOGD("FAIL : fchown %s %d.%d : %s", files[i], uid,
 					userinfo.pw_gid, buf);
+			close(fd);
 			return -1;
 		}
 
 		mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH;
 		if (!strcmp(db_file, getUserPkgCertDBPathUID(GLOBAL_USER)))
 			mode |= S_IWOTH;
-		ret = chmod(files[i], mode);
+		ret = fchmod(fd, mode);
 		if (ret == -1) {
 			if (strerror_r(errno, buf, sizeof(buf)))
 				strncpy(buf, "", BUFSIZE - 1);
-			_LOGD("FAIL : chmod %s 0664 : %s", files[i], buf);
+			_LOGD("FAIL : fchmod %s 0664 : %s", files[i], buf);
+			close(fd);
 			return -1;
 		}
+		close(fd);
 		SET_SMACK_LABEL(files[i]);
 	}
 	return 0;
