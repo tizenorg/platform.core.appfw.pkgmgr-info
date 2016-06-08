@@ -57,13 +57,12 @@ static int _pkginfo_compare_certinfo(sqlite3 *db, const char *l_pkgid,
 		pkgmgrinfo_cert_compare_result_type_e *result)
 {
 	static const char query[] =
-		"SELECT author_signer_cert FROM package_cert_info "
+		"SELECT COALESCE(author_signer_cert, -1) FROM package_cert_info "
 		"WHERE package=?";
 	int ret;
 	sqlite3_stmt *stmt;
 	const char *pkgid[2];
 	int certid[2] = {-1, -1};
-	int exists[2] = {-1, -1};
 	int i;
 
 	pkgid[0] = l_pkgid;
@@ -85,32 +84,24 @@ static int _pkginfo_compare_certinfo(sqlite3 *db, const char *l_pkgid,
 
 		ret = sqlite3_step(stmt);
 		if (ret == SQLITE_ROW) {
-			exists[i] = 1;
 			_save_column_int(stmt, 0, &certid[i]);
 		} else if (ret != SQLITE_DONE) {
 			_LOGE("step error: %s", sqlite3_errmsg(db));
 			sqlite3_finalize(stmt);
 			return PMINFO_R_ERROR;
-		} else {
-			exists[i] = 0;
 		}
 
 		sqlite3_reset(stmt);
 		sqlite3_clear_bindings(stmt);
 	}
 
-	if (exists[0] == 0 && exists[1] == 0) {
+	if (certid[0] == -1 && certid[1] == -1)
 		*result = PMINFO_CERT_COMPARE_BOTH_NO_CERT;
-		goto catch;
-	}	else if (exists[0] == 0) {
+	else if (certid[0] == -1)
 		*result = PMINFO_CERT_COMPARE_LHS_NO_CERT;
-		goto catch;
-	}	else if (exists[1] == 0) {
+	else if (certid[1] == -1)
 		*result = PMINFO_CERT_COMPARE_RHS_NO_CERT;
-		goto catch;
-	}
-
-	if (certid[0] == certid[1])
+	else if (certid[0] == certid[1])
 		*result = PMINFO_CERT_COMPARE_MATCH;
 	else
 		*result = PMINFO_CERT_COMPARE_MISMATCH;
