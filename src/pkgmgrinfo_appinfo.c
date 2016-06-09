@@ -553,8 +553,8 @@ static int _appinfo_get_applications(uid_t db_uid, uid_t uid,
 		"ai.app_installed_storage, ai.app_background_category, "
 		"ai.app_package_type, ai.app_root_path, ai.app_api_version, "
 		"ai.app_effective_appid, ai.app_disable, "
-		"ai.app_splash_screen_display, ai.app_zip_mount_file, "
-		"ai.component_type, ai.package "
+		"ai.app_splash_screen_display, ai.app_tep_name, "
+		"ai.app_zip_mount_file, ai.component_type, ai.package "
 		"FROM package_app_info as ai";
 	int ret = PMINFO_R_ERROR;
 	int idx;
@@ -652,6 +652,7 @@ static int _appinfo_get_applications(uid_t db_uid, uid_t uid,
 		_save_column_str(stmt, idx++, &info->effective_appid);
 		_save_column_str(stmt, idx++, &info->is_disabled);
 		_save_column_str(stmt, idx++, &info->splash_screen_display);
+		_save_column_str(stmt, idx++, &info->tep_name);
 		_save_column_str(stmt, idx++, &info->zip_mount_file);
 		_save_column_str(stmt, idx++, &info->component_type);
 		_save_column_str(stmt, idx++, &info->package);
