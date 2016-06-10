@@ -2773,6 +2773,86 @@ err:
 	return ret;
 }
 
+API int pkgmgr_parser_update_tep_info_in_db(const char *pkgid, const char *tep_path)
+{
+	return pkgmgr_parser_update_tep_info_in_usr_db(pkgid, tep_path, _getuid());
+}
+
+API int pkgmgr_parser_update_tep_info_in_usr_db(const char *pkgid, const char *tep_path, uid_t uid)
+{
+	if (pkgid == NULL || tep_path == NULL) {
+		_LOGE("invalid parameter");
+		return -1;
+	}
+
+	int ret = -1;
+	char *query = NULL;
+
+	ret = pkgmgr_parser_check_and_create_db(uid);
+	if (ret == -1) {
+		_LOGD("Failed to open DB\n");
+		return ret;
+	}
+	ret = pkgmgr_parser_initialize_db(uid);
+	if (ret == -1)
+		goto err;
+
+	/*Begin transaction*/
+	ret = sqlite3_exec(pkgmgr_parser_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGD("Failed to begin transaction\n");
+		ret = -1;
+		goto err;
+	}
+	_LOGD("Transaction Begin\n");
+
+
+	/* Updating TEP info in "package_info" table */
+	query = sqlite3_mprintf("UPDATE package_info "\
+						"SET package_tep_name = %Q "\
+						"WHERE package = %Q", tep_path, pkgid);
+
+	ret = __exec_query(query);
+	sqlite3_free(query);
+	if (ret != SQLITE_OK) {
+		ret = PM_PARSER_R_ERROR;
+		_LOGE("sqlite exec failed to insert entries into package_info!!");
+		goto err;
+	}
+
+	/* Updating TEP info in "package_app_info" table */
+	query = sqlite3_mprintf("UPDATE package_app_info "\
+						"SET app_tep_name = %Q "\
+						"WHERE package = %Q", tep_path, pkgid);
+
+	ret = __exec_query(query);
+	sqlite3_free(query);
+	if (ret != SQLITE_OK) {
+		ret = PM_PARSER_R_ERROR;
+		_LOGE("sqlite exec failed to insert entries into package_app_info!!");
+		goto err;
+	}
+
+	/*Commit transaction*/
+	ret = sqlite3_exec(pkgmgr_parser_db, "COMMIT", NULL, NULL, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGE("Failed to commit transaction, Rollback now\n");
+		ret = sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
+		if (ret != SQLITE_OK)
+			_LOGE("Failed to Rollback\n");
+
+		ret = PM_PARSER_R_ERROR;
+		goto err;
+	}
+	_LOGD("Transaction Commit and End\n");
+	ret =  PM_PARSER_R_OK;
+
+err:
+	pkgmgr_parser_close_db();
+	return ret;
+}
+
+
 API int pkgmgr_parser_update_manifest_info_in_usr_db(manifest_x *mfx, uid_t uid)
 {
 	if (mfx == NULL) {
