@@ -106,9 +106,7 @@ static int _pkginfo_compare_certinfo(sqlite3 *db, const char *l_pkgid,
 	else
 		*result = PMINFO_CERT_COMPARE_MISMATCH;
 
-catch:
 	sqlite3_finalize(stmt);
-
 	return PMINFO_R_OK;
 }
 

@@ -238,6 +238,7 @@ int __get_filter_condition(gpointer data, char **condition, GList **params)
 	char buf[MAX_QUERY_LEN] = {'\0'};
 	int flag = 0;
 	char *ptr = NULL;
+	char *saveptr = NULL;
 
 	switch (node->prop) {
 	case E_PMINFO_PKGINFO_PROP_PACKAGE_ID:
@@ -326,10 +327,12 @@ int __get_filter_condition(gpointer data, char **condition, GList **params)
 		break;
 	case E_PMINFO_APPINFO_PROP_APP_CATEGORY:
 		snprintf(buf, sizeof(buf), "package_app_app_category.category IN (");
-		ptr = strtok(node->value, ",");
+		ptr = strtok_r(node->value, ",", &saveptr);
+		if (ptr == NULL)
+			return 0;
 		strncat(buf, "?", MAX_QUERY_LEN - 2);
 		*params = g_list_append(*params, strdup(ptr));
-		while ((ptr = strtok(NULL, ","))) {
+		while ((ptr = strtok_r(NULL, ",", &saveptr))) {
 			strncat(buf, ", ?", MAX_QUERY_LEN - strlen(", ?") - 1);
 			*params = g_list_append(*params, strdup(ptr));
 		}
