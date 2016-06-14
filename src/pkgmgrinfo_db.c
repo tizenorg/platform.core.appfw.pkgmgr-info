@@ -266,16 +266,14 @@ API const char *getIconPath(uid_t uid, bool readonly)
 	gid_t gid = ROOT_UID;
 
 	if (uid != GLOBAL_USER && uid != ROOT_UID) {
-		tzplatform_set_user(uid);
-		path = tzplatform_mkpath(TZ_USER_ICONS, "/");
-		gid = _get_gid(tzplatform_getenv(TZ_SYS_USER_GROUP));
-		tzplatform_reset_user();
-	} else {
-		if (readonly)
-			path = tzplatform_mkpath(TZ_SYS_RO_ICONS, "/");
-		else
-			path = tzplatform_mkpath(TZ_SYS_RW_ICONS, "/");
+		_LOGD("not supported target user");
+		return NULL;
 	}
+
+	if (readonly)
+		path = tzplatform_mkpath(TZ_SYS_RO_ICONS, "/");
+	else
+		path = tzplatform_mkpath(TZ_SYS_RW_ICONS, "/");
 
 	// just allow certain users to create the icon directory if needed.
 	if (uid_caller == ROOT_UID || uid_caller == uid)
