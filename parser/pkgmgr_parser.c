@@ -1353,35 +1353,35 @@ static char *__get_icon_with_path(const char *icon, uid_t uid)
 		return strdup(icon);
 
 	do {
-		snprintf(icon_with_path, sizeof(icon_with_path), "%s%s",
-				getIconPath(uid, true), icon);
-		if (access(icon_with_path, F_OK) == 0)
-			break;
-
-		snprintf(icon_with_path, sizeof(icon_with_path), "%s%s",
-				getIconPath(uid, false), icon);
-		if (access(icon_with_path, F_OK) == 0)
-			break;
-
-		/* for backward compatibility (.../default/small/...)
-		 * this should be removed
-		 */
-		snprintf(icon_with_path, sizeof(icon_with_path),
-				"%sdefault/small/%s",
-				getIconPath(uid, true), icon);
-		if (access(icon_with_path, F_OK) == 0)
-			break;
-
-		snprintf(icon_with_path, sizeof(icon_with_path),
-				"%sdefault/small/%s",
-				getIconPath(uid, false), icon);
-		if (access(icon_with_path, F_OK) == 0)
-			break;
-
-		/* If doesn't exist in case of Global app,
-		 * try to get icon directly into app's directory
-		 */
 		if (uid == GLOBAL_USER || uid == OWNER_ROOT) {
+			snprintf(icon_with_path, sizeof(icon_with_path),
+				"%s%s", getIconPath(uid, true), icon);
+			if (access(icon_with_path, F_OK) == 0)
+				break;
+
+			snprintf(icon_with_path, sizeof(icon_with_path),
+				"%s%s", getIconPath(uid, false), icon);
+			if (access(icon_with_path, F_OK) == 0)
+				break;
+
+			/* for backward compatibility (.../default/small/...)
+			 * this should be removed
+			 */
+			snprintf(icon_with_path, sizeof(icon_with_path),
+				"%sdefault/small/%s",
+				getIconPath(uid, true), icon);
+			if (access(icon_with_path, F_OK) == 0)
+				break;
+
+			snprintf(icon_with_path, sizeof(icon_with_path),
+				"%sdefault/small/%s",
+				getIconPath(uid, false), icon);
+			if (access(icon_with_path, F_OK) == 0)
+				break;
+
+			/* If doesn't exist in case of Global app,
+			 * try to get icon directly into app's directory
+			 */
 			app_path = tzplatform_getenv(TZ_SYS_RO_APP);
 
 			snprintf(icon_with_path, sizeof(icon_with_path),
