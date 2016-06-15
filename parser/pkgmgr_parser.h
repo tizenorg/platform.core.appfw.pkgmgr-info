@@ -62,6 +62,7 @@ extern "C" {
 
 #define PKG_STRING_LEN_MAX 1024
 
+#define PKGMGR_PARSER_EMPTY_STR		""
 #define GLOBAL_USER tzplatform_getuid(TZ_SYS_GLOBALAPP_USER)
 
 /**

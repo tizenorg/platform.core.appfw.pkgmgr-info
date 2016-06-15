@@ -160,6 +160,9 @@ static int delete_manifest_data(manifest_x *mfx)
 int pkgmgr_parser_delete_manifest_info_from_db(manifest_x *mfx);
 int pkgmgr_parser_delete_manifest_info_from_usr_db(manifest_x *mfx, uid_t uid);
 
+int pkgmgr_parser_update_preload_info_in_db();
+int pkgmgr_parser_update_preload_info_in_usr_db(uid_t uid);
+
 /**
  * @fn int pkgmgr_parser_update_global_app_disable_for_uid_info_in_db(const char *appid, uid_t uid, int is_disable)
  * @brief	This API updates disable info about global app for user specified by uid
