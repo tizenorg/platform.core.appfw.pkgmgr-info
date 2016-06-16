@@ -192,7 +192,7 @@ static int _pkginfo_get_pkgid_from_appid(uid_t uid, const char *appid,
 		_save_column_str(stmt, 0, pkgid);
 		ret = PMINFO_R_OK;
 	} else if (ret == SQLITE_DONE) {
-		_LOGI("cannot find pkgid of app %s for uid %d", appid);
+		_LOGI("cannot find pkgid of app %s for uid %d", appid, (int)uid);
 		ret = PMINFO_R_ENOENT;
 	} else {
 		_LOGE("step error: %s", sqlite3_errmsg(db));
