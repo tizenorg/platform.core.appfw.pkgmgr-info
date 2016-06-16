@@ -2242,6 +2242,7 @@ API int pkgmgrinfo_appinfo_usr_get_datacontrol_appid(const char *providerid, uid
 
 	/*Start constructing query*/
 	query = sqlite3_mprintf("select * from package_app_data_control where providerid=%Q", providerid);
+	tryvm_if(query == NULL, ret = PMINFO_R_ERROR, "Out of memory");
 
 	/*prepare query*/
 	ret = sqlite3_prepare_v2(GET_DB(manifest_db), query, strlen(query), &stmt, NULL);
