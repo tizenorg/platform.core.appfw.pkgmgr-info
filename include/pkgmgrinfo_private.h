@@ -149,7 +149,7 @@ typedef enum _pkgmgrinfo_appinfo_filter_prop_bool {
 typedef enum _pkgmgrinfo_appinfo_filter_prop_int {
 	/*Currently No Fields*/
 	E_PMINFO_APPINFO_PROP_APP_MIN_INT = 601,
-	E_PMINFO_APPINFO_PROP_APP_DISABLE_FOR_USER,
+	E_PMINFO_APPINFO_PROP_APP_DISABLE_FOR_USER = E_PMINFO_APPINFO_PROP_APP_MIN_INT,
 	E_PMINFO_APPINFO_PROP_APP_MAX_INT = E_PMINFO_APPINFO_PROP_APP_DISABLE_FOR_USER
 } pkgmgrinfo_appinfo_filter_prop_int;
 
