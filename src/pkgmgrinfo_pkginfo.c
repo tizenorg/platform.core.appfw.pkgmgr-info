@@ -48,9 +48,7 @@
 
 static bool _get_bool_value(const char *str)
 {
-	if (str == NULL)
-		return false;
-	else if (!strcasecmp(str, "true"))
+	if (!strcmp(str, "true"))
 		return true;
 	else
 		return false;
@@ -888,8 +886,10 @@ API int pkgmgrinfo_pkginfo_get_type(pkgmgrinfo_pkginfo_h handle, char **type)
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
 	retvm_if(type == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 
-	if (info->pkg_info == NULL || info->pkg_info->type == NULL)
+	if (info->pkg_info == NULL)
 		return PMINFO_R_ERROR;
+	if (info->pkg_info->type == NULL)
+		info->pkg_info->type = strdup("");
 
 	*type = (char *)info->pkg_info->type;
 
@@ -903,8 +903,10 @@ API int pkgmgrinfo_pkginfo_get_version(pkgmgrinfo_pkginfo_h handle, char **versi
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
 	retvm_if(version == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 
-	if (info->pkg_info == NULL || info->pkg_info->version == NULL)
+	if (info->pkg_info == NULL)
 		return PMINFO_R_ERROR;
+	if (info->pkg_info->version == NULL)
+		info->pkg_info->version = strdup("");
 
 	*version = (char *)info->pkg_info->version;
 
@@ -918,8 +920,10 @@ API int pkgmgrinfo_pkginfo_get_api_version(pkgmgrinfo_pkginfo_h handle, char **a
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
 	retvm_if(api_version == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 
-	if (info->pkg_info == NULL || info->pkg_info->api_version == NULL)
+	if (info->pkg_info == NULL)
 		return PMINFO_R_ERROR;
+	if (info->pkg_info->api_version == NULL)
+		info->pkg_info->api_version = strdup("");
 
 	*api_version = (char *)info->pkg_info->api_version;
 
@@ -936,9 +940,6 @@ API int pkgmgrinfo_pkginfo_get_tep_name(pkgmgrinfo_pkginfo_h handle, char **tep_
 	if (info->pkg_info == NULL || info->pkg_info->tep_name == NULL)
 		return PMINFO_R_ERROR;
 
-	if (strlen(info->pkg_info->tep_name) == 0)
-		return PMINFO_R_ERROR;
-
 	*tep_name = (char *)info->pkg_info->tep_name;
 
 	return PMINFO_R_OK;
@@ -953,10 +954,10 @@ API int pkgmgrinfo_pkginfo_get_zip_mount_file(pkgmgrinfo_pkginfo_h handle, char 
 
 	if (info->pkg_info == NULL)
 		return PMINFO_R_ERROR;
+	if (info->pkg_info->zip_mount_file == NULL)
+		info->pkg_info->zip_mount_file = strdup("");
 
-	if (info->pkg_info->zip_mount_file &&
-			strlen(info->pkg_info->zip_mount_file) > 0)
-		*zip_mount_file = (char *)info->pkg_info->zip_mount_file;
+	*zip_mount_file = (char *)info->pkg_info->zip_mount_file;
 
 	return PMINFO_R_OK;
 }
@@ -1277,8 +1278,10 @@ API int pkgmgrinfo_pkginfo_get_author_name(pkgmgrinfo_pkginfo_h handle, char **a
 		return PMINFO_R_ERROR;
 
 	author = (author_x *)info->pkg_info->author->data;
-	if (author == NULL || author->text == NULL)
+	if (author == NULL)
 		return PMINFO_R_ERROR;
+	if (author->text == NULL)
+		author->text = strdup("");
 
 	*author_name = (char *)author->text;
 
@@ -1297,8 +1300,10 @@ API int pkgmgrinfo_pkginfo_get_author_email(pkgmgrinfo_pkginfo_h handle, char **
 		return PMINFO_R_ERROR;
 
 	author = (author_x *)info->pkg_info->author->data;
-	if (author == NULL || author->email == NULL)
+	if (author == NULL)
 		return PMINFO_R_ERROR;
+	if (author->email == NULL)
+		author->email = strdup("");
 
 	*author_email = (char *)author->email;
 
@@ -1317,8 +1322,10 @@ API int pkgmgrinfo_pkginfo_get_author_href(pkgmgrinfo_pkginfo_h handle, char **a
 		return PMINFO_R_ERROR;
 
 	author = (author_x *)info->pkg_info->author->data;
-	if (author == NULL || author->href == NULL)
+	if (author == NULL)
 		return PMINFO_R_ERROR;
+	if (author->href == NULL)
+		author->href = strdup("");
 
 	*author_href = (char *)author->href;
 
@@ -1367,8 +1374,10 @@ API int pkgmgrinfo_pkginfo_get_storeclientid(pkgmgrinfo_pkginfo_h handle, char *
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
 	retvm_if(storeclientid == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 
-	if (info->pkg_info == NULL || info->pkg_info->storeclient_id == NULL)
+	if (info->pkg_info == NULL)
 		return PMINFO_R_ERROR;
+	if (info->pkg_info->storeclient_id == NULL)
+		info->pkg_info->storeclient_id = strdup("");
 
 	*storeclientid = (char *)info->pkg_info->storeclient_id;
 
@@ -1397,8 +1406,10 @@ API int pkgmgrinfo_pkginfo_get_url(pkgmgrinfo_pkginfo_h handle, char **url)
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
 	retvm_if(url == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 
-	if (info->pkg_info == NULL || info->pkg_info->package_url == NULL)
+	if (info->pkg_info == NULL)
 		return PMINFO_R_ERROR;
+	if (info->pkg_info->package_url == NULL)
+		info->pkg_info->package_url = strdup("");
 
 	*url = (char *)info->pkg_info->package_url;
 
@@ -1533,8 +1544,10 @@ API int pkgmgrinfo_pkginfo_get_csc_path(pkgmgrinfo_pkginfo_h handle, char **path
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
 	retvm_if(path == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 
-	if (info->pkg_info == NULL || info->pkg_info->csc_path == NULL)
+	if (info->pkg_info == NULL)
 		return PMINFO_R_ERROR;
+	if (info->pkg_info->csc_path == NULL)
+		info->pkg_info->csc_path = strdup("");
 
 	*path = (char *)info->pkg_info->csc_path;
 

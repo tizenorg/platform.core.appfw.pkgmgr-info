@@ -17,9 +17,7 @@
 
 static bool _get_bool_value(const char *str)
 {
-	if (str == NULL)
-		return false;
-	else if (!strcasecmp(str, "true"))
+	if (!strcmp(str, "true"))
 		return true;
 	else
 		return false;
@@ -2010,9 +2008,12 @@ API int pkgmgrinfo_appinfo_get_effectimage(pkgmgrinfo_appinfo_h handle, char **p
 	retvm_if(portrait_img == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 	retvm_if(landscape_img == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 
-	if (info->app_info == NULL || (info->app_info->portraitimg == NULL
-			&& info->app_info->landscapeimg == NULL))
+	if (info->app_info == NULL)
 		return PMINFO_R_ERROR;
+	if (info->app_info->portraitimg == NULL)
+		info->app_info->portraitimg = strdup("");
+	if (info->app_info->landscapeimg== NULL)
+		info->app_info->landscapeimg = strdup("");
 
 	*portrait_img = (char *)info->app_info->portraitimg;
 	*landscape_img = (char *)info->app_info->landscapeimg;
@@ -2044,8 +2045,10 @@ API int pkgmgrinfo_appinfo_get_submode_mainid(pkgmgrinfo_appinfo_h  handle, char
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
 	retvm_if(submode_mainid == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 
-	if (info->app_info == NULL || info->app_info->submode_mainid == NULL)
+	if (info->app_info == NULL)
 		return PMINFO_R_ERROR;
+	if (info->app_info->submode_mainid == NULL)
+		info->app_info->submode_mainid = strdup("");
 
 	*submode_mainid = (char *)info->app_info->submode_mainid;
 
@@ -2111,8 +2114,10 @@ API int pkgmgrinfo_appinfo_get_effective_appid(pkgmgrinfo_appinfo_h handle, char
 		return PMINFO_R_EINVAL;
 	}
 
-	if (info->app_info == NULL || info->app_info->effective_appid == NULL)
+	if (info->app_info == NULL)
 		return PMINFO_R_ERROR;
+	if (info->app_info->effective_appid == NULL)
+		info->app_info->effective_appid = strdup("");
 
 	*effective_appid = (char *)info->app_info->effective_appid;
 
@@ -2128,8 +2133,10 @@ API int pkgmgrinfo_appinfo_get_tep_name(pkgmgrinfo_appinfo_h handle, char **tep_
 		return PMINFO_R_EINVAL;
 	}
 
-	if (info->app_info == NULL || info->app_info->tep_name == NULL)
+	if (info->app_info == NULL)
 		return PMINFO_R_ERROR;
+	if (info->app_info->tep_name == NULL)
+		info->app_info->tep_name = strdup("");
 
 	*tep_name = (char *)info->app_info->tep_name;
 
@@ -2144,6 +2151,11 @@ API int pkgmgrinfo_appinfo_get_zip_mount_file(pkgmgrinfo_appinfo_h handle, char 
 		LOGE("invalid parameter");
 		return PMINFO_R_EINVAL;
 	}
+
+	if (info->app_info == NULL)
+		return PMINFO_R_ERROR;
+	if (info->app_info->zip_mount_file == NULL)
+		info->app_info->zip_mount_file = strdup("");
 
 	*zip_mount_file = (char *)info->app_info->zip_mount_file;
 
@@ -2622,6 +2634,8 @@ API int pkgmgrinfo_appinfo_is_ui_gadget(pkgmgrinfo_appinfo_h handle,
 		_LOGE("invalid parameter");
 		return PMINFO_R_EINVAL;
 	}
+	if (info->app_info->ui_gadget == NULL)
+		info->app_info->ui_gadget = strdup("false");
 
 	*ui_gadget = _get_bool_value(info->app_info->ui_gadget);
 
