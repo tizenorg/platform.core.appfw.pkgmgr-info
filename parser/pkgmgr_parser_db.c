@@ -86,242 +86,186 @@ sqlite3 *pkgmgr_parser_db;
 sqlite3 *pkgmgr_cert_db;
 
 
-#define QUERY_CREATE_TABLE_PACKAGE_INFO "create table if not exists package_info " \
-						"(package text primary key not null, " \
-						"package_type text DEFAULT 'tpk', " \
-						"package_version text, " \
-						"package_api_version text, " \
-						"package_tep_name text, " \
-						"package_zip_mount_file text, " \
-						"install_location text, " \
-						"package_size text, " \
-						"package_removable text DEFAULT 'true', " \
-						"package_preload text DEFAULT 'false', " \
-						"package_readonly text DEFAULT 'false', " \
-						"package_update text DEFAULT 'false', " \
-						"package_appsetting text DEFAULT 'false', " \
-						"package_nodisplay text DEFAULT 'false', " \
-						"package_system text DEFAULT 'false', " \
-						"author_name text, " \
-						"author_email text, " \
-						"author_href text," \
-						"installed_time text," \
-						"installed_storage text," \
-						"storeclient_id text," \
-						"mainapp_id text," \
-						"package_url text," \
-						"root_path text," \
-						"csc_path text," \
-						"package_support_disable text DEFAULT 'false', " \
-						"package_disable text DEFAULT 'false')"
+#define QUERY_CREATE_TABLE_PACKAGE_INFO "CREATE TABLE IF NOT EXISTS package_info " \
+						"(package TEXT PRIMARY KEY NOT NULL, " \
+						"package_type TEXT DEFAULT 'tpk', " \
+						"package_version TEXT, " \
+						"package_api_version TEXT, " \
+						"package_tep_name TEXT, " \
+						"package_zip_mount_file TEXT, " \
+						"install_location TEXT NOT NULL , " \
+						"package_size TEXT, " \
+						"package_removable TEXT NOT NULL DEFAULT 'true', " \
+						"package_preload TEXT NOT NULL DEFAULT 'false', " \
+						"package_readonly TEXT NOT NULL DEFAULT 'false', " \
+						"package_update TEXT NOT NULL DEFAULT 'false', " \
+						"package_appsetting TEXT NOT NULL DEFAULT 'false', " \
+						"package_nodisplay TEXT NOT NULL DEFAULT 'false', " \
+						"package_system TEXT NOT NULL DEFAULT 'false', " \
+						"author_name TEXT, " \
+						"author_email TEXT, " \
+						"author_href TEXT," \
+						"installed_time TEXT, " \
+						"installed_storage TEXT, " \
+						"storeclient_id TEXT, " \
+						"mainapp_id TEXT, " \
+						"package_url TEXT, " \
+						"root_path TEXT, " \
+						"csc_path TEXT, " \
+						"package_support_disable TEXT NOT NULL DEFAULT 'false', " \
+						"package_disable TEXT NOT NULL DEFAULT 'false')"
 
-#define QUERY_CREATE_TABLE_PACKAGE_LOCALIZED_INFO "create table if not exists package_localized_info " \
-						"(package text not null, " \
-						"package_locale text DEFAULT 'No Locale', " \
-						"package_label text, " \
-						"package_icon text, " \
-						"package_description text, " \
-						"package_license text, " \
-						"package_author, " \
+#define QUERY_CREATE_TABLE_PACKAGE_LOCALIZED_INFO "CREATE TABLE IF NOT EXISTS package_localized_info " \
+						"(package TEXT NOT NULL, " \
+						"package_locale TEXT NOT NULL DEFAULT 'No Locale', " \
+						"package_label TEXT, " \
+						"package_icon TEXT, " \
+						"package_description TEXT, " \
+						"package_license TEXT, " \
+						"package_author TEXT, " \
 						"PRIMARY KEY(package, package_locale), " \
 						"FOREIGN KEY(package) " \
 						"REFERENCES package_info(package) " \
 						"ON DELETE CASCADE)"
 
-#define QUERY_CREATE_TABLE_PACKAGE_PRIVILEGE_INFO "create table if not exists package_privilege_info " \
-						"(package text not null, " \
-						"privilege text not null, " \
+#define QUERY_CREATE_TABLE_PACKAGE_PRIVILEGE_INFO "CREATE TABLE IF NOT EXISTS package_privilege_info " \
+						"(package TEXT NOT NULL, " \
+						"privilege TEXT NOT NULL, " \
 						"PRIMARY KEY(package, privilege) " \
 						"FOREIGN KEY(package) " \
 						"REFERENCES package_info(package) " \
 						"ON DELETE CASCADE)"
 
-#define QUERY_CREATE_TABLE_PACKAGE_APP_INFO "create table if not exists package_app_info " \
-						"(app_id text primary key not null, " \
-						"app_component text, " \
-						"app_exec text, " \
-						"app_nodisplay text DEFAULT 'false', " \
-						"app_type text, " \
-						"app_onboot text DEFAULT 'false', " \
-						"app_multiple text DEFAULT 'false', " \
-						"app_autorestart text DEFAULT 'false', " \
-						"app_taskmanage text DEFAULT 'false', " \
-						"app_enabled text DEFAULT 'true', " \
-						"app_hwacceleration text DEFAULT 'use-system-setting', " \
-						"app_screenreader text DEFAULT 'use-system-setting', " \
-						"app_mainapp text, " \
-						"app_recentimage text, " \
-						"app_launchcondition text, " \
-						"app_indicatordisplay text DEFAULT 'true', " \
-						"app_portraitimg text, " \
-						"app_landscapeimg text, " \
-						"app_guestmodevisibility text DEFAULT 'true', " \
-						"app_permissiontype text DEFAULT 'normal', " \
-						"app_preload text DEFAULT 'false', " \
-						"app_submode text DEFAULT 'false', " \
-						"app_submode_mainid text, " \
-						"app_installed_storage text, " \
-						"app_process_pool text DEFAULT 'false', " \
-						"app_launch_mode text NOT NULL DEFAULT 'caller', " \
-						"app_ui_gadget text DEFAULT 'false', " \
-						"app_support_disable text DEFAULT 'false', " \
-						"app_disable text DEFAULT 'false', " \
-						"app_package_type text DEFAULT 'tpk', " \
-						"component_type text, " \
-						"package text not null, " \
-						"app_tep_name text, " \
-						"app_zip_mount_file text, " \
+#define QUERY_CREATE_TABLE_PACKAGE_APP_INFO "CREATE TABLE IF NOT EXISTS package_app_info " \
+						"(app_id TEXT PRIMARY KEY NOT NULL, " \
+						"app_component TEXT, " \
+						"app_exec TEXT, " \
+						"app_nodisplay TEXT NOT NULL DEFAULT 'false', " \
+						"app_type TEXT, " \
+						"app_onboot TEXT NOT NULL DEFAULT 'false', " \
+						"app_multiple TEXT NOT NULL DEFAULT 'false', " \
+						"app_autorestart TEXT NOT NULL DEFAULT 'false', " \
+						"app_taskmanage TEXT NOT NULL DEFAULT 'false', " \
+						"app_enabled TEXT NOT NULL DEFAULT 'true', " \
+						"app_hwacceleration TEXT NOT NULL DEFAULT 'use-system-setting', " \
+						"app_screenreader TEXT NOT NULL DEFAULT 'use-system-setting', " \
+						"app_mainapp TEXT, " \
+						"app_recentimage TEXT, " \
+						"app_launchcondition TEXT, " \
+						"app_indicatordisplay TEXT NOT NULL DEFAULT 'true', " \
+						"app_portraitimg TEXT, " \
+						"app_landscapeimg TEXT, " \
+						"app_guestmodevisibility TEXT NOT NULL DEFAULT 'true', " \
+						"app_permissiontype TEXT DEFAULT 'normal', " \
+						"app_preload TEXT NOT NULL DEFAULT 'false', " \
+						"app_submode TEXT NOT NULL DEFAULT 'false', " \
+						"app_submode_mainid TEXT, " \
+						"app_installed_storage TEXT, " \
+						"app_process_pool TEXT NOT NULL DEFAULT 'false', " \
+						"app_launch_mode TEXT NOT NULL DEFAULT 'caller', " \
+						"app_ui_gadget TEXT NOT NULL DEFAULT 'false', " \
+						"app_support_disable TEXT NOT NULL DEFAULT 'false', " \
+						"app_disable TEXT NOT NULL DEFAULT 'false', " \
+						"app_package_type TEXT DEFAULT 'tpk', " \
+						"component_type TEXT, " \
+						"package TEXT NOT NULL, " \
+						"app_tep_name TEXT, " \
+						"app_zip_mount_file TEXT, " \
 						"app_background_category INTEGER DEFAULT 0, " \
-						"app_root_path text, " \
-						"app_api_version text, " \
-						"app_effective_appid text, " \
-						"app_splash_screen_display text DEFAULT 'true', " \
+						"app_root_path TEXT, " \
+						"app_api_version TEXT, " \
+						"app_effective_appid TEXT, " \
+						"app_splash_screen_display TEXT NOT NULL DEFAULT 'true', " \
 						"FOREIGN KEY(package) " \
 						"REFERENCES package_info(package) " \
 						"ON DELETE CASCADE)"
 
-#define QUERY_CREATE_TABLE_PACKAGE_APP_LOCALIZED_INFO "create table if not exists package_app_localized_info " \
-						"(app_id text not null, " \
-						"app_locale text DEFAULT 'No Locale', " \
-						"app_label text, " \
-						"app_icon text, " \
+#define QUERY_CREATE_TABLE_PACKAGE_APP_LOCALIZED_INFO "CREATE TABLE IF NOT EXISTS package_app_localized_info " \
+						"(app_id TEXT NOT NULL, " \
+						"app_locale TEXT NOT NULL DEFAULT 'No Locale', " \
+						"app_label TEXT, " \
+						"app_icon TEXT, " \
 						"PRIMARY KEY(app_id,app_locale) " \
 						"FOREIGN KEY(app_id) " \
 						"REFERENCES package_app_info(app_id) " \
 						"ON DELETE CASCADE)"
 
-#define QUERY_CREATE_TABLE_PACKAGE_APP_ICON_SECTION_INFO "create table if not exists package_app_icon_section_info " \
-						"(app_id text not null, " \
-						"app_icon text, " \
-						"app_icon_section text, " \
-						"app_icon_resolution text, " \
+#define QUERY_CREATE_TABLE_PACKAGE_APP_ICON_SECTION_INFO "CREATE TABLE IF NOT EXISTS package_app_icon_section_info " \
+						"(app_id TEXT NOT NULL, " \
+						"app_icon TEXT, " \
+						"app_icon_section TEXT NOT NULL, " \
+						"app_icon_resolution TEXT NOT NULL, " \
 						"PRIMARY KEY(app_id,app_icon_section,app_icon_resolution) " \
 						"FOREIGN KEY(app_id) " \
 						"REFERENCES package_app_info(app_id) " \
 						"ON DELETE CASCADE)"
 
-#define QUERY_CREATE_TABLE_PACKAGE_APP_IMAGE_INFO "create table if not exists package_app_image_info " \
-						"(app_id text not null, " \
-						"app_locale text DEFAULT 'No Locale', " \
-						"app_image_section text, " \
-						"app_image text, " \
+#define QUERY_CREATE_TABLE_PACKAGE_APP_IMAGE_INFO "CREATE TABLE IF NOT EXISTS package_app_image_info " \
+						"(app_id TEXT NOT NULL, " \
+						"app_locale TEXT DEFAULT 'No Locale', " \
+						"app_image_section TEXT NOT NULL, " \
+						"app_image TEXT, " \
 						"PRIMARY KEY(app_id,app_image_section) " \
 						"FOREIGN KEY(app_id) " \
 						"REFERENCES package_app_info(app_id) " \
 						"ON DELETE CASCADE)"
 
-#define QUERY_CREATE_TABLE_PACKAGE_APP_APP_CONTROL "create table if not exists package_app_app_control " \
-						"(app_id text not null, " \
-						"app_control text not null, " \
+#define QUERY_CREATE_TABLE_PACKAGE_APP_APP_CONTROL "CREATE TABLE IF NOT EXISTS package_app_app_control " \
+						"(app_id TEXT NOT NULL, " \
+						"app_control TEXT NOT NULL, " \
 						"PRIMARY KEY(app_id,app_control) " \
 						"FOREIGN KEY(app_id) " \
 						"REFERENCES package_app_info(app_id) " \
 						"ON DELETE CASCADE)"
 
-#define QUERY_CREATE_TABLE_PACKAGE_APP_APP_CATEGORY "create table if not exists package_app_app_category " \
-						"(app_id text not null, " \
-						"category text not null, " \
+#define QUERY_CREATE_TABLE_PACKAGE_APP_APP_CATEGORY "CREATE TABLE IF NOT EXISTS package_app_app_category " \
+						"(app_id TEXT NOT NULL, " \
+						"category TEXT NOT NULL, " \
 						"PRIMARY KEY(app_id,category) " \
 						"FOREIGN KEY(app_id) " \
 						"REFERENCES package_app_info(app_id) " \
 						"ON DELETE CASCADE)"
 
-#define QUERY_CREATE_TABLE_PACKAGE_APP_APP_METADATA "create table if not exists package_app_app_metadata " \
-						"(app_id text not null, " \
-						"md_key text not null, " \
-						"md_value text not null, " \
-						"PRIMARY KEY(app_id, md_key, md_value) " \
+#define QUERY_CREATE_TABLE_PACKAGE_APP_APP_METADATA "CREATE TABLE IF NOT EXISTS package_app_app_metadata " \
+						"(app_id TEXT NOT NULL, " \
+						"md_key TEXT NOT NULL, " \
+						"md_value TEXT, " \
+						"PRIMARY KEY(app_id, md_key) " \
 						"FOREIGN KEY(app_id) " \
 						"REFERENCES package_app_info(app_id) " \
 						"ON DELETE CASCADE)"
 
-#define QUERY_CREATE_TABLE_PACKAGE_APP_APP_PERMISSION "create table if not exists package_app_app_permission " \
-						"(app_id text not null, " \
-						"pm_type text not null, " \
-						"pm_value text not null, " \
+#define QUERY_CREATE_TABLE_PACKAGE_APP_APP_PERMISSION "CREATE TABLE IF NOT EXISTS package_app_app_permission " \
+						"(app_id TEXT NOT NULL, " \
+						"pm_type TEXT NOT NULL, " \
+						"pm_value TEXT NOT NULL, " \
 						"PRIMARY KEY(app_id, pm_type, pm_value) " \
 						"FOREIGN KEY(app_id) " \
 						"REFERENCES package_app_info(app_id) " \
 						"ON DELETE CASCADE)"
 
-#define QUERY_CREATE_TABLE_PACKAGE_APP_SHARE_ALLOWED "create table if not exists package_app_share_allowed " \
-						"(app_id text not null, " \
-						"data_share_path text not null, " \
-						"data_share_allowed text not null, " \
+#define QUERY_CREATE_TABLE_PACKAGE_APP_SHARE_ALLOWED "CREATE TABLE IF NOT EXISTS package_app_share_allowed " \
+						"(app_id TEXT NOT NULL, " \
+						"data_share_path TEXT NOT NULL, " \
+						"data_share_allowed TEXT NOT NULL, " \
 						"PRIMARY KEY(app_id,data_share_path,data_share_allowed) " \
 						"FOREIGN KEY(app_id) " \
 						"REFERENCES package_app_info(app_id) " \
 						"ON DELETE CASCADE)"
 
-#define QUERY_CREATE_TABLE_PACKAGE_APP_SHARE_REQUEST "create table if not exists package_app_share_request " \
-						"(app_id text not null, " \
-						"data_share_request text not null, " \
+#define QUERY_CREATE_TABLE_PACKAGE_APP_SHARE_REQUEST "CREATE TABLE IF NOT EXISTS package_app_share_request " \
+						"(app_id TEXT NOT NULL, " \
+						"data_share_request TEXT NOT NULL, " \
 						"PRIMARY KEY(app_id,data_share_request) " \
 						"FOREIGN KEY(app_id) " \
 						"REFERENCES package_app_info(app_id) " \
 						"ON DELETE CASCADE)"
 
-/* FIXME: duplicated at pkgmgrinfo_db.c */
-#define QUERY_CREATE_TABLE_PACKAGE_CERT_INDEX_INFO \
-	"CREATE TABLE IF NOT EXISTS package_cert_index_info( " \
-	" cert_info TEXT UNIQUE, " \
-	" cert_id INTEGER PRIMARY KEY, " \
-	" cert_ref_count INTEGER NOT NULL)"
-
-#define QUERY_CREATE_TABLE_PACKAGE_CERT_INFO \
-	"CREATE TABLE IF NOT EXISTS package_cert_info( " \
-	" package TEXT PRIMARY KEY, " \
-	" author_root_cert INTEGER, " \
-	" author_im_cert INTEGER, " \
-	" author_signer_cert INTEGER, " \
-	" dist_root_cert INTEGER, " \
-	" dist_im_cert INTEGER, " \
-	" dist_signer_cert INTEGER, " \
-	" dist2_root_cert INTEGER, " \
-	" dist2_im_cert INTEGER, " \
-	" dist2_signer_cert INTEGER)"
-
-#define QUERY_CREATE_TRIGGER_DELETE_CERT_INFO \
-	"CREATE TRIGGER IF NOT EXISTS delete_cert_info " \
-	"AFTER DELETE ON package_cert_info " \
-	"BEGIN" \
-	" UPDATE package_cert_index_info SET" \
-	"  cert_ref_count = cert_ref_count - 1" \
-	" WHERE cert_id = OLD.author_root_cert" \
-	"  OR cert_id = OLD.author_im_cert" \
-	"  OR cert_id = OLD.author_signer_cert" \
-	"  OR cert_id = OLD.dist_root_cert" \
-	"  OR cert_id = OLD.dist_im_cert" \
-	"  OR cert_id = OLD.dist_signer_cert" \
-	"  OR cert_id = OLD.dist2_root_cert" \
-	"  OR cert_id = OLD.dist2_im_cert" \
-	"  OR cert_id = OLD.dist2_signer_cert;" \
-	"END;"
-
-#define QUERY_CREATE_TRIGGER_UPDATE_CERT_INDEX_INFO \
-	"CREATE TRIGGER IF NOT EXISTS update_cert_index_info " \
-	"AFTER UPDATE ON package_cert_index_info " \
-	"WHEN ((SELECT cert_ref_count FROM package_cert_index_info " \
-	"       WHERE cert_id = OLD.cert_id) = 0) "\
-	"BEGIN" \
-	" DELETE FROM package_cert_index_info WHERE cert_id = OLD.cert_id;" \
-	"END;"
-
-#define QUERY_CREATE_TRIGGER_UPDATE_CERT_INFO_FORMAT \
-	"CREATE TRIGGER IF NOT EXISTS update_%s_info " \
-	"AFTER UPDATE ON package_cert_info " \
-	"WHEN (OLD.%s IS NOT NULL) " \
-	"BEGIN" \
-	" UPDATE package_cert_index_info SET" \
-	"  cert_ref_count = cert_ref_count - 1" \
-	" WHERE cert_id = OLD.%s;" \
-	"END;"
-
-#define QUERY_CREATE_TABLE_PACKAGE_APP_DATA_CONTROL "create table if not exists package_app_data_control " \
-						"(app_id text not null, " \
-						"providerid text not null, " \
-						"access text not null, " \
-						"type text not null, " \
+#define QUERY_CREATE_TABLE_PACKAGE_APP_DATA_CONTROL "CREATE TABLE IF NOT EXISTS package_app_data_control " \
+						"(app_id TEXT NOT NULL, " \
+						"providerid TEXT NOT NULL, " \
+						"access TEXT NOT NULL, " \
+						"type TEXT NOT NULL, " \
 						"PRIMARY KEY(app_id, providerid, access, type) " \
 						"FOREIGN KEY(app_id) " \
 						"REFERENCES package_app_info(app_id) " \
@@ -329,34 +273,92 @@ sqlite3 *pkgmgr_cert_db;
 
 #define QUERY_CREATE_TABLE_PACKAGE_APP_INFO_FOR_UID "CREATE TABLE IF NOT EXISTS package_app_info_for_uid " \
 						"(app_id TEXT NOT NULL, " \
-						"uid TEXT NOT NULL, " \
+						"uid INTEGER NOT NULL, " \
 						"is_disabled TEXT NOT NULL DEFAULT 'false', " \
 						"is_splash_screen_enabled TEXT NOT NULL, " \
 						"PRIMARY KEY(app_id, uid))"
+
 #define QUERY_CREATE_TRIGGER_UPDATE_PACKAGE_APP_INFO_FOR_UID \
-	"CREATE TRIGGER IF NOT EXISTS update_package_appinfo_for_uid "\
-	"AFTER UPDATE ON package_app_info_for_uid " \
-	"BEGIN" \
-	" DELETE FROM package_app_info_for_uid WHERE " \
-	"	is_splash_screen_enabled=" \
-	"	(SELECT package_app_info.app_splash_screen_display FROM " \
-	"	package_app_info, package_app_info_for_uid WHERE " \
-	"	package_app_info.app_id=OLD.app_id) AND is_disabled='false';" \
-	"END;"
+						"CREATE TRIGGER IF NOT EXISTS update_package_appinfo_for_uid "\
+						"AFTER UPDATE ON package_app_info_for_uid " \
+						"BEGIN" \
+						" DELETE FROM package_app_info_for_uid WHERE " \
+						"	is_splash_screen_enabled=" \
+						"	(SELECT package_app_info.app_splash_screen_display FROM " \
+						"	package_app_info, package_app_info_for_uid WHERE " \
+						"	package_app_info.app_id=OLD.app_id) AND is_disabled='false';" \
+						"END;"
 
 #define QUERY_CREATE_TABLE_PACKAGE_APP_SPLASH_SCREEN \
-	"create table if not exists package_app_splash_screen " \
-	"(app_id text not null, " \
-	"src text not null, " \
-	"type text not null, " \
-	"orientation text not null, " \
-	"indicatordisplay text, " \
-	"operation text, " \
-	"color_depth text not null DEFAULT '24', " \
-	"PRIMARY KEY(app_id, orientation, operation) " \
-	"FOREIGN KEY(app_id) " \
-	"REFERENCES package_app_info(app_id) " \
-	"ON DELETE CASCADE)"
+						"CREATE TABLE IF NOT EXISTS package_app_splash_screen " \
+						"(app_id TEXT NOT NULL, " \
+						"src TEXT NOT NULL, " \
+						"type TEXT NOT NULL, " \
+						"orientation TEXT NOT NULL, " \
+						"indicatordisplay TEXT, " \
+						"operation TEXT, " \
+						"color_depth TEXT NOT NULL DEFAULT '24', " \
+						"PRIMARY KEY(app_id, orientation) " \
+						"FOREIGN KEY(app_id) " \
+						"REFERENCES package_app_info(app_id) " \
+						"ON DELETE CASCADE)"
+
+
+/* FIXME: duplicated at pkgmgrinfo_db.c */
+#define QUERY_CREATE_TABLE_PACKAGE_CERT_INDEX_INFO \
+						"CREATE TABLE IF NOT EXISTS package_cert_index_info( " \
+						" cert_info TEXT UNIQUE, " \
+						" cert_id INTEGER PRIMARY KEY, " \
+						" cert_ref_count INTEGER NOT NULL)"
+
+#define QUERY_CREATE_TABLE_PACKAGE_CERT_INFO \
+						"CREATE TABLE IF NOT EXISTS package_cert_info( " \
+						" package TEXT PRIMARY KEY, " \
+						" author_root_cert INTEGER, " \
+						" author_im_cert INTEGER, " \
+						" author_signer_cert INTEGER, " \
+						" dist_root_cert INTEGER, " \
+						" dist_im_cert INTEGER, " \
+						" dist_signer_cert INTEGER, " \
+						" dist2_root_cert INTEGER, " \
+						" dist2_im_cert INTEGER, " \
+						" dist2_signer_cert INTEGER)"
+
+#define QUERY_CREATE_TRIGGER_DELETE_CERT_INFO \
+						"CREATE TRIGGER IF NOT EXISTS delete_cert_info " \
+						"AFTER DELETE ON package_cert_info " \
+						"BEGIN" \
+						" UPDATE package_cert_index_info SET" \
+						"  cert_ref_count = cert_ref_count - 1" \
+						" WHERE cert_id = OLD.author_root_cert" \
+						"  OR cert_id = OLD.author_im_cert" \
+						"  OR cert_id = OLD.author_signer_cert" \
+						"  OR cert_id = OLD.dist_root_cert" \
+						"  OR cert_id = OLD.dist_im_cert" \
+						"  OR cert_id = OLD.dist_signer_cert" \
+						"  OR cert_id = OLD.dist2_root_cert" \
+						"  OR cert_id = OLD.dist2_im_cert" \
+						"  OR cert_id = OLD.dist2_signer_cert;" \
+						"END;"
+
+#define QUERY_CREATE_TRIGGER_UPDATE_CERT_INDEX_INFO \
+						"CREATE TRIGGER IF NOT EXISTS update_cert_index_info " \
+						"AFTER UPDATE ON package_cert_index_info " \
+						"WHEN ((SELECT cert_ref_count FROM package_cert_index_info " \
+						"       WHERE cert_id = OLD.cert_id) = 0) "\
+						"BEGIN" \
+						" DELETE FROM package_cert_index_info WHERE cert_id = OLD.cert_id;" \
+						"END;"
+
+#define QUERY_CREATE_TRIGGER_UPDATE_CERT_INFO_FORMAT \
+						"CREATE TRIGGER IF NOT EXISTS update_%s_info " \
+						"AFTER UPDATE ON package_cert_info " \
+						"WHEN (OLD.%s IS NOT NULL) " \
+						"BEGIN" \
+						" UPDATE package_cert_index_info SET" \
+						"  cert_ref_count = cert_ref_count - 1" \
+						" WHERE cert_id = OLD.%s;" \
+						"END;"
 
 static int __insert_application_info(manifest_x *mfx);
 static int __insert_application_appcategory_info(manifest_x *mfx);
@@ -399,16 +401,6 @@ static int __delete_subpkg_list_cb(void *data, int ncols, char **coltxt, char **
 		__delete_subpkg_info_from_db(coltxt[0]);
 
 	return 0;
-}
-
-static const char *__get_str(const char *str)
-{
-	if (str == NULL)
-	{
-		return PKGMGR_PARSER_EMPTY_STR;
-	}
-
-	return str;
 }
 
 static int __pkgmgr_parser_create_db(sqlite3 **db_handle, const char *db_path)
@@ -492,7 +484,9 @@ static void __preserve_guestmode_visibility_value(manifest_x *mfx)
 {
 	char *error_message = NULL;
 	char query[MAX_QUERY_LEN] = {'\0'};
-	snprintf(query, MAX_QUERY_LEN - 1, "select app_id, app_guestmodevisibility from package_app_info where package='%s'", mfx->package);
+	sqlite3_snprintf(MAX_QUERY_LEN, query,
+			"SELECT app_id, app_guestmodevisibility FROM package_app_info " \
+			"WHERE package=%Q", mfx->package);
 	if (SQLITE_OK !=
 	    sqlite3_exec(pkgmgr_parser_db, query,
 			 __guestmode_visibility_cb, (void *)mfx, &error_message)) {
@@ -979,16 +973,16 @@ static void __insert_pkglocale_info(gpointer data, gpointer userdata)
 	if (!label && !description && !icon && !license && !author)
 		return;
 
-	query = sqlite3_mprintf("insert into package_localized_info(package, package_locale, " \
-		"package_label, package_icon, package_description, package_license, package_author) values " \
+	query = sqlite3_mprintf("INSERT INTO package_localized_info(package, package_locale, " \
+		"package_label, package_icon, package_description, package_license, package_author) VALUES" \
 		"(%Q, %Q, %Q, %Q, %Q, %Q, %Q)",
 		mfx->package,
 		(char*)data,
-		__get_str(label),
-		__get_str(icon),
-		__get_str(description),
-		__get_str(license),
-		__get_str(author));
+		label,
+		icon,
+		description,
+		license,
+		author);
 
 	ret = __exec_query(query);
 	if (ret == -1)
@@ -1012,10 +1006,10 @@ static void __insert_application_locale_info(gpointer data, gpointer userdata)
 	if (!label && !icon)
 		return;
 
-	query = sqlite3_mprintf("insert into package_app_localized_info(app_id, app_locale, " \
-		"app_label, app_icon) values " \
+	query = sqlite3_mprintf("INSERT INTO package_app_localized_info(app_id, app_locale, " \
+		"app_label, app_icon) VALUES" \
 		"(%Q, %Q, %Q, %Q)", app->appid, (char*)data,
-		__get_str(label), __get_str(icon));
+		label, icon);
 	ret = __exec_query(query);
 	if (ret == -1)
 		_LOGD("Package UiApp Localized Info DB Insert failed\n");
@@ -1024,23 +1018,23 @@ static void __insert_application_locale_info(gpointer data, gpointer userdata)
 
 	/*insert ui app locale info to pkg locale to get mainapp data */
 	if (strcasecmp(app->mainapp, "true")==0) {
-		query = sqlite3_mprintf("insert into package_localized_info(package, package_locale, " \
-			"package_label, package_icon, package_description, package_license, package_author) values " \
+		query = sqlite3_mprintf("INSERT INTO package_localized_info(package, package_locale, " \
+			"package_label, package_icon, package_description, package_license, package_author) VALUES" \
 			"(%Q, %Q, %Q, %Q, %Q, %Q, %Q)",
 			app->package,
 			(char*)data,
-			__get_str(label),
-			__get_str(icon),
-			PKGMGR_PARSER_EMPTY_STR,
-			PKGMGR_PARSER_EMPTY_STR,
-			PKGMGR_PARSER_EMPTY_STR);
+			label,
+			icon,
+			NULL,
+			NULL,
+			NULL);
 
 		ret = __exec_query_no_msg(query);
 		sqlite3_free(query);
 
 		if (icon != NULL) {
-			query = sqlite3_mprintf("update package_localized_info set package_icon=%Q "\
-				"where package=%Q and package_locale=%Q", icon, app->package, (char*)data);
+			query = sqlite3_mprintf("UPDATE package_localized_info SET package_icon=%Q "\
+				"WHERE package=%Q AND package_locale=%Q", icon, app->package, (char*)data);
 			ret = __exec_query_no_msg(query);
 			sqlite3_free(query);
 		}
@@ -1060,9 +1054,9 @@ static void __insert_application_icon_section_info(gpointer data, gpointer userd
 	__extract_icon_data(data, icn, &icon, &resolution);
 	if (!icon && !resolution)
 		return;
-	sqlite3_snprintf(MAX_QUERY_LEN, query, "insert into package_app_icon_section_info(app_id, " \
-		"app_icon, app_icon_section, app_icon_resolution) values " \
-		"('%q', '%q', '%q', '%q')", app->appid,
+	sqlite3_snprintf(MAX_QUERY_LEN, query, "INSERT INTO package_app_icon_section_info(app_id, " \
+		"app_icon, app_icon_section, app_icon_resolution) VALUES " \
+		"(%Q, %Q, %Q, %Q)", app->appid,
 		icon, (char*)data, resolution);
 
 	ret = __exec_query(query);
@@ -1084,9 +1078,10 @@ static void __insert_application_image_info(gpointer data, gpointer userdata)
 	__extract_image_data(data, image, &lang, &img);
 	if (!lang && !img)
 		return;
-	sqlite3_snprintf(MAX_QUERY_LEN, query, "insert into package_app_image_info(app_id, app_locale, " \
-		"app_image_section, app_image) values " \
-		"('%q', '%q', '%q', '%q')", app->appid, lang, (char*)data, img);
+	sqlite3_snprintf(MAX_QUERY_LEN, query,
+		"INSERT INTO package_app_image_info(app_id, app_locale, " \
+		"app_image_section, app_image) VALUES" \
+		"(%Q, %Q, %Q, %Q)", app->appid, lang, (char*)data, img);
 
 	ret = __exec_query(query);
 	if (ret == -1)
@@ -1105,9 +1100,10 @@ static int __insert_mainapp_info(manifest_x *mfx)
 		app = (application_x *)tmp->data;
 		if (app == NULL)
 			continue;
-		snprintf(query, MAX_QUERY_LEN,
-			"update package_app_info set app_mainapp='%s' where app_id='%s'", app->mainapp, app->appid);
 
+		sqlite3_snprintf(MAX_QUERY_LEN, query,
+				"UPDATE package_app_info SET app_mainapp=%Q WHERE app_id=%Q",
+				app->mainapp, app->appid);
 		ret = __exec_query(query);
 		if (ret == -1) {
 			_LOGD("Package App Info DB Insert Failed\n");
@@ -1124,7 +1120,9 @@ static int __insert_mainapp_info(manifest_x *mfx)
 		if (app == NULL)
 			return -1;
 		if (app->appid) {
-			snprintf(query, MAX_QUERY_LEN, "update package_app_info set app_mainapp='true' where app_id='%s'", app->appid);
+			sqlite3_snprintf(MAX_QUERY_LEN, query,
+					"UPDATE package_app_info SET app_mainapp='true' WHERE app_id=%Q",
+					app->appid);
 		} else {
 			_LOGD("Not valid appid\n");
 			return -1;
@@ -1142,8 +1140,8 @@ static int __insert_mainapp_info(manifest_x *mfx)
 	}
 
 	memset(query, '\0', MAX_QUERY_LEN);
-	snprintf(query, MAX_QUERY_LEN,
-		"update package_info set mainapp_id='%s' where package='%s'", mfx->mainapp_id, mfx->package);
+	sqlite3_snprintf(MAX_QUERY_LEN, query,
+			"UPDATE package_info SET mainapp_id=%Q WHERE package=%Q", mfx->mainapp_id, mfx->package);
 	ret = __exec_query(query);
 	if (ret == -1) {
 		_LOGD("Package Info DB update Failed\n");
@@ -1206,6 +1204,14 @@ static const char *__find_effective_appid(GList *metadata_list)
 	return NULL;
 }
 
+static char *__get_bool(char *value, bool is_true)
+{
+	if (value != NULL)
+		return value;
+
+	return (is_true) ? "true" : "false";
+}
+
 /* _PRODUCT_LAUNCHING_ENHANCED_
 *  app->indicatordisplay, app->portraitimg, app->landscapeimg, app->guestmode_appstatus
 */
@@ -1237,34 +1243,34 @@ static int __insert_application_info(manifest_x *mfx)
 
 		effective_appid = __find_effective_appid(app->metadata);
 
-		snprintf(query, MAX_QUERY_LEN,
-			"insert into package_app_info(" \
+		sqlite3_snprintf(MAX_QUERY_LEN, query,
+			"INSERT INTO package_app_info(" \
 			"app_id, app_component, app_exec, app_nodisplay, app_type, " \
 			"app_onboot, app_multiple, app_autorestart, app_taskmanage, app_enabled, " \
 			"app_hwacceleration, app_screenreader, app_mainapp, app_recentimage, app_launchcondition, " \
 			"app_indicatordisplay, app_portraitimg, app_landscapeimg, app_guestmodevisibility, app_permissiontype, " \
 			"app_preload, app_submode, app_submode_mainid, app_installed_storage, app_process_pool, " \
 			"app_launch_mode, app_ui_gadget, app_support_disable, component_type, package, " \
-			"app_tep_name, app_zip_mount_file, app_background_category, app_package_type, app_root_path, app_api_version, " \
-			"app_effective_appid, app_splash_screen_display) " \
-			"values(" \
-			"'%s', '%s', '%s', '%s', '%s', " \
-			"'%s', '%s', '%s', '%s', '%s', " \
-			"'%s', '%s', '%s', '%s', '%s', " \
-			"'%s', '%s', '%s', '%s', '%s', " \
-			"'%s', '%s', '%s', '%s', '%s', " \
-			"'%s', '%s', '%s', '%s', '%s', " \
-			"'%s', '%s', '%d', '%s', '%s', " \
-			"'%s', '%s', '%s')", \
-			app->appid, app->component_type, app->exec, app->nodisplay, app->type,
-			app->onboot, app->multiple, app->autorestart, app->taskmanage, app->enabled,
-			app->hwacceleration, app->screenreader, app->mainapp, __get_str(app->recentimage), app->launchcondition,
-			app->indicatordisplay, __get_str(app->portraitimg), __get_str(app->landscapeimg),
-			app->guestmode_visibility, app->permission_type,
-			mfx->preload, app->submode, __get_str(app->submode_mainid), mfx->installed_storage, app->process_pool,
-			app->launch_mode, app->ui_gadget, mfx->support_disable, app->component_type, mfx->package,
-			__get_str(mfx->tep_name), __get_str(mfx->zip_mount_file), background_value, type, mfx->root_path, __get_str(mfx->api_version),
-			__get_str(effective_appid), app->splash_screen_display);
+			"app_tep_name, app_zip_mount_file, app_background_category, app_package_type, app_root_path, " \
+			"app_api_version, app_effective_appid, app_splash_screen_display) " \
+			"VALUES(" \
+			"%Q, %Q, %Q, LOWER(%Q), %Q, " \
+			"LOWER(%Q), LOWER(%Q), LOWER(%Q), LOWER(%Q), LOWER(%Q), " \
+			"%Q, %Q, %Q, %Q, %Q, " \
+			"LOWER(%Q), %Q, %Q, LOWER(%Q), %Q, " \
+			"LOWER(%Q), LOWER(%Q), %Q, %Q, LOWER(%Q), " \
+			"COALESCE(%Q, 'caller'), LOWER(%Q), LOWER(%Q), %Q, %Q, " \
+			"%Q, %Q, %d, %Q, %Q, " \
+			"%Q, %Q, LOWER(%Q))", \
+			app->appid, app->component_type, app->exec, __get_bool(app->nodisplay, false), app->type,
+			__get_bool(app->onboot, false), __get_bool(app->multiple, false), __get_bool(app->autorestart, false), __get_bool(app->taskmanage, false), __get_bool(app->enabled, true),
+			app->hwacceleration, app->screenreader, app->mainapp, app->recentimage, app->launchcondition,
+			__get_bool(app->indicatordisplay, true), app->portraitimg, app->landscapeimg,
+			__get_bool(app->guestmode_visibility, true), app->permission_type,
+			__get_bool(mfx->preload, false), __get_bool(app->submode, false), app->submode_mainid, mfx->installed_storage, __get_bool(app->process_pool, false),
+			app->launch_mode, __get_bool(app->ui_gadget, false), __get_bool(mfx->support_disable, false), app->component_type, mfx->package,
+			mfx->tep_name, mfx->zip_mount_file, background_value, type, mfx->root_path, mfx->api_version,
+			effective_appid, __get_bool(app->splash_screen_display, false));
 
 		ret = __exec_query(query);
 		if (ret == -1) {
@@ -1298,9 +1304,9 @@ static int __insert_application_appcategory_info(manifest_x *mfx)
 			ct = (const char *)ct_tmp->data;
 			if (ct == NULL)
 				continue;
-			snprintf(query, MAX_QUERY_LEN,
-				"insert into package_app_app_category(app_id, category) " \
-				"values('%s','%s')",\
+			sqlite3_snprintf(MAX_QUERY_LEN, query,
+				"INSERT INTO package_app_app_category(app_id, category) " \
+				"VALUES(%Q, %Q)",\
 				 app->appid, ct);
 			ret = __exec_query(query);
 			if (ret == -1) {
@@ -1330,10 +1336,10 @@ static int __insert_application_appmetadata_info(manifest_x *mfx)
 			if (md == NULL)
 				continue;
 			if (md->key) {
-				snprintf(query, MAX_QUERY_LEN,
-					"insert into package_app_app_metadata(app_id, md_key, md_value) " \
-					"values('%s','%s', '%s')",\
-					 app->appid, md->key, md->value ? md->value : "");
+				sqlite3_snprintf(MAX_QUERY_LEN, query,
+					"INSERT INTO package_app_app_metadata(app_id, md_key, md_value) " \
+					"VALUES(%Q, %Q, %Q)",\
+					 app->appid, md->key, md->value ? md->value : NULL);
 				ret = __exec_query(query);
 				if (ret == -1) {
 					_LOGD("Package UiApp Metadata Info DB Insert Failed\n");
@@ -1362,9 +1368,9 @@ static int __insert_application_apppermission_info(manifest_x *mfx)
 			pm = (permission_x *)pm_tmp->data;
 			if (pm == NULL)
 				continue;
-			snprintf(query, MAX_QUERY_LEN,
-				"insert into package_app_app_permission(app_id, pm_type, pm_value) " \
-				"values('%s','%s', '%s')",\
+			sqlite3_snprintf(MAX_QUERY_LEN, query,
+				"INSERT INTO package_app_app_permission(app_id, pm_type, pm_value) " \
+				"VALUES(%Q, %Q, %Q)",\
 				 app->appid, pm->type, pm->value);
 			ret = __exec_query(query);
 			if (ret == -1) {
@@ -1398,9 +1404,9 @@ static int __insert_application_appcontrol_info(manifest_x *mfx)
 					acontrol->operation ? (strlen(acontrol->operation) > 0 ? acontrol->operation : "NULL") : "NULL",
 					acontrol->uri ? (strlen(acontrol->uri) > 0 ? acontrol->uri : "NULL") : "NULL",
 					acontrol->mime ? (strlen(acontrol->mime) > 0 ? acontrol->mime : "NULL") : "NULL");
-			snprintf(query, MAX_QUERY_LEN,
-					"insert into package_app_app_control(app_id, app_control) " \
-					"values('%s', '%s')",\
+			sqlite3_snprintf(MAX_QUERY_LEN, query,
+					"INSERT INTO package_app_app_control(app_id, app_control) " \
+					"VALUES(%Q, %Q)",\
 					app->appid, buf);
 			ret = __exec_query(query);
 			if (ret == -1) {
@@ -1430,9 +1436,9 @@ static int __insert_application_datacontrol_info(manifest_x *mfx)
 			dc = (datacontrol_x *)dc_tmp->data;
 			if (dc == NULL)
 				continue;
-			snprintf(query, MAX_QUERY_LEN,
-					"insert into package_app_data_control(app_id, providerid, access, type) " \
-					"values('%s', '%s', '%s', '%s')",\
+			sqlite3_snprintf(MAX_QUERY_LEN, query,
+					"INSERT INTO package_app_data_control(app_id, providerid, access, type) " \
+					"VALUES(%Q, %Q, %Q, %Q)",\
 					app->appid,
 					dc->providerid,
 					dc->access,
@@ -1471,9 +1477,9 @@ static int __insert_application_share_request_info(manifest_x *mfx)
 				rq = (const char *)rq_tmp->data;
 				if (rq == NULL)
 					continue;
-				snprintf(query, MAX_QUERY_LEN,
-					 "insert into package_app_share_request(app_id, data_share_request) " \
-					"values('%s', '%s')",\
+				sqlite3_snprintf(MAX_QUERY_LEN, query,
+						"INSERT INTO package_app_share_request(app_id, data_share_request) " \
+						"VALUEES(%Q, %Q)",\
 					 app->appid, rq);
 				ret = __exec_query(query);
 				if (ret == -1) {
@@ -1515,9 +1521,9 @@ static int __insert_application_share_allowed_info(manifest_x *mfx)
 					al = (const char *)al_tmp->data;
 					if (al == NULL)
 						continue;
-					snprintf(query, MAX_QUERY_LEN,
-						 "insert into package_app_share_allowed(app_id, data_share_path, data_share_allowed) " \
-						"values('%s', '%s', '%s')",\
+					sqlite3_snprintf(MAX_QUERY_LEN, query,
+							"INSERT INTO package_app_share_allowed(app_id, data_share_path, data_share_allowed) " \
+							"VALUES(%Q, %Q, %Q)",\
 						 app->appid, df->path, al);
 					ret = __exec_query(query);
 					if (ret == -1) {
@@ -1651,7 +1657,7 @@ static int __insert_application_splashscreen_info(manifest_x *mfx)
 	splashscreen_x *ss;
 	GList *tmp;
 	int ret = -1;
-	char query[MAX_QUERY_LEN];
+	char query[MAX_QUERY_LEN] = {'\0'};
 
 	for (app_tmp = mfx->application; app_tmp; app_tmp = app_tmp->next) {
 		app = (application_x *)app_tmp->data;
@@ -1664,12 +1670,12 @@ static int __insert_application_splashscreen_info(manifest_x *mfx)
 
 		for (tmp = ss_tmp; tmp; tmp = tmp->next) {
 			ss = (splashscreen_x *)tmp->data;
-			snprintf(query, sizeof(query),
-					"insert into package_app_splash_screen" \
+			sqlite3_snprintf(MAX_QUERY_LEN, query,
+					"INSERT INTO package_app_splash_screen" \
 					"(app_id, src, type, orientation, indicatordisplay, operation, color_depth) " \
-					"values('%s', '%s', '%s', '%s', '%s', '%s', '%s')",
+					"VALUES(%Q, %Q, %Q, %Q, %Q, %Q, %Q)",
 					app->appid, ss->src, ss->type, ss->orientation,
-					ss->indicatordisplay, __get_str(ss->operation),
+					ss->indicatordisplay, ss->operation,
 					ss->color_depth);
 			ret = __exec_query(query);
 			if (ret == -1) {
@@ -1688,7 +1694,7 @@ static int __insert_application_legacy_splashscreen_info(manifest_x *mfx)
 	GList *app_tmp;
 	application_x *app;
 	int ret = -1;
-	char query[MAX_QUERY_LEN];
+	char query[MAX_QUERY_LEN] = {'\0'};
 	char *tmp;
 	const char *image_type;
 	const char *indicatordisplay;
@@ -1712,12 +1718,12 @@ static int __insert_application_legacy_splashscreen_info(manifest_x *mfx)
 			indicatordisplay = app->indicatordisplay;
 		if (app->portraitimg) {
 			orientation = "portrait";
-			snprintf(query, sizeof(query),
-					"insert into package_app_splash_screen" \
+			sqlite3_snprintf(MAX_QUERY_LEN, query,
+					"INSERT INTO package_app_splash_screen" \
 					"(app_id, src, type, orientation, indicatordisplay, operation, color_depth) " \
-					"values('%s', '%s', '%s', '%s', '%s', '%s', '%s')",
+					"VALUES(%Q, %Q, %Q, %Q, %Q, %Q, %Q)",
 					app->appid, app->portraitimg, image_type,
-					orientation, indicatordisplay, __get_str(operation),
+					orientation, indicatordisplay, operation,
 					color_depth);
 			ret = __exec_query(query);
 			if (ret == -1) {
@@ -1728,12 +1734,12 @@ static int __insert_application_legacy_splashscreen_info(manifest_x *mfx)
 		}
 		if (app->landscapeimg) {
 			orientation = "landscape";
-			snprintf(query, sizeof(query),
-					"insert into package_app_splash_screen" \
+			sqlite3_snprintf(MAX_QUERY_LEN, query,
+					"INSERT INTO package_app_splash_screen" \
 					"(app_id, src, type, orientation, indicatordisplay, operation, color_depth) " \
-					"values('%s', '%s', '%s', '%s', '%s', '%s', '%s')",
+					"VALUES(%Q, %Q, %Q, %Q, %Q, %Q, %Q)",
 					app->appid, app->landscapeimg, image_type,
-					orientation, indicatordisplay, __get_str(operation),
+					orientation, indicatordisplay, operation,
 					color_depth);
 			ret = __exec_query(query);
 			if (ret == -1) {
@@ -1753,7 +1759,7 @@ static int __insert_application_metadata_splashscreen_info(manifest_x *mfx)
 	GList *md_tmp;
 	metadata_x *md;
 	int ret;
-	char query[MAX_QUERY_LEN];
+	char query[MAX_QUERY_LEN] = {'\0'};
 	char *token;
 	char *tmpptr = NULL;
 	const char *operation;
@@ -1819,12 +1825,12 @@ static int __insert_application_metadata_splashscreen_info(manifest_x *mfx)
 				image_type = "img";
 				if (strcasestr(portraitimg, "edj"))
 					image_type = "edj";
-				snprintf(query, sizeof(query),
-					"insert into package_app_splash_screen" \
+				sqlite3_snprintf(MAX_QUERY_LEN, query,
+					"INSERT INTO package_app_splash_screen" \
 					"(app_id, src, type, orientation, indicatordisplay, operation, color_depth) " \
-					"values('%s', '%s', '%s', '%s', '%s', '%s', '%s')",
+					"VALUES(%Q, %Q, %Q, %Q, %Q, %Q, %Q)",
 					app->appid, portraitimg, image_type,
-					orientation, indicatordisplay, __get_str(operation),
+					orientation, indicatordisplay, operation,
 					color_depth);
 				ret = __exec_query(query);
 				if (ret == -1) {
@@ -1838,12 +1844,12 @@ static int __insert_application_metadata_splashscreen_info(manifest_x *mfx)
 				image_type = "img";
 				if (strcasestr(landscapeimg, "edj"))
 					image_type = "edj";
-				snprintf(query, sizeof(query),
-					"insert into package_app_splash_screen" \
+				sqlite3_snprintf(MAX_QUERY_LEN, query,
+					"INSERT INTO package_app_splash_screen" \
 					"(app_id, src, type, orientation, indicatordisplay, operation, color_depth) " \
-					"values('%s', '%s', '%s', '%s', '%s', '%s', '%s')",
+					"VALUES(%Q, %Q, %Q, %Q, %Q, %Q, %Q)",
 					app->appid, landscapeimg, image_type,
-					orientation, indicatordisplay, __get_str(operation),
+					orientation, indicatordisplay, operation,
 					color_depth);
 				ret = __exec_query(query);
 				if (ret == -1) {
@@ -1900,27 +1906,31 @@ static int __insert_manifest_info_in_db(manifest_x *mfx, uid_t uid)
 		return -1;
 	}
 
+	if (ret != PMINFO_R_OK) {
+		_LOGE("Failed to set default values");
+		return -1;
+	}
+
 	/*Insert in the package_info DB*/
-	snprintf(query, MAX_QUERY_LEN,
-		"insert into package_info(" \
+	sqlite3_snprintf(MAX_QUERY_LEN, query,
+		"INSERT INTO package_info(" \
 		"package, package_type, package_version, package_api_version, package_tep_name, package_zip_mount_file, " \
 		"install_location, package_size, package_removable, package_preload, package_readonly, " \
 		"package_update, package_appsetting, package_nodisplay, package_system, author_name, " \
 		"author_email, author_href, installed_time, installed_storage, storeclient_id, " \
 		"mainapp_id, package_url, root_path, csc_path, package_support_disable) " \
-		"values(" \
-		"'%s', '%s', '%s', '%s', '%s', " \
-		"'%s', '%s', '%s', '%s', '%s', " \
-		"'%s', '%s', '%s', '%s', '%s', " \
-		"'%s', '%s', '%s', '%s', '%s', " \
-		"'%s', '%s', '%s', '%s', '%s', " \
-		"'%s')", \
-		mfx->package, mfx->type, mfx->version, __get_str(mfx->api_version), __get_str(mfx->tep_name), __get_str(mfx->zip_mount_file),
-		__get_str(mfx->installlocation), __get_str(mfx->package_size), mfx->removable, mfx->preload, mfx->readonly,
-		mfx->update, mfx->appsetting, mfx->nodisplay_setting, mfx->system, __get_str(auth_name),
-		__get_str(auth_email), __get_str(auth_href), mfx->installed_time, mfx->installed_storage,
-		__get_str(mfx->storeclient_id),
-		mfx->mainapp_id, __get_str(mfx->package_url), mfx->root_path, __get_str(mfx->csc_path), mfx->support_disable);
+		"VALUES(" \
+		"%Q, %Q, %Q, %Q, %Q, %Q, " \
+		"%Q, %Q, LOWER(%Q), LOWER(%Q), LOWER(%Q), " \
+		"LOWER(%Q), LOWER(%Q), LOWER(%Q), LOWER(%Q), %Q, " \
+		"%Q, %Q, %Q, %Q, %Q, " \
+		"%Q, %Q, %Q, %Q, LOWER(%Q))",
+		mfx->package, mfx->type, mfx->version, mfx->api_version, mfx->tep_name, mfx->zip_mount_file,
+		mfx->installlocation, mfx->package_size, __get_bool(mfx->removable, true), __get_bool(mfx->preload, false), __get_bool(mfx->readonly, false),
+		__get_bool(mfx->update, false), __get_bool(mfx->appsetting, false), __get_bool(mfx->nodisplay_setting, false), __get_bool(mfx->system, false), auth_name,
+		auth_email, auth_href, mfx->installed_time, mfx->installed_storage,
+		mfx->storeclient_id,
+		mfx->mainapp_id, mfx->package_url, mfx->root_path, mfx->csc_path, __get_bool(mfx->support_disable, false));
 
 	ret = __exec_query(query);
 	if (ret == -1) {
@@ -1934,9 +1944,9 @@ static int __insert_manifest_info_in_db(manifest_x *mfx, uid_t uid)
 		if (pv == NULL)
 			continue;
 		memset(query, '\0', MAX_QUERY_LEN);
-		snprintf(query, MAX_QUERY_LEN,
-			"insert into package_privilege_info(package, privilege) " \
-			"values('%s','%s')",\
+		sqlite3_snprintf(MAX_QUERY_LEN, query,
+			"INSERT INTO package_privilege_info(package, privilege) " \
+			"VALUES(%Q, %Q)",\
 			 mfx->package, pv);
 		ret = __exec_query(query);
 		if (ret == -1) {
@@ -2053,9 +2063,9 @@ static int __delete_appinfo_from_db(char *db_table, const char *appid)
 {
 	char query[MAX_QUERY_LEN] = { '\0' };
 	int ret = -1;
-	memset(query, '\0', MAX_QUERY_LEN);
-	snprintf(query, MAX_QUERY_LEN,
-		 "delete from %s where app_id='%s'", db_table, appid);
+
+	sqlite3_snprintf(MAX_QUERY_LEN, query,
+		 "DELETE FROM %q where app_id=%Q", db_table, appid);
 	ret = __exec_query(query);
 	if (ret == -1) {
 		_LOGD("DB Deletion from table (%s) Failed\n", db_table);
@@ -2113,7 +2123,7 @@ static int __delete_subpkg_from_db(manifest_x *mfx)
 	char query[MAX_QUERY_LEN] = { '\0' };
 	char *error_message = NULL;
 
-	snprintf(query, MAX_QUERY_LEN, "select app_id from package_app_info where package='%s'", mfx->package);
+	sqlite3_snprintf(MAX_QUERY_LEN, query, "SELECT app_id FROM package_app_info WHERE package=%Q", mfx->package);
 	if (SQLITE_OK !=
 	    sqlite3_exec(pkgmgr_parser_db, query, __delete_subpkg_list_cb, NULL, &error_message)) {
 		_LOGE("Don't execute query = %s error message = %s\n", query,
@@ -2140,8 +2150,8 @@ static int __delete_manifest_info_from_db(manifest_x *mfx, uid_t uid)
 	}
 
 	/*Delete from Package Info DB*/
-	snprintf(query, MAX_QUERY_LEN,
-		 "delete from package_info where package='%s'", mfx->package);
+	sqlite3_snprintf(MAX_QUERY_LEN, query,
+		 "DELETE FROM package_info WHERE package=%Q", mfx->package);
 	ret = __exec_query(query);
 	if (ret == -1) {
 		_LOGD("Package Info DB Delete Failed\n");
@@ -2150,8 +2160,8 @@ static int __delete_manifest_info_from_db(manifest_x *mfx, uid_t uid)
 	memset(query, '\0', MAX_QUERY_LEN);
 
 	/*Delete from Package Localized Info*/
-	snprintf(query, MAX_QUERY_LEN,
-		 "delete from package_localized_info where package='%s'", mfx->package);
+	sqlite3_snprintf(MAX_QUERY_LEN, query,
+		 "DELETE FROM package_localized_info WHERE package=%Q", mfx->package);
 	ret = __exec_query(query);
 	if (ret == -1) {
 		_LOGD("Package Localized Info DB Delete Failed\n");
@@ -2159,8 +2169,8 @@ static int __delete_manifest_info_from_db(manifest_x *mfx, uid_t uid)
 	}
 
 	/*Delete from Package Privilege Info*/
-	snprintf(query, MAX_QUERY_LEN,
-		 "delete from package_privilege_info where package='%s'", mfx->package);
+	sqlite3_snprintf(MAX_QUERY_LEN, query,
+		 "DELETE FROM package_privilege_info WHERE package=%Q", mfx->package);
 	ret = __exec_query(query);
 	if (ret == -1) {
 		_LOGD("Package Privilege Info DB Delete Failed\n");
@@ -2220,7 +2230,7 @@ static int __disable_app(const char *appid)
 	int ret = -1;
 	char query[MAX_QUERY_LEN] = {'\0'};
 	sqlite3_snprintf(MAX_QUERY_LEN, query,
-			"UPDATE package_app_info set app_disable='true' where app_id=%Q",
+			"UPDATE package_app_info SET app_disable='true' WHERE app_id=%Q",
 			appid);
 	ret = __exec_query(query);
 	if (ret == -1)
@@ -2234,7 +2244,7 @@ static int __enable_app(const char *appid)
 	int ret = -1;
 	char query[MAX_QUERY_LEN] = {'\0'};
 	sqlite3_snprintf(MAX_QUERY_LEN, query,
-			"UPDATE package_app_info set app_disable='false' where app_id=%Q",
+			"UPDATE package_app_info SET app_disable='false' WHERE app_id=%Q",
 			appid);
 	ret = __exec_query(query);
 	if (ret == -1)
@@ -2256,7 +2266,7 @@ static int __check_appinfo_for_uid_table(const char *appid, uid_t uid)
 	sqlite3_snprintf(MAX_QUERY_LEN, query,
 			"SELECT COUNT(*) FROM "
 			"package_app_info_for_uid WHERE app_id=%Q "
-			"AND uid='%d'", appid, (int)uid);
+			"AND uid=%d", appid, (int)uid);
 
 	ret = sqlite3_prepare_v2(pkgmgr_parser_db, query, strlen(query), &stmt, NULL);
 	if (ret != SQLITE_OK) {
@@ -2290,13 +2300,13 @@ static int __disable_global_app_for_user(const char *appid, uid_t uid)
 	} else if (ret == 0) {
 		sqlite3_snprintf(MAX_QUERY_LEN, query, "INSERT INTO "
 				"package_app_info_for_uid(app_id, uid, is_disabled, is_splash_screen_enabled) "
-				"VALUES(%Q, '%d', 'true', "
+				"VALUES(%Q, %d, 'true', "
 				"(SELECT app_splash_screen_display FROM package_app_info WHERE appid='%Q'))",
 				appid, (int)uid, appid);
 	} else {
 		sqlite3_snprintf(MAX_QUERY_LEN, query, "UPDATE "
 				"package_app_info_for_uid SET is_disabled='true' "
-				"WHERE app_id=%Q AND uid='%d'", appid, (int)uid);
+				"WHERE app_id=%Q AND uid=%d", appid, (int)uid);
 	}
 
 	ret = __exec_query(query);
@@ -2320,7 +2330,7 @@ static int __enable_global_app_for_user(const char *appid, uid_t uid)
 		sqlite3_snprintf(MAX_QUERY_LEN, query,
 				"UPDATE package_app_info_for_uid SET "
 				"is_disabled='false' WHERE app_id=%Q AND "
-				"uid='%d'", appid, (int)uid);
+				"uid=%d", appid, (int)uid);
 	}
 
 	ret = __exec_query(query);
@@ -2344,13 +2354,13 @@ static int __update_global_app_splash_screen_for_user(const char *appid,
 	} else if (ret == 0) {
 		sqlite3_snprintf(MAX_QUERY_LEN, query, "INSERT INTO "
 				"package_app_info_for_uid(app_id, uid, is_splash_screen_enabled) "
-				"VALUES(%Q, '%d', %Q)", appid, (int)uid,
+				"VALUES(%Q, %d, %Q)", appid, (int)uid,
 				flag ? "true" : "false");
 	} else {
 		sqlite3_snprintf(MAX_QUERY_LEN, query,
 				"UPDATE package_app_info_for_uid SET "
 				"is_splash_screen_enabled=%Q WHERE app_id=%Q AND "
-				"uid='%d'", flag ? "true" : "false", appid, (int)uid);
+				"uid=%d", flag ? "true" : "false", appid, (int)uid);
 	}
 
 	ret = __exec_query(query);
@@ -2366,7 +2376,7 @@ static int __disable_app_splash_screen(const char *appid)
 	char query[MAX_QUERY_LEN] = {'\0'};
 
 	sqlite3_snprintf(MAX_QUERY_LEN, query,
-			"UPDATE package_app_info set app_splash_screen_display='false' where app_id=%Q",
+			"UPDATE package_app_info SET app_splash_screen_display='false' WHERE app_id=%Q",
 			appid);
 	ret = __exec_query(query);
 	if (ret == -1)
@@ -2381,25 +2391,11 @@ static int __enable_app_splash_screen(const char *appid)
 	char query[MAX_QUERY_LEN] = {'\0'};
 
 	sqlite3_snprintf(MAX_QUERY_LEN, query,
-			"UPDATE package_app_info set app_splash_screen_display='true' where app_id=%Q",
+			"UPDATE package_app_info SET app_splash_screen_display='true' WHERE app_id=%Q",
 			appid);
 	ret = __exec_query(query);
 	if (ret == -1)
 		_LOGD("Failed to update app_splash_screen_display");
-
-	return ret;
-}
-
-static int __update_preload_condition_in_db()
-{
-	int ret = -1;
-	char query[MAX_QUERY_LEN] = {'\0'};
-
-	snprintf(query, MAX_QUERY_LEN, "update package_info set package_preload='true'");
-
-	ret = __exec_query(query);
-	if (ret == -1)
-		_LOGD("Package preload_condition update failed\n");
 
 	return ret;
 }
@@ -2873,78 +2869,6 @@ err:
 API int pkgmgr_parser_delete_manifest_info_from_db(manifest_x *mfx)
 {
 	return pkgmgr_parser_delete_manifest_info_from_usr_db(mfx, _getuid());
-}
-
-API int pkgmgr_parser_update_preload_info_in_db()
-{
-	int ret = 0;
-	ret = pkgmgr_parser_check_and_create_db(GLOBAL_USER);
-	if (ret == -1) {
-		_LOGD("Failed to open DB\n");
-		return ret;
-	}
-	/*Begin transaction*/
-	ret = sqlite3_exec(pkgmgr_parser_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
-	if (ret != SQLITE_OK) {
-		_LOGD("Failed to begin transaction\n");
-		ret = -1;
-		goto err;
-	}
-	_LOGD("Transaction Begin\n");
-	ret = __update_preload_condition_in_db();
-	if (ret == -1) {
-		_LOGD("__update_preload_condition_in_db failed. Rollback now\n");
-		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
-		goto err;
-	}
-	/*Commit transaction*/
-	ret = sqlite3_exec(pkgmgr_parser_db, "COMMIT", NULL, NULL, NULL);
-	if (ret != SQLITE_OK) {
-		_LOGD("Failed to commit transaction, Rollback now\n");
-		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
-		ret = -1;
-		goto err;
-	}
-	_LOGD("Transaction Commit and End\n");
-err:
-	pkgmgr_parser_close_db();
-	return ret;
-}
-
-API int pkgmgr_parser_update_preload_info_in_usr_db(uid_t uid)
-{
-	int ret = 0;
-	ret = pkgmgr_parser_check_and_create_db(uid);
-	if (ret == -1) {
-		_LOGD("Failed to open DB\n");
-		return ret;
-	}
-	/*Begin transaction*/
-	ret = sqlite3_exec(pkgmgr_parser_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
-	if (ret != SQLITE_OK) {
-		_LOGD("Failed to begin transaction\n");
-		ret = -1;
-		goto err;
-	}
-	_LOGD("Transaction Begin\n");
-	ret = __update_preload_condition_in_db();
-	if (ret == -1) {
-		_LOGD("__update_preload_condition_in_db failed. Rollback now\n");
-		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
-		goto err;
-	}
-	/*Commit transaction*/
-	ret = sqlite3_exec(pkgmgr_parser_db, "COMMIT", NULL, NULL, NULL);
-	if (ret != SQLITE_OK) {
-		_LOGD("Failed to commit transaction, Rollback now\n");
-		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
-		ret = -1;
-		goto err;
-	}
-	_LOGD("Transaction Commit and End\n");
-err:
-	pkgmgr_parser_close_db();
-	return ret;
 }
 
 API int pkgmgr_parser_update_global_app_disable_for_uid_info_in_db(const char *appid, uid_t uid, int is_disable)
