@@ -48,7 +48,7 @@
 
 static bool _get_bool_value(const char *str)
 {
-	if (!strcmp(str, "true"))
+	if (str && !strcmp(str, "true"))
 		return true;
 	else
 		return false;
