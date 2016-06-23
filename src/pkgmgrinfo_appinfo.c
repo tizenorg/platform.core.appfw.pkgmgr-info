@@ -1696,6 +1696,8 @@ API int pkgmgrinfo_appinfo_get_metadata_value(pkgmgrinfo_appinfo_h handle, const
 		metadata = (metadata_x *)list_md->data;
 		if (metadata && metadata->key) {
 			if (strcasecmp(metadata->key, metadata_key) == 0) {
+				if (metadata->value == NULL)
+					metadata->value = strdup("");
 				*metadata_value = (char*)metadata->value;
 				return PMINFO_R_OK;
 			}
@@ -2354,6 +2356,8 @@ API int pkgmgrinfo_appinfo_foreach_metadata(pkgmgrinfo_appinfo_h handle,
 		if (ptr == NULL)
 			continue;
 		if (ptr->key) {
+			if (ptr->value == NULL)
+				ptr->value = strdup("");
 			ret = metadata_func(ptr->key, ptr->value, user_data);
 			if (ret < 0)
 				break;
