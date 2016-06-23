@@ -991,8 +991,11 @@ API int pkgmgrinfo_pkginfo_get_package_size(pkgmgrinfo_pkginfo_h handle, int *si
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
 	retvm_if(size == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 
-	if (info->pkg_info == NULL || info->pkg_info->package_size == NULL)
+	if (info->pkg_info == NULL)
 		return PMINFO_R_ERROR;
+
+	if (info->pkg_info->package_size == NULL)
+		info->pkg_info->package_size = strdup("");
 
 	*size = atoi((char *)info->pkg_info->package_size);
 
@@ -1173,6 +1176,11 @@ API int pkgmgrinfo_pkginfo_get_icon(pkgmgrinfo_pkginfo_h handle, char **icon)
 	if (info->pkg_info == NULL)
 		return PMINFO_R_ERROR;
 
+	if (info->pkg_info->icon == NULL) {
+		*icon = "";
+		return PMINFO_R_OK;
+	}
+
 	for (tmp = info->pkg_info->icon; tmp; tmp = tmp->next) {
 		ptr = (icon_x *)tmp->data;
 		if (ptr == NULL || ptr->text == NULL || ptr->lang == NULL ||
@@ -1209,6 +1217,11 @@ API int pkgmgrinfo_pkginfo_get_label(pkgmgrinfo_pkginfo_h handle, char **label)
 	locale = info->locale;
 	retvm_if(locale == NULL, PMINFO_R_ERROR, "manifest locale is NULL");
 
+	if (info->pkg_info->label == NULL) {
+		*label = "";
+		return PMINFO_R_OK;
+	}
+
 	for (tmp = info->pkg_info->label; tmp != NULL; tmp = tmp->next) {
 		ptr = (label_x *)tmp->data;
 		if (ptr == NULL || ptr->text == NULL || ptr->lang == NULL ||
@@ -1243,6 +1256,11 @@ API int pkgmgrinfo_pkginfo_get_description(pkgmgrinfo_pkginfo_h handle, char **d
 
 	locale = info->locale;
 	retvm_if(locale == NULL, PMINFO_R_ERROR, "manifest locale is NULL");
+
+	if (info->pkg_info->description == NULL) {
+		*description = "";
+		return PMINFO_R_OK;
+	}
 
 	for (tmp = info->pkg_info->description; tmp; tmp = tmp->next) {
 		ptr = (description_x *)tmp->data;

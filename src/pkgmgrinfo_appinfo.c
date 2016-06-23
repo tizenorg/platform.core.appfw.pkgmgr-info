@@ -1545,6 +1545,11 @@ API int pkgmgrinfo_appinfo_get_icon(pkgmgrinfo_appinfo_h handle, char **icon)
 	if (info->app_info == NULL)
 		return PMINFO_R_ERROR;
 
+	if (info->app_info->icon == NULL) {
+		*icon = "";
+		return PMINFO_R_OK;
+	}
+
 	for (tmp = info->app_info->icon; tmp; tmp = tmp->next) {
 		ptr = (icon_x *)tmp->data;
 		if (ptr == NULL || ptr->text == NULL || ptr->lang == NULL ||
