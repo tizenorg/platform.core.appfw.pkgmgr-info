@@ -987,12 +987,23 @@ API int pkgmgrinfo_pkginfo_get_install_location(pkgmgrinfo_pkginfo_h handle, pkg
 API int pkgmgrinfo_pkginfo_get_package_size(pkgmgrinfo_pkginfo_h handle, int *size)
 {
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
+	char *temp = NULL;
 
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
 	retvm_if(size == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 
-	if (info->pkg_info == NULL || info->pkg_info->package_size == NULL)
+	if (info->pkg_info == NULL)
 		return PMINFO_R_ERROR;
+
+	if (info->pkg_info->package_size == NULL) {
+		temp = strdup("");
+		if (temp == NULL) {
+			_LOGE("out of memory");
+			return PMINFO_R_ERROR;
+		} else {
+			info->pkg_info->package_size = temp;
+		}
+	}
 
 	*size = atoi((char *)info->pkg_info->package_size);
 
@@ -1175,6 +1186,8 @@ API int pkgmgrinfo_pkginfo_get_icon(pkgmgrinfo_pkginfo_h handle, char **icon)
 
 	for (tmp = info->pkg_info->icon; tmp; tmp = tmp->next) {
 		ptr = (icon_x *)tmp->data;
+		if (ptr && ptr->text == NULL)
+			ptr->text = strdup("");
 		if (ptr == NULL || ptr->text == NULL || ptr->lang == NULL ||
 				!strcasecmp(ptr->text, "(null)") ||
 				strcmp(ptr->lang, locale))
@@ -1186,6 +1199,8 @@ API int pkgmgrinfo_pkginfo_get_icon(pkgmgrinfo_pkginfo_h handle, char **icon)
 	locale = DEFAULT_LOCALE;
 	for (tmp = info->pkg_info->icon; tmp; tmp = tmp->next) {
 		ptr = (icon_x *)tmp->data;
+		if (ptr && ptr->text == NULL)
+			ptr->text = strdup("");
 		if (ptr == NULL || ptr->text == NULL || ptr->lang == NULL ||
 				strcmp(ptr->lang, locale))
 			continue;
@@ -1211,6 +1226,8 @@ API int pkgmgrinfo_pkginfo_get_label(pkgmgrinfo_pkginfo_h handle, char **label)
 
 	for (tmp = info->pkg_info->label; tmp != NULL; tmp = tmp->next) {
 		ptr = (label_x *)tmp->data;
+		if (ptr && ptr->text == NULL)
+			ptr->text = strdup("");
 		if (ptr == NULL || ptr->text == NULL || ptr->lang == NULL ||
 				strcmp(ptr->lang, locale))
 			continue;
@@ -1221,6 +1238,8 @@ API int pkgmgrinfo_pkginfo_get_label(pkgmgrinfo_pkginfo_h handle, char **label)
 	locale = DEFAULT_LOCALE;
 	for (tmp = info->pkg_info->label; tmp != NULL; tmp = tmp->next) {
 		ptr = (label_x *)tmp->data;
+		if (ptr && ptr->text == NULL)
+			ptr->text = strdup("");
 		if (ptr == NULL || ptr->text == NULL || ptr->lang == NULL ||
 				strcmp(ptr->lang, locale))
 			continue;
@@ -1246,6 +1265,8 @@ API int pkgmgrinfo_pkginfo_get_description(pkgmgrinfo_pkginfo_h handle, char **d
 
 	for (tmp = info->pkg_info->description; tmp; tmp = tmp->next) {
 		ptr = (description_x *)tmp->data;
+		if (ptr && ptr->text == NULL)
+			ptr->text = strdup("");
 		if (ptr == NULL || ptr->text == NULL || ptr->lang == NULL ||
 				strcmp(ptr->lang, locale))
 			continue;
@@ -1256,6 +1277,8 @@ API int pkgmgrinfo_pkginfo_get_description(pkgmgrinfo_pkginfo_h handle, char **d
 	locale = DEFAULT_LOCALE;
 	for (tmp = info->pkg_info->description; tmp; tmp = tmp->next) {
 		ptr = (description_x *)tmp->data;
+		if (ptr && ptr->text == NULL)
+			ptr->text = strdup("");
 		if (ptr == NULL || ptr->text == NULL || ptr->lang == NULL ||
 				strcmp(ptr->lang, locale))
 			continue;
