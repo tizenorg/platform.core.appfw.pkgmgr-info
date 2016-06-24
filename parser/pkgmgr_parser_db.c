@@ -1785,7 +1785,7 @@ static int __insert_application_metadata_splashscreen_info(manifest_x *mfx)
 
 			if (strcasestr(md->key, "operation_effect=")) {
 				operation = index(md->key, '=');
-				if (operation[1] != '\0')
+				if (operation && operation[1] != '\0')
 					operation++;
 				else
 					operation = NULL;
@@ -1802,19 +1802,19 @@ static int __insert_application_metadata_splashscreen_info(manifest_x *mfx)
 			while (token != NULL) {
 				if (strcasestr(token, "portrait-effectimage=")) {
 					portraitimg = index(token, '=');
-					if (portraitimg[1] != '\0')
+					if (portraitimg && portraitimg[1] != '\0')
 						portraitimg++;
 					else
 						portraitimg = NULL;
 				} else if (strcasestr(token, "landscape-effectimage=")) {
 					landscapeimg = index(token, '=');
-					if (landscapeimg[1] != '\0')
+					if (landscapeimg && landscapeimg[1] != '\0')
 						landscapeimg++;
 					else
 						landscapeimg = NULL;
 				} else if (strcasestr(token, "indicatordisplay=")) {
 					indicatordisplay = index(token, '=');
-					if (indicatordisplay[1] != '\0')
+					if (indicatordisplay && indicatordisplay[1] != '\0')
 						indicatordisplay++;
 					else
 						indicatordisplay = "true";
