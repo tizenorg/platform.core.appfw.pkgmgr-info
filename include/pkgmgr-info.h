@@ -2048,14 +2048,7 @@ static int list_privilege(const char *package, char *privilege)
 int pkgmgrinfo_pkginfo_foreach_privilege(pkgmgrinfo_pkginfo_h handle,
 			pkgmgrinfo_pkg_privilege_list_cb privilege_func, void *user_data);
 
-/* TODO: add doxygen comment here */
-int pkgmgrinfo_pkginfo_get_size_from_xml(const char *manifest, int *size);
-int pkgmgrinfo_pkginfo_get_location_from_xml(const char *manifest, pkgmgrinfo_install_location *location);
 int pkgmgrinfo_pkginfo_is_for_all_users(pkgmgrinfo_pkginfo_h handle, bool *for_all_users);
-int pkgmgrinfo_appinfo_set_state_enabled(const char *appid, bool enabled);
-int pkgmgrinfo_appinfo_set_usr_state_enabled(const char *appid, bool enabled, uid_t uid);
-int pkgmgrinfo_appinfo_set_default_label(const char *appid, const char *label);
-int pkgmgrinfo_appinfo_set_usr_default_label(const char *appid, const char *label, uid_t uid);
 
 /**
  * @fn int pkgmgrinfo_appinfo_clone_appinfo(pkgmgrinfo_pkginfo_h handle, pkgmgrinfo_pkginfo_h *clone)
@@ -5514,44 +5507,6 @@ static int get_app_guestmode_visibility(const char *appid)
  * @endcode
  */
  int pkgmgrinfo_appinfo_is_guestmode_visibility(pkgmgrinfo_appinfo_h handle, bool *status);
-
-/**
- * @fn int pkgmgrinfo_appinfo_set_guestmode_visibility(pkgmgrinfo_appinfo_h handle, bool status)
- * @brief	This API sets the application 'guest mode visibility' value in the DB
- *
- * @par		This API is for package-manager client application
- * @par Sync (or) Async : Synchronous API
- *
- * @param[in]	handle	pointer to application info handle
- * @param[out] status	app guest mode visibility value
- * @return	0 if success, error code(<0) if fail
- * @retval	PMINFO_R_OK	success
- * @retval	PMINFO_R_EINVAL	invalid argument
- * @retval	PMINFO_R_ERROR	internal error
- * @pre		pkgmgrinfo_appinfo_get_appinfo()
- * @post		pkgmgrinfo_appinfo_destroy_appinfo()
- * @see		pkgmgrinfo_appinfo_get_appid()
- * @see		pkgmgrinfo_appinfo_is_multiple()
- * @code
-static int set_app_guestmode_visibility(const char *appid, bool value)
-{
-	int ret = 0;
-	pkgmgrinfo_appinfo_h handle;
-	ret = pkgmgrinfo_appinfo_get_appinfo(appid, &handle);
-	if (ret != PMINFO_R_OK)
-		return -1;
-	ret = pkgmgrinfo_appinfo_set_guestmode_visibility(handle, value);
-	if (ret != PMINFO_R_OK) {
-		pkgmgrinfo_appinfo_destroy_appinfo(handle);
-		return -1;
-	}
-	pkgmgrinfo_appinfo_destroy_appinfo(handle);
-	return 0;
-}
- * @endcode
- */
- int pkgmgrinfo_appinfo_set_guestmode_visibility(pkgmgrinfo_appinfo_h handle, bool status);
- int pkgmgrinfo_appinfo_set_usr_guestmode_visibility(pkgmgrinfo_appinfo_h handle, uid_t uid, bool status);
 
 /**
 * @fn int pkgmgrinfo_pkginfo_set_installed_storage(const char *pkgid, INSTALL_LOCATION location)
