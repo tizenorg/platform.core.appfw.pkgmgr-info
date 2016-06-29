@@ -1894,26 +1894,6 @@ static int __insert_manifest_info_in_db(manifest_x *mfx, uid_t uid)
 			auth_href = author->href;
 	}
 
-	/*Insert in the package_cert_info CERT_DB*/
-	pkgmgrinfo_instcertinfo_h cert_handle = NULL;
-	ret = pkgmgrinfo_set_cert_value(&cert_handle, PMINFO_SET_AUTHOR_ROOT_CERT, "author root certificate");
-	if (ret != PMINFO_R_OK) {
-		pkgmgrinfo_destroy_certinfo_set_handle(cert_handle);
-		_LOGE("Cert Info DB create handle failed\n");
-		return -1;
-	}
-	ret = pkgmgrinfo_save_certinfo(mfx->package, &cert_handle, uid);
-	if (ret != PMINFO_R_OK) {
-		pkgmgrinfo_destroy_certinfo_set_handle(cert_handle);
-		_LOGE("Cert Info DB Insert Failed\n");
-		return -1;
-	}
-
-	if (ret != PMINFO_R_OK) {
-		_LOGE("Failed to set default values");
-		return -1;
-	}
-
 	/*Insert in the package_info DB*/
 	sqlite3_snprintf(MAX_QUERY_LEN, query,
 		"INSERT INTO package_info(" \
