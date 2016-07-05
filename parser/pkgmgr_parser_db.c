@@ -840,12 +840,12 @@ static char *__find_icon(GList *icons, const char *lang)
 
 	// if second has failed, find icon whose dpi has matched with system's dpi
 	system_info_get_platform_int("http://tizen.org/feature/screen.dpi", &dpi);
-	if (!dpi)
-		return NULL;
-	tmp = g_list_find_custom(icons, GINT_TO_POINTER(dpi), (GCompareFunc)__compare_icon_with_dpi);
-	if (tmp != NULL) {
-		icon = (icon_x *)tmp->data;
-		return (char *)icon->text;
+	if (dpi) {
+		tmp = g_list_find_custom(icons, GINT_TO_POINTER(dpi), (GCompareFunc)__compare_icon_with_dpi);
+		if (tmp != NULL) {
+			icon = (icon_x *)tmp->data;
+			return (char *)icon->text;
+		}
 	}
 
 	// last, find default icon marked as "No Locale"
