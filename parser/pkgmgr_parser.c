@@ -2180,6 +2180,13 @@ DEPRECATED API int pkgmgr_parser_parse_manifest_for_upgrade(const char *manifest
 		mfx->csc_path = strdup(csc_path);
 	}
 
+	/*Delete from cert table*/
+	ret = pkgmgrinfo_delete_certinfo(mfx->package);
+	if (ret) {
+		_LOGD("Cert Info  DB Delete Failed\n");
+		return -1;
+	}
+
 	ret = pkgmgr_parser_update_manifest_info_in_db(mfx);
 	retvm_if(ret == PMINFO_R_ERROR, PMINFO_R_ERROR, "DB Insert failed");
 
@@ -2247,6 +2254,13 @@ DEPRECATED API int pkgmgr_parser_parse_usr_manifest_for_upgrade(const char *mani
 		if (mfx->csc_path)
 			free((void *)mfx->csc_path);
 		mfx->csc_path = strdup(csc_path);
+	}
+
+	/*Delete from cert table*/
+	ret = pkgmgrinfo_delete_certinfo(mfx->package);
+	if (ret) {
+		_LOGD("Cert Info  DB Delete Failed\n");
+		return -1;
 	}
 
 	ret = pkgmgr_parser_update_manifest_info_in_usr_db(mfx, uid);
@@ -2317,6 +2331,13 @@ API int pkgmgr_parser_parse_manifest_for_uninstallation(const char *manifest, ch
 	if (ret == -1)
 		_LOGD("Creating category parser failed\n");
 
+	/*Delete from cert table*/
+	ret = pkgmgrinfo_delete_certinfo(mfx->package);
+	if (ret) {
+		_LOGD("Cert Info  DB Delete Failed\n");
+		return -1;
+	}
+
 	ret = pkgmgr_parser_delete_manifest_info_from_db(mfx);
 	if (ret == -1)
 		_LOGD("DB Delete failed\n");
@@ -2353,6 +2374,13 @@ API int pkgmgr_parser_parse_usr_manifest_for_uninstallation(const char *manifest
 	ret = __ps_process_category_parser(mfx, ACTION_UNINSTALL);
 	if (ret == -1)
 		_LOGD("Creating category parser failed\n");
+
+	/*Delete from cert table*/
+	ret = pkgmgrinfo_delete_certinfo(mfx->package);
+	if (ret) {
+		_LOGD("Cert Info  DB Delete Failed\n");
+		return -1;
+	}
 
 	ret = pkgmgr_parser_delete_manifest_info_from_usr_db(mfx, uid);
 	if (ret == -1)

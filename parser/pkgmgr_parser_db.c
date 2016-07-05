@@ -2126,12 +2126,6 @@ static int __delete_manifest_info_from_db(manifest_x *mfx, uid_t uid)
 	int ret = -1;
 	GList *tmp;
 	application_x *app;
-	/*Delete from cert table*/
-	ret = pkgmgrinfo_delete_certinfo(mfx->package);
-	if (ret) {
-		_LOGD("Cert Info  DB Delete Failed\n");
-		return -1;
-	}
 
 	/*Delete from Package Info DB*/
 	sqlite3_snprintf(MAX_QUERY_LEN, query,
