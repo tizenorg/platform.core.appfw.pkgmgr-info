@@ -464,11 +464,11 @@ static int _pkginfo_save_cert_info(sqlite3 *db, const char *pkgid,
 		char *cert_info[])
 {
 	static const char query_insert[] =
-		"INSERT INTO package_cert_info (package,"
+		"INSERT INTO package_cert_info (package, package_count,"
 		" author_root_cert, author_im_cert, author_signer_cert,"
 		" dist_root_cert, dist_im_cert, dist_signer_cert,"
 		" dist2_root_cert, dist2_im_cert, dist2_signer_cert) "
-		"VALUES(?, "
+		"VALUES(?, 1,"
 		" (SELECT cert_id FROM package_cert_index_info"
 		"  WHERE cert_info=?),"
 		" (SELECT cert_id FROM package_cert_index_info"
@@ -488,34 +488,8 @@ static int _pkginfo_save_cert_info(sqlite3 *db, const char *pkgid,
 		" (SELECT cert_id FROM package_cert_index_info"
 		"  WHERE cert_info=?))";
 	static const char query_update[] =
-		"UPDATE package_cert_info SET "
-		" author_root_cert= "
-		"  (SELECT cert_id FROM package_cert_index_info"
-		"   WHERE cert_info=?),"
-		" author_im_cert= "
-		"  (SELECT cert_id FROM package_cert_index_info"
-		"   WHERE cert_info=?),"
-		" author_signer_cert= "
-		"  (SELECT cert_id FROM package_cert_index_info"
-		"   WHERE cert_info=?),"
-		" dist_root_cert= "
-		"  (SELECT cert_id FROM package_cert_index_info"
-		"   WHERE cert_info=?),"
-		" dist_im_cert= "
-		"  (SELECT cert_id FROM package_cert_index_info"
-		"   WHERE cert_info=?),"
-		" dist_signer_cert= "
-		"  (SELECT cert_id FROM package_cert_index_info"
-		"   WHERE cert_info=?),"
-		" dist2_root_cert= "
-		"  (SELECT cert_id FROM package_cert_index_info"
-		"   WHERE cert_info=?),"
-		"dist2_im_cert= "
-		"  (SELECT cert_id FROM package_cert_index_info"
-		"   WHERE cert_info=?),"
-		"dist2_signer_cert= "
-		"  (SELECT cert_id FROM package_cert_index_info"
-		"   WHERE cert_info=?) "
+		"UPDATE package_cert_info "
+		"SET package_count = package_count + 1 "
 		"WHERE package=?";
 	int ret;
 	sqlite3_stmt *stmt;
@@ -549,16 +523,7 @@ static int _pkginfo_save_cert_info(sqlite3 *db, const char *pkgid,
 			_LOGE("prepare error: %s", sqlite3_errmsg(db));
 			return PMINFO_R_ERROR;
 		}
-		idx = 1;
-		for (i = 0; i < MAX_CERT_TYPE; i++) {
-			if (sqlite3_bind_text(stmt, idx++, cert_info[i], -1,
-					SQLITE_STATIC)) {
-				_LOGE("bind error: %s", sqlite3_errmsg(db));
-				sqlite3_finalize(stmt);
-				return PMINFO_R_ERROR;
-			}
-		}
-		sqlite3_bind_text(stmt, idx++, pkgid, -1, SQLITE_STATIC);
+		sqlite3_bind_text(stmt, 1, pkgid, -1, SQLITE_STATIC);
 		ret = sqlite3_step(stmt);
 		sqlite3_finalize(stmt);
 	}
@@ -656,6 +621,7 @@ API int pkgmgrinfo_save_certinfo(const char *pkgid, pkgmgrinfo_instcertinfo_h ha
 		sqlite3_close_v2(db);
 		return PMINFO_R_ERROR;
 	}
+
 	if (_pkginfo_save_cert_info(db, pkgid, info->cert_info)) {
 		_LOGE("failed to save cert info, rollback now");
 		sqlite3_exec(GET_DB(cert_db), "ROLLBACK", NULL, NULL, NULL);
@@ -700,7 +666,9 @@ API int pkgmgrinfo_destroy_certinfo_set_handle(pkgmgrinfo_instcertinfo_h handle)
 static int _pkginfo_delete_certinfo(sqlite3 *db, const char *pkgid)
 {
 	static const char query[] =
-		"DELETE FROM package_cert_info WHERE package=?";
+		"UPDATE package_cert_info "
+		"SET package_count = package_count - 1 "
+		"WHERE package=?";
 	int ret;
 	sqlite3_stmt *stmt;
 

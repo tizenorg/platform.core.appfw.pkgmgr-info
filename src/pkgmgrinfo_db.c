@@ -30,6 +30,7 @@
 #define QUERY_CREATE_TABLE_PACKAGE_CERT_INFO \
 	"CREATE TABLE IF NOT EXISTS package_cert_info( " \
 	" package TEXT PRIMARY KEY, " \
+	" package_count INTEGER, " \
 	" author_root_cert INTEGER, " \
 	" author_im_cert INTEGER, " \
 	" author_signer_cert INTEGER, " \
@@ -39,6 +40,32 @@
 	" dist2_root_cert INTEGER, " \
 	" dist2_im_cert INTEGER, " \
 	" dist2_signer_cert INTEGER)"
+
+#define QUERY_CREATE_TRIGGER_UPDATE_CERT_INFO \
+	"CREATE TRIGGER IF NOT EXISTS update_cert_info " \
+	"AFTER UPDATE ON package_cert_info " \
+	"WHEN (NEW.package_count = 0) " \
+	"BEGIN" \
+	" DELETE FROM package_cert_info WHERE package=OLD.package;" \
+	"END;"
+
+#define QUERY_CREATE_TRIGGER_UPDATE_CERT_INFO2 \
+	"CREATE TRIGGER IF NOT EXISTS update_cert_info2 " \
+	"AFTER UPDATE ON package_cert_info " \
+	"WHEN (NEW.package_count = OLD.package_count + 1) " \
+	"BEGIN" \
+	" UPDATE package_cert_index_info SET" \
+	"  cert_ref_count = cert_ref_count - 1" \
+	" WHERE cert_id = OLD.author_root_cert" \
+	"  OR cert_id = OLD.author_im_cert" \
+	"  OR cert_id = OLD.author_signer_cert" \
+	"  OR cert_id = OLD.dist_root_cert" \
+	"  OR cert_id = OLD.dist_im_cert" \
+	"  OR cert_id = OLD.dist_signer_cert" \
+	"  OR cert_id = OLD.dist2_root_cert" \
+	"  OR cert_id = OLD.dist2_im_cert" \
+	"  OR cert_id = OLD.dist2_signer_cert;" \
+	"END;"
 
 #define QUERY_CREATE_TRIGGER_DELETE_CERT_INFO \
 	"CREATE TRIGGER IF NOT EXISTS delete_cert_info " \
@@ -64,16 +91,6 @@
 	"       WHERE cert_id = OLD.cert_id) = 0) "\
 	"BEGIN" \
 	" DELETE FROM package_cert_index_info WHERE cert_id = OLD.cert_id;" \
-	"END;"
-
-#define QUERY_CREATE_TRIGGER_UPDATE_CERT_INFO_FORMAT \
-	"CREATE TRIGGER IF NOT EXISTS update_%s_info " \
-	"AFTER UPDATE ON package_cert_info " \
-	"WHEN (OLD.%s IS NOT NULL) " \
-	"BEGIN" \
-	" UPDATE package_cert_index_info SET" \
-	"  cert_ref_count = cert_ref_count - 1" \
-	" WHERE cert_id = OLD.%s;" \
 	"END;"
 
 __thread db_handle manifest_db;
@@ -207,13 +224,6 @@ static int __exec_db_query(sqlite3 *db, char *query, sqlite_query_callback callb
 
 int _check_create_cert_db(sqlite3 *certdb)
 {
-	int i;
-	char buf[BUFSIZE];
-	static const char *columns[] = {
-		"author_root_cert", "author_im_cert", "author_signer_cert",
-		"dist_root_cert", "dist_im_cert", "dist_signer_cert",
-		"dist2_root_cert", "dist2_im_cert", "dist2_signer_cert",
-		NULL};
 	int ret = 0;
 	ret = __exec_db_query(certdb, QUERY_CREATE_TABLE_PACKAGE_CERT_INDEX_INFO, NULL, NULL);
 	if (ret < 0)
@@ -221,19 +231,16 @@ int _check_create_cert_db(sqlite3 *certdb)
 	ret = __exec_db_query(certdb, QUERY_CREATE_TABLE_PACKAGE_CERT_INFO, NULL, NULL);
 	if (ret < 0)
 		return ret;
+	ret = __exec_db_query(certdb, QUERY_CREATE_TRIGGER_UPDATE_CERT_INFO, NULL, NULL);
+	if (ret < 0)
+		return ret;
+	ret = __exec_db_query(certdb, QUERY_CREATE_TRIGGER_UPDATE_CERT_INFO2, NULL, NULL);
+	if (ret < 0)
+		return ret;
 	ret = __exec_db_query(certdb, QUERY_CREATE_TRIGGER_DELETE_CERT_INFO, NULL, NULL);
 	if (ret < 0)
 		return ret;
 	ret = __exec_db_query(certdb, QUERY_CREATE_TRIGGER_UPDATE_CERT_INDEX_INFO, NULL, NULL);
-
-	for (i = 0; columns[i] != NULL; i++) {
-		snprintf(buf, sizeof(buf),
-				QUERY_CREATE_TRIGGER_UPDATE_CERT_INFO_FORMAT,
-				columns[i], columns[i], columns[i]);
-		ret = __exec_db_query(certdb, buf, NULL, NULL);
-		if (ret < 0)
-			return ret;
-	}
 	return ret;
 }
 static gid_t _get_gid(const char *name)
