@@ -2237,6 +2237,34 @@ static int __enable_app(const char *appid)
 	return ret;
 }
 
+static int __disable_pkg(const char *pkgid)
+{
+	int ret = -1;
+	char query[MAX_QUERY_LEN] = {'\0'};
+	sqlite3_snprintf(MAX_QUERY_LEN, query,
+			"UPDATE package_info SET package_disable='true' WHERE package=%Q",
+			pkgid);
+	ret = __exec_query(query);
+	if (ret == -1)
+		_LOGD("Update pkg disable info has failed\n");
+
+	return ret;
+}
+
+static int __enable_pkg(const char *pkgid)
+{
+	int ret = -1;
+	char query[MAX_QUERY_LEN] = {'\0'};
+	sqlite3_snprintf(MAX_QUERY_LEN, query,
+			"UPDATE package_info SET package_disable='false' WHERE package=%Q",
+			pkgid);
+	ret = __exec_query(query);
+	if (ret == -1)
+		_LOGD("Update pkg disable info has failed\n");
+
+	return ret;
+}
+
 static int __check_appinfo_for_uid_table(const char *appid, uid_t uid)
 {
 	int ret = -1;
@@ -2980,6 +3008,56 @@ err:
 API int pkgmgr_parser_update_app_disable_info_in_db(const char *appid, int is_disable)
 {
 	return pkgmgr_parser_update_app_disable_info_in_usr_db(appid, _getuid(), is_disable);
+}
+
+API int pkgmgr_parser_update_pkg_disable_info_in_usr_db(const char *pkgid, uid_t uid, int is_disable)
+{
+	int ret = -1;
+
+	ret = pkgmgr_parser_check_and_create_db(uid);
+	if (ret == -1) {
+		_LOGD("Failed to open DB\n");
+		return ret;
+	}
+
+	/*Begin transaction*/
+	ret = sqlite3_exec(pkgmgr_parser_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGD("Failed to begin transaction\n");
+		ret = -1;
+		goto err;
+	}
+
+	_LOGD("Transaction Begin\n");
+	if (is_disable)
+		ret = __disable_pkg(pkgid);
+	else
+		ret = __enable_pkg(pkgid);
+
+	if (ret == -1) {
+		_LOGD("__update_pkg_disable_condition_in_db failed. Rollback now\n");
+		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
+		goto err;
+	}
+
+	/*Commit transaction*/
+	ret = sqlite3_exec(pkgmgr_parser_db, "COMMIT", NULL, NULL, NULL);
+	if (ret != SQLITE_OK) {
+		_LOGD("Failed to commit transaction, Rollback now\n");
+		sqlite3_exec(pkgmgr_parser_db, "ROLLBACK", NULL, NULL, NULL);
+		ret = -1;
+		goto err;
+	}
+	_LOGD("Transaction Commit and End\n");
+
+err:
+	pkgmgr_parser_close_db();
+	return ret;
+}
+
+API int pkgmgr_parser_update_pkg_disable_info_in_db(const char *pkgid, int is_disable)
+{
+	return pkgmgr_parser_update_pkg_disable_info_in_usr_db(pkgid, _getuid(), is_disable);
 }
 
 API int pkgmgr_parser_update_app_disable_info_in_usr_db(const char *appid, uid_t uid, int is_disable)
