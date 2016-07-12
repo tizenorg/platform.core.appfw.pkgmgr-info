@@ -213,6 +213,32 @@ int pkgmgr_parser_update_app_disable_info_in_db(const char *appid, int is_disabl
 int pkgmgr_parser_update_app_disable_info_in_usr_db(const char *appid, uid_t uid, int is_disable);
 
 /**
+ * @fn int pkgmgr_parser_update_pkg_disable_info_in_db(const char *pkgid, int is_disable);
+ * @brief	This API updates disable info about pkg
+ *
+ * @par		This API is for package-manager installer backends
+ * @par Sync (or) Async : Synchronous API
+ *
+ * @param[in]	pkgid	package ID to be enabled or disabled
+ * @param[in]	is_disable	determine enable or disable of app
+ * @return	0 if success, error code(<0) if fail
+ * @pre		None
+ * @post		None
+ * @code
+static int disable_pkg(const char *pkgid)
+{
+	int ret = 0;
+	ret = pkgmgr_parser_update_pkg_disable_info_in_db(pkgid, 1);
+	if (ret < 0)
+		return -1;
+	return 0;
+}
+ * @endcode
+ */
+int pkgmgr_parser_update_pkg_disable_info_in_db(const char *pkgid, int is_disable);
+int pkgmgr_parser_update_pkg_disable_info_in_usr_db(const char *pkgid, uid_t uid, int is_disable);
+
+/**
  * @fn int pkgmgr_parser_update_global_app_splash_screen_display_info_in_usr_db(const char *appid, uid_t uid, int flag)
  * @brief	This API updates splash screen display info about global app for user specified by uid
  *
