@@ -116,7 +116,7 @@ API int pkgmgrinfo_pkginfo_compare_usr_pkg_cert_info(const char *lhs_package_id,
 {
 	int ret;
 	sqlite3 *db;
-	const char *dbpath;
+	char *dbpath;
 
 	if (lhs_package_id == NULL || rhs_package_id == NULL ||
 			compare_result == NULL) {
@@ -132,8 +132,10 @@ API int pkgmgrinfo_pkginfo_compare_usr_pkg_cert_info(const char *lhs_package_id,
 	ret = sqlite3_open_v2(dbpath, &db, SQLITE_OPEN_READONLY, NULL);
 	if (ret != SQLITE_OK) {
 		_LOGE("failed to open db: %d", ret);
+		free(dbpath);
 		return PMINFO_R_ERROR;
 	}
+	free(dbpath);
 
 	if (_pkginfo_compare_certinfo(db, lhs_package_id, rhs_package_id,
 				compare_result)) {
@@ -159,7 +161,7 @@ static int _pkginfo_get_pkgid_from_appid(uid_t uid, const char *appid,
 		"SELECT package FROM package_app_info WHERE app_id=?";
 	int ret;
 	sqlite3 *db;
-	const char *dbpath;
+	char *dbpath;
 	sqlite3_stmt *stmt;
 
 	dbpath = getUserPkgParserDBPathUID(uid);
@@ -169,8 +171,10 @@ static int _pkginfo_get_pkgid_from_appid(uid_t uid, const char *appid,
 	ret = sqlite3_open_v2(dbpath, &db, SQLITE_OPEN_READONLY, NULL);
 	if (ret != SQLITE_OK) {
 		_LOGE("failed to open db: %d", ret);
+		free(dbpath);
 		return PMINFO_R_ERROR;
 	}
+	free(dbpath);
 
 	ret = sqlite3_prepare_v2(db, query, strlen(query), &stmt, NULL);
 	if (ret != SQLITE_OK) {
@@ -356,7 +360,7 @@ static int _pkginfo_get_certinfo(const char *pkgid, pkgmgr_certinfo_x *info)
 {
 	int ret;
 	sqlite3 *db;
-	const char *dbpath;
+	char *dbpath;
 
 	/* open unified global cert db */
 	dbpath = getUserPkgCertDBPathUID(GLOBAL_USER);
@@ -366,8 +370,10 @@ static int _pkginfo_get_certinfo(const char *pkgid, pkgmgr_certinfo_x *info)
 	ret = sqlite3_open_v2(dbpath, &db, SQLITE_OPEN_READONLY, NULL);
 	if (ret != SQLITE_OK) {
 		_LOGE("failed to open db: %d", ret);
+		free(dbpath);
 		return PMINFO_R_ERROR;
 	}
+	free(dbpath);
 
 	ret = _pkginfo_get_certid(db, pkgid, info->cert_id);
 	if (ret != PMINFO_R_OK) {
@@ -587,7 +593,7 @@ API int pkgmgrinfo_save_certinfo(const char *pkgid, pkgmgrinfo_instcertinfo_h ha
 {
 	int ret;
 	sqlite3 *db;
-	const char *dbpath;
+	char *dbpath;
 	pkgmgr_instcertinfo_x *info = (pkgmgr_instcertinfo_x *)handle;
 
 	if (pkgid == NULL || handle == NULL) {
@@ -603,8 +609,10 @@ API int pkgmgrinfo_save_certinfo(const char *pkgid, pkgmgrinfo_instcertinfo_h ha
 	ret = sqlite3_open_v2(dbpath, &db, SQLITE_OPEN_READWRITE, NULL);
 	if (ret != SQLITE_OK) {
 		_LOGE("failed to open db: %d", ret);
+		free(dbpath);
 		return PMINFO_R_ERROR;
 	}
+	free(dbpath);
 
 	ret = sqlite3_exec(db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
 	if (ret != SQLITE_OK) {
@@ -699,7 +707,7 @@ API int pkgmgrinfo_delete_usr_certinfo(const char *pkgid, uid_t uid)
 {
 	int ret;
 	sqlite3 *db;
-	const char *dbpath;
+	char *dbpath;
 
 	if (pkgid == NULL) {
 		_LOGE("invalid parameter");
@@ -714,8 +722,10 @@ API int pkgmgrinfo_delete_usr_certinfo(const char *pkgid, uid_t uid)
 	ret = sqlite3_open_v2(dbpath, &db, SQLITE_OPEN_READWRITE, NULL);
 	if (ret != SQLITE_OK) {
 		_LOGE("failed to open db: %d", ret);
+		free(dbpath);
 		return PMINFO_R_ERROR;
 	}
+	free(dbpath);
 
 	ret = sqlite3_exec(db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
 	if (ret != SQLITE_OK) {
