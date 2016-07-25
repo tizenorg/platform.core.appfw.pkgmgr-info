@@ -162,16 +162,23 @@ static int _mkdir_for_user(const char* dir, uid_t uid, gid_t gid)
 	return 0;
 }
 
-static const char *_get_db_path(uid_t uid) {
-	const char *db_path = NULL;
-	if (uid != GLOBAL_USER && uid != ROOT_UID) {
-		tzplatform_set_user(uid);
-		db_path = tzplatform_getenv(TZ_USER_DB);
-		tzplatform_reset_user();
-	} else {
-		db_path = tzplatform_getenv(TZ_SYS_DB);
+static char *_get_db_path(uid_t uid)
+{
+	const char *db_path;
+	char path[PATH_MAX];
+
+	db_path = tzplatform_getenv(TZ_SYS_DB);
+	if (db_path == NULL) {
+		_LOGE("Failed to get TZ_SYS_DB path");
+		return NULL;
 	}
-	return db_path;
+
+	if (uid == GLOBAL_USER || uid == ROOT_UID)
+		return strdup(db_path);
+
+	snprintf(path, sizeof(path), "%s/user/%d", db_path, uid);
+
+	return strdup(path);
 }
 
 static int __attach_and_create_view(sqlite3 *handle, const char *db, const char *tables[], uid_t uid)
@@ -284,62 +291,74 @@ API const char *getIconPath(uid_t uid, bool readonly)
 	return path;
 }
 
-API const char *getUserPkgParserDBPath(void)
+API char *getUserPkgParserDBPath(void)
 {
 	return getUserPkgParserDBPathUID(_getuid());
 }
 
-API const char *getUserPkgParserDBPathUID(uid_t uid)
+API char *getUserPkgParserDBPathUID(uid_t uid)
 {
-	const char *pkgmgr_parser_db = NULL;
+	char pkgmgr_parser_db[PATH_MAX];
 	uid_t uid_caller = getuid();
 	gid_t gid = ROOT_UID;
+	char *db_path;
+
+	db_path = _get_db_path(uid);
+	if (db_path == NULL) {
+		_LOGE("Failed to get db path %d", uid);
+		return NULL;
+	}
+	snprintf(pkgmgr_parser_db, sizeof(pkgmgr_parser_db),
+			"%s/.pkgmgr_parser.db", db_path);
 
 	if (uid != GLOBAL_USER && uid != ROOT_UID) {
 		tzplatform_set_user(uid);
-		pkgmgr_parser_db = tzplatform_mkpath(TZ_USER_DB, ".pkgmgr_parser.db");
 		gid = _get_gid(tzplatform_getenv(TZ_SYS_USER_GROUP));
 		tzplatform_reset_user();
-	} else {
-		pkgmgr_parser_db = tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_parser.db");
 	}
 
 	// just allow certain users to create the dbspace directory if needed.
-	if (uid_caller == ROOT_UID || uid_caller == uid) {
-		const char *db_path = _get_db_path(uid);
+	if (uid_caller == ROOT_UID || uid_caller == uid)
 		_mkdir_for_user(db_path, uid, gid);
-	}
 
-	return pkgmgr_parser_db;
+	free(db_path);
+
+	return strdup(pkgmgr_parser_db);
 }
 
-API const char *getUserPkgCertDBPath(void)
+API char *getUserPkgCertDBPath(void)
 {
 	 return getUserPkgCertDBPathUID(_getuid());
 }
 
-API const char *getUserPkgCertDBPathUID(uid_t uid)
+API char *getUserPkgCertDBPathUID(uid_t uid)
 {
-	const char *pkgmgr_cert_db = NULL;
+	char pkgmgr_cert_db[PATH_MAX];
 	uid_t uid_caller = getuid();
 	gid_t gid = ROOT_UID;
+	char *db_path;
+
+	db_path = _get_db_path(uid);
+	if (db_path == NULL) {
+		_LOGE("Failed to get db path %d", uid);
+		return NULL;
+	}
+	snprintf(pkgmgr_cert_db, sizeof(pkgmgr_cert_db),
+			"%s/.pkgmgr_cert.db", db_path);
 
 	if (uid != GLOBAL_USER && uid != ROOT_UID) {
 		tzplatform_set_user(uid);
-		pkgmgr_cert_db = tzplatform_mkpath(TZ_USER_DB, ".pkgmgr_cert.db");
 		gid = _get_gid(tzplatform_getenv(TZ_SYS_USER_GROUP));
 		tzplatform_reset_user();
-	} else {
-		pkgmgr_cert_db = tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_cert.db");
 	}
 
 	// just allow certain users to create the dbspace directory if needed.
-	if (uid_caller == ROOT_UID || uid_caller == uid) {
-		const char *db_path = _get_db_path(uid);
+	if (uid_caller == ROOT_UID || uid_caller == uid)
 		_mkdir_for_user(db_path, uid, gid);
-	}
 
-	return pkgmgr_cert_db;
+	free(db_path);
+
+	return strdup(pkgmgr_cert_db);
 }
 
 API const char *getUserManifestPath(uid_t uid, bool readonly)
@@ -398,7 +417,7 @@ static const char *parserdb_tables[] = {
 int __open_manifest_db(uid_t uid, bool readonly)
 {
 	int ret;
-	const char *user_pkg_parser;
+	char *user_pkg_parser;
 	int flags;
 
 	if (manifest_db.ref) {
@@ -407,23 +426,39 @@ int __open_manifest_db(uid_t uid, bool readonly)
 	}
 
 	user_pkg_parser = getUserPkgParserDBPathUID(uid);
+	if (user_pkg_parser == NULL) {
+		_LOGE("Failed to get pkg parser db path - %d", uid);
+		return -1;
+	}
+
 	if (access(user_pkg_parser, F_OK) != 0) {
 		_LOGE("Manifest DB does not exists !!");
+		free(user_pkg_parser);
 		return -1;
 	}
 
 	flags = readonly ? SQLITE_OPEN_READONLY : SQLITE_OPEN_READWRITE;
 	ret = db_util_open_with_options(user_pkg_parser, &GET_DB(manifest_db),
 			flags, NULL);
-	retvm_if(ret != SQLITE_OK, -1, "connect db [%s] failed!\n",
-			user_pkg_parser);
+	if (ret != SQLITE_OK) {
+		_LOGE("connect db [%s] failed!\n", user_pkg_parser);
+		free(user_pkg_parser);
+		return -1;
+	}
+
 	manifest_db.ref++;
 	if (readonly) {
 		ret = __attach_and_create_view(GET_DB(manifest_db), MANIFEST_DB,
 				parserdb_tables, uid);
-		retvm_if(ret != SQLITE_OK, -1, "attach db [%s] failed!\n",
-				user_pkg_parser);
+		if (ret != SQLITE_OK) {
+			_LOGE("attach db [%s] failed!\n", user_pkg_parser);
+			free(user_pkg_parser);
+			return -1;
+		}
 	}
+
+	free(user_pkg_parser);
+
 	return 0;
 }
 
@@ -447,7 +482,7 @@ static const char *certdb_tables[] = {
 int __open_cert_db(uid_t uid, bool readonly)
 {
 	int ret;
-	const char *user_cert_parser;
+	char *user_cert_parser;
 	int flags;
 
 	if (cert_db.ref) {
@@ -456,23 +491,38 @@ int __open_cert_db(uid_t uid, bool readonly)
 	}
 
 	user_cert_parser = getUserPkgCertDBPathUID(uid);
+	if (user_cert_parser == NULL) {
+		_LOGE("Failed to get pkg cert db path - %d", uid);
+		return -1;
+	}
+
 	if (access(user_cert_parser, F_OK) != 0) {
 		_LOGE("Cert DB does not exists !!");
+		free(user_cert_parser);
 		return -1;
 	}
 
 	flags = readonly ? SQLITE_OPEN_READONLY : SQLITE_OPEN_READWRITE;
 	ret = db_util_open_with_options(user_cert_parser, &GET_DB(cert_db),
 			flags, NULL);
-	retvm_if(ret != SQLITE_OK, -1, "connect db [%s] failed!",
-			user_cert_parser);
+	if (ret != SQLITE_OK) {
+		_LOGE("connect db [%s] failed!", user_cert_parser);
+		free(user_cert_parser);
+		return -1;
+	}
 	cert_db.ref++;
 	if (readonly) {
 		ret = __attach_and_create_view(GET_DB(cert_db), CERT_DB,
 				certdb_tables, uid);
-		retvm_if(ret != SQLITE_OK, -1, "attach db [%s] failed!",
-				user_cert_parser);
+		if (ret != SQLITE_OK) {
+			_LOGE("attach db [%s] failed!", user_cert_parser);
+			free(user_cert_parser);
+			return -1;
+		}
 	}
+
+	free(user_cert_parser);
+
 	return 0;
 }
 
@@ -507,7 +557,7 @@ API int pkgmgrinfo_appinfo_set_usr_state_enabled(const char *appid, bool enabled
 	/* Open db.*/
 	ret = __open_manifest_db(uid, false);
 	if (ret != SQLITE_OK) {
-		_LOGE("connect db [%s] failed!\n", getUserPkgParserDBPathUID(uid));
+		_LOGE("connect db [%d] failed!\n", uid);
 		return PMINFO_R_ERROR;
 	}
 
@@ -611,18 +661,27 @@ API int pkgmgrinfo_appinfo_set_usr_guestmode_visibility(pkgmgrinfo_appinfo_h han
 	char query[MAX_QUERY_LEN] = {'\0'};
 	char *errmsg;
 	sqlite3 *pkgmgr_parser_db;
+	char *db_path;
 
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL\n");
 
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 	val = info->app_info->guestmode_visibility;
 	if (val) {
-		ret = db_util_open_with_options(getUserPkgParserDBPathUID(uid), &pkgmgr_parser_db,
+		db_path = getUserPkgParserDBPathUID(uid);
+		if (db_path == NULL) {
+			_LOGE("Failed to get pkg parser db path - %d", uid);
+			return PMINFO_R_ERROR;
+		}
+
+		ret = db_util_open_with_options(db_path, &pkgmgr_parser_db,
 				SQLITE_OPEN_READWRITE, NULL);
 		if (ret != SQLITE_OK) {
 			_LOGE("DB Open Failed\n");
+			free(db_path);
 			return PMINFO_R_ERROR;
 		}
+		free(db_path);
 
 		/*TODO: Write to DB here*/
 		if (status == true)
@@ -652,10 +711,21 @@ API int pkgmgrinfo_pkginfo_set_usr_installed_storage(const char *pkgid, INSTALL_
 	int ret = -1;
 	sqlite3 *pkgmgr_parser_db = NULL;
 	char *query = NULL;
+	char *db_path;
 
-	ret = db_util_open_with_options(getUserPkgParserDBPathUID(uid), &pkgmgr_parser_db,
+	db_path = getUserPkgParserDBPathUID(uid);
+	if (db_path == NULL) {
+		_LOGE("Failed to get pkg parser db path - %d", uid);
+		return PMINFO_R_ERROR;
+	}
+
+	ret = db_util_open_with_options(db_path, &pkgmgr_parser_db,
 			SQLITE_OPEN_READWRITE, NULL);
-	retvm_if(ret != SQLITE_OK, PMINFO_R_ERROR, "connect db failed!");
+	if (ret != SQLITE_OK) {
+		_LOGE("connect db failed!");
+		free(db_path);
+		return PMINFO_R_ERROR;
+	}
 
 	/*Begin transaction*/
 	// Setting Manifest DB

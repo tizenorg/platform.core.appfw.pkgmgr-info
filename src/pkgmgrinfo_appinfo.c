@@ -556,7 +556,7 @@ static int _appinfo_get_applications(uid_t db_uid, uid_t uid,
 		"FROM package_app_info as ai";
 	int ret = PMINFO_R_ERROR;
 	int idx;
-	const char *dbpath;
+	char *dbpath;
 	char *bg_category_str = NULL;
 	char *constraint = NULL;
 	char query[MAX_QUERY_LEN] = { '\0' };
@@ -572,8 +572,10 @@ static int _appinfo_get_applications(uid_t db_uid, uid_t uid,
 	ret = sqlite3_open_v2(dbpath, &db, SQLITE_OPEN_READONLY, NULL);
 	if (ret != SQLITE_OK) {
 		_LOGE("failed to open db: %d", ret);
+		free(dbpath);
 		return PMINFO_R_ERROR;
 	}
+	free(dbpath);
 
 	ret = _get_filtered_query(filter, locale, &constraint, &bind_params);
 	if (ret != PMINFO_R_OK) {
@@ -1619,18 +1621,20 @@ static char *_get_localed_label(const char *appid, const char *locale, uid_t uid
 	sqlite3_stmt *stmt = NULL;
 	sqlite3 *db = NULL;
 	char *val;
-	const char *manifest_db;
+	char *parser_db;
 
-	manifest_db = getUserPkgParserDBPathUID(uid);
-	if (manifest_db == NULL) {
-		_LOGE("Failed to get manifest db path");
+	parser_db = getUserPkgParserDBPathUID(uid);
+	if (parser_db == NULL) {
+		_LOGE("Failed to get parser db path");
 		goto err;
 	}
 
-	if (sqlite3_open_v2(manifest_db, &db, SQLITE_OPEN_READONLY, NULL) != SQLITE_OK) {
+	if (sqlite3_open_v2(parser_db, &db, SQLITE_OPEN_READONLY, NULL) != SQLITE_OK) {
 		_LOGE("DB open fail\n");
+		free(parser_db);
 		goto err;
 	}
+	free(parser_db);
 
 	query = sqlite3_mprintf("select app_label from package_app_localized_info where app_id=%Q and app_locale=%Q", appid, locale);
 	if (query == NULL) {

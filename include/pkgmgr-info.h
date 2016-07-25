@@ -170,10 +170,10 @@ extern "C" {
 
 /* For multiuser support */
 const char *getIconPath(uid_t uid, bool readonly);
-const char *getUserPkgParserDBPath(void);
-const char *getUserPkgParserDBPathUID(uid_t uid);
-const char *getUserPkgCertDBPath(void);
-const char *getUserPkgCertDBPathUID(uid_t uid);
+char *getUserPkgParserDBPath(void);
+char *getUserPkgParserDBPathUID(uid_t uid);
+char *getUserPkgCertDBPath(void);
+char *getUserPkgCertDBPathUID(uid_t uid);
 const char *getUserManifestPath(uid_t uid, bool readonly);
 
 /**
