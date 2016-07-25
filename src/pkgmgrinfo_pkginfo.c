@@ -505,7 +505,7 @@ static int _pkginfo_get_packages(uid_t uid, const char *locale,
 		"FROM package_info as pi ";
 	int ret = PMINFO_R_ERROR;
 	int idx = 0;
-	const char *dbpath;
+	char *dbpath;
 	char *constraints = NULL;
 	char query[MAX_QUERY_LEN] = { '\0' };
 	package_x *info = NULL;
@@ -521,8 +521,10 @@ static int _pkginfo_get_packages(uid_t uid, const char *locale,
 	ret = sqlite3_open_v2(dbpath, &db, SQLITE_OPEN_READONLY, NULL);
 	if (ret != SQLITE_OK) {
 		_LOGD("failed to open db: %d", ret);
+		free(dbpath);
 		return PMINFO_R_ERROR;
 	}
+	free(dbpath);
 
 	if (filter != NULL) {
 		tmp_filter = filter;

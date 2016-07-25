@@ -2426,6 +2426,7 @@ static int __enable_app_splash_screen(const char *appid)
 API int pkgmgr_parser_initialize_db(uid_t uid)
 {
 	int ret = -1;
+	char *db_path;
 
 	/*Manifest DB*/
 	ret = __initialize_db(pkgmgr_parser_db, QUERY_CREATE_TABLE_PACKAGE_INFO);
@@ -2551,11 +2552,24 @@ API int pkgmgr_parser_initialize_db(uid_t uid)
 		return ret;
 	}
 
-	if( 0 != __parserdb_change_perm(getUserPkgCertDBPathUID(GLOBAL_USER), GLOBAL_USER)) {
-		_LOGD("Failed to change cert db permission\n");
+	db_path = getUserPkgCertDBPathUID(GLOBAL_USER);
+	if (db_path == NULL) {
+		_LOGD("Failed to get user cert db path - GLOBAL_USER");
+	} else {
+		ret = __parserdb_change_perm(db_path, GLOBAL_USER);
+		if (ret != 0)
+			 _LOGD("Failed to change cert db permission");
+		free(db_path);
 	}
-	if( 0 != __parserdb_change_perm(getUserPkgParserDBPathUID(uid), uid)) {
-		_LOGD("Failed to change parser db permission\n");
+
+	db_path = getUserPkgParserDBPathUID(uid);
+	if (db_path == NULL) {
+		_LOGD("Failed to get user pkg parser db path - %d", uid);
+	} else {
+		ret = __parserdb_change_perm(db_path, uid);
+		if (ret != 0)
+			_LOGD("Failed to change parser db permission\n");
+		free(db_path);
 	}
 
 	return 0;
@@ -2642,21 +2656,37 @@ static int __parserdb_change_perm(const char *db_file, uid_t uid)
 API int pkgmgr_parser_create_and_initialize_db(uid_t uid)
 {
 	int ret;
+	char *db_path;
 
 	if (getuid() != OWNER_ROOT) {
 		_LOGE("Only root user is allowed");
 		return -1;
 	}
 
-	if (access(getUserPkgParserDBPathUID(uid), F_OK) != -1) {
-		_LOGE("Manifest db for user %d is already exists", uid);
+	db_path = getUserPkgParserDBPathUID(uid);
+	if (db_path == NULL) {
+		_LOGE("Failed to get pkg parser db path - %d", uid);
 		return -1;
 	}
 
-	if (access(getUserPkgCertDBPathUID(uid), F_OK) != -1) {
-		_LOGE("Cert db for user %d is already exists", uid);
+	if (access(db_path, F_OK) != -1) {
+		_LOGE("Manifest db for user %d is already exists", uid);
+		free(db_path);
 		return -1;
 	}
+
+	db_path = getUserPkgCertDBPathUID(uid);
+	if (db_path == NULL) {
+		_LOGE("Failed to get pkg cert db path - %d", uid);
+		return -1;
+	}
+
+	if (access(db_path, F_OK) != -1) {
+		_LOGE("Cert db for user %d is already exists", uid);
+		free(db_path);
+		return -1;
+	}
+	free(db_path);
 
 	ret = pkgmgr_parser_check_and_create_db(uid);
 	if (ret < 0)
@@ -2674,19 +2704,39 @@ API int pkgmgr_parser_create_and_initialize_db(uid_t uid)
 API int pkgmgr_parser_check_and_create_db(uid_t uid)
 {
 	int ret = -1;
+	char *db_path;
+
+	db_path = getUserPkgParserDBPathUID(uid);
+	if (db_path == NULL) {
+		_LOGD("Failed to get pkg parser db path - %d", uid);
+		return -1;
+	}
+
 	/*Manifest DB*/
-	ret = __pkgmgr_parser_create_db(&pkgmgr_parser_db, getUserPkgParserDBPathUID(uid));
+	ret = __pkgmgr_parser_create_db(&pkgmgr_parser_db, db_path);
 	if (ret) {
 		_LOGD("Manifest DB creation Failed\n");
+		free(db_path);
+		return -1;
+	}
+	free(db_path);
+
+	db_path = getUserPkgCertDBPathUID(GLOBAL_USER);
+	if (db_path == NULL) {
+		_LOGE("Failed to get pkg cert db path - GLOBAL_USER");
 		return -1;
 	}
 
 	/*Cert DB*/
-	ret = __pkgmgr_parser_create_db(&pkgmgr_cert_db, getUserPkgCertDBPathUID(GLOBAL_USER));
+	ret = __pkgmgr_parser_create_db(&pkgmgr_cert_db, db_path);
 	if (ret) {
 		_LOGD("Cert DB creation Failed\n");
+		free(db_path);
 		return -1;
 	}
+
+	free(db_path);
+
 	return 0;
 }
 
