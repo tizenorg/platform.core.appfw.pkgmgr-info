@@ -198,6 +198,7 @@
         <xs:choice maxOccurs="unbounded" minOccurs="0">
           <xs:element ref="packages:label"/>
           <xs:element ref="packages:icon"/>
+          <xs:element ref="packages:metadata"/>
           <xs:element ref="packages:support-size"/>
         </xs:choice>
         <xs:any minOccurs="0" maxOccurs="unbounded" namespace="##any" processContents="lax"/>
@@ -206,6 +207,7 @@
       <xs:attribute name="exec" use="required"/>
       <xs:attribute name="main" type="xs:boolean"/>
       <xs:attribute name="update-period" type="xs:nonNegativeInteger"/>
+      <xs:attribute name="max-instance" type="xs:nonNegativeInteger"/>
       <xs:attribute name="preview" type="xs:string"/>
       <xs:anyAttribute namespace="##any" processContents="lax"/>
     </xs:complexType>
