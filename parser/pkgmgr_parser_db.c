@@ -1015,6 +1015,7 @@ static void __insert_application_locale_info(gpointer data, gpointer userdata)
 	char *label = NULL;
 	char *icon = NULL;
 	char *query = NULL;
+	char *locale = (char *)data;
 
 	application_x *app = (application_x*)userdata;
 	GList *lbl = app->label;
@@ -1036,26 +1037,25 @@ static void __insert_application_locale_info(gpointer data, gpointer userdata)
 
 	/*insert ui app locale info to pkg locale to get mainapp data */
 	if (strcasecmp(app->mainapp, "true")==0) {
-		query = sqlite3_mprintf("INSERT INTO package_localized_info(package, package_locale, " \
-			"package_label, package_icon, package_description, package_license, package_author) VALUES" \
-			"(%Q, %Q, %Q, %Q, %Q, %Q, %Q)",
-			app->package,
-			(char*)data,
-			label,
-			icon,
-			NULL,
-			NULL,
-			NULL);
+		query = sqlite3_mprintf("INSERT OR REPLACE INTO package_localized_info(package, package_locale, "
+			"package_label, package_icon, package_description, package_license, package_author) VALUES"
+			"(%Q, %Q, "
+			"COALESCE((SELECT package_label FROM package_localized_info WHERE package=%Q AND package_locale=%Q), %Q), "
+			"COALESCE((SELECT package_icon FROM package_localized_info WHERE package=%Q AND package_locale=%Q), %Q), "
+			"(SELECT package_description FROM package_localized_info WHERE package=%Q AND package_locale=%Q), "
+			"(SELECT package_license FROM package_localized_info WHERE package=%Q AND package_locale=%Q), "
+			"(SELECT package_author FROM package_localized_info WHERE package=%Q AND package_locale=%Q))",
+			app->package, locale,
+			app->package, locale, label,
+			app->package, locale, icon,
+			app->package, locale,
+			app->package, locale,
+			app->package, locale);
 
-		ret = __exec_query_no_msg(query);
+		ret = __exec_query(query);
+		if (ret == -1)
+			_LOGE("Package Localized Info DB Insert failed");
 		sqlite3_free(query);
-
-		if (icon != NULL) {
-			query = sqlite3_mprintf("UPDATE package_localized_info SET package_icon=%Q "\
-				"WHERE package=%Q AND package_locale=%Q", icon, app->package, (char*)data);
-			ret = __exec_query_no_msg(query);
-			sqlite3_free(query);
-		}
 	}
 }
 
