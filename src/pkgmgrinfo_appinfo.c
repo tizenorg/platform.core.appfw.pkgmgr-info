@@ -108,91 +108,34 @@ static int _get_filtered_query(pkgmgrinfo_filter_x *filter,
 	return PMINFO_R_OK;
 }
 
-static int _appinfo_get_label(sqlite3 *db, const char *appid,
-		const char *locale, GList **label)
+static int _appinfo_get_label(const char *locale, char *value, GList **label)
 {
-	static const char query_raw[] =
-		"SELECT app_label, app_locale "
-		"FROM package_app_localized_info "
-		"WHERE app_id=%Q AND app_locale IN (%Q, %Q)";
-	int ret;
-	char *query;
-	sqlite3_stmt *stmt;
-	int idx;
 	label_x *info;
 
-	query = sqlite3_mprintf(query_raw, appid, locale, DEFAULT_LOCALE);
-	if (query == NULL) {
+	info = calloc(1, sizeof(label_x));
+	if (info == NULL) {
 		LOGE("out of memory");
 		return PMINFO_R_ERROR;
 	}
-
-	ret = sqlite3_prepare_v2(db, query, strlen(query), &stmt, NULL);
-	sqlite3_free(query);
-	if (ret != SQLITE_OK) {
-		LOGE("prepare failed: %s", sqlite3_errmsg(db));
-		return PMINFO_R_ERROR;
-	}
-
-	while (sqlite3_step(stmt) == SQLITE_ROW) {
-		info = calloc(1, sizeof(label_x));
-		if (info == NULL) {
-			LOGE("out of memory");
-			sqlite3_finalize(stmt);
-			return PMINFO_R_ERROR;
-		}
-		idx = 0;
-		_save_column_str(stmt, idx++, &info->text);
-		_save_column_str(stmt, idx++, &info->lang);
-		*label = g_list_append(*label, info);
-	}
-
-	sqlite3_finalize(stmt);
+	info->text = value;
+	info->lang = strdup(locale);
+	*label = g_list_append(*label, info);
 
 	return PMINFO_R_OK;
 }
 
-static int _appinfo_get_icon(sqlite3 *db, const char *appid, const char *locale,
-		GList **icon)
+static int _appinfo_get_icon(const char *locale, char *value, GList **icon)
 {
-	static const char query_raw[] =
-		"SELECT app_icon, app_locale "
-		"FROM package_app_localized_info "
-		"WHERE app_id=%Q AND app_locale IN (%Q, %Q)";
-	int ret;
-	char *query;
-	sqlite3_stmt *stmt;
-	int idx;
 	icon_x *info;
 
-	query = sqlite3_mprintf(query_raw, appid, locale, DEFAULT_LOCALE);
-	if (query == NULL) {
+	info = calloc(1, sizeof(icon_x));
+	if (info == NULL) {
 		LOGE("out of memory");
 		return PMINFO_R_ERROR;
 	}
-
-	ret = sqlite3_prepare_v2(db, query, strlen(query),
-			&stmt, NULL);
-	sqlite3_free(query);
-	if (ret != SQLITE_OK) {
-		LOGE("prepare failed: %s", sqlite3_errmsg(db));
-		return PMINFO_R_ERROR;
-	}
-
-	while (sqlite3_step(stmt) == SQLITE_ROW) {
-		info = calloc(1, sizeof(icon_x));
-		if (info == NULL) {
-			LOGE("out of memory");
-			sqlite3_finalize(stmt);
-			return PMINFO_R_ERROR;
-		}
-		idx = 0;
-		_save_column_str(stmt, idx++, &info->text);
-		_save_column_str(stmt, idx++, &info->lang);
-		*icon = g_list_append(*icon, info);
-	}
-
-	sqlite3_finalize(stmt);
+	info->text = value;
+	info->lang = strdup(locale);
+	*icon = g_list_append(*icon, info);
 
 	return PMINFO_R_OK;
 }
@@ -552,13 +495,25 @@ static int _appinfo_get_applications(uid_t db_uid, uid_t uid,
 		"ai.app_package_type, ai.app_root_path, ai.app_api_version, "
 		"ai.app_effective_appid, ai.app_disable, "
 		"ai.app_splash_screen_display, ai.app_tep_name, "
-		"ai.app_zip_mount_file, ai.component_type, ai.package "
-		"FROM package_app_info as ai";
+		"ai.app_zip_mount_file, ai.component_type, ai.package";
+	static const char query_label[] =
+		", COALESCE("
+		"(SELECT app_label FROM package_app_localized_info WHERE ai.app_id=app_id AND app_locale=?), "
+		"(SELECT app_label FROM package_app_localized_info WHERE ai.app_id=app_id AND app_locale='No Locale')"
+		") AS app_label";
+	static const char query_icon[] =
+		", COALESCE("
+		"(SELECT app_icon FROM package_app_localized_info WHERE ai.app_id=app_id AND app_locale=?), "
+		"(SELECT app_icon FROM package_app_localized_info WHERE ai.app_id=app_id AND app_locale='No Locale')"
+		") AS app_icon";
+	static const char query_from_clause[] = " FROM package_app_info as ai";
 	int ret = PMINFO_R_ERROR;
 	int idx;
+	int len = 0;
 	const char *dbpath;
 	char *bg_category_str = NULL;
 	char *constraint = NULL;
+	char *tmp_record = NULL;
 	char query[MAX_QUERY_LEN] = { '\0' };
 	application_x *info = NULL;
 	GList *bind_params = NULL;
@@ -575,16 +530,29 @@ static int _appinfo_get_applications(uid_t db_uid, uid_t uid,
 		return PMINFO_R_ERROR;
 	}
 
+	len = strlen(query_raw);
+	snprintf(query, MAX_QUERY_LEN - 1, "%s", query_raw);
+	if (flag & PMINFO_APPINFO_GET_LABEL) {
+		strncat(query, query_label, MAX_QUERY_LEN - len - 1);
+		len += strlen(query_label);
+		bind_params = g_list_append(bind_params, strdup(locale));
+	}
+	if (flag & PMINFO_APPINFO_GET_ICON) {
+		strncat(query, query_icon, MAX_QUERY_LEN - len - 1);
+		len += strlen(query_icon);
+		bind_params = g_list_append(bind_params, strdup(locale));
+	}
+
 	ret = _get_filtered_query(filter, locale, &constraint, &bind_params);
 	if (ret != PMINFO_R_OK) {
 		LOGE("Failed to get WHERE clause");
 		goto catch;
 	}
+	strncat(query, query_from_clause, MAX_QUERY_LEN - len - 1);
+	len += strlen(query_from_clause);
 
 	if (constraint)
-		snprintf(query, MAX_QUERY_LEN - 1, "%s%s", query_raw, constraint);
-	else
-		snprintf(query, MAX_QUERY_LEN - 1, "%s", query_raw);
+		strncat(query, constraint, MAX_QUERY_LEN - len - 1);
 
 	ret = sqlite3_prepare_v2(db, query, strlen(query), &stmt, NULL);
 	if (ret != SQLITE_OK) {
@@ -666,16 +634,18 @@ static int _appinfo_get_applications(uid_t db_uid, uid_t uid,
 		free(bg_category_str);
 
 		if (flag & PMINFO_APPINFO_GET_LABEL) {
-			if (_appinfo_get_label(db, info->appid, locale,
-						&info->label)) {
+			tmp_record = NULL;
+			_save_column_str(stmt, idx++, &tmp_record);
+			if (_appinfo_get_label(locale, tmp_record, &info->label)) {
 				ret = PMINFO_R_ERROR;
 				goto catch;
 			}
 		}
 
 		if (flag & PMINFO_APPINFO_GET_ICON) {
-			if (_appinfo_get_icon(db, info->appid, locale,
-						&info->icon)) {
+			tmp_record = NULL;
+			_save_column_str(stmt, idx++, &tmp_record);
+			if (_appinfo_get_icon(locale, tmp_record, &info->icon)) {
 				ret = PMINFO_R_ERROR;
 				goto catch;
 			}
@@ -1531,16 +1501,11 @@ API int pkgmgrinfo_appinfo_get_exec(pkgmgrinfo_appinfo_h handle, char **exec)
 
 API int pkgmgrinfo_appinfo_get_icon(pkgmgrinfo_appinfo_h handle, char **icon)
 {
-        const char *locale;
-        icon_x *ptr;
-        GList *tmp;
-        pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
+	icon_x *ptr;
+	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
 	retvm_if(icon == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
-
-	locale = info->locale;
-	retvm_if(locale == NULL, PMINFO_R_ERROR, "manifest locale is NULL");
 
 	if (info->app_info == NULL)
 		return PMINFO_R_ERROR;
@@ -1550,66 +1515,40 @@ API int pkgmgrinfo_appinfo_get_icon(pkgmgrinfo_appinfo_h handle, char **icon)
 		return PMINFO_R_OK;
 	}
 
-	for (tmp = info->app_info->icon; tmp; tmp = tmp->next) {
-		ptr = (icon_x *)tmp->data;
-		if (ptr == NULL || ptr->text == NULL || ptr->lang == NULL ||
-				!strcasecmp(ptr->text, "") ||
-				strcmp(ptr->lang, locale))
-			continue;
-		*icon = (char *)ptr->text;
-		return PMINFO_R_OK;
-	}
+	ptr = (icon_x *)info->app_info->icon->data;
+	if (ptr == NULL)
+		return PMINFO_R_ERROR;
 
-	locale = DEFAULT_LOCALE;
-	for (tmp = info->app_info->icon; tmp; tmp = tmp->next) {
-		ptr = (icon_x *)tmp->data;
-		if (ptr == NULL || ptr->text == NULL || ptr->lang == NULL ||
-				strcmp(ptr->lang, locale))
-			continue;
-		*icon = (char *)ptr->text;
-		return PMINFO_R_OK;
-	}
+	if (ptr->text == NULL)
+		return PMINFO_R_ERROR;
+		else
+			*icon = ptr->text;
 
-	return PMINFO_R_ERROR;
+	return PMINFO_R_OK;
 }
 
 
 API int pkgmgrinfo_appinfo_get_label(pkgmgrinfo_appinfo_h handle, char **label)
 {
-	const char *locale;
 	label_x *ptr;
-	GList *tmp;
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
 	retvm_if(label == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 
-	locale = info->locale;
-	retvm_if(locale == NULL, PMINFO_R_ERROR, "manifest locale is NULL");
-
-	if (info->app_info == NULL)
+	if (info->app_info == NULL || info->app_info->label == NULL)
 		return PMINFO_R_ERROR;
 
-	for (tmp = info->app_info->label; tmp; tmp = tmp->next) {
-		ptr = (label_x *)tmp->data;
-		if (ptr == NULL || ptr->text == NULL || ptr->lang == NULL ||
-				strcmp(ptr->lang, locale))
-			continue;
-		*label = (char *)ptr->text;
-		return PMINFO_R_OK;
-	}
+	ptr = (label_x *)info->app_info->label->data;
+	if (ptr == NULL)
+		return PMINFO_R_ERROR;
 
-	locale = DEFAULT_LOCALE;
-	for (tmp = info->app_info->label; tmp; tmp = tmp->next) {
-		ptr = (label_x *)tmp->data;
-		if (ptr == NULL || ptr->text == NULL || ptr->lang == NULL ||
-				strcmp(ptr->lang, locale))
-			continue;
-		*label = (char *)ptr->text;
-		return PMINFO_R_OK;
-	}
+	if (ptr->text == NULL)
+		return PMINFO_R_ERROR;
+	else
+		*label = ptr->text;
 
-	return PMINFO_R_ERROR;
+	return PMINFO_R_OK;
 }
 
 static char *_get_localed_label(const char *appid, const char *locale, uid_t uid)
