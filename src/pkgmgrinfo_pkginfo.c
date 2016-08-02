@@ -32,9 +32,6 @@
 #include <libgen.h>
 #include <sys/stat.h>
 
-#include <libxml/parser.h>
-#include <libxml/xmlreader.h>
-#include <libxml/xmlschemas.h>
 #include <sqlite3.h>
 #include <glib.h>
 
@@ -94,37 +91,6 @@ static void __cleanup_pkginfo(pkgmgr_pkginfo_x *data)
 	free((void *)data);
 	data = NULL;
 	return;
-}
-
-static int __child_element(xmlTextReaderPtr reader, int depth)
-{
-	int ret = xmlTextReaderRead(reader);
-	int cur = xmlTextReaderDepth(reader);
-	while (ret == 1) {
-
-		switch (xmlTextReaderNodeType(reader)) {
-		case XML_READER_TYPE_ELEMENT:
-			if (cur == depth + 1)
-				return 1;
-			break;
-		case XML_READER_TYPE_TEXT:
-			/*text is handled by each function separately*/
-			if (cur == depth + 1)
-				return 0;
-			break;
-		case XML_READER_TYPE_END_ELEMENT:
-			if (cur == depth)
-				return 0;
-			break;
-		default:
-			if (cur <= depth)
-				return 0;
-			break;
-		}
-		ret = xmlTextReaderRead(reader);
-		cur = xmlTextReaderDepth(reader);
-	}
-	return ret;
 }
 
 long long _pkgmgr_calculate_dir_size(char *dirname)
@@ -1010,164 +976,6 @@ API int pkgmgrinfo_pkginfo_get_package_size(pkgmgrinfo_pkginfo_h handle, int *si
 	return PMINFO_R_OK;
 }
 
-API int pkgmgrinfo_pkginfo_get_total_size(pkgmgrinfo_pkginfo_h handle, int *size)
-{
-	char *pkgid;
-	char device_path[PKG_STRING_LEN_MAX] = { '\0', };
-	long long rw_size = 0;
-	long long ro_size = 0;
-	long long tmp_size = 0;
-	long long total_size = 0;
-	struct stat fileinfo;
-	int ret;
-
-	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
-	retvm_if(size == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
-
-	ret = pkgmgrinfo_pkginfo_get_pkgid(handle, &pkgid);
-	if (ret < 0)
-		return PMINFO_R_ERROR;
-
-	/* RW area */
-	snprintf(device_path, PKG_STRING_LEN_MAX, "%s%s/bin", PKG_RW_PATH, pkgid);
-	if (lstat(device_path, &fileinfo) == 0) {
-		if (!S_ISLNK(fileinfo.st_mode)) {
-			tmp_size = _pkgmgr_calculate_dir_size(device_path);
-			if (tmp_size > 0)
-				rw_size += tmp_size;
-		}
-	}
-
-	snprintf(device_path, PKG_STRING_LEN_MAX, "%s%s/info", PKG_RW_PATH, pkgid);
-	if (lstat(device_path, &fileinfo) == 0) {
-		if (!S_ISLNK(fileinfo.st_mode)) {
-			tmp_size = _pkgmgr_calculate_dir_size(device_path);
-			if (tmp_size > 0)
-			rw_size += tmp_size;
-		}
-	}
-
-	snprintf(device_path, PKG_STRING_LEN_MAX, "%s%s/res", PKG_RW_PATH, pkgid);
-	if (lstat(device_path, &fileinfo) == 0) {
-		if (!S_ISLNK(fileinfo.st_mode)) {
-			tmp_size = _pkgmgr_calculate_dir_size(device_path);
-			if (tmp_size > 0)
-			rw_size += tmp_size;
-		}
-	}
-
-	snprintf(device_path, PKG_STRING_LEN_MAX, "%s%s/data", PKG_RW_PATH, pkgid);
-	if (lstat(device_path, &fileinfo) == 0) {
-		if (!S_ISLNK(fileinfo.st_mode)) {
-			tmp_size = _pkgmgr_calculate_dir_size(device_path);
-			if (tmp_size > 0)
-				rw_size += tmp_size;
-		}
-	}
-
-	snprintf(device_path, PKG_STRING_LEN_MAX, "%s%s/shared", PKG_RW_PATH, pkgid);
-	if (lstat(device_path, &fileinfo) == 0) {
-		if (!S_ISLNK(fileinfo.st_mode)) {
-			tmp_size = _pkgmgr_calculate_dir_size(device_path);
-			if (tmp_size > 0)
-				rw_size += tmp_size;
-	}
-	}
-
-	snprintf(device_path, PKG_STRING_LEN_MAX, "%s%s/setting", PKG_RW_PATH, pkgid);
-	if (lstat(device_path, &fileinfo) == 0) {
-		if (!S_ISLNK(fileinfo.st_mode)) {
-			tmp_size = _pkgmgr_calculate_dir_size(device_path);
-			if (tmp_size > 0)
-				rw_size += tmp_size;
-		}
-	}
-
-	/* RO area */
-	snprintf(device_path, PKG_STRING_LEN_MAX, "%s%s/bin", PKG_RO_PATH, pkgid);
-	if (lstat(device_path, &fileinfo) == 0) {
-		if (!S_ISLNK(fileinfo.st_mode)) {
-			tmp_size = _pkgmgr_calculate_dir_size(device_path);
-			if (tmp_size > 0)
-				ro_size += tmp_size;
-		}
-	}
-
-	snprintf(device_path, PKG_STRING_LEN_MAX, "%s%s/info", PKG_RO_PATH, pkgid);
-	if (lstat(device_path, &fileinfo) == 0) {
-		if (!S_ISLNK(fileinfo.st_mode)) {
-			tmp_size = _pkgmgr_calculate_dir_size(device_path);
-			if (tmp_size > 0)
-				ro_size += tmp_size;
-		}
-	}
-
-	snprintf(device_path, PKG_STRING_LEN_MAX, "%s%s/res", PKG_RO_PATH, pkgid);
-	if (lstat(device_path, &fileinfo) == 0) {
-		if (!S_ISLNK(fileinfo.st_mode)) {
-			tmp_size = _pkgmgr_calculate_dir_size(device_path);
-			if (tmp_size > 0)
-				ro_size += tmp_size;
-		}
-	}
-
-	snprintf(device_path, PKG_STRING_LEN_MAX, "%s%s/data", PKG_RO_PATH, pkgid);
-	if (lstat(device_path, &fileinfo) == 0) {
-		if (!S_ISLNK(fileinfo.st_mode)) {
-			tmp_size = _pkgmgr_calculate_dir_size(device_path);
-			if (tmp_size > 0)
-				ro_size += tmp_size;
-		}
-	}
-
-	snprintf(device_path, PKG_STRING_LEN_MAX, "%s%s/shared", PKG_RO_PATH, pkgid);
-	if (lstat(device_path, &fileinfo) == 0) {
-		if (!S_ISLNK(fileinfo.st_mode)) {
-			tmp_size = _pkgmgr_calculate_dir_size(device_path);
-			if (tmp_size > 0)
-				ro_size += tmp_size;
-		}
-	}
-
-	snprintf(device_path, PKG_STRING_LEN_MAX, "%s%s/setting", PKG_RO_PATH, pkgid);
-	if (lstat(device_path, &fileinfo) == 0) {
-		if (!S_ISLNK(fileinfo.st_mode)) {
-			tmp_size = _pkgmgr_calculate_dir_size(device_path);
-			if (tmp_size > 0)
-				ro_size += tmp_size;
-		}
-	}
-
-	/* Total size */
-	total_size = rw_size + ro_size;
-	*size = (int)total_size;
-
-	return PMINFO_R_OK;
-}
-
-API int pkgmgrinfo_pkginfo_get_data_size(pkgmgrinfo_pkginfo_h handle, int *size)
-{
-	char *pkgid;
-	char device_path[PKG_STRING_LEN_MAX] = { '\0', };
-	long long total_size = 0;
-
-	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
-	retvm_if(size == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
-
-	if (pkgmgrinfo_pkginfo_get_pkgid(handle, &pkgid) < 0)
-		return PMINFO_R_ERROR;
-
-	snprintf(device_path, PKG_STRING_LEN_MAX, "%s%s/data", PKG_RW_PATH, pkgid);
-	if (access(device_path, R_OK) == 0)
-		total_size = _pkgmgr_calculate_dir_size(device_path);
-	if (total_size < 0)
-		return PMINFO_R_ERROR;
-
-	*size = (int)total_size;
-
-	return PMINFO_R_OK;
-}
-
 API int pkgmgrinfo_pkginfo_get_icon(pkgmgrinfo_pkginfo_h handle, char **icon)
 {
 	const char *locale;
@@ -1438,112 +1246,6 @@ API int pkgmgrinfo_pkginfo_get_url(pkgmgrinfo_pkginfo_h handle, char **url)
 	return PMINFO_R_OK;
 }
 
-API int pkgmgrinfo_pkginfo_get_size_from_xml(const char *manifest, int *size)
-{
-	const char *val = NULL;
-	const xmlChar *node;
-	xmlTextReaderPtr reader;
-	retvm_if(manifest == NULL, PMINFO_R_EINVAL, "Input argument is NULL\n");
-	retvm_if(size == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
-
-	xmlInitParser();
-	reader = xmlReaderForFile(manifest, NULL, 0);
-
-	if (reader){
-		if (__child_element(reader, -1)) {
-			node = xmlTextReaderConstName(reader);
-			if (!node) {
-				_LOGE("xmlTextReaderConstName value is NULL\n");
-				xmlFreeTextReader(reader);
-				xmlCleanupParser();
-				return PMINFO_R_ERROR;
-			}
-
-			if (!strcmp(ASC_CHAR(node), "manifest")) {
-				if (xmlTextReaderGetAttribute(reader, XML_CHAR("size")))
-					val = ASC_CHAR(xmlTextReaderGetAttribute(reader, XML_CHAR("size")));
-
-				if (val) {
-					*size = atoi(val);
-				} else {
-					*size = 0;
-					_LOGE("package size is not specified\n");
-					xmlFreeTextReader(reader);
-					xmlCleanupParser();
-					return PMINFO_R_ERROR;
-				}
-			} else {
-				_LOGE("Unable to create xml reader\n");
-				xmlFreeTextReader(reader);
-				xmlCleanupParser();
-				return PMINFO_R_ERROR;
-			}
-		}
-	} else {
-		_LOGE("xmlReaderForFile value is NULL\n");
-		xmlCleanupParser();
-		return PMINFO_R_ERROR;
-	}
-
-	xmlFreeTextReader(reader);
-	xmlCleanupParser();
-
-	return PMINFO_R_OK;
-}
-
-API int pkgmgrinfo_pkginfo_get_location_from_xml(const char *manifest, pkgmgrinfo_install_location *location)
-{
-	const char *val = NULL;
-	const xmlChar *node;
-	xmlTextReaderPtr reader;
-	retvm_if(manifest == NULL, PMINFO_R_EINVAL, "Input argument is NULL\n");
-	retvm_if(location == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
-
-	xmlInitParser();
-	reader = xmlReaderForFile(manifest, NULL, 0);
-
-	if (reader) {
-		if ( __child_element(reader, -1)) {
-			node = xmlTextReaderConstName(reader);
-			if (!node) {
-				_LOGE("xmlTextReaderConstName value is NULL\n");
-				xmlFreeTextReader(reader);
-				xmlCleanupParser();
-				return PMINFO_R_ERROR;
-			}
-
-			if (!strcmp(ASC_CHAR(node), "manifest")) {
-				if (xmlTextReaderGetAttribute(reader, XML_CHAR("install-location")))
-					val = ASC_CHAR(xmlTextReaderGetAttribute(reader, XML_CHAR("install-location")));
-
-				if (val) {
-					if (strcmp(val, "internal-only") == 0)
-						*location = PMINFO_INSTALL_LOCATION_INTERNAL_ONLY;
-					else if (strcmp(val, "prefer-external") == 0)
-						*location = PMINFO_INSTALL_LOCATION_PREFER_EXTERNAL;
-					else
-						*location = PMINFO_INSTALL_LOCATION_AUTO;
-				}
-			} else {
-				_LOGE("Unable to create xml reader\n");
-				xmlFreeTextReader(reader);
-				xmlCleanupParser();
-				return PMINFO_R_ERROR;
-			}
-		}
-	} else {
-		_LOGE("xmlReaderForFile value is NULL\n");
-		xmlCleanupParser();
-		return PMINFO_R_ERROR;
-	}
-
-	xmlFreeTextReader(reader);
-	xmlCleanupParser();
-
-	return PMINFO_R_OK;
-}
-
-
 API int pkgmgrinfo_pkginfo_get_root_path(pkgmgrinfo_pkginfo_h handle, char **path)
 {
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
@@ -1612,7 +1314,6 @@ API int pkgmgrinfo_pkginfo_is_accessible(pkgmgrinfo_pkginfo_h handle, bool *acce
 	}
 
 	/*check whether application is in internal or not */
-	fp = fopen(app_dir_path, "r");
 	if (fp == NULL) {
 		_LOGD(" app path in internal memory not accesible\n");
 		*accessible = 0;

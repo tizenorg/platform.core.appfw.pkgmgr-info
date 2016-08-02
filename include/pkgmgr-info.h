@@ -615,76 +615,6 @@ static int get_pkg_size(const char *pkgid)
 int pkgmgrinfo_pkginfo_get_package_size(pkgmgrinfo_pkginfo_h handle, int *size);
 
 /**
- * @fn int pkgmgrinfo_pkginfo_get_total_size(pkgmgrinfo_pkginfo_h handle, int *size)
- * @brief	This API gets the installed package total size on the target.
- *
- * @par		This API is for package-manager client application
- * @par Sync (or) Async : Synchronous API
- *
- * @param[in]	handle	pointer to package info handle
- * @param[out] size		pointer to hold package total size
- * @return	0 if success, error code(<0) if fail
- * @retval	PMINFO_R_OK	success
- * @retval	PMINFO_R_EINVAL	invalid argument
- * @retval	PMINFO_R_ERROR	internal error
- * @code
-static int get_pkg_total_size(const char *pkgid)
-{
-	int ret = 0;
-	int size = 0;
-	pkgmgrinfo_pkginfo_h handle;
-	ret = pkgmgrinfo_pkginfo_get_pkginfo(pkgid, &handle);
-	if (ret != PMINFO_R_OK)
-		return -1;
-	ret = pkgmgrinfo_pkginfo_get_total_size(handle, &size);
-	if (ret != PMINFO_R_OK) {
-		pkgmgrinfo_pkginfo_destroy_pkginfo(handle);
-		return -1;
-	}
-	printf("pkg total size: %d\n", size);
-	pkgmgrinfo_pkginfo_destroy_pkginfo(handle);
-	return 0;
-}
- * @endcode
- */
- int pkgmgrinfo_pkginfo_get_total_size(pkgmgrinfo_pkginfo_h handle, int *size);
-
-/**
- * @fn int pkgmgrinfo_pkginfo_get_data_size(pkgmgrinfo_pkginfo_h handle, int *size)
- * @brief	This API gets the installed package data size on the target.
- *
- * @par		This API is for package-manager client application
- * @par Sync (or) Async : Synchronous API
- *
- * @param[in]	handle	pointer to package info handle
- * @param[out] size		pointer to hold package data size
- * @return	0 if success, error code(<0) if fail
- * @retval	PMINFO_R_OK	success
- * @retval	PMINFO_R_EINVAL	invalid argument
- * @retval	PMINFO_R_ERROR	internal error
- * @code
-static int get_pkg_data_size(const char *pkgid)
-{
-	int ret = 0;
-	int size = 0;
-	pkgmgrinfo_pkginfo_h handle;
-	ret = pkgmgrinfo_pkginfo_get_pkginfo(pkgid, &handle);
-	if (ret != PMINFO_R_OK)
-		return -1;
-	ret = pkgmgrinfo_pkginfo_get_data_size(handle, &size);
-	if (ret != PMINFO_R_OK) {
-		pkgmgrinfo_pkginfo_destroy_pkginfo(handle);
-		return -1;
-	}
-	printf("pkg data size: %d\n", size);
-	pkgmgrinfo_pkginfo_destroy_pkginfo(handle);
-	return 0;
-}
- * @endcode
- */
- int pkgmgrinfo_pkginfo_get_data_size(pkgmgrinfo_pkginfo_h handle, int *size);
-
-/**
  * @fn int pkgmgrinfo_pkginfo_get_icon(pkgmgrinfo_pkginfo_h handle, char **icon)
  * @brief	This API gets the package icon from the package ID
  *
@@ -2049,8 +1979,6 @@ int pkgmgrinfo_pkginfo_foreach_privilege(pkgmgrinfo_pkginfo_h handle,
 			pkgmgrinfo_pkg_privilege_list_cb privilege_func, void *user_data);
 
 /* TODO: add doxygen comment here */
-int pkgmgrinfo_pkginfo_get_size_from_xml(const char *manifest, int *size);
-int pkgmgrinfo_pkginfo_get_location_from_xml(const char *manifest, pkgmgrinfo_install_location *location);
 int pkgmgrinfo_pkginfo_is_for_all_users(pkgmgrinfo_pkginfo_h handle, bool *for_all_users);
 int pkgmgrinfo_appinfo_set_state_enabled(const char *appid, bool enabled);
 int pkgmgrinfo_appinfo_set_usr_state_enabled(const char *appid, bool enabled, uid_t uid);
