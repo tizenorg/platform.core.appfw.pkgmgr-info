@@ -184,189 +184,55 @@ long long _pkgmgr_calculate_dir_size(char *dirname)
 
 }
 
-static int _pkginfo_get_author(sqlite3 *db, const char *pkgid,
-		GList **author)
+
+static int _pkginfo_get_label(const char *locale, char *record,
+		GList **label)
 {
-	static const char query_raw[] =
-		"SELECT author_name, author_email, author_href "
-		"FROM package_info WHERE package=%Q";
-	int ret;
-	char *query;
-	sqlite3_stmt *stmt;
-	int idx = 0;
-	author_x *info;
-
-	query = sqlite3_mprintf(query_raw, pkgid);
-	if (query == NULL) {
-		LOGE("out of memory");
-		return PMINFO_R_ERROR;
-	}
-
-	ret = sqlite3_prepare_v2(db, query, strlen(query),
-			&stmt, NULL);
-	sqlite3_free(query);
-	if (ret != SQLITE_OK) {
-		LOGE("prepare failed: %s", sqlite3_errmsg(db));
-		return PMINFO_R_ERROR;
-	}
-
-	if (sqlite3_step(stmt) == SQLITE_ERROR) {
-		LOGE("step error: %s", sqlite3_errmsg(db));
-		sqlite3_finalize(stmt);
-		return PMINFO_R_ERROR;
-	}
-
-	/* one author per one package */
-	info = calloc(1, sizeof(author_x));
-	if (info == NULL) {
-		LOGE("out of memory");
-		sqlite3_finalize(stmt);
-		return PMINFO_R_ERROR;
-	}
-
-	_save_column_str(stmt, idx++, &info->text);
-	_save_column_str(stmt, idx++, &info->email);
-	_save_column_str(stmt, idx++, &info->href);
-
-	/* TODO: revised */
-	*author = g_list_append(*author, info);
-
-	sqlite3_finalize(stmt);
-
-	return PMINFO_R_OK;
-}
-
-static int _pkginfo_get_label(sqlite3 *db, const char *pkgid,
-		const char *locale, GList **label)
-{
-	static const char query_raw[] =
-		"SELECT package_label, package_locale "
-		"FROM package_localized_info "
-		"WHERE package=%Q AND package_locale IN (%Q, %Q)";
-	int ret;
-	char *query;
-	sqlite3_stmt *stmt;
-	int idx;
 	label_x *info;
 
-	query = sqlite3_mprintf(query_raw, pkgid, locale, DEFAULT_LOCALE);
-	if (query == NULL) {
+	info = calloc(1, sizeof(label_x));
+	if (info == NULL) {
 		LOGE("out of memory");
 		return PMINFO_R_ERROR;
 	}
+	info->lang = strdup(locale);
+	info->text = record;
 
-	ret = sqlite3_prepare_v2(db, query, strlen(query),
-			&stmt, NULL);
-	sqlite3_free(query);
-	if (ret != SQLITE_OK) {
-		LOGE("prepare failed: %s", sqlite3_errmsg(db));
-		return PMINFO_R_ERROR;
-	}
-
-	while (sqlite3_step(stmt) == SQLITE_ROW) {
-		info = calloc(1, sizeof(label_x));
-		if (info == NULL) {
-			LOGE("out of memory");
-			sqlite3_finalize(stmt);
-			return PMINFO_R_ERROR;
-		}
-		idx = 0;
-		_save_column_str(stmt, idx++, &info->text);
-		_save_column_str(stmt, idx++, &info->lang);
-		*label = g_list_append(*label, info);
-	}
-
-	sqlite3_finalize(stmt);
+	*label = g_list_append(*label, info);
 
 	return PMINFO_R_OK;
 }
 
-static int _pkginfo_get_icon(sqlite3 *db, const char *pkgid, const char *locale,
+static int _pkginfo_get_icon(const char *locale, char *record,
 		GList **icon)
 {
-	static const char query_raw[] =
-		"SELECT package_icon, package_locale "
-		"FROM package_localized_info "
-		"WHERE package=%Q AND package_locale IN (%Q, %Q)";
-	int ret;
-	char *query;
-	sqlite3_stmt *stmt;
-	int idx;
 	icon_x *info;
 
-	query = sqlite3_mprintf(query_raw, pkgid, locale, DEFAULT_LOCALE);
-	if (query == NULL) {
+	info = calloc(1, sizeof(icon_x));
+	if (info == NULL) {
 		LOGE("out of memory");
 		return PMINFO_R_ERROR;
 	}
-
-	ret = sqlite3_prepare_v2(db, query, strlen(query),
-			&stmt, NULL);
-	sqlite3_free(query);
-	if (ret != SQLITE_OK) {
-		LOGE("prepare failed: %s", sqlite3_errmsg(db));
-		return PMINFO_R_ERROR;
-	}
-
-	while (sqlite3_step(stmt) == SQLITE_ROW) {
-		info = calloc(1, sizeof(icon_x));
-		if (info == NULL) {
-			LOGE("out of memory");
-			sqlite3_finalize(stmt);
-			return PMINFO_R_ERROR;
-		}
-		idx = 0;
-		_save_column_str(stmt, idx++, &info->text);
-		_save_column_str(stmt, idx++, &info->lang);
-		*icon = g_list_append(*icon, info);
-	}
-
-	sqlite3_finalize(stmt);
+	info->lang = strdup(locale);
+	info->text = record;
+	*icon = g_list_append(*icon, info);
 
 	return PMINFO_R_OK;
 }
 
-static int _pkginfo_get_description(sqlite3 *db, const char *pkgid,
-		const char *locale, GList **description)
+static int _pkginfo_get_description(const char *locale, char *record,
+		GList **description)
 {
-	static const char query_raw[] =
-		"SELECT package_description, package_locale "
-		"FROM package_localized_info "
-		"WHERE package=%Q AND package_locale IN (%Q, %Q)";
-	int ret;
-	char *query;
-	sqlite3_stmt *stmt;
-	int idx;
 	description_x *info;
 
-	query = sqlite3_mprintf(query_raw, pkgid, locale, DEFAULT_LOCALE);
-	if (query == NULL) {
+	info = calloc(1, sizeof(description_x));
+	if (info == NULL) {
 		LOGE("out of memory");
 		return PMINFO_R_ERROR;
 	}
-
-	ret = sqlite3_prepare_v2(db, query, strlen(query),
-			&stmt, NULL);
-	sqlite3_free(query);
-	if (ret != SQLITE_OK) {
-		LOGE("prepare failed: %s", sqlite3_errmsg(db));
-		return PMINFO_R_ERROR;
-	}
-
-	while (sqlite3_step(stmt) == SQLITE_ROW) {
-		info = calloc(1, sizeof(description_x));
-		if (info == NULL) {
-			LOGE("out of memory");
-			sqlite3_finalize(stmt);
-			return PMINFO_R_ERROR;
-		}
-		idx = 0;
-		_save_column_str(stmt, idx++, &info->text);
-		_save_column_str(stmt, idx++, &info->lang);
-		*description = g_list_append(*description, info);
-	}
-
-	sqlite3_finalize(stmt);
+	info->lang = strdup(locale);
+	info->text = record;
+	*description = g_list_append(*description, info);
 
 	return PMINFO_R_OK;
 }
@@ -501,14 +367,31 @@ static int _pkginfo_get_packages(uid_t uid, const char *locale,
 		"pi.storeclient_id, pi.mainapp_id, pi.package_url, "
 		"pi.root_path, pi.csc_path, pi.package_nodisplay, "
 		"pi.package_api_version, pi.package_support_disable, "
-		"pi.package_tep_name, pi.package_zip_mount_file "
-		"FROM package_info as pi ";
+		"pi.package_tep_name, pi.package_zip_mount_file";
+	static const char query_author[] =
+		", pi.author_name, pi.author_email, pi.author_href";
+	static const char query_label[] =
+		", COALESCE("
+		"(SELECT package_label FROM package_localized_info WHERE pi.package=package AND package_locale=?), "
+		"(SELECT package_label FROM package_localized_info WHERE pi.package=package AND package_locale='No Locale'))";
+	static const char query_icon[] =
+		", COALESCE("
+		"(SELECT package_icon FROM package_localized_info WHERE pi.package=package AND package_locale=?), "
+		"(SELECT package_icon FROM package_localized_info WHERE pi.package=package AND package_locale='No Locale'))";
+	static const char query_description[] =
+		", COALESCE("
+		"(SELECT package_description FROM package_localized_info WHERE pi.package=package AND package_locale=?), "
+		"(SELECT package_description FROM package_localized_info WHERE pi.package=package AND package_locale='No Locale'))";
+	static const char query_from_clause[] = " FROM package_info as pi";
 	int ret = PMINFO_R_ERROR;
 	int idx = 0;
+	int query_len = 0;
 	const char *dbpath;
+	char *tmp_record = NULL;
 	char *constraints = NULL;
 	char query[MAX_QUERY_LEN] = { '\0' };
 	package_x *info = NULL;
+	author_x *author = NULL;
 	GList *bind_params = NULL;
 	sqlite3 *db;
 	sqlite3_stmt *stmt;
@@ -537,6 +420,31 @@ static int _pkginfo_get_packages(uid_t uid, const char *locale,
 	/* add package_disable='false' clause by default */
 	pkgmgrinfo_pkginfo_filter_add_bool(tmp_filter, PMINFO_PKGINFO_PROP_PACKAGE_DISABLE, false);
 
+	query_len = strlen(query_raw);
+	snprintf(query, MAX_QUERY_LEN - 1, "%s", query_raw);
+	if (flag & PMINFO_PKGINFO_GET_AUTHOR) {
+		strncat(query, query_author, MAX_QUERY_LEN - query_len - 1);
+		query_len += strlen(query_author);
+	}
+	if (flag & PMINFO_PKGINFO_GET_ICON) {
+		strncat(query, query_icon, MAX_QUERY_LEN - query_len - 1);
+		query_len += strlen(query_icon);
+		bind_params = g_list_append(bind_params, strdup(locale));
+	}
+	if (flag & PMINFO_PKGINFO_GET_LABEL) {
+		strncat(query, query_label, MAX_QUERY_LEN - query_len - 1);
+		query_len += strlen(query_label);
+		bind_params = g_list_append(bind_params, strdup(locale));
+	}
+	if (flag & PMINFO_PKGINFO_GET_DESCRIPTION) {
+		strncat(query, query_description, MAX_QUERY_LEN - query_len - 1);
+		query_len += strlen(query_description);
+		bind_params = g_list_append(bind_params, strdup(locale));
+	}
+
+	strncat(query, query_from_clause, MAX_QUERY_LEN - query_len - 1);
+	query_len += strlen(query_from_clause);
+
 	ret = _get_filtered_query(tmp_filter, locale, &constraints, &bind_params);
 	if (ret != PMINFO_R_OK) {
 		LOGE("Failed to get WHERE clause");
@@ -544,9 +452,7 @@ static int _pkginfo_get_packages(uid_t uid, const char *locale,
 	}
 
 	if (constraints)
-		snprintf(query, MAX_QUERY_LEN - 1, "%s%s", query_raw, constraints);
-	else
-		snprintf(query, MAX_QUERY_LEN - 1, "%s", query_raw);
+		strncat(query, constraints, MAX_QUERY_LEN - query_len - 1);
 
 	ret = sqlite3_prepare_v2(db, query, strlen(query), &stmt, NULL);
 	if (ret != SQLITE_OK) {
@@ -603,18 +509,25 @@ static int _pkginfo_get_packages(uid_t uid, const char *locale,
 			strdup((uid != GLOBAL_USER) ? "false" : "true");
 
 		if (flag & PMINFO_PKGINFO_GET_AUTHOR) {
-			if (_pkginfo_get_author(db, info->package,
-						&info->author)) {
+			/* TODO : author should be retrieved at package_localized_info */
+			author = calloc(1, sizeof(author_x));
+			if (author == NULL) {
 				pkgmgrinfo_basic_free_package(info);
 				sqlite3_finalize(stmt);
 				sqlite3_close_v2(db);
 				return PMINFO_R_ERROR;
 			}
+			_save_column_str(stmt, idx++, &author->text);
+			_save_column_str(stmt, idx++, &author->email);
+			_save_column_str(stmt, idx++, &author->href);
+			info->author = g_list_append(info->author, author);
 		}
 
 		if (flag & PMINFO_PKGINFO_GET_LABEL) {
-			if (_pkginfo_get_label(db, info->package, locale,
-						&info->label)) {
+			tmp_record = NULL;
+			_save_column_str(stmt, idx++, &tmp_record);
+
+			if (_pkginfo_get_label(locale, tmp_record, &info->label)) {
 				pkgmgrinfo_basic_free_package(info);
 				sqlite3_finalize(stmt);
 				sqlite3_close_v2(db);
@@ -623,8 +536,9 @@ static int _pkginfo_get_packages(uid_t uid, const char *locale,
 		}
 
 		if (flag & PMINFO_PKGINFO_GET_ICON) {
-			if (_pkginfo_get_icon(db, info->package, locale,
-						&info->icon)) {
+			tmp_record = NULL;
+			_save_column_str(stmt, idx++, &tmp_record);
+			if (_pkginfo_get_icon(locale, tmp_record, &info->icon)) {
 				pkgmgrinfo_basic_free_package(info);
 				sqlite3_finalize(stmt);
 				sqlite3_close_v2(db);
@@ -633,8 +547,9 @@ static int _pkginfo_get_packages(uid_t uid, const char *locale,
 		}
 
 		if (flag & PMINFO_PKGINFO_GET_DESCRIPTION) {
-			if (_pkginfo_get_description(db, info->package, locale,
-						&info->description)) {
+			tmp_record = NULL;
+			_save_column_str(stmt, idx++, &tmp_record);
+			if (_pkginfo_get_description(locale, tmp_record, &info->description)) {
 				pkgmgrinfo_basic_free_package(info);
 				sqlite3_finalize(stmt);
 				sqlite3_close_v2(db);
@@ -1170,120 +1085,68 @@ API int pkgmgrinfo_pkginfo_get_data_size(pkgmgrinfo_pkginfo_h handle, int *size)
 
 API int pkgmgrinfo_pkginfo_get_icon(pkgmgrinfo_pkginfo_h handle, char **icon)
 {
-	const char *locale;
 	icon_x *ptr;
-	GList *tmp;
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
 
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL");
 	retvm_if(icon == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 
-	locale = info->locale;
-	retvm_if(locale == NULL, PMINFO_R_ERROR, "manifest locale is NULL");
-
 	if (info->pkg_info == NULL || info->pkg_info->icon == NULL)
 		return PMINFO_R_ERROR;
 
-	for (tmp = info->pkg_info->icon; tmp; tmp = tmp->next) {
-		ptr = (icon_x *)tmp->data;
-		if (ptr == NULL || ptr->text == NULL || ptr->lang == NULL ||
-				strcmp(ptr->lang, locale))
-			continue;
-		*icon = (char *)ptr->text;
-		return PMINFO_R_OK;
-	}
+	ptr = (icon_x *)info->pkg_info->icon->data;
+	if (ptr == NULL)
+		return PMINFO_R_ERROR;
 
-	locale = DEFAULT_LOCALE;
-	for (tmp = info->pkg_info->icon; tmp; tmp = tmp->next) {
-		ptr = (icon_x *)tmp->data;
-		if (ptr == NULL || ptr->text == NULL || ptr->lang == NULL ||
-				strcmp(ptr->lang, locale))
-			continue;
-		*icon = (char *)ptr->text;
-		return PMINFO_R_OK;
-	}
-
-	*icon = "";
+	/* TODO : should we return empty string if there was no icon? */
+	if (ptr->text == NULL)
+		*icon = "";
+	else
+		*icon = ptr->text;
 
 	return PMINFO_R_OK;
 }
 
 API int pkgmgrinfo_pkginfo_get_label(pkgmgrinfo_pkginfo_h handle, char **label)
 {
-	const char *locale;
 	label_x *ptr;
-	GList *tmp;
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
 
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL");
 	retvm_if(label == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
 
-	locale = info->locale;
-	retvm_if(locale == NULL, PMINFO_R_ERROR, "manifest locale is NULL");
-
 	if (info->pkg_info == NULL || info->pkg_info->label == NULL)
 		return PMINFO_R_ERROR;
 
-	for (tmp = info->pkg_info->label; tmp != NULL; tmp = tmp->next) {
-		ptr = (label_x *)tmp->data;
-		if (ptr == NULL || ptr->text == NULL || ptr->lang == NULL ||
-				strcmp(ptr->lang, locale))
-			continue;
-		*label = (char *)ptr->text;
-		return PMINFO_R_OK;
-	}
+	ptr = (label_x *)info->pkg_info->label->data;
+	if (ptr == NULL)
+		return PMINFO_R_ERROR;
 
-	locale = DEFAULT_LOCALE;
-	for (tmp = info->pkg_info->label; tmp != NULL; tmp = tmp->next) {
-		ptr = (label_x *)tmp->data;
-		if (ptr == NULL || ptr->text == NULL || ptr->lang == NULL ||
-				strcmp(ptr->lang, locale))
-			continue;
-		*label = (char *)ptr->text;
-		return PMINFO_R_OK;
-	}
-
-	*label = "";
+	/* TODO : should we return empty string if there was no label? */
+	if (ptr->text == NULL)
+		*label = "";
+	else
+		*label = ptr->text;
 
 	return PMINFO_R_OK;
 }
 
 API int pkgmgrinfo_pkginfo_get_description(pkgmgrinfo_pkginfo_h handle, char **description)
 {
-	const char *locale;
 	description_x *ptr;
-	GList *tmp;
 	pkgmgr_pkginfo_x *info = (pkgmgr_pkginfo_x *)handle;
 
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
 	retvm_if(description == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 
-	locale = info->locale;
-	retvm_if(locale == NULL, PMINFO_R_ERROR, "manifest locale is NULL");
-
 	if (info->pkg_info == NULL || info->pkg_info->description == NULL)
 		return PMINFO_R_ERROR;
 
-	for (tmp = info->pkg_info->description; tmp; tmp = tmp->next) {
-		ptr = (description_x *)tmp->data;
-		if (ptr == NULL || ptr->text == NULL || ptr->lang == NULL ||
-				strcmp(ptr->lang, locale))
-			continue;
-		*description = (char *)ptr->text;
-		return PMINFO_R_OK;
-	}
+	ptr = (description_x *)info->pkg_info->description->data;
+	if (ptr == NULL || ptr->text == NULL)
+		*description = "";
 
-	locale = DEFAULT_LOCALE;
-	for (tmp = info->pkg_info->description; tmp; tmp = tmp->next) {
-		ptr = (description_x *)tmp->data;
-		if (ptr == NULL || ptr->text == NULL || ptr->lang == NULL ||
-				strcmp(ptr->lang, locale))
-			continue;
-		*description = (char *)ptr->text;
-		return PMINFO_R_OK;
-	}
-
-	*description = "";
+	*description = (char *)ptr->text;
 
 	return PMINFO_R_OK;
 }
