@@ -543,18 +543,6 @@ static int __exec_query(char *query)
 	return 0;
 }
 
-static int __exec_query_no_msg(char *query)
-{
-	char *error_message = NULL;
-	if (SQLITE_OK !=
-	    sqlite3_exec(pkgmgr_parser_db, query, NULL, NULL, &error_message)) {
-		sqlite3_free(error_message);
-		return -1;
-	}
-	sqlite3_free(error_message);
-	return 0;
-}
-
 static GList *__create_locale_list(GList *locale, GList *lbls, GList *lcns, GList *icns, GList *dcns, GList *aths)
 {
 	GList *tmp;
