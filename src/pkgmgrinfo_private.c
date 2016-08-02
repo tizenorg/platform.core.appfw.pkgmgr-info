@@ -400,6 +400,38 @@ int __get_filter_condition(gpointer data, char **condition, GList **params)
 	return flag;
 }
 
+int _add_icon_info_into_list(const char *locale, char *value, GList **icon)
+{
+	icon_x *info;
+
+	info = calloc(1, sizeof(icon_x));
+	if (info == NULL) {
+		LOGE("out of memory");
+		return PMINFO_R_ERROR;
+	}
+	info->text = value;
+	info->lang = strdup(locale);
+	*icon = g_list_append(*icon, info);
+
+	return PMINFO_R_OK;
+}
+
+int _add_label_info_into_list(const char *locale, char *value, GList **label)
+{
+	label_x *info;
+
+	info = calloc(1, sizeof(label_x));
+	if (info == NULL) {
+		LOGE("out of memory");
+		return PMINFO_R_ERROR;
+	}
+	info->text = value;
+	info->lang = strdup(locale);
+	*label = g_list_append(*label, info);
+
+	return PMINFO_R_OK;
+}
+
 char *_get_system_locale(void)
 {
 	char *lang;

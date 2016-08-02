@@ -236,6 +236,8 @@ void _save_column_int(sqlite3_stmt *stmt, int idx, int *i);
 void _save_column_str(sqlite3_stmt *stmt, int idx, char **str);
 char *_get_system_locale(void);
 int __get_filter_condition(gpointer data, char **condition, GList **param);
+int _add_icon_info_into_list(const char *locale, char *value, GList **icon);
+int _add_label_info_into_list(const char *locale, char *value, GList **label);
 
 #define REGULAR_USER 5000
 static inline uid_t _getuid(void)
