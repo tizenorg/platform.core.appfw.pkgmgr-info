@@ -967,7 +967,7 @@ static gpointer __copy_icon(gconstpointer src, gpointer data)
 	icon_x *icon;
 
 	icon = calloc(1, sizeof(icon_x));
-	if (icon== NULL) {
+	if (icon == NULL) {
 		LOGE("memory alloc failed");
 		*(int *)data = -1;
 		return NULL;
@@ -1035,7 +1035,7 @@ static gpointer __copy_appcontrol(gconstpointer src, gpointer data)
 	appcontrol_x *appcontrol;
 
 	appcontrol = calloc(1, sizeof(appcontrol_x));
-	if (appcontrol ==NULL) {
+	if (appcontrol == NULL) {
 		LOGE("memory alloc failed");
 		*(int *)data = -1;
 		return NULL;
@@ -1392,9 +1392,8 @@ API int pkgmgrinfo_appinfo_get_usr_installed_list_full(
 		return PMINFO_R_EINVAL;
 	}
 
-	if (pkgmgrinfo_appinfo_filter_create(&filter)) {
+	if (pkgmgrinfo_appinfo_filter_create(&filter))
 		return PMINFO_R_ERROR;
-	}
 
 	if (pkgmgrinfo_appinfo_filter_add_bool(filter,
 				PMINFO_APPINFO_PROP_APP_DISABLE, false)) {
@@ -1531,10 +1530,10 @@ API int pkgmgrinfo_appinfo_get_exec(pkgmgrinfo_appinfo_h handle, char **exec)
 
 API int pkgmgrinfo_appinfo_get_icon(pkgmgrinfo_appinfo_h handle, char **icon)
 {
-        const char *locale;
-        icon_x *ptr;
-        GList *tmp;
-        pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
+	const char *locale;
+	icon_x *ptr;
+	GList *tmp;
+	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL");
 	retvm_if(icon == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL");
@@ -1867,7 +1866,7 @@ API int pkgmgrinfo_appinfo_get_notification_icon(pkgmgrinfo_appinfo_h handle, ch
 			continue;
 
 		val = (char *)ptr->section;
-		if (val && strcmp(val, "notification") == 0){
+		if (val && strcmp(val, "notification") == 0) {
 			*icon = (char *)ptr->text;
 			return PMINFO_R_OK;
 		}
@@ -2019,7 +2018,7 @@ API int pkgmgrinfo_appinfo_get_effectimage(pkgmgrinfo_appinfo_h handle, char **p
 		return PMINFO_R_ERROR;
 	if (info->app_info->portraitimg == NULL)
 		info->app_info->portraitimg = strdup("");
-	if (info->app_info->landscapeimg== NULL)
+	if (info->app_info->landscapeimg == NULL)
 		info->app_info->landscapeimg = strdup("");
 
 	*portrait_img = (char *)info->app_info->portraitimg;
@@ -2067,15 +2066,16 @@ API int pkgmgrinfo_appinfo_get_installed_storage_location(pkgmgrinfo_appinfo_h h
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "appinfo handle is NULL\n");
 	pkgmgr_appinfo_x *info = (pkgmgr_appinfo_x *)handle;
 
-	if (info->app_info && info->app_info->installed_storage){
-		 if (strcmp(info->app_info->installed_storage,"installed_internal") == 0)
+	if (info->app_info && info->app_info->installed_storage) {
+		 if (strcmp(info->app_info->installed_storage, "installed_internal") == 0)
 			*storage = PMINFO_INTERNAL_STORAGE;
-		 else if (strcmp(info->app_info->installed_storage,"installed_external") == 0)
+		 else if (strcmp(info->app_info->installed_storage, "installed_external") == 0)
 			 *storage = PMINFO_EXTERNAL_STORAGE;
 		 else
 			 return PMINFO_R_ERROR;
-	}else
+	} else {
 		return PMINFO_R_ERROR;
+	}
 
 	return PMINFO_R_OK;
 }

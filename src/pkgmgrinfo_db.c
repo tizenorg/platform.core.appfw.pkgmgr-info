@@ -162,7 +162,8 @@ static int _mkdir_for_user(const char* dir, uid_t uid, gid_t gid)
 	return 0;
 }
 
-static const char *_get_db_path(uid_t uid) {
+static const char *_get_db_path(uid_t uid)
+{
 	const char *db_path = NULL;
 	if (uid != GLOBAL_USER && uid != ROOT_UID) {
 		tzplatform_set_user(uid);
@@ -277,7 +278,7 @@ API const char *getIconPath(uid_t uid, bool readonly)
 			path = tzplatform_mkpath(TZ_SYS_RW_ICONS, "/");
 	}
 
-	// just allow certain users to create the icon directory if needed.
+	/* just allow certain users to create the icon directory if needed. */
 	if (uid_caller == ROOT_UID || uid_caller == uid)
 		_mkdir_for_user(path, uid, gid);
 
@@ -304,7 +305,7 @@ API const char *getUserPkgParserDBPathUID(uid_t uid)
 		pkgmgr_parser_db = tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_parser.db");
 	}
 
-	// just allow certain users to create the dbspace directory if needed.
+	/* just allow certain users to create the dbspace directory if needed. */
 	if (uid_caller == ROOT_UID || uid_caller == uid) {
 		const char *db_path = _get_db_path(uid);
 		_mkdir_for_user(db_path, uid, gid);
@@ -333,7 +334,7 @@ API const char *getUserPkgCertDBPathUID(uid_t uid)
 		pkgmgr_cert_db = tzplatform_mkpath(TZ_SYS_DB, ".pkgmgr_cert.db");
 	}
 
-	// just allow certain users to create the dbspace directory if needed.
+	/* just allow certain users to create the dbspace directory if needed. */
 	if (uid_caller == ROOT_UID || uid_caller == uid) {
 		const char *db_path = _get_db_path(uid);
 		_mkdir_for_user(db_path, uid, gid);
@@ -360,7 +361,7 @@ API const char *getUserManifestPath(uid_t uid, bool readonly)
 			path = tzplatform_mkpath(TZ_SYS_RW_PACKAGES, "/");
 	}
 
-	// just allow certain users to create the icon directory if needed.
+	/* just allow certain users to create the icon directory if needed. */
 	if (uid_caller == ROOT_UID || uid_caller == uid)
 		_mkdir_for_user(path, uid, gid);
 
@@ -402,7 +403,7 @@ int __open_manifest_db(uid_t uid, bool readonly)
 	int flags;
 
 	if (manifest_db.ref) {
-		manifest_db.ref ++;
+		manifest_db.ref++;
 		return 0;
 	}
 
@@ -451,7 +452,7 @@ int __open_cert_db(uid_t uid, bool readonly)
 	int flags;
 
 	if (cert_db.ref) {
-		cert_db.ref ++;
+		cert_db.ref++;
 		return 0;
 	}
 
@@ -522,7 +523,8 @@ API int pkgmgrinfo_appinfo_set_usr_state_enabled(const char *appid, bool enabled
 
 	memset(query, '\0', MAX_QUERY_LEN);
 	snprintf(query, MAX_QUERY_LEN,
-		"update package_app_info set app_enabled='%s' where app_id='%s'", enabled?"true":"false", appid);
+		"update package_app_info set app_enabled='%s' where app_id='%s'",
+		enabled ? "true" : "false", appid);
 
 	if (SQLITE_OK !=
 	    sqlite3_exec(GET_DB(manifest_db), query, NULL, NULL, &error_message)) {
@@ -658,20 +660,24 @@ API int pkgmgrinfo_pkginfo_set_usr_installed_storage(const char *pkgid, INSTALL_
 	retvm_if(ret != SQLITE_OK, PMINFO_R_ERROR, "connect db failed!");
 
 	/*Begin transaction*/
-	// Setting Manifest DB
+	/* Setting Manifest DB */
 	ret = sqlite3_exec(pkgmgr_parser_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
 	tryvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "Failed to begin transaction\n");
 	_LOGD("Transaction Begin\n");
 
-	// pkgcakge_info table
-	query = sqlite3_mprintf("update package_info set installed_storage=%Q where package=%Q", location?"installed_external":"installed_internal", pkgid);
+	/* pkgcakge_info table */
+	query = sqlite3_mprintf(
+			"update package_info set installed_storage=%Q where package=%Q",
+			location ? "installed_external" : "installed_internal", pkgid);
 
 	ret = sqlite3_exec(pkgmgr_parser_db, query, NULL, NULL, NULL);
 	tryvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "Don't execute query = %s\n", query);
 	sqlite3_free(query);
 
-	// package_app_info table
-	query = sqlite3_mprintf("update package_app_info set app_installed_storage=%Q where package=%Q", location?"installed_external":"installed_internal", pkgid);
+	/* package_app_info table */
+	query = sqlite3_mprintf(
+			"update package_app_info set app_installed_storage=%Q where package=%Q",
+			location ? "installed_external" : "installed_internal", pkgid);
 
 	ret = sqlite3_exec(pkgmgr_parser_db, query, NULL, NULL, NULL);
 	tryvm_if(ret != SQLITE_OK, ret = PMINFO_R_ERROR, "Don't execute query = %s\n", query);

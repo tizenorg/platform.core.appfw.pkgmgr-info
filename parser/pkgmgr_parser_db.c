@@ -458,8 +458,7 @@ static int __guestmode_visibility_cb(void *data, int ncols, char **coltxt, char 
 	if (mfx->application == NULL)
 		return -1;
 	app = (application_x *)mfx->application->data;
-	for(i = 0; i < ncols; i++)
-	{
+	for (i = 0; i < ncols; i++) {
 		if (strcmp(colname[i], "app_id") == 0) {
 			if (coltxt[i])
 				appid = strdup(coltxt[i]);
@@ -469,7 +468,7 @@ static int __guestmode_visibility_cb(void *data, int ncols, char **coltxt, char 
 		}
 	}
 	if (appid == NULL) {
-		if(status != NULL)
+		if (status != NULL)
 			free(status);
 		_LOGD("app id is NULL\n");
 		return -1;
@@ -639,9 +638,9 @@ static void __trimfunc(GList* trim_list)
 					continue;
 				} else
 					prev = trim_data;
-			}
-			else
+			} else {
 				prev = trim_data;
+			}
 		}
 		list = g_list_next(list);
 	}
@@ -738,7 +737,7 @@ static gint __check_icon_folder(const char *orig_icon_path, char **new_icon_path
 	for (i = 0; i < 2; i++) {
 		snprintf(modified_iconpath, BUFSIZE - 1, "%s/%s%s", icon_path, dpi_path[i], icon_filename);
 		if (access(modified_iconpath, F_OK) != -1) {
-			// if exists, return modified icon path
+			/* if exists, return modified icon path */
 			*new_icon_path = strdup(modified_iconpath);
 			return 0;
 		}
@@ -795,7 +794,7 @@ static gint __compare_icon_with_lang(gconstpointer a, gconstpointer b)
 
 	if (strcasecmp(icon->lang, lang) == 0) {
 		if (strcasecmp(icon->lang, DEFAULT_LOCALE) == 0) {
-			//icon for no locale. check existance of folder-hierachied default icons
+			/* icon for no locale. check existance of folder-hierachied default icons */
 			if (__check_icon_folder(icon->text, &icon_folder_path) == 0) {
 				free(icon->text);
 				icon->text = icon_folder_path;
@@ -830,21 +829,21 @@ static char *__find_icon(GList *icons, const char *lang)
 	int dpi = 0;
 	int ret;
 
-	// first, find icon whose locale and dpi with given lang and system's dpi has matched
+	/* first, find icon whose locale and dpi with given lang and system's dpi has matched */
 	tmp = g_list_find_custom(icons, lang, (GCompareFunc)__compare_icon_with_lang_dpi);
 	if (tmp != NULL) {
 		icon = (icon_x *)tmp->data;
 		return (char *)icon->text;
 	}
 
-	// if first has failed, find icon whose locale has matched
+	/* if first has failed, find icon whose locale has matched */
 	tmp = g_list_find_custom(icons, lang, (GCompareFunc)__compare_icon_with_lang);
 	if (tmp != NULL) {
 		icon = (icon_x *)tmp->data;
 		return (char *)icon->text;
 	}
 
-	// if second has failed, find icon whose dpi has matched with system's dpi
+	/* if second has failed, find icon whose dpi has matched with system's dpi */
 	ret = system_info_get_platform_int("http://tizen.org/feature/screen.dpi", &dpi);
 	if (ret == SYSTEM_INFO_ERROR_NONE) {
 		tmp = g_list_find_custom(icons, GINT_TO_POINTER(dpi), (GCompareFunc)__compare_icon_with_dpi);
@@ -854,7 +853,7 @@ static char *__find_icon(GList *icons, const char *lang)
 		}
 	}
 
-	// last, find default icon marked as "No Locale"
+	/* last, find default icon marked as "No Locale" */
 	tmp = g_list_find_custom(icons, NULL, (GCompareFunc)__compare_icon);
 	if (tmp != NULL) {
 		icon = (icon_x *)tmp->data;
@@ -1024,7 +1023,7 @@ static void __insert_application_locale_info(gpointer data, gpointer userdata)
 	sqlite3_free(query);
 
 	/*insert ui app locale info to pkg locale to get mainapp data */
-	if (strcasecmp(app->mainapp, "true")==0) {
+	if (strcasecmp(app->mainapp, "true") == 0) {
 		query = sqlite3_mprintf("INSERT OR REPLACE INTO package_localized_info(package, package_locale, "
 			"package_label, package_icon, package_description, package_license, package_author) VALUES"
 			"(%Q, %Q, "
@@ -1115,7 +1114,7 @@ static int __insert_mainapp_info(manifest_x *mfx)
 			_LOGD("Package App Info DB Insert Failed\n");
 			return -1;
 		}
-		if (strcasecmp(app->mainapp, "True")==0)
+		if (strcasecmp(app->mainapp, "True") == 0)
 			mfx->mainapp_id = strdup(app->appid);
 	}
 
@@ -1141,7 +1140,7 @@ static int __insert_mainapp_info(manifest_x *mfx)
 		}
 
 		free((void *)app->mainapp);
-		app->mainapp= strdup("true");
+		app->mainapp = strdup("true");
 		mfx->mainapp_id = strdup(app->appid);
 	}
 
@@ -1168,23 +1167,22 @@ static int __convert_background_category(GList *category_list)
 
 	while (tmp_list != NULL) {
 		category_data = (char *)tmp_list->data;
-		if (strcmp(category_data, APP_BG_CATEGORY_MEDIA_STR) == 0) {
+		if (strcmp(category_data, APP_BG_CATEGORY_MEDIA_STR) == 0)
 			ret = ret | APP_BG_CATEGORY_MEDIA_VAL;
-		} else if (strcmp(category_data, APP_BG_CATEGORY_DOWNLOAD_STR) == 0) {
+		else if (strcmp(category_data, APP_BG_CATEGORY_DOWNLOAD_STR) == 0)
 			ret = ret | APP_BG_CATEGORY_DOWNLOAD_VAL;
-		} else if (strcmp(category_data, APP_BG_CATEGORY_BGNETWORK_STR) == 0) {
+		else if (strcmp(category_data, APP_BG_CATEGORY_BGNETWORK_STR) == 0)
 			ret = ret | APP_BG_CATEGORY_BGNETWORK_VAL;
-		} else if (strcmp(category_data, APP_BG_CATEGORY_LOCATION_STR) == 0) {
+		else if (strcmp(category_data, APP_BG_CATEGORY_LOCATION_STR) == 0)
 			ret = ret | APP_BG_CATEGORY_LOCATION_VAL;
-		} else if (strcmp(category_data, APP_BG_CATEGORY_SENSOR_STR) == 0) {
+		else if (strcmp(category_data, APP_BG_CATEGORY_SENSOR_STR) == 0)
 			ret = ret | APP_BG_CATEGORY_SENSOR_VAL;
-		} else if (strcmp(category_data, APP_BG_CATEGORY_IOTCOMM_STR) == 0) {
+		else if (strcmp(category_data, APP_BG_CATEGORY_IOTCOMM_STR) == 0)
 			ret = ret | APP_BG_CATEGORY_IOTCOMM_VAL;
-		} else if (strcmp(category_data, APP_BG_CATEGORY_SYSTEM) == 0) {
+		else if (strcmp(category_data, APP_BG_CATEGORY_SYSTEM) == 0)
 			ret = ret | APP_BG_CATEGORY_SYSTEM_VAL;
-		} else {
+		else
 			_LOGE("Unidentified category [%s]", category_data);
-		}
 		tmp_list = g_list_next(tmp_list);
 	}
 
@@ -2539,12 +2537,11 @@ API int pkgmgr_parser_initialize_db(uid_t uid)
 		return ret;
 	}
 
-	if( 0 != __parserdb_change_perm(getUserPkgCertDBPathUID(GLOBAL_USER), GLOBAL_USER)) {
+	if (0 != __parserdb_change_perm(getUserPkgCertDBPathUID(GLOBAL_USER), GLOBAL_USER))
 		_LOGD("Failed to change cert db permission\n");
-	}
-	if( 0 != __parserdb_change_perm(getUserPkgParserDBPathUID(uid), uid)) {
+
+	if (0 != __parserdb_change_perm(getUserPkgParserDBPathUID(uid), uid))
 		_LOGD("Failed to change parser db permission\n");
-	}
 
 	return 0;
 }
@@ -2567,7 +2564,7 @@ static int __parserdb_change_perm(const char *db_file, uid_t uid)
 	if (db_file == NULL)
 		return -1;
 
-	if (getuid() != OWNER_ROOT) //At this time we should be root to apply this
+	if (getuid() != OWNER_ROOT) /* At this time we should be root to apply this */
 		return 0;
 	snprintf(journal_file, sizeof(journal_file), "%s%s", db_file, "-journal");
 	if (uid == OWNER_ROOT)
@@ -2869,7 +2866,7 @@ API int pkgmgr_parser_update_manifest_info_in_usr_db(manifest_x *mfx, uid_t uid)
 	if (ret == -1)
 		goto err;
 	/*Preserve guest mode visibility*/
-	__preserve_guestmode_visibility_value( mfx);
+	__preserve_guestmode_visibility_value(mfx);
 	/*Begin transaction*/
 	ret = sqlite3_exec(pkgmgr_parser_db, "BEGIN EXCLUSIVE", NULL, NULL, NULL);
 	if (ret != SQLITE_OK) {

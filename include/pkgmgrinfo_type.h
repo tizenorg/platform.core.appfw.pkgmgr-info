@@ -71,7 +71,7 @@ typedef enum {
 	PMINFO_SET_DISTRIBUTOR2_ROOT_CERT = 6,		/**< End Entity Root Certificate*/
 	PMINFO_SET_DISTRIBUTOR2_INTERMEDIATE_CERT = 7,		/**< End Entity Intermediate Certificate*/
 	PMINFO_SET_DISTRIBUTOR2_SIGNER_CERT = 8,		/**< End Entity Signer Certificate*/
-}pkgmgrinfo_instcert_type;
+} pkgmgrinfo_instcert_type;
 
 typedef enum {
 	PMINFO_CERT_COMPARE_MATCH,
@@ -131,19 +131,19 @@ typedef enum {
 	PMINFO_HWACCELERATION_OFF = 0,		/**< Don't use hardware acceleration*/
 	PMINFO_HWACCELERATION_ON = 1,		/**< Use hardware acceleration*/
 	PMINFO_HWACCELERATION_DEFAULT = 2		/**< Follow system setting for hardware acceleration */
-}pkgmgrinfo_app_hwacceleration;
+} pkgmgrinfo_app_hwacceleration;
 
 typedef enum {
 	PMINFO_SCREENREADER_OFF = 0,		/**< Don't use screen reader*/
 	PMINFO_SCREENREADER_ON = 1,		/**< Use screen reader*/
 	PMINFO_SCREENREADER_USE_SYSTEM_SETTING = 2		/**< Follow system setting for screen reader */
-}pkgmgrinfo_app_screenreader;
+} pkgmgrinfo_app_screenreader;
 
 typedef enum {
 	PMINFO_RECENTIMAGE_USE_ICON = 0,		/**<Use icon for recent image*/
 	PMINFO_RECENTIMAGE_USE_CAPTURE = 1,		/**< Use capture for recent image*/
 	PMINFO_RECENTIMAGE_USE_NOTHING = 2		/**< Don't use recent image */
-}pkgmgrinfo_app_recentimage;
+} pkgmgrinfo_app_recentimage;
 
 /**
  * @brief A handle to get package information
@@ -186,7 +186,7 @@ typedef void* pkgmgrinfo_appcontrol_h;
 typedef void pkgmgrinfo_client;
 
 /**
- * @fn int (*pkgmgrinfo_pkg_list_cb ) (const pkgmgrinfo_pkginfo_h handle, void *user_data)
+ * @fn int (*pkgmgrinfo_pkg_list_cb) (const pkgmgrinfo_pkginfo_h handle, void *user_data)
  *
  * @brief Specifies the type of function passed to pkgmgrinfo_pkginfo_get_list(), pkgmgrinfo_pkginfo_filter_foreach_pkginfo()
  *
@@ -198,11 +198,11 @@ typedef void pkgmgrinfo_client;
  * @see  pkgmgrinfo_pkginfo_get_list()
  * @see  pkgmgrinfo_pkginfo_filter_foreach_pkginfo()
  */
-typedef int (*pkgmgrinfo_pkg_list_cb ) (const pkgmgrinfo_pkginfo_h handle,
+typedef int (*pkgmgrinfo_pkg_list_cb) (const pkgmgrinfo_pkginfo_h handle,
 							void *user_data);
 
 /**
- * @fn int (*pkgmgrinfo_app_list_cb ) (const pkgmgrinfo_appinfo_h handle, void *user_data)
+ * @fn int (*pkgmgrinfo_app_list_cb) (const pkgmgrinfo_appinfo_h handle, void *user_data)
  *
  * @brief Specifies the type of function passed to pkgmgrinfo_appinfo_get_list(), pkgmgrinfo_appinfo_filter_foreach_appinfo(), pkgmgrinfo_appinfo_metadata_filter_foreach()
  *
@@ -215,11 +215,11 @@ typedef int (*pkgmgrinfo_pkg_list_cb ) (const pkgmgrinfo_pkginfo_h handle,
  * @see  pkgmgrinfo_appinfo_filter_foreach_appinfo()
  * @see  pkgmgrinfo_appinfo_metadata_filter_foreach()
  */
-typedef int (*pkgmgrinfo_app_list_cb ) (const pkgmgrinfo_appinfo_h handle,
+typedef int (*pkgmgrinfo_app_list_cb) (const pkgmgrinfo_appinfo_h handle,
 							void *user_data);
 
 /**
- * @fn int (*pkgmgrinfo_app_category_list_cb ) (const char *category_name, void *user_data)
+ * @fn int (*pkgmgrinfo_app_category_list_cb) (const char *category_name, void *user_data)
  *
  * @brief Specifies the type of function passed to pkgmgrinfo_appinfo_foreach_category()
  *
@@ -230,11 +230,11 @@ typedef int (*pkgmgrinfo_app_list_cb ) (const pkgmgrinfo_appinfo_h handle,
  *
  * @see  pkgmgrinfo_appinfo_foreach_category()
  */
-typedef int (*pkgmgrinfo_app_category_list_cb ) (const char *category_name,
+typedef int (*pkgmgrinfo_app_category_list_cb) (const char *category_name,
 							void *user_data);
 
 /**
- * @fn int (*pkgmgrinfo_app_permission_list_cb ) (const char *permission_type, void *user_data)
+ * @fn int (*pkgmgrinfo_app_permission_list_cb) (const char *permission_type, void *user_data)
  *
  * @brief Specifies the type of function passed to pkgmgrinfo_appinfo_foreach_category()
  *
@@ -245,11 +245,11 @@ typedef int (*pkgmgrinfo_app_category_list_cb ) (const char *category_name,
  *
  * @see  pkgmgrinfo_appinfo_foreach_category()
  */
-typedef int (*pkgmgrinfo_app_permission_list_cb ) (const char *permission_type,
+typedef int (*pkgmgrinfo_app_permission_list_cb) (const char *permission_type,
 							void *user_data);
 
 /**
- * @fn int (*pkgmgrinfo_pkg_privilege_list_cb ) (const char *privilege_name, void *user_data)
+ * @fn int (*pkgmgrinfo_pkg_privilege_list_cb) (const char *privilege_name, void *user_data)
  *
  * @brief Specifies the type of function passed to pkgmgrinfo_pkginfo_foreach_privilege()
  *
@@ -260,11 +260,11 @@ typedef int (*pkgmgrinfo_app_permission_list_cb ) (const char *permission_type,
  *
  * @see  pkgmgrinfo_pkginfo_foreach_privilege()
  */
-typedef int (*pkgmgrinfo_pkg_privilege_list_cb ) (const char *privilege_name,
+typedef int (*pkgmgrinfo_pkg_privilege_list_cb) (const char *privilege_name,
 							void *user_data);
 
 /**
- * @fn int (*pkgmgrinfo_app_metadata_list_cb ) (const char *metadata_key, const char *metadata_value, void *user_data)
+ * @fn int (*pkgmgrinfo_app_metadata_list_cb) (const char *metadata_key, const char *metadata_value, void *user_data)
  *
  * @brief Specifies the type of function passed to pkgmgrinfo_appinfo_foreach_metadata()
  *
@@ -276,11 +276,11 @@ typedef int (*pkgmgrinfo_pkg_privilege_list_cb ) (const char *privilege_name,
  *
  * @see  pkgmgrinfo_appinfo_foreach_metadata()
  */
-typedef int (*pkgmgrinfo_app_metadata_list_cb ) (const char *metadata_key,
+typedef int (*pkgmgrinfo_app_metadata_list_cb) (const char *metadata_key,
 							const char *metadata_value, void *user_data);
 
 /**
- * @fn int (*pkgmgrinfo_app_control_list_cb ) (pkgmgrinfo_appcontrol_h handle, void *user_data)
+ * @fn int (*pkgmgrinfo_app_control_list_cb) (pkgmgrinfo_appcontrol_h handle, void *user_data)
  *
  * @brief Specifies the type of function passed to pkgmgrinfo_appinfo_foreach_appcontrol()
  *
@@ -291,11 +291,11 @@ typedef int (*pkgmgrinfo_app_metadata_list_cb ) (const char *metadata_key,
  *
  * @see  pkgmgrinfo_appinfo_foreach_appcontrol()
  */
-typedef int (*pkgmgrinfo_app_control_list_cb ) (const char *operation, const char *uri, const char *mime,
+typedef int (*pkgmgrinfo_app_control_list_cb) (const char *operation, const char *uri, const char *mime,
 							void *user_data);
 
 /**
- * @fn int (*pkgmgrinfo_app_background_category_list_cb ) (const char *category_name, void *user_data)
+ * @fn int (*pkgmgrinfo_app_background_category_list_cb) (const char *category_name, void *user_data)
  *
  * @brief Specifies the type of function passed to pkgmgrinfo_appinfo_foreach_background_category()
  *
@@ -306,7 +306,7 @@ typedef int (*pkgmgrinfo_app_control_list_cb ) (const char *operation, const cha
  *
  * @see  pkgmgrinfo_appinfo_foreach_background_category()
  */
-typedef int (*pkgmgrinfo_app_background_category_list_cb ) (const char *category_name, void *user_data);
+typedef int (*pkgmgrinfo_app_background_category_list_cb) (const char *category_name, void *user_data);
 
 /**
  * @fn int (*pkgmgrinfo_app_splash_screen_list_cb)(const char *src,
@@ -392,9 +392,9 @@ typedef enum {
   * @brief permission Types
   */
 typedef enum {
-	PMINFO_PERMISSION_NORMAL = 0,		 /**< permission normal*/
-	PMINFO_PERMISSION_SIGNATURE, 	 /**< permission type is signature*/
-	PMINFO_PERMISSION_PRIVILEGE, 	 /**< permission type is privilege*/
+	PMINFO_PERMISSION_NORMAL = 0,		/**< permission normal*/
+	PMINFO_PERMISSION_SIGNATURE,		/**< permission type is signature*/
+	PMINFO_PERMISSION_PRIVILEGE,		/**< permission type is privilege*/
 } pkgmgrinfo_permission_type;
 
 typedef enum {

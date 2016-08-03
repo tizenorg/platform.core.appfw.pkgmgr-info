@@ -30,55 +30,46 @@
 
 #define PKGMGR_INFO_ENABLE_DLOG
 
-#define COLOR_RED 		"\033[0;31m"
-#define COLOR_BLUE 		"\033[0;34m"
+#define COLOR_RED		"\033[0;31m"
+#define COLOR_BLUE		"\033[0;34m"
 #define COLOR_END		"\033[0;m"
 
 #ifdef PKGMGR_INFO_ENABLE_DLOG
-#define PKGMGR_INFO_DEBUG(fmt, ...)\
-	do\
-	{\
-		LOGD(fmt, ##__VA_ARGS__);\
+#define PKGMGR_INFO_DEBUG(fmt, ...) \
+	do { \
+		LOGD(fmt, ##__VA_ARGS__); \
 	} while (0)
 
-#define PKGMGR_INFO_DEBUG_ERR(fmt, ...)\
-	do\
-	{\
-		LOGE(COLOR_RED fmt COLOR_END, ##__VA_ARGS__);\
-	}while (0)
+#define PKGMGR_INFO_DEBUG_ERR(fmt, ...) \
+	do { \
+		LOGE(COLOR_RED fmt COLOR_END, ##__VA_ARGS__); \
+	} while (0)
 
 #define PKGMGR_INFO_BEGIN() \
-	do\
-    {\
-		LOGD(COLOR_BLUE"BEGIN >>>>"COLOR_END);\
-    } while( 0 )
+	do { \
+		LOGD(COLOR_BLUE"BEGIN >>>>"COLOR_END); \
+	} while (0)
 
 #define PKGMGR_INFO_END() \
-	do\
-    {\
-		LOGD(COLOR_BLUE"END <<<<"COLOR_END);\
-    } \
-    while( 0 )
+	do { \
+		LOGD(COLOR_BLUE"END <<<<"COLOR_END); \
+	} while (0)
 
 #else
 #define PKGMGR_INFO_DEBUG(fmt, ...) \
-	do\
-	{\
-		printf("\n [%s: %s(): %d] " fmt"\n",  rindex(__FILE__, '/')+1, __FUNCTION__, __LINE__, ##__VA_ARGS__);\
+	do { \
+		printf("\n [%s: %s(): %d] " fmt"\n",  rindex(__FILE__, '/')+1, __FUNCTION__, __LINE__, ##__VA_ARGS__); \
 	} while (0)
 
 #define PKGMGR_INFO_BEGIN() \
-	do\
-    {\
-        printf("\n [%s: %d] : BEGIN >>>> %s() \n", rindex(__FILE__, '/')+1,  __LINE__ , __FUNCTION__);\
-    } while( 0 )
+	do { \
+		printf("\n [%s: %d] : BEGIN >>>> %s() \n", rindex(__FILE__, '/')+1,  __LINE__ , __FUNCTION__); \
+	} while (0)
 
 #define PKGMGR_INFO_END() \
-	do\
-    {\
-        printf("\n [%s: %d]: END   <<<< %s()\n", rindex(__FILE__, '/')+1,  __LINE__ , __FUNCTION__); \
-    } \
-    while( 0 )
+	do { \
+		printf("\n [%s: %d]: END   <<<< %s()\n", rindex(__FILE__, '/')+1,  __LINE__ , __FUNCTION__); \
+	} while (0)
 #endif
 
 

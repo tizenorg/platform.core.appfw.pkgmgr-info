@@ -82,7 +82,7 @@ static void __destroy_each_node(gpointer data, gpointer user_data)
 static void __cleanup_pkginfo(pkgmgr_pkginfo_x *data)
 {
 	ret_if(data == NULL);
-	if (data->locale){
+	if (data->locale) {
 		free((void *)data->locale);
 		data->locale = NULL;
 	}
@@ -138,9 +138,8 @@ long long _pkgmgr_calculate_dir_size(char *dirname)
 				size occupied (in terms of 4096 blocks)*/
 			q = (fileinfo.st_size / BLOCK_SIZE);
 			r = (fileinfo.st_size % BLOCK_SIZE);
-			if (r) {
+			if (r)
 				q = q + 1;
-			}
 			total += q * BLOCK_SIZE;
 			}
 		}
@@ -1172,9 +1171,9 @@ API int pkgmgrinfo_pkginfo_get_installed_storage(pkgmgrinfo_pkginfo_h handle, pk
 	if (info->pkg_info == NULL || info->pkg_info->installed_storage == NULL)
 		return PMINFO_R_ERROR;
 
-	if (strcmp(info->pkg_info->installed_storage,"installed_internal") == 0)
+	if (strcmp(info->pkg_info->installed_storage, "installed_internal") == 0)
 		*storage = PMINFO_INTERNAL_STORAGE;
-	else if (strcmp(info->pkg_info->installed_storage,"installed_external") == 0)
+	else if (strcmp(info->pkg_info->installed_storage, "installed_external") == 0)
 		*storage = PMINFO_EXTERNAL_STORAGE;
 	else
 		return PMINFO_R_ERROR;
@@ -1284,10 +1283,10 @@ API int pkgmgrinfo_pkginfo_is_accessible(pkgmgrinfo_pkginfo_h handle, bool *acce
 	retvm_if(handle == NULL, PMINFO_R_EINVAL, "pkginfo handle is NULL\n");
 	retvm_if(accessible == NULL, PMINFO_R_EINVAL, "Argument supplied to hold return value is NULL\n");
 
-#if 0 //smack issue occured, check later
+#if 0 /* smack issue occured, check later */
 	char *pkgid = NULL;
 	pkgmgrinfo_pkginfo_get_pkgid(handle, &pkgid);
-	if (pkgid == NULL){
+	if (pkgid == NULL) {
 		 _LOGD("invalid func parameters\n");
 		 return PMINFO_R_ERROR;
 	}
@@ -1297,13 +1296,13 @@ API int pkgmgrinfo_pkginfo_is_accessible(pkgmgrinfo_pkginfo_h handle, bool *acce
 	char app_mmc_path[FILENAME_MAX] = { 0, };
 	char app_dir_path[FILENAME_MAX] = { 0, };
 	char app_mmc_internal_path[FILENAME_MAX] = { 0, };
-	snprintf(app_dir_path, FILENAME_MAX,"%s%s", PKG_INSTALLATION_PATH, pkgid);
-	snprintf(app_mmc_path, FILENAME_MAX,"%s%s", PKG_SD_PATH, pkgid);
-	snprintf(app_mmc_internal_path, FILENAME_MAX,"%s%s/.mmc", PKG_INSTALLATION_PATH, pkgid);
+	snprintf(app_dir_path, FILENAME_MAX, "%s%s", PKG_INSTALLATION_PATH, pkgid);
+	snprintf(app_mmc_path, FILENAME_MAX, "%s%s", PKG_SD_PATH, pkgid);
+	snprintf(app_mmc_internal_path, FILENAME_MAX, "%s%s/.mmc", PKG_INSTALLATION_PATH, pkgid);
 
 	/*check whether application is in external memory or not */
 	fp = fopen(app_mmc_path, "r");
-	if (fp == NULL){
+	if (fp == NULL) {
 		_LOGD(" app path in external memory not accesible\n");
 	} else {
 		fclose(fp);
@@ -1323,12 +1322,11 @@ API int pkgmgrinfo_pkginfo_is_accessible(pkgmgrinfo_pkginfo_h handle, bool *acce
 		/*check whether the application is installed in SD card
 		but SD card is not present*/
 		fp = fopen(app_mmc_internal_path, "r");
-		if (fp == NULL){
+		if (fp == NULL) {
 			*accessible = 1;
 			_LOGD("pkgmgr_get_pkg_external_validation() : INTERNAL_MEM \n");
 			return PMINFO_R_OK;
-		}
-		else{
+		} else {
 			*accessible = 0;
 			_LOGD("pkgmgr_get_pkg_external_validation() : ERROR_MMC_STATUS \n");
 		}

@@ -463,14 +463,14 @@ int pkgmgrinfo_pkginfo_get_api_version(pkgmgrinfo_pkginfo_h handle, char **api_v
  * @par	This API is for package-manager client application
  * @par Sync (or) Async : Synchronous API
  *
- * @param[in] handle 		pointer to the pkginfo handle.
- * @param[out] tep_name 	pointer to hold tep name
+ * @param[in] handle	pointer to the pkginfo handle.
+ * @param[out] tep_name	pointer to hold tep name
  * @return	0 if success, error code(<0) if fail
  * @retval	PMINFO_R_OK success
  * @retval	PMINFO_R_EINVAL invalid argument
  * @retval	PMINFO_R_ERROR  internal error
- * @pre	pkgmgrinfo_pkginfo_get_pkginfo()
- * @post 		pkgmgrinfo_pkginfo_destroy_pkginfo()
+ * @pre		pkgmgrinfo_pkginfo_get_pkginfo()
+ * @post	pkgmgrinfo_pkginfo_destroy_pkginfo()
  * @see	pkgmgrinfo_pkginfo_get_pkgid()
  * @code
 static int get_tep_name(const char *pkgid)
@@ -502,14 +502,14 @@ int pkgmgrinfo_pkginfo_get_tep_name(pkgmgrinfo_pkginfo_h handle, char **tep_name
  * @par	This API is for package-manager client application
  * @par Sync (or) Async : Synchronous API
  *
- * @param[in] handle 		pointer to the pkginfo handle.
- * @param[out] zip_mount_file 	pointer to hold zip mount file
+ * @param[in] handle	pointer to the pkginfo handle.
+ * @param[out] zip_mount_file	pointer to hold zip mount file
  * @return	0 if success, error code(<0) if fail
  * @retval	PMINFO_R_OK success
  * @retval	PMINFO_R_EINVAL invalid argument
  * @retval	PMINFO_R_ERROR  internal error
  * @pre	pkgmgrinfo_pkginfo_get_pkginfo()
- * @post 	pkgmgrinfo_pkginfo_destroy_pkginfo()
+ * @post	pkgmgrinfo_pkginfo_destroy_pkginfo()
  * @see	pkgmgrinfo_pkginfo_get_pkgid()
  * @code
 static int get_zip_mount_file(const char *pkgid)
@@ -3426,14 +3426,14 @@ int pkgmgrinfo_appinfo_get_effective_appid(pkgmgrinfo_appinfo_h handle, char **e
  * @par	This API is for package-manager client application
  * @par Sync (or) Async : Synchronous API
  *
- * @param[in] handle 		pointer to the appinfo handle.
- * @param[out] tep_name 	pointer to hold tep name
+ * @param[in] handle		pointer to the appinfo handle.
+ * @param[out] tep_name		pointer to hold tep name
  * @return	0 if success, error code(<0) if fail
  * @retval	PMINFO_R_OK success
  * @retval	PMINFO_R_EINVAL invalid argument
  * @retval	PMINFO_R_ERROR  internal error
  * @pre	pkgmgrinfo_appinfo_get_appinfo()
- * @post 		pkgmgrinfo_appinfo_destroy_appinfo()
+ * @post	pkgmgrinfo_appinfo_destroy_appinfo()
  * @see	pkgmgrinfo_appinfo_get_appid()
  * @code
 static int get_tep_name(const char *appid)
@@ -3465,14 +3465,14 @@ int pkgmgrinfo_appinfo_get_tep_name(pkgmgrinfo_appinfo_h handle, char **tep_name
  * @par	This API is for package-manager client application
  * @par Sync (or) Async : Synchronous API
  *
- * @param[in] handle 		pointer to the appinfo handle.
- * @param[out] zip_mount_file 	pointer to hold zip mount file name
+ * @param[in] handle		pointer to the appinfo handle.
+ * @param[out] zip_mount_file		pointer to hold zip mount file name
  * @return	0 if success, error code(<0) if fail
  * @retval	PMINFO_R_OK success
  * @retval	PMINFO_R_EINVAL invalid argument
  * @retval	PMINFO_R_ERROR  internal error
  * @pre	pkgmgrinfo_appinfo_get_appinfo()
- * @post 		pkgmgrinfo_appinfo_destroy_appinfo()
+ * @post	pkgmgrinfo_appinfo_destroy_appinfo()
  * @see	pkgmgrinfo_appinfo_get_appid()
  * @code
 static int get_zip_mount_file(const char *appid)
@@ -4226,14 +4226,14 @@ int pkgmgrinfo_appinfo_is_process_pool(pkgmgrinfo_appinfo_h handle, bool *proces
  * @par	This API is for package-manager client application
  * @par Sync (or) Async : Synchronous API
  *
- * @param[in] handle 		pointer to the application info handle.
- * @param[out] app_type 	pointer to hold installed storage location
+ * @param[in] handle		pointer to the application info handle.
+ * @param[out] app_type		pointer to hold installed storage location
  * @return	0 if success, error code(<0) if fail
  * @retval	PMINFO_R_OK success
  * @retval	PMINFO_R_EINVAL invalid argument
  * @retval	PMINFO_R_ERROR  internal error
  * @pre	pkgmgrinfo_appinfo_get_appinfo()
- * @post 		pkgmgrinfo_appinfo_destroy_appinfo()
+ * @post	pkgmgrinfo_appinfo_destroy_appinfo()
  * @see	pkgmgrinfo_appinfo_get_appid()
  * @code
 static int get_app_installed_location(const char *appid)
@@ -5218,8 +5218,8 @@ static int delete_cert_info(const char *pkgid)
 }
  * @endcode
  */
- int pkgmgrinfo_delete_certinfo(const char *pkgid);
- int pkgmgrinfo_delete_usr_certinfo(const char *pkgid, uid_t uid);
+int pkgmgrinfo_delete_certinfo(const char *pkgid);
+int pkgmgrinfo_delete_usr_certinfo(const char *pkgid, uid_t uid);
 
 /**
  * @fn int pkgmgrinfo_create_certinfo_set_handle(pkgmgrinfo_instcertinfo_h *handle)
@@ -5441,7 +5441,7 @@ static int get_app_guestmode_visibility(const char *appid)
 }
  * @endcode
  */
- int pkgmgrinfo_appinfo_is_guestmode_visibility(pkgmgrinfo_appinfo_h handle, bool *status);
+int pkgmgrinfo_appinfo_is_guestmode_visibility(pkgmgrinfo_appinfo_h handle, bool *status);
 
 /**
  * @fn int pkgmgrinfo_appinfo_set_guestmode_visibility(pkgmgrinfo_appinfo_h handle, bool status)
@@ -5478,17 +5478,17 @@ static int set_app_guestmode_visibility(const char *appid, bool value)
 }
  * @endcode
  */
- int pkgmgrinfo_appinfo_set_guestmode_visibility(pkgmgrinfo_appinfo_h handle, bool status);
- int pkgmgrinfo_appinfo_set_usr_guestmode_visibility(pkgmgrinfo_appinfo_h handle, uid_t uid, bool status);
+int pkgmgrinfo_appinfo_set_guestmode_visibility(pkgmgrinfo_appinfo_h handle, bool status);
+int pkgmgrinfo_appinfo_set_usr_guestmode_visibility(pkgmgrinfo_appinfo_h handle, uid_t uid, bool status);
 
 /**
 * @fn int pkgmgrinfo_pkginfo_set_installed_storage(const char *pkgid, INSTALL_LOCATION location)
 * @brief	 This API sets the package 'installed_storage' value in db
 *
-* @par 	 This API is for package-manager client application
+* @par	This API is for package-manager client application
 * @par Sync (or) Async : Synchronous API
 *
-* @param[in] pkgid 	 pointer to the package ID.
+* @param[in] pkgid		pointer to the package ID.
 * @param[in] location  package install location
 * @return  0 if success, error code(<0) if fail
 * @retval  PMINFO_R_OK success
@@ -5507,8 +5507,8 @@ static int set_app_installed_storage(const char *appid, INSTALL_LOCATION locatio
 }
 * @endcode
 */
- int pkgmgrinfo_pkginfo_set_installed_storage(const char *pkgid, INSTALL_LOCATION location);
- int pkgmgrinfo_pkginfo_set_usr_installed_storage(const char * pkgid, INSTALL_LOCATION location, uid_t uid);
+int pkgmgrinfo_pkginfo_set_installed_storage(const char *pkgid, INSTALL_LOCATION location);
+int pkgmgrinfo_pkginfo_set_usr_installed_storage(const char * pkgid, INSTALL_LOCATION location, uid_t uid);
 
 /**
  * @pkgmgrinfo client API
